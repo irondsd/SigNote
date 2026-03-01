@@ -1,0 +1,21 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 20px;
+  left: 16px;
+  color: var(--gray-100);
+
+  &:hover {
+    color: var(--white);
+  }
+
+  &:active {
+    color: var(--white);
+  }
+}

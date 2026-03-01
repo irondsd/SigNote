@@ -1,0 +1,13 @@
+$sizes: (12, 24, 32);
+
+.icon {
+  vertical-align: text-bottom;
+}
+
+@each $size in $sizes {
+  .size-#{$size} {
+    width: #{$size}px;
+    height: #{$size}px;
+    min-width: #{$size}px;
+  }
+}

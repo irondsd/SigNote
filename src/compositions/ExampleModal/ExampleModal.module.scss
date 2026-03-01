@@ -1,0 +1,28 @@
+.modal {
+  width: 476px;
+  height: 640px;
+}
+
+.image {
+  position: absolute;
+  top: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.title {
+  text-align: center;
+}
+
+.bg {
+  position: absolute;
+  bottom: -100px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}

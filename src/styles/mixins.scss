@@ -1,0 +1,63 @@
+@mixin basic-transition($property: all) {
+  transition: $property 0.23s cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+@mixin unselectable-text {
+  user-select: none;
+}
+
+@mixin custom-scrollbar() {
+  scrollbar-color: var(--medium-contrast-20) transparent;
+  scrollbar-width: thin;
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--medium-contrast-20);
+  }
+}
+
+@mixin no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
+
+  & {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
+@mixin theme-light {
+  :global(html:not(.dark)) & {
+    @content;
+  }
+}
+
+@mixin theme-dark {
+  :global(.dark) & {
+    @content;
+  }
+}
+
+@mixin standard-shadow {
+  box-shadow: 0px 4px 20px 0px #00000014;
+}
+
+@mixin mobile-side-scroll {
+  & {
+    margin-right: -80px;
+    margin-left: -80px;
+    padding-right: 80px;
+    padding-left: 80px;
+  }
+
+  @media (min-width: 900px) {
+    margin-right: 0;
+    margin-left: 0;
+    padding-right: 0;
+    padding-left: 0;
+  }
+}

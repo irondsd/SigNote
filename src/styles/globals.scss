@@ -1,0 +1,47 @@
+// Import color schemes
+@use './colors';
+
+@theme {
+  --color-primary-100: var(--primary-100);
+  --color-white: var(--white);
+  --color-black: var(--black);
+  --color-gray-100: var(--gray-100);
+
+  /* breakpoints */
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 600px;
+  --breakpoint-md: 900px;
+  --breakpoint-lg: 1200px;
+  --breakpoint-xl: 1440px;
+}
+
+@import 'tailwindcss/theme';
+@import 'tailwindcss/preflight';
+@import 'tailwindcss/utilities';
+
+html {
+  max-width: 100vw;
+}
+
+body {
+  color: var(--white);
+  background-color: var(--black);
+  font-size: 14px;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+
+  &.body-scroll-frozen {
+    overflow: hidden;
+  }
+
+  ::-moz-selection {
+    color: var(--black);
+    background: var(--primary-100);
+  }
+
+  ::selection {
+    color: var(--black);
+    background: var(--primary-100);
+  }
+}

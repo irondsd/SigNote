@@ -1,0 +1,46 @@
+.tooltip {
+  z-index: 500;
+  padding: 8px 12px;
+  max-width: 300px;
+  border-radius: 8px;
+  border: 2px solid var(--low-contrast-100);
+  background-color: var(--secondary-hover-100);
+  text-align: left;
+  color: var(--high-contrast-100);
+
+  a {
+    color: var(--max-highlight-100);
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.arrow {
+  position: absolute;
+  width: 12px;
+  height: 8px;
+  z-index: 501;
+
+  &.top {
+    top: 100%;
+  }
+
+  &.bottom {
+    bottom: 100%;
+    transform: rotate(180deg);
+  }
+
+  &.left {
+    left: 100%;
+    top: calc(50% - 4px);
+    transform: rotate(-90deg);
+  }
+
+  &.right {
+    right: 100%;
+    top: calc(50% - 4px);
+    transform: rotate(90deg);
+  }
+}

@@ -1,0 +1,43 @@
+.container {
+  position: relative;
+  display: flex;
+  width: fit-content;
+}
+
+.menu {
+  position: absolute;
+  z-index: $layer-dropdowns;
+  border-radius: 12px;
+}
+
+.btn {
+  width: 100%;
+}
+
+.disable {
+  pointer-events: none;
+}
+
+.content {
+  z-index: 100;
+  margin-left: 0;
+  width: fit-content;
+  min-width: 160px;
+  padding: 12px;
+  overflow: auto;
+  // background-color: var(--surface-100);
+  top: calc(100% + 4px);
+}
+
+.bottomLeft {
+  left: 0;
+}
+
+.bottomRight {
+  right: 0;
+}
+
+.center {
+  left: 50%;
+  transform: translate3d(-50%, 0, 0);
+}
