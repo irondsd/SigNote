@@ -1,14 +1,9 @@
-import "@/styles/globals.scss";
-import s from "./layout.module.scss";
-import {
-  GoogleTagManager,
-  GoogleTagManagerNoScript,
-} from "@/components/Analytics/Analytics";
-import { inter } from "@/config/fonts";
-import cx from "classnames";
-import { ModalProvider } from "@irondsd/modal-kit";
-import { Web3Provider } from "@/providers/Web3Provider";
-import { AuthSessionProvider } from "@/providers/AuthSessionProvider";
+import '@/styles/globals.scss';
+import s from './layout.module.scss';
+import { geistMono, geistSans, inter } from '@/config/fonts';
+import { Web3Provider } from '@/providers/Web3Provider';
+import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
+import { cn } from '@/utils/cn';
 
 export default async function RootLayout({
   children,
@@ -16,15 +11,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <GoogleTagManager />
-      <body className={cx(inter.className, "antialiased", s.body)}>
-        <GoogleTagManagerNoScript />
+    <html lang="en" className={inter.variable}>
+      <body className={cn(geistSans.className, geistMono.variable, 'antialiased', s.body)}>
         <AuthSessionProvider>
           <Web3Provider>
-            <ModalProvider>
-              <main className={s.main}>{children}</main>
-            </ModalProvider>
+            <main className={s.main}>{children}</main>
           </Web3Provider>
         </AuthSessionProvider>
       </body>
