@@ -29,14 +29,13 @@ const authNonceSchema = new Schema<AuthNonce>(
     expiresAt: {
       type: Date,
       required: true,
-      index: {
-        expires: 0,
-      },
     },
   },
   {
     collection: 'auth_nonces',
   },
 );
+
+authNonceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export const AuthNonceModel = models.AuthNonce || model<AuthNonce>('AuthNonce', authNonceSchema);
