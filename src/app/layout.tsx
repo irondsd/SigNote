@@ -1,4 +1,4 @@
-import '@/styles/globals.scss';
+import '@/styles/globals.css';
 import s from './layout.module.scss';
 import { geistMono, geistSans, inter } from '@/config/fonts';
 import { Web3Provider } from '@/providers/Web3Provider';
