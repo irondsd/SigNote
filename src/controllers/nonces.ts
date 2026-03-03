@@ -1,14 +1,7 @@
-import type { Address } from 'viem';
-
-import { AuthNonceModel, type AuthNonce } from '@/models/AuthNonce';
-import { UserModel, type User } from '@/models/User';
+import { AuthNonceModel } from '@/models/AuthNonce';
 import connectToDatabase from '@/utils/mongoose';
 
 const NONCE_TTL_MS = 10 * 60 * 1000;
-
-export type AuthNonceDocument = AuthNonce;
-
-export type UserDocument = User;
 
 let nonceIndexesEnsured = false;
 
@@ -54,32 +47,4 @@ export const consumeNonceRecord = async (nonce: string) => {
       new: true,
     },
   );
-};
-
-export const upsertSiweUser = async (address: string) => {
-  const now = new Date();
-  const normalizedAddress = address.toLowerCase();
-  await connectToDatabase();
-
-  const user = await UserModel.findOneAndUpdate(
-    {
-      addressLower: normalizedAddress as Address,
-    },
-    {
-      $set: {
-        addressChecksum: address as Address,
-        lastLoginAt: now,
-      },
-      $setOnInsert: {
-        addressLower: normalizedAddress as Address,
-        createdAt: now,
-      },
-    },
-    {
-      upsert: true,
-      new: true,
-    },
-  );
-
-  return user;
 };

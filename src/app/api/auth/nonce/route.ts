@@ -2,7 +2,7 @@ import { attachDatabasePool } from '@vercel/functions';
 import { NextResponse } from 'next/server';
 import { generateNonce } from 'siwe';
 
-import { createNonceRecord, ensureNonceIndexes } from '@/lib/auth-db';
+import { createNonceRecord, ensureNonceIndexes } from '@/controllers/nonces';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';

@@ -2,7 +2,8 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import type { NextAuthOptions } from 'next-auth';
 import { SiweMessage } from 'siwe';
 
-import { consumeNonceRecord, ensureNonceIndexes, upsertSiweUser } from '@/lib/auth-db';
+import { consumeNonceRecord, ensureNonceIndexes } from '@/controllers/nonces';
+import { upsertSiweUser } from '@/controllers/users';
 
 const getExpectedDomain = () => {
   const authUrl = process.env.NEXTAUTH_URL;
