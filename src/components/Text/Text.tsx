@@ -1,8 +1,6 @@
 import cx from "classnames";
 import React, { type FC } from "react";
 
-import { roboto, robotoCondensed } from "@/config/fonts";
-
 import s from "./Text.module.scss";
 import TextProxy from "./TextProxy";
 
@@ -38,7 +36,6 @@ export const Text: FC<TextProps> = React.forwardRef<HTMLElement, TextProps>(
       size = 16,
       weight = 400,
       lineHeight,
-      font = "roboto",
       mobileSize,
       align,
       onClick,
@@ -58,9 +55,7 @@ export const Text: FC<TextProps> = React.forwardRef<HTMLElement, TextProps>(
       return <TextProxy {...props} />;
     }
 
-    const fontClass =
-      font === "condensed" ? robotoCondensed.variable : roboto.variable;
-    const textClassName = cx(s.text, className, fontClass, color);
+    const textClassName = cx(s.text, className, color);
 
     const inlineStyles: React.CSSProperties = {};
     if (size !== undefined)

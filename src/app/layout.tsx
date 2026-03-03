@@ -4,10 +4,11 @@ import {
   GoogleTagManager,
   GoogleTagManagerNoScript,
 } from "@/components/Analytics/Analytics";
-import { roboto } from "@/config/fonts";
+import { inter } from "@/config/fonts";
 import cx from "classnames";
 import { ModalProvider } from "@irondsd/modal-kit";
 import { Web3Provider } from "@/providers/Web3Provider";
+import { AuthSessionProvider } from "@/providers/AuthSessionProvider";
 
 export default async function RootLayout({
   children,
@@ -17,13 +18,15 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <GoogleTagManager />
-      <body className={cx(roboto.className, "antialiased", s.body)}>
+      <body className={cx(inter.className, "antialiased", s.body)}>
         <GoogleTagManagerNoScript />
-        <Web3Provider>
-          <ModalProvider>
-            <main className={s.main}>{children}</main>
-          </ModalProvider>
-        </Web3Provider>
+        <AuthSessionProvider>
+          <Web3Provider>
+            <ModalProvider>
+              <main className={s.main}>{children}</main>
+            </ModalProvider>
+          </Web3Provider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
