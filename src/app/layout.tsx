@@ -4,6 +4,14 @@ import { geistMono, geistSans, inter } from '@/config/fonts';
 import { Web3Provider } from '@/providers/Web3Provider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
 import { cn } from '@/utils/cn';
+import { ThemeProvider } from 'next-themes';
+import { Sidebar } from '@/components/Sidebar/Sidebar';
+import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
+
+export const metadata = {
+  title: 'SigNote',
+  description: 'Secure note-keeping with Ethereum wallet authentication',
+};
 
 export default async function RootLayout({
   children,
@@ -11,13 +19,21 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className={cn(geistSans.className, geistMono.variable, 'antialiased', s.body)}>
-        <AuthSessionProvider>
-          <Web3Provider>
-            <main className={s.main}>{children}</main>
-          </Web3Provider>
-        </AuthSessionProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
+          <AuthSessionProvider>
+            <Web3Provider>
+              <div className={s.shell}>
+                <Sidebar />
+                <div className={s.content}>
+                  <MobileHeader />
+                  <main className={s.main}>{children}</main>
+                </div>
+              </div>
+            </Web3Provider>
+          </AuthSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

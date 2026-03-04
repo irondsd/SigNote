@@ -7,6 +7,7 @@ export type Note = {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  archived: boolean;
 };
 
 export type NoteDocument = HydratedDocument<Note>;
@@ -18,7 +19,6 @@ const noteSchema = new Schema<Note>({
   },
   title: {
     type: String,
-    required: true,
     unique: true,
     index: true,
   },
@@ -34,6 +34,10 @@ const noteSchema = new Schema<Note>({
     type: Date,
     required: true,
     default: () => new Date(),
+  },
+  archived: {
+    type: Boolean,
+    default: false,
   },
 });
 

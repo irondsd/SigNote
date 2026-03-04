@@ -1,9 +1,12 @@
 import { NoteDocument } from '@/models/Note';
 import { useQuery } from '@tanstack/react-query';
+import { useAccount } from 'wagmi';
 
 export const useNotes = () => {
+  const { address } = useAccount();
+
   return useQuery<NoteDocument[]>({
-    queryKey: ['notes'],
+    queryKey: ['notes', address],
     queryFn: async () => {
       const res = await fetch('/api/notes/t1');
       if (!res.ok) {
@@ -12,5 +15,8 @@ export const useNotes = () => {
       return res.json();
     },
     initialData: [],
+    staleTime: 1000 * 60, // 1 minute
+    initialDataUpdatedAt: 0,
+    enabled: !!address,
   });
 };
