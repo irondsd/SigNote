@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus, Archive } from 'lucide-react';
+import { Notebook } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 export default function Page() {
   const { data: session, status } = useSession();
-  const { data: notes, isLoading, isPending } = useNotes({ archived: false });
+  const { data: notes, isLoading, isPending } = useNotes({ archived: true });
   const [showNewNote, setShowNewNote] = useState(false);
 
   const isAuthenticated = !!session?.user?.address;
@@ -26,16 +26,12 @@ export default function Page() {
         <h1 className={styles.heading}>My Notes</h1>
         {isAuthenticated && (
           <div className="flex gap-1">
-            <Link href="/archive">
+            <Link href="/">
               <Button variant="outline" size="lg">
-                <Archive size={18} />
-                Archive
+                <Notebook size={18} />
+                Notes
               </Button>
             </Link>
-            <Button variant="default" size="lg" onClick={() => setShowNewNote(true)}>
-              <Plus size={18} />
-              New Note
-            </Button>
           </div>
         )}
       </div>

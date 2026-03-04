@@ -8,9 +8,10 @@ import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const address = session?.user?.address;
+  const archived = req.nextUrl.searchParams.get('archived') === 'true';
 
   if (!address) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,7 +20,7 @@ export async function GET() {
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const notes = await getNotesByAddress(address);
+  const notes = await getNotesByAddress(address, archived);
 
   return NextResponse.json(notes);
 }

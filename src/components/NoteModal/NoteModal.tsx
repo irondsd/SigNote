@@ -15,6 +15,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(note.content ?? '');
+  const [isArchived, setIsArchived] = useState(note.archived);
 
   const deleteNote = useDeleteNote();
   const updateNote = useUpdateNote();
@@ -27,6 +28,12 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const handleSave = async () => {
     await updateNote.mutateAsync({ id: note._id.toString(), title, content });
     setEditing(false);
+  };
+
+  const handleArchiveToggle = async () => {
+    const nextArchivedState = !isArchived;
+    await updateNote.mutateAsync({ id: note._id.toString(), archived: nextArchivedState });
+    setIsArchived(nextArchivedState);
   };
 
   const date = new Date(note.updatedAt).toLocaleString('en-US', {
@@ -93,9 +100,14 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
               </button>
             ) : (
               <>
-                <button className={`${styles.actionBtn} ${styles.archive}`} title="Archive (coming soon)" disabled>
+                <button
+                  className={`${styles.actionBtn} ${styles.archive}`}
+                  onClick={handleArchiveToggle}
+                  title={isArchived ? 'Unarchive' : 'Archive'}
+                  disabled={updateNote.isPending}
+                >
                   <Archive size={15} />
-                  Archive
+                  {isArchived ? 'Unarchive' : 'Archive'}
                 </button>
                 <button
                   className={`${styles.actionBtn} ${styles.delete}`}
