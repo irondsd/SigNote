@@ -11,24 +11,26 @@ import styles from './page.module.scss';
 
 export default function Page() {
   const { data: session, status } = useSession();
-  const { data: notes } = useNotes();
+  const { data: notes, isLoading, isPending } = useNotes();
   const [showNewNote, setShowNewNote] = useState(false);
 
   const isAuthenticated = !!session?.user?.address;
 
+  const showLoadingState = isLoading || isPending || status === 'loading';
+
   return (
     <div className={styles.page}>
-      {isAuthenticated && (
-        <div className={styles.topBar}>
-          <h1 className={styles.heading}>My Notes</h1>
+      <div className={styles.topBar}>
+        <h1 className={styles.heading}>My Notes</h1>
+        {isAuthenticated && (
           <button className={styles.newBtn} onClick={() => setShowNewNote(true)}>
             <Plus size={18} />
             New Note
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {status === 'loading' ? (
+      {showLoadingState ? (
         <div className={styles.loading}>
           <span className={styles.spinner} />
         </div>

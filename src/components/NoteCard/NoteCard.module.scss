@@ -11,7 +11,10 @@
   cursor: pointer;
   text-align: left;
   break-inside: avoid;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
   margin-bottom: 12px;
 
   &:hover {
@@ -22,7 +25,7 @@
 }
 
 .title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
   margin: 0;
@@ -42,7 +45,6 @@
   -webkit-line-clamp: 8;
   line-clamp: 8;
   overflow: hidden;
-
 }
 
 .date {

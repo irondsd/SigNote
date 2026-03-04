@@ -27,9 +27,7 @@ export function NotesGrid({ notes, onNewNote }: NotesGridProps) {
         ))}
       </div>
 
-      {selected && (
-        <NoteModal note={selected} onClose={() => setSelected(null)} />
-      )}
+      {selected && <NoteModal note={selected} onClose={() => setSelected(null)} />}
     </>
   );
 }

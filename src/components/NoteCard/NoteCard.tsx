@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { NoteDocument } from '@/models/Note';
 import styles from './NoteCard.module.scss';
 
@@ -10,11 +9,7 @@ type NoteCardProps = {
 };
 
 export function NoteCard({ note, onClick }: NoteCardProps) {
-  const date = new Date(note.createdAt).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const date = new Date(note.createdAt).toLocaleDateString();
 
   return (
     <button className={styles.card} onClick={onClick}>

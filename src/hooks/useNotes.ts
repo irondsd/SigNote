@@ -14,8 +14,6 @@ export const useNotes = () => {
       }
       return res.json();
     },
-    initialData: [],
-    staleTime: 1000 * 60, // 1 minute
     initialDataUpdatedAt: 0,
     enabled: !!address,
   });
