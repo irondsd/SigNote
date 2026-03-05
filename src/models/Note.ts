@@ -15,7 +15,7 @@ export type NoteDocument = HydratedDocument<Note>;
 
 const noteSchema = new Schema<Note>({
   address: { type: String, required: true },
-  title: { type: String, unique: true, index: true },
+  title: { type: String, index: true },
   content: { type: String },
   createdAt: { type: Date, required: true, default: () => new Date() },
   updatedAt: { type: Date, required: true, default: () => new Date() },
@@ -25,5 +25,14 @@ const noteSchema = new Schema<Note>({
 
 // TTL index to automatically delete soft-deleted notes after 1 hour
 noteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
+
+// Full-text index for search with title relevance boost
+noteSchema.index(
+  { title: 'text', content: 'text' },
+  {
+    weights: { title: 10, content: 2 },
+    name: 'NoteTextIndex',
+  },
+);
 
 export const NoteModel = models.Note || model<Note>('Note', noteSchema);

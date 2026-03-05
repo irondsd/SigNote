@@ -1,22 +1,37 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 
 type UseNotesProps = {
   archived?: boolean;
+  search?: string;
 };
 
 const INITIAL_PAGE_SIZE = 30;
 const PAGE_SIZE = 10;
 
-export const useNotes = ({ archived }: UseNotesProps) => {
+const SEARCH_DEBOUNCE_MS = 100;
+
+export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
   const { data: session } = useSession();
   const address = session?.user?.address;
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [search]);
 
   return useInfiniteQuery({
-    queryKey: ['notes', address, archived ? 'archived' : 'active'],
+    queryKey: ['notes', address, archived ? 'archived' : 'active', debouncedSearch.trim()],
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const searchParams = new URLSearchParams();
       if (archived !== undefined) searchParams.set('archived', String(archived));
+      const normalizedSearch = debouncedSearch.trim();
+      if (normalizedSearch) searchParams.set('q', normalizedSearch);
 
       // First page uses INITIAL_PAGE_SIZE, subsequent pages use PAGE_SIZE
       const isFirstPage = pageParam === 0;

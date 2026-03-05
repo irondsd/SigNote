@@ -12,8 +12,9 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const address = session?.user?.address;
   const archived = req.nextUrl.searchParams.get('archived') === 'true';
-  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '30', 10);
-  const offset = parseInt(req.nextUrl.searchParams.get('offset') || '0', 10);
+  const limit = Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30);
+  const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
+  const search = (req.nextUrl.searchParams.get('q') || '').trim();
 
   if (!address) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const notes = await getNotesByAddress(address, archived, limit, offset);
+  const notes = await getNotesByAddress(address, archived, limit, offset, search);
 
   return NextResponse.json(notes);
 }

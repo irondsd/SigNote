@@ -14,12 +14,19 @@
 }
 
 .topBar {
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.headingGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .heading {
@@ -34,6 +41,24 @@
   @media (max-width: 500px) {
     padding: 8px;
   }
+}
+
+.searchWrap {
+  position: relative;
+  width: min(360px, 70vw);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.searchInput {
+  padding-left: 32px;
 }
 
 .loading {

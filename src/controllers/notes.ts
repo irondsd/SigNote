@@ -1,5 +1,7 @@
 import { NoteModel } from '@/models/Note';
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const createNote = async (address: string, title: string, content: string) => {
   const now = new Date();
 
@@ -14,9 +16,29 @@ export const createNote = async (address: string, title: string, content: string
   return note;
 };
 
-export const getNotesByAddress = async (address: string, archived = false, limit = 30, offset = 0) => {
-  return NoteModel.find({ address, archived, deletedAt: null })
-    .sort({ createdAt: -1 })
+export const getNotesByAddress = async (
+  address: string,
+  archived = false,
+  limit = 30,
+  offset = 0,
+  search = '',
+) => {
+  const baseQuery = { address, archived, deletedAt: null };
+  const normalizedSearch = search.trim();
+
+  if (!normalizedSearch) {
+    return NoteModel.find(baseQuery).sort({ createdAt: -1 }).skip(offset).limit(limit).exec();
+  }
+
+  const safeSearchRegex = new RegExp(escapeRegExp(normalizedSearch), 'i');
+
+  return NoteModel.find(
+    {
+      ...baseQuery,
+      $or: [{ title: safeSearchRegex }, { content: safeSearchRegex }],
+    },
+  )
+    .sort({ updatedAt: -1 })
     .skip(offset)
     .limit(limit)
     .exec();
