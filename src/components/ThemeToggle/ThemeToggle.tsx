@@ -2,16 +2,10 @@
 
 import { useTheme } from 'next-themes';
 import { Sun, Moon, Monitor } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import styles from './ThemeToggle.module.scss';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) return <div className={styles.toggle} />;
 
   return (
     <div className={styles.toggle}>

@@ -4,7 +4,7 @@ import { PenLine } from 'lucide-react';
 import styles from './EmptyState.module.scss';
 
 type EmptyStateProps = {
-  onNewNote: () => void;
+  onNewNote?: () => void;
 };
 
 export function EmptyState({ onNewNote }: EmptyStateProps) {

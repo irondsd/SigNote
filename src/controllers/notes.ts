@@ -14,9 +14,12 @@ export const createNote = async (address: string, title: string, content: string
   return note;
 };
 
-// todo: pagination
-export const getNotesByAddress = async (address: string, archived = false) => {
-  return NoteModel.find({ address, archived, deletedAt: null }).sort({ createdAt: -1 }).exec();
+export const getNotesByAddress = async (address: string, archived = false, limit = 30, offset = 0) => {
+  return NoteModel.find({ address, archived, deletedAt: null })
+    .sort({ createdAt: -1 })
+    .skip(offset)
+    .limit(limit)
+    .exec();
 };
 
 export const getNoteById = async (id: string) => {

@@ -11,11 +11,13 @@ import Link from 'next/link';
 
 export default function Page() {
   const { data: session, status } = useSession();
-  const { data: notes, isLoading, isPending } = useNotes({ archived: true });
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useNotes({
+    archived: true,
+  });
 
   const isAuthenticated = !!session?.user?.address;
-
-  const showLoadingState = isLoading || isPending || status === 'loading';
+  const notes = data?.pages.flatMap((page) => page) ?? [];
+  const showLoadingState = isLoading || status === 'loading';
 
   return (
     <div className={styles.page}>
@@ -38,7 +40,13 @@ export default function Page() {
           <span className={styles.spinner} />
         </div>
       ) : isAuthenticated ? (
-        <NotesGrid notes={notes ?? []} onNewNote={() => {}} archive />
+        <NotesGrid
+          notes={notes}
+          onLoadMore={() => fetchNextPage()}
+          hasMore={hasNextPage ?? false}
+          isLoadingMore={isFetchingNextPage}
+          archive
+        />
       ) : (
         <UnauthenticatedState />
       )}

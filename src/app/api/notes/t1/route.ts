@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const address = session?.user?.address;
   const archived = req.nextUrl.searchParams.get('archived') === 'true';
+  const limit = parseInt(req.nextUrl.searchParams.get('limit') || '30', 10);
+  const offset = parseInt(req.nextUrl.searchParams.get('offset') || '0', 10);
 
   if (!address) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +22,7 @@ export async function GET(req: NextRequest) {
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const notes = await getNotesByAddress(address, archived);
+  const notes = await getNotesByAddress(address, archived, limit, offset);
 
   return NextResponse.json(notes);
 }
