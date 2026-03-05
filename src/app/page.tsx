@@ -29,12 +29,12 @@ export default function Page() {
         {isAuthenticated && (
           <div className="flex gap-1">
             <Link href="/archive">
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" className={styles.button}>
                 <Archive size={18} />
                 Archive
               </Button>
             </Link>
-            <Button variant="default" size="lg" onClick={() => setShowNewNote(true)}>
+            <Button variant="default" size="lg" onClick={() => setShowNewNote(true)} className={styles.button}>
               <Plus size={18} />
               New Note
             </Button>

@@ -30,25 +30,9 @@
   color: var(--foreground);
 }
 
-.newBtn {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  height: 40px;
-  padding: 9px 18px;
-  border-radius: 10px;
-  border: none;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-
-  &:hover {
-    opacity: 0.88;
+.button {
+  @media (max-width: 500px) {
+    padding: 8px;
   }
 }
 
