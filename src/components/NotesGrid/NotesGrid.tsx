@@ -6,17 +6,19 @@ import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import styles from './NotesGrid.module.scss';
+import { EmptyStateArchive } from '../EmptyStateArchive/EmptyStateArchive';
 
 type NotesGridProps = {
   notes: NoteDocument[];
+  archive?: boolean;
   onNewNote: () => void;
 };
 
-export function NotesGrid({ notes, onNewNote }: NotesGridProps) {
+export function NotesGrid({ notes, archive = false, onNewNote }: NotesGridProps) {
   const [selected, setSelected] = useState<NoteDocument | null>(null);
 
   if (notes.length === 0) {
-    return <EmptyState onNewNote={onNewNote} />;
+    return archive ? <EmptyStateArchive /> : <EmptyState onNewNote={onNewNote} />;
   }
 
   return (

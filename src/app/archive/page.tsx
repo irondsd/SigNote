@@ -10,6 +10,7 @@ import { UnauthenticatedState } from '@/components/UnauthenticatedState/Unauthen
 import styles from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 
 export default function Page() {
   const { data: session, status } = useSession();
@@ -23,7 +24,7 @@ export default function Page() {
   return (
     <div className={styles.page}>
       <div className={styles.topBar}>
-        <h1 className={styles.heading}>My Notes</h1>
+        <h1 className={styles.heading}>My Archived Notes</h1>
         {isAuthenticated && (
           <div className="flex gap-1">
             <Link href="/">
@@ -41,12 +42,10 @@ export default function Page() {
           <span className={styles.spinner} />
         </div>
       ) : isAuthenticated ? (
-        <NotesGrid notes={notes ?? []} onNewNote={() => setShowNewNote(true)} />
+        <NotesGrid notes={notes ?? []} onNewNote={() => setShowNewNote(true)} archive />
       ) : (
         <UnauthenticatedState />
       )}
-
-      {showNewNote && <NewNoteModal onClose={() => setShowNewNote(false)} />}
     </div>
   );
 }
