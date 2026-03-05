@@ -1,21 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Notebook } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
-import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import styles from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 
 export default function Page() {
   const { data: session, status } = useSession();
   const { data: notes, isLoading, isPending } = useNotes({ archived: true });
-  const [showNewNote, setShowNewNote] = useState(false);
 
   const isAuthenticated = !!session?.user?.address;
 
@@ -42,7 +38,7 @@ export default function Page() {
           <span className={styles.spinner} />
         </div>
       ) : isAuthenticated ? (
-        <NotesGrid notes={notes ?? []} onNewNote={() => setShowNewNote(true)} archive />
+        <NotesGrid notes={notes ?? []} onNewNote={() => {}} archive />
       ) : (
         <UnauthenticatedState />
       )}

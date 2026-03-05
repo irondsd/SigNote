@@ -50,13 +50,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
     setIsArchived(nextArchivedState);
   };
 
-  const date = new Date(note.updatedAt).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = new Date(note.updatedAt).toLocaleString();
 
   return (
     <div className={styles.backdrop} onClick={onClose}>

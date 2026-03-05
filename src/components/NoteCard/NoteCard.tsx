@@ -9,7 +9,7 @@ type NoteCardProps = {
 };
 
 export function NoteCard({ note, onClick }: NoteCardProps) {
-  const date = new Date(note.createdAt).toLocaleDateString();
+  const date = new Date(note.updatedAt).toLocaleDateString();
 
   return (
     <button className={styles.card} onClick={onClick}>
