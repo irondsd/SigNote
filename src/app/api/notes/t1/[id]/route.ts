@@ -2,13 +2,7 @@ import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  archiveNote,
-  deleteNote,
-  getNoteById,
-  unarchiveNote,
-  updateNote,
-} from '@/controllers/notes';
+import { archiveNote, deleteNote, getNoteById, unarchiveNote, undeleteNote, updateNote } from '@/controllers/notes';
 import { authOptions } from '@/utils/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
@@ -66,14 +60,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   const body = await req.json();
-  const { title, content, archived } = body as {
+  const { title, content, archived, deleted } = body as {
     title?: string;
     content?: string;
     archived?: boolean;
+    deleted?: boolean;
   };
 
   let updated;
-  if (typeof archived === 'boolean') {
+  if (typeof deleted === 'boolean') {
+    updated = deleted ? await deleteNote(id) : await undeleteNote(id);
+  } else if (typeof archived === 'boolean') {
     updated = archived ? await archiveNote(id) : await unarchiveNote(id);
   } else {
     updated = await updateNote(id, title ?? note.title, content ?? note.content);
@@ -81,4 +78,3 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 
   return NextResponse.json(updated);
 }
-

@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Sidebar } from '@/components/Sidebar/Sidebar';
 import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata = {
   title: 'SigNote',
@@ -33,6 +34,7 @@ export default async function RootLayout({
               </div>
             </Web3Provider>
           </AuthSessionProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

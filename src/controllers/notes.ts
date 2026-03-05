@@ -16,7 +16,7 @@ export const createNote = async (address: string, title: string, content: string
 
 // todo: pagination
 export const getNotesByAddress = async (address: string, archived = false) => {
-  return NoteModel.find({ address, archived }).sort({ createdAt: -1 }).exec();
+  return NoteModel.find({ address, archived, deletedAt: null }).sort({ createdAt: -1 }).exec();
 };
 
 export const getNoteById = async (id: string) => {
@@ -40,7 +40,11 @@ export const updateNote = async (id: string, title: string, content: string) => 
 };
 
 export const deleteNote = async (id: string) => {
-  return NoteModel.findByIdAndDelete(id).exec();
+  return NoteModel.findByIdAndUpdate(id, { deletedAt: new Date() }, { new: true }).exec();
+};
+
+export const undeleteNote = async (id: string) => {
+  return NoteModel.findByIdAndUpdate(id, { deletedAt: null }, { new: true }).exec();
 };
 
 export const archiveNote = async (id: string) => {

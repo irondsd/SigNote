@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { Trash2, Archive, X, Pencil, Check } from 'lucide-react';
+import { toast } from 'sonner';
 import type { NoteDocument } from '@/models/Note';
-import { useDeleteNote, useUpdateNote } from '@/hooks/useNoteMutations';
+import { useDeleteNote, useUndeleteNote, useUpdateNote } from '@/hooks/useNoteMutations';
 import styles from './NoteModal.module.scss';
 
 type NoteModalProps = {
@@ -18,11 +19,24 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const [isArchived, setIsArchived] = useState(note.archived);
 
   const deleteNote = useDeleteNote();
+  const undeleteNote = useUndeleteNote();
   const updateNote = useUpdateNote();
 
   const handleDelete = async () => {
     await deleteNote.mutateAsync(note._id.toString());
     onClose();
+
+    toast.success('Note deleted', {
+      description: 'You can undo this action.',
+      duration: 7000,
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          undeleteNote.mutateAsync(note._id.toString());
+          toast.success('Note restored');
+        },
+      },
+    });
   };
 
   const handleSave = async () => {

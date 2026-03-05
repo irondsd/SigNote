@@ -3,7 +3,7 @@
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 type CreateNoteInput = { title: string; content: string };
-type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean };
+type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean; deleted?: boolean };
 
 async function apiCreateNote(input: CreateNoteInput) {
   const res = await fetch('/api/notes/t1', {
@@ -18,6 +18,16 @@ async function apiCreateNote(input: CreateNoteInput) {
 async function apiDeleteNote(id: string) {
   const res = await fetch(`/api/notes/t1/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete note');
+  return res.json();
+}
+
+async function apiUndeleteNote(id: string) {
+  const res = await fetch(`/api/notes/t1/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deleted: false }),
+  });
+  if (!res.ok) throw new Error('Failed to undo delete');
   return res.json();
 }
 
@@ -43,6 +53,14 @@ export const useDeleteNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiDeleteNote,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+  });
+};
+
+export const useUndeleteNote = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: apiUndeleteNote,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 };
