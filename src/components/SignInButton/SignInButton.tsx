@@ -6,6 +6,7 @@ import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
 import '@rainbow-me/rainbowkit/styles.css';
+import s from './SignInButton.module.scss';
 
 type SignInButtonProps = {
   size?: 'default' | 'large';
@@ -51,7 +52,7 @@ export function SignInButton({ size = 'default' }: SignInButtonProps) {
 
   if (size === 'large') {
     return (
-      <button className="siwe-btn-large" onClick={handleSignIn}>
+      <button className={s.siweBtnLarge} onClick={handleSignIn}>
         <Wallet size={24} />
         Sign in with Ethereum
       </button>
@@ -59,7 +60,7 @@ export function SignInButton({ size = 'default' }: SignInButtonProps) {
   }
 
   return (
-    <button className="siwe-btn" onClick={handleSignIn}>
+    <button className={s.siweBtn} onClick={handleSignIn}>
       <Wallet size={16} />
       Sign in with Ethereum
     </button>

@@ -24,7 +24,7 @@ export const upsertSiweUser = async (address: string) => {
     },
     {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
     },
   );
 

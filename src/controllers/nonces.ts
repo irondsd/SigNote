@@ -44,7 +44,7 @@ export const consumeNonceRecord = async (nonce: string) => {
       },
     },
     {
-      new: true,
+      returnDocument: 'after',
     },
   );
 };

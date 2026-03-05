@@ -13,12 +13,12 @@ import Link from 'next/link';
 
 export default function Page() {
   const { data: session, status } = useSession();
-  const { data: notes, isLoading, isPending } = useNotes({ archived: false });
+  const { data: notes, isLoading } = useNotes({ archived: false });
   const [showNewNote, setShowNewNote] = useState(false);
 
   const isAuthenticated = !!session?.user?.address;
 
-  const showLoadingState = isLoading || isPending || status === 'loading';
+  const showLoadingState = isLoading || status === 'loading';
 
   return (
     <div className={styles.page}>

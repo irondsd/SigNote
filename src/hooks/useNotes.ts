@@ -1,13 +1,14 @@
 import { NoteDocument } from '@/models/Note';
 import { useQuery } from '@tanstack/react-query';
-import { useAccount } from 'wagmi';
+import { useSession } from 'next-auth/react';
 
 type UseNotesProps = {
   archived?: boolean;
 };
 
 export const useNotes = ({ archived }: UseNotesProps) => {
-  const { address } = useAccount();
+  const { data: session } = useSession();
+  const address = session?.user?.address;
 
   return useQuery<NoteDocument[]>({
     queryKey: ['notes', address, archived ? 'archived' : 'active'],
