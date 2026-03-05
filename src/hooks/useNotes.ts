@@ -48,6 +48,6 @@ export const useNotes = ({ archived }: UseNotesProps) => {
       return allPages.length; // Return page number for infinite query
     },
     initialPageParam: 0,
-    enabled: !!address,
+    enabled: address !== 'no address', // Only run if we have a valid address
   });
 };
