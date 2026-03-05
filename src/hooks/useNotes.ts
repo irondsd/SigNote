@@ -10,7 +10,7 @@ const PAGE_SIZE = 10;
 
 export const useNotes = ({ archived }: UseNotesProps) => {
   const { data: session } = useSession();
-  const address = session?.user?.address || 'no address';
+  const address = session?.user?.address;
 
   return useInfiniteQuery({
     queryKey: ['notes', address, archived ? 'archived' : 'active'],
@@ -48,6 +48,6 @@ export const useNotes = ({ archived }: UseNotesProps) => {
       return allPages.length; // Return page number for infinite query
     },
     initialPageParam: 0,
-    enabled: address !== 'no address', // Only run if we have a valid address
+    enabled: address !== undefined,
   });
 };
