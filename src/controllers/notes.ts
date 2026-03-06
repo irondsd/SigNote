@@ -16,13 +16,7 @@ export const createNote = async (address: string, title: string, content: string
   return note;
 };
 
-export const getNotesByAddress = async (
-  address: string,
-  archived = false,
-  limit = 30,
-  offset = 0,
-  search = '',
-) => {
+export const getNotesByAddress = async (address: string, archived = false, limit = 30, offset = 0, search = '') => {
   const baseQuery = { address, archived, deletedAt: null };
   const normalizedSearch = search.trim();
 
@@ -32,12 +26,10 @@ export const getNotesByAddress = async (
 
   const safeSearchRegex = new RegExp(escapeRegExp(normalizedSearch), 'i');
 
-  return NoteModel.find(
-    {
-      ...baseQuery,
-      $or: [{ title: safeSearchRegex }, { content: safeSearchRegex }],
-    },
-  )
+  return NoteModel.find({
+    ...baseQuery,
+    $or: [{ title: safeSearchRegex }, { content: safeSearchRegex }],
+  })
     .sort({ updatedAt: -1 })
     .skip(offset)
     .limit(limit)
