@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { NotebookText, ShieldCheck, Vault, Github, BookOpen, LogOut } from 'lucide-react';
+import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { shortenAddress } from '@/utils/shortenAddress';
 import styles from './SidebarNav.module.scss';
@@ -15,8 +15,8 @@ const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle')
 
 const NAV_LINKS = [
   { href: '/', label: 'Notes', icon: NotebookText },
-  { href: '/secrets', label: 'Secrets', icon: ShieldCheck },
-  { href: '/vaults', label: 'Vaults', icon: Vault },
+  { href: '/secrets', label: 'Secrets', icon: SquareAsterisk },
+  { href: '/seals', label: 'Seals', icon: BookLock },
 ];
 
 type SidebarNavProps = {
