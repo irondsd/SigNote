@@ -1,6 +1,19 @@
 'use client';
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+type Note = {
+  _id: string;
+  title: string;
+  content: string;
+  archived: boolean;
+  deletedAt: string | null;
+  address: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
 type CreateNoteInput = { title: string; content: string };
 type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean; deleted?: boolean };
@@ -53,7 +66,23 @@ export const useDeleteNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiDeleteNote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+      snapshots.forEach(([queryKey, data]) => {
+        if (!data) return;
+        qc.setQueryData(queryKey, {
+          ...data,
+          pages: data.pages.map((page) => page.filter((note) => note._id !== id)),
+        });
+      });
+      return { snapshots };
+    },
+    onError: (_err, _id, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      toast.error('Failed to delete note');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 };
 
@@ -69,6 +98,38 @@ export const useUpdateNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiUpdateNote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onMutate: async ({ id, archived, ...rest }) => {
+      await qc.cancelQueries({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+      const isArchiveToggle = archived !== undefined;
+
+      snapshots.forEach(([queryKey, data]) => {
+        if (!data) return;
+        const isArchivedView = queryKey[2] === 'archived';
+
+        const updatedPages = data.pages.map((page) =>
+          page
+            .map((note) =>
+              note._id === id
+                ? { ...note, ...rest, archived: archived ?? note.archived }
+                : note
+            )
+            .filter((note) => {
+              if (note._id !== id || !isArchiveToggle) return true;
+              // Keep the note only if it now belongs to this view
+              return note.archived === isArchivedView;
+            })
+        );
+
+        qc.setQueryData(queryKey, { ...data, pages: updatedPages });
+      });
+
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      toast.error('Failed to save note');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 };

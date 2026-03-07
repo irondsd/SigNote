@@ -23,32 +23,31 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const undeleteNote = useUndeleteNote();
   const updateNote = useUpdateNote();
 
-  const handleDelete = async () => {
-    await deleteNote.mutateAsync(note._id.toString());
+  const handleDelete = () => {
+    deleteNote.mutate(note._id.toString());
     onClose();
-
     toast.success('Note deleted', {
       description: 'You can undo this action.',
       duration: 7000,
       action: {
         label: 'Undo',
         onClick: () => {
-          undeleteNote.mutateAsync(note._id.toString());
+          undeleteNote.mutate(note._id.toString());
           toast.success('Note restored');
         },
       },
     });
   };
 
-  const handleSave = async () => {
-    await updateNote.mutateAsync({ id: note._id.toString(), title, content });
+  const handleSave = () => {
+    updateNote.mutate({ id: note._id.toString(), title, content });
     setEditing(false);
   };
 
-  const handleArchiveToggle = async () => {
+  const handleArchiveToggle = () => {
     const nextArchivedState = !isArchived;
-    await updateNote.mutateAsync({ id: note._id.toString(), archived: nextArchivedState });
     setIsArchived(nextArchivedState);
+    updateNote.mutate({ id: note._id.toString(), archived: nextArchivedState });
   };
 
   const date = new Date(note.updatedAt).toLocaleString();
@@ -102,7 +101,6 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
               <button
                 className={`${styles.actionBtn} ${styles.save}`}
                 onClick={handleSave}
-                disabled={updateNote.isPending}
               >
                 <Check size={15} />
                 Save
@@ -113,7 +111,6 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                   className={`${styles.actionBtn} ${styles.archive}`}
                   onClick={handleArchiveToggle}
                   title={isArchived ? 'Unarchive' : 'Archive'}
-                  disabled={updateNote.isPending}
                 >
                   <Archive size={15} />
                   {isArchived ? 'Unarchive' : 'Archive'}
@@ -121,7 +118,6 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                 <button
                   className={`${styles.actionBtn} ${styles.delete}`}
                   onClick={handleDelete}
-                  disabled={deleteNote.isPending}
                 >
                   <Trash2 size={15} />
                   Delete
