@@ -20,12 +20,7 @@ export function NoteCard({ note, onClick }: NoteCardProps) {
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
     >
       {note.title && <h3 className={styles.title}>{note.title}</h3>}
-      {note.content && (
-        <div
-          className={styles.content}
-          dangerouslySetInnerHTML={{ __html: note.content }}
-        />
-      )}
+      {note.content && <div className={styles.content} dangerouslySetInnerHTML={{ __html: note.content }} />}
       <span className={styles.date}>{date}</span>
     </div>
   );

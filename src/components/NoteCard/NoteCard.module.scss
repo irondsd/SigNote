@@ -59,19 +59,63 @@
   pointer-events: none;
 
   // Reset block element margins for compact preview
-  :global(p) { margin: 0 0 0.3em; }
-  :global(ul), :global(ol) { margin: 0 0 0.3em; padding-left: 1.2em; }
-  :global(li) { margin: 0; }
-  :global(h1), :global(h2), :global(h3) { font-size: 1em; font-weight: 600; margin: 0 0 0.2em; }
-  :global(pre) { margin: 0; font-size: 0.9em; }
+  :global(p) {
+    margin: 0;
+  }
+  :global(ul),
+  :global(ol) {
+    margin: 0 0 0.3em;
+    padding-left: 1.2em;
+  }
+  :global(li) {
+    margin: 0;
+  }
+  :global(h1),
+  :global(h2),
+  :global(h3) {
+    font-size: 1em;
+    font-weight: 600;
+    margin: 0 0 0.2em;
+  }
+  :global(pre) {
+    margin: 0;
+    font-size: 0.9em;
+  }
   :global(code) {
     font-size: 0.85em;
     background: var(--muted);
     border-radius: 3px;
     padding: 0 3px;
   }
-  :global(a) { color: var(--primary); }
-  :global(input[type='checkbox']) { width: 12px; height: 12px; }
+  :global(a) {
+    color: var(--primary);
+  }
+  :global(input[type='checkbox']) {
+    width: 12px;
+    height: 12px;
+  }
+
+  :global(ul[data-type='taskList']) {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  :global(ul[data-type='taskList'] li) {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  :global(ul[data-type='taskList'] li > label) {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  :global(ul[data-type='taskList'] li > div) {
+    flex: 1;
+  }
 }
 
 .date {

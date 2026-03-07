@@ -63,7 +63,12 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         </div>
 
         <div className={styles.externalLinks}>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className={styles.extLink}>
+          <a
+            href="https://github.com/irondsd/signote"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.extLink}
+          >
             <Github size={15} />
             GitHub
           </a>
