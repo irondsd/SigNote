@@ -5,12 +5,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createNote, getNotesByAddress } from '@/controllers/notes';
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
+import { Address } from 'viem';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const address = session?.user?.address;
+  const address = session?.user?.address as Address;
+
   const archived = req.nextUrl.searchParams.get('archived') === 'true';
   const limit = Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30);
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const address = session?.user?.address;
+  const address = session?.user?.address as Address;
 
   if (!address) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
