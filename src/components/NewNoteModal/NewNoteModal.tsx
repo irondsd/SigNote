@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
+import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import styles from './NewNoteModal.module.scss';
 
 type NewNoteModalProps = {
@@ -38,12 +39,11 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <textarea
-            className={styles.contentInput}
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            editable={true}
             placeholder="Write your note..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={10}
           />
         </div>
 

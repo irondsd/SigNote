@@ -5,6 +5,7 @@ import { Trash2, Archive, X, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote } from '@/hooks/useNoteMutations';
+import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import styles from './NoteModal.module.scss';
 
 type NoteModalProps = {
@@ -80,17 +81,17 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
 
         {/* Content */}
         <div className={styles.body}>
-          {editing ? (
-            <textarea
-              className={styles.contentInput}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your note..."
-              rows={12}
-            />
-          ) : (
-            <p className={styles.content}>{note.content || <em className={styles.empty}>No content</em>}</p>
-          )}
+          <TiptapEditor
+            content={content}
+            onChange={(html) => {
+              setContent(html);
+              if (!editing) {
+                updateNote.mutate({ id: note._id.toString(), content: html });
+              }
+            }}
+            editable={editing}
+            placeholder="Write your note..."
+          />
         </div>
 
         {/* Footer */}

@@ -12,10 +12,21 @@ export function NoteCard({ note, onClick }: NoteCardProps) {
   const date = new Date(note.updatedAt).toLocaleDateString();
 
   return (
-    <button className={styles.card} onClick={onClick}>
+    <div
+      className={styles.card}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
+    >
       {note.title && <h3 className={styles.title}>{note.title}</h3>}
-      {note.content && <p className={styles.content}>{note.content}</p>}
+      {note.content && (
+        <div
+          className={styles.content}
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
+      )}
       <span className={styles.date}>{date}</span>
-    </button>
+    </div>
   );
 }
