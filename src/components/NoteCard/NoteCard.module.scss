@@ -93,6 +93,7 @@
   :global(input[type='checkbox']) {
     width: 12px;
     height: 12px;
+    accent-color: var(--primary);
   }
 
   :global(ul[data-type='taskList']) {
