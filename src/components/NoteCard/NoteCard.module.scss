@@ -7,7 +7,7 @@
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--note-card-bg, var(--card));
   cursor: pointer;
   text-align: left;
   break-inside: avoid;
@@ -23,6 +23,13 @@
     transform: translateY(-1px);
   }
 }
+
+.colorYellow { --note-card-bg: var(--note-yellow); }
+.colorRed { --note-card-bg: var(--note-red); }
+.colorBlue { --note-card-bg: var(--note-blue); }
+.colorGreen { --note-card-bg: var(--note-green); }
+.colorClay { --note-card-bg: var(--note-clay); }
+.colorGray { --note-card-bg: var(--note-gray); }
 
 .title {
   font-size: 15px;
@@ -51,7 +58,7 @@
     left: 0;
     right: 0;
     height: 32px;
-    background: linear-gradient(to bottom, transparent, var(--card));
+    background: linear-gradient(to bottom, transparent, var(--note-card-bg, var(--card)));
     pointer-events: none;
   }
 

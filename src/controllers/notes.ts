@@ -86,3 +86,7 @@ export const archiveNote = async (id: string) => {
 export const unarchiveNote = async (id: string) => {
   return NoteModel.findByIdAndUpdate(id, { archived: false }, { new: true }).exec();
 };
+
+export const updateNoteColor = async (id: string, color: string | null) => {
+  return NoteModel.findByIdAndUpdate(id, { color }, { new: true }).exec();
+};

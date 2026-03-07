@@ -13,10 +13,11 @@ type Note = {
   position: number;
   createdAt: string;
   updatedAt: string;
+  color: string | null;
 };
 
 type CreateNoteInput = { title: string; content: string };
-type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean; deleted?: boolean };
+type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean; deleted?: boolean; color?: string | null };
 
 async function apiCreateNote(input: CreateNoteInput) {
   const res = await fetch('/api/notes/t1', {

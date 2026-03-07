@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/utils/cn';
 import type { NoteDocument } from '@/models/Note';
 import styles from './NoteCard.module.scss';
 
@@ -8,12 +9,18 @@ type NoteCardProps = {
   onClick: () => void;
 };
 
+function colorClass(color: string | null | undefined) {
+  if (!color) return undefined;
+  const key = `color${color.charAt(0).toUpperCase()}${color.slice(1)}`;
+  return styles[key];
+}
+
 export function NoteCard({ note, onClick }: NoteCardProps) {
   const date = new Date(note.updatedAt).toLocaleDateString();
 
   return (
     <div
-      className={styles.card}
+      className={cn(styles.card, colorClass(note.color))}
       role="button"
       tabIndex={0}
       onClick={onClick}

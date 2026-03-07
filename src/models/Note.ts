@@ -1,5 +1,6 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
 import { Address } from 'viem';
+import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 
 export type Note = {
   address: Address;
@@ -10,6 +11,7 @@ export type Note = {
   updatedAt: Date;
   deletedAt: Date | null;
   archived: boolean;
+  color: NoteColor | null;
 };
 
 export type NoteDocument = HydratedDocument<Note>;
@@ -23,6 +25,7 @@ const noteSchema = new Schema<Note>({
   updatedAt: { type: Date, required: true, default: () => new Date() },
   deletedAt: { type: Date, default: null },
   archived: { type: Boolean, default: false },
+  color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
 // TTL index to automatically delete soft-deleted notes after 1 hour
