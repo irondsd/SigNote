@@ -2,7 +2,7 @@ import { attachDatabasePool } from '@vercel/functions';
 import NextAuth from 'next-auth';
 import { NextRequest } from 'next/server';
 
-import { authOptions } from '@/utils/auth';
+import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';

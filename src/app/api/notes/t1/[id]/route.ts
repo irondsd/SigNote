@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { archiveNote, deleteNote, getNoteById, unarchiveNote, undeleteNote, updateNote } from '@/controllers/notes';
-import { authOptions } from '@/utils/auth';
+import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';
