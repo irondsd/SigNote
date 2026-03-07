@@ -1,2 +1,1 @@
-export const contractAddress = "0x1e312e5009Bfd7D07b029BBEf18d1AcEE81E17D0";
-export const USDTAddress = "0x55d398326f99059fF775485246999027B3197955";
+export const POSITION_STEP = 1000;

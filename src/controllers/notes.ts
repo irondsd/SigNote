@@ -1,14 +1,29 @@
+import { Address } from 'viem';
+
+import { POSITION_STEP } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const createNote = async (address: string, title: string, content: string) => {
+export const getNextPosition = async (address: Address) => {
+  const lastNote = await NoteModel.findOne({ address, deletedAt: null })
+    .sort({ position: -1 })
+    .select({ position: 1 })
+    .lean()
+    .exec();
+
+  return (lastNote?.position ?? 0) + POSITION_STEP;
+};
+
+export const createNote = async (address: Address, title: string, content: string) => {
   const now = new Date();
+  const position = await getNextPosition(address);
 
   const note = await NoteModel.create({
     address,
     title,
     content,
+    position,
     createdAt: now,
     updatedAt: now,
   });
@@ -21,7 +36,7 @@ export const getNotesByAddress = async (address: string, archived = false, limit
   const normalizedSearch = search.trim();
 
   if (!normalizedSearch) {
-    return NoteModel.find(baseQuery).sort({ createdAt: -1 }).skip(offset).limit(limit).exec();
+    return NoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();
   }
 
   const safeSearchRegex = new RegExp(escapeRegExp(normalizedSearch), 'i');

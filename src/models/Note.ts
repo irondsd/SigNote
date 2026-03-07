@@ -5,6 +5,7 @@ export type Note = {
   address: Address;
   title: string;
   content: string;
+  position: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -17,6 +18,7 @@ const noteSchema = new Schema<Note>({
   address: { type: String, required: true },
   title: { type: String, index: true },
   content: { type: String },
+  position: { type: Number, required: true },
   createdAt: { type: Date, required: true, default: () => new Date() },
   updatedAt: { type: Date, required: true, default: () => new Date() },
   deletedAt: { type: Date, default: null },
