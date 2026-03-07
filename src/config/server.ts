@@ -2,12 +2,12 @@ import type { Config } from 'wagmi';
 import { http, createConfig } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
 
-const alchemyKey = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
+const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL;
 
 export const server = {
   chains: [mainnet],
   transports: {
-    [mainnet.id]: http(`https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`),
+    [mainnet.id]: http(rpcUrl),
   },
   ssr: false,
 } as const;
