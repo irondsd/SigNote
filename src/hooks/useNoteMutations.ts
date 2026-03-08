@@ -59,7 +59,40 @@ export const useCreateNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiCreateNote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+
+      const tempNote: Note = {
+        _id: `temp-${Date.now()}`,
+        title: input.title,
+        content: input.content,
+        archived: false,
+        deletedAt: null,
+        address: '',
+        position: -1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        color: null,
+      };
+
+      snapshots.forEach(([queryKey, data]) => {
+        if (!data) return;
+        if (queryKey[2] === 'archived') return;
+        const firstPage = data.pages[0] ?? [];
+        qc.setQueryData(queryKey, {
+          ...data,
+          pages: [[tempNote, ...firstPage], ...data.pages.slice(1)],
+        });
+      });
+
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      toast.error('Failed to create note');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 };
 

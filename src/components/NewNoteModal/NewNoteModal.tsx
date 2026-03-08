@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import styles from './NewNoteModal.module.scss';
@@ -15,9 +15,9 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
   const [content, setContent] = useState('');
   const createNote = useCreateNote();
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!title.trim() && !content.trim()) return;
-    await createNote.mutateAsync({ title: title.trim(), content: content.trim() });
+    createNote.mutate({ title: title.trim(), content: content.trim() });
     onClose();
   };
 
@@ -49,14 +49,16 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
 
         <div className={styles.footer}>
           <button className={styles.cancelBtn} onClick={onClose}>
+            <X size={14} />
             Cancel
           </button>
           <button
             className={styles.saveBtn}
             onClick={handleSave}
-            disabled={createNote.isPending || (!title.trim() && !content.trim())}
+            disabled={!title.trim() && !content.trim()}
           >
-            {createNote.isPending ? 'Saving…' : 'Save Note'}
+            <Check size={14} />
+            Save Note
           </button>
         </div>
       </div>
