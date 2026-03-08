@@ -61,7 +61,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
 
   const handleSave = () => {
     updateNote.mutate({ id: note._id.toString(), title, content });
-    setEditing(false);
+    onClose();
   };
 
   const handleArchiveToggle = () => {
