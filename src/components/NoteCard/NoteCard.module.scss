@@ -10,26 +10,35 @@
   background: var(--note-card-bg, var(--card));
   cursor: pointer;
   text-align: left;
-  break-inside: avoid;
+  height: 100%;
   transition:
     border-color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s;
-  margin-bottom: 12px;
+    box-shadow 0.15s;
 
   &:hover {
-    border-color: var(--primary);
+    border-color: var(--ring);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
   }
 }
 
-.colorYellow { --note-card-bg: var(--note-yellow); }
-.colorRed { --note-card-bg: var(--note-red); }
-.colorBlue { --note-card-bg: var(--note-blue); }
-.colorGreen { --note-card-bg: var(--note-green); }
-.colorClay { --note-card-bg: var(--note-clay); }
-.colorGray { --note-card-bg: var(--note-gray); }
+.colorYellow {
+  --note-card-bg: var(--note-yellow);
+}
+.colorRed {
+  --note-card-bg: var(--note-red);
+}
+.colorBlue {
+  --note-card-bg: var(--note-blue);
+}
+.colorGreen {
+  --note-card-bg: var(--note-green);
+}
+.colorClay {
+  --note-card-bg: var(--note-clay);
+}
+.colorGray {
+  --note-card-bg: var(--note-gray);
+}
 
 .title {
   font-size: 15px;
@@ -46,11 +55,12 @@
   color: var(--muted-foreground);
   line-height: 1.55;
   word-break: break-word;
-  max-height: 130px;
+  min-height: 40px;
+  max-height: 250px;
   overflow: hidden;
   width: 100%;
 
-  // Fade-out gradient to hint at more content
+  // Fade-out gradient — only shown when content actually overflows
   &::after {
     content: '';
     position: absolute;
@@ -60,6 +70,11 @@
     height: 32px;
     background: linear-gradient(to bottom, transparent, var(--note-card-bg, var(--card)));
     pointer-events: none;
+    opacity: 0;
+  }
+
+  &.contentFaded::after {
+    opacity: 1;
   }
 
   // Prevent any interactive elements in the preview from capturing clicks
@@ -140,5 +155,6 @@
 .date {
   font-size: 11px;
   color: var(--muted-foreground);
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 4px;
 }

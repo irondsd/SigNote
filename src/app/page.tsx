@@ -83,6 +83,7 @@ export default function Page() {
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}
           showArchivedBadge={!!search}
+          isDragDisabled={!!search}
         />
       ) : (
         <UnauthenticatedState />

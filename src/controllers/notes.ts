@@ -90,3 +90,7 @@ export const unarchiveNote = async (id: string) => {
 export const updateNoteColor = async (id: string, color: string | null) => {
   return NoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
 };
+
+export const updateNotePosition = async (id: string, position: number) => {
+  return NoteModel.findByIdAndUpdate(id, { position }, { returnDocument: 'after' }).exec();
+};

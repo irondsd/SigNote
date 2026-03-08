@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
 import type { NoteDocument } from '@/models/Note';
 import styles from './NoteCard.module.scss';
@@ -18,6 +19,14 @@ function colorClass(color: string | null | undefined) {
 
 export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardProps) {
   const date = new Date(note.updatedAt).toLocaleDateString();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    setIsOverflowing(el.scrollHeight > el.clientHeight);
+  }, [note.content]);
 
   return (
     <div
@@ -28,7 +37,13 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
     >
       {note.title && <h3 className={styles.title}>{note.title}</h3>}
-      {note.content && <div className={styles.content} dangerouslySetInnerHTML={{ __html: note.content }} />}
+      {note.content && (
+        <div
+          ref={contentRef}
+          className={cn(styles.content, isOverflowing && styles.contentFaded)}
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
+      )}
       {showArchivedBadge && note.archived && <span className={styles.archivedBadge}>Archived</span>}
       <span className={styles.date}>{date}</span>
     </div>

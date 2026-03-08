@@ -2,7 +2,16 @@ import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { archiveNote, deleteNote, getNoteById, unarchiveNote, undeleteNote, updateNote, updateNoteColor } from '@/controllers/notes';
+import {
+  archiveNote,
+  deleteNote,
+  getNoteById,
+  unarchiveNote,
+  undeleteNote,
+  updateNote,
+  updateNoteColor,
+  updateNotePosition,
+} from '@/controllers/notes';
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
@@ -60,12 +69,13 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   }
 
   const body = await req.json();
-  const { title, content, archived, deleted, color } = body as {
+  const { title, content, archived, deleted, color, position } = body as {
     title?: string;
     content?: string;
     archived?: boolean;
     deleted?: boolean;
     color?: string | null;
+    position?: number;
   };
 
   let updated;
@@ -75,6 +85,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     updated = archived ? await archiveNote(id) : await unarchiveNote(id);
   } else if ('color' in body) {
     updated = await updateNoteColor(id, color ?? null);
+  } else if (typeof position === 'number') {
+    updated = await updateNotePosition(id, position);
   } else {
     updated = await updateNote(id, title ?? note.title, content ?? note.content);
   }
