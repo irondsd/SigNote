@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus, Archive, Search } from 'lucide-react';
+import { Plus, Archive, Search, CircleXIcon } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
@@ -38,8 +38,20 @@ export default function Page() {
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search notes..."
                 aria-label="Search notes"
-                className={styles.searchInput}
+                className={`${styles.searchInput}${search ? ` ${styles.searchInputWithClear}` : ''}`}
               />
+              {search && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Clear search"
+                  onClick={() => setSearch('')}
+                  className="text-muted-foreground focus-visible:ring-ring/50 absolute inset-y-0 right-0 rounded-l-none hover:bg-transparent"
+                >
+                  <CircleXIcon />
+                  <span className="sr-only">Clear input</span>
+                </Button>
+              )}
             </div>
           )}
         </div>
