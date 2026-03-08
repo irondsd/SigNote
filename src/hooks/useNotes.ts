@@ -26,7 +26,7 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
   }, [search]);
 
   return useInfiniteQuery({
-    queryKey: ['notes', address, archived ? 'archived' : 'active', debouncedSearch.trim()],
+    queryKey: ['notes', address, archived === undefined ? 'all' : archived ? 'archived' : 'active', debouncedSearch.trim()],
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const searchParams = new URLSearchParams();
       if (archived !== undefined) searchParams.set('archived', String(archived));

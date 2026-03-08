@@ -7,6 +7,7 @@ import styles from './NoteCard.module.scss';
 type NoteCardProps = {
   note: NoteDocument;
   onClick: () => void;
+  showArchivedBadge?: boolean;
 };
 
 function colorClass(color: string | null | undefined) {
@@ -15,7 +16,7 @@ function colorClass(color: string | null | undefined) {
   return styles[key];
 }
 
-export function NoteCard({ note, onClick }: NoteCardProps) {
+export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardProps) {
   const date = new Date(note.updatedAt).toLocaleDateString();
 
   return (
@@ -28,6 +29,7 @@ export function NoteCard({ note, onClick }: NoteCardProps) {
     >
       {note.title && <h3 className={styles.title}>{note.title}</h3>}
       {note.content && <div className={styles.content} dangerouslySetInnerHTML={{ __html: note.content }} />}
+      {showArchivedBadge && note.archived && <span className={styles.archivedBadge}>Archived</span>}
       <span className={styles.date}>{date}</span>
     </div>
   );

@@ -15,6 +15,7 @@ type NotesGridProps = {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  showArchivedBadge?: boolean;
 };
 
 export function NotesGrid({
@@ -24,6 +25,7 @@ export function NotesGrid({
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
+  showArchivedBadge = false,
 }: NotesGridProps) {
   const [selected, setSelected] = useState<NoteDocument | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export function NotesGrid({
     <>
       <div className={styles.grid}>
         {notes.map((note) => (
-          <NoteCard key={note._id.toString()} note={note} onClick={() => setSelected(note)} />
+          <NoteCard key={note._id.toString()} note={note} onClick={() => setSelected(note)} showArchivedBadge={showArchivedBadge} />
         ))}
       </div>
 

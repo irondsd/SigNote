@@ -13,7 +13,8 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const address = session?.user?.address as Address;
 
-  const archived = req.nextUrl.searchParams.get('archived') === 'true';
+  const archivedParam = req.nextUrl.searchParams.get('archived');
+  const archived = archivedParam === null ? undefined : archivedParam === 'true';
   const limit = Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30);
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
   const search = (req.nextUrl.searchParams.get('q') || '').trim();

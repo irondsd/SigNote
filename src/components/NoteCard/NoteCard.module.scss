@@ -126,6 +126,17 @@
   }
 }
 
+.archivedBadge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .date {
   font-size: 11px;
   color: var(--muted-foreground);

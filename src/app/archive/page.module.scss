@@ -59,24 +59,6 @@
   }
 }
 
-.searchWrap {
-  position: relative;
-  width: min(360px, 70vw);
-}
-
-.searchIcon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted-foreground);
-  pointer-events: none;
-}
-
-.searchInput {
-  padding-left: 32px;
-}
-
 .loading {
   display: flex;
   align-items: center;

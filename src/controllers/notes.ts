@@ -31,8 +31,8 @@ export const createNote = async (address: Address, title: string, content: strin
   return note;
 };
 
-export const getNotesByAddress = async (address: string, archived = false, limit = 30, offset = 0, search = '') => {
-  const baseQuery = { address, archived, deletedAt: null };
+export const getNotesByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
+  const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalizedSearch = search.trim();
 
   if (!normalizedSearch) {
@@ -66,27 +66,27 @@ export const updateNote = async (id: string, title: string, content: string) => 
       updatedAt: now,
     },
     {
-      new: true,
+      returnDocument: 'after',
     },
   ).exec();
 };
 
 export const deleteNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { deletedAt: new Date() }, { new: true }).exec();
+  return NoteModel.findByIdAndUpdate(id, { deletedAt: new Date() }, { returnDocument: 'after' }).exec();
 };
 
 export const undeleteNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { deletedAt: null }, { new: true }).exec();
+  return NoteModel.findByIdAndUpdate(id, { deletedAt: null }, { returnDocument: 'after' }).exec();
 };
 
 export const archiveNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { archived: true }, { new: true }).exec();
+  return NoteModel.findByIdAndUpdate(id, { archived: true }, { returnDocument: 'after' }).exec();
 };
 
 export const unarchiveNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { archived: false }, { new: true }).exec();
+  return NoteModel.findByIdAndUpdate(id, { archived: false }, { returnDocument: 'after' }).exec();
 };
 
 export const updateNoteColor = async (id: string, color: string | null) => {
-  return NoteModel.findByIdAndUpdate(id, { color }, { new: true }).exec();
+  return NoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
 };

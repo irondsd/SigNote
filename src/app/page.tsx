@@ -16,7 +16,7 @@ export default function Page() {
   const { data: session, status } = useSession();
   const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useNotes({
-    archived: false,
+    archived: search ? undefined : false,
     search,
   });
   const [showNewNote, setShowNewNote] = useState(false);
@@ -46,7 +46,7 @@ export default function Page() {
         {isAuthenticated && (
           <div className="flex gap-1">
             <Link href="/archive">
-              <Button variant="outline" size="lg" className={styles.button}>
+              <Button variant="ghost" size="lg" className={styles.button}>
                 <Archive size={18} />
                 Archive
               </Button>
@@ -70,6 +70,7 @@ export default function Page() {
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}
+          showArchivedBadge={!!search}
         />
       ) : (
         <UnauthenticatedState />
