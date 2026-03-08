@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -17,6 +17,8 @@ type TiptapEditorProps = {
 };
 
 export function TiptapEditor({ content, onChange, editable, placeholder }: TiptapEditorProps) {
+  const editableRef = useRef(editable);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -28,11 +30,14 @@ export function TiptapEditor({ content, onChange, editable, placeholder }: Tipta
     content,
     editable,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      if (editableRef.current) {
+        onChange(editor.getHTML());
+      }
     },
   });
 
   useEffect(() => {
+    editableRef.current = editable;
     editor?.setEditable(editable);
   }, [editor, editable]);
 
