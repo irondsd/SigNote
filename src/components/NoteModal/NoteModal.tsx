@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
 import type { NoteDocument } from '@/models/Note';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
-import { useDeleteNote, useUndeleteNote, useUpdateNote } from '@/hooks/useNoteMutations';
+import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import styles from './NoteModal.module.scss';
@@ -16,7 +16,7 @@ type NoteModalProps = {
   onClose: () => void;
 };
 
-const SWATCH_COLORS: Record<NoteColor, string> = {
+const SWITCH_COLORS: Record<NoteColor, string> = {
   yellow: '#FFD54F',
   red: '#F28B82',
   blue: '#90CAF9',
@@ -52,7 +52,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
       action: {
         label: 'Undo',
         onClick: () => {
-          undeleteNote.mutate(note._id.toString());
+          undeleteNote.mutate({ id: note._id.toString(), note: note as unknown as CachedNote });
           toast.success('Note restored');
         },
       },
@@ -101,7 +101,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                   <Palette size={16} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent className={cn(styles.colorPickerContent, 'z-[200]')} align="end" sideOffset={8}>
+              <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
                 <div className={styles.colorSwatches}>
                   <button
                     className={cn(styles.swatch, styles.swatchDefault, !color && styles.swatchSelected)}
@@ -112,7 +112,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                     <button
                       key={c}
                       className={cn(styles.swatch, color === c && styles.swatchSelected)}
-                      style={{ background: SWATCH_COLORS[c] }}
+                      style={{ background: SWITCH_COLORS[c] }}
                       onClick={() => handleColorChange(c)}
                       title={c.charAt(0).toUpperCase() + c.slice(1)}
                     />

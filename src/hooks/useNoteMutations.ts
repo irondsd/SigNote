@@ -3,7 +3,7 @@
 import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-type Note = {
+export type CachedNote = {
   _id: string;
   title: string;
   content: string;
@@ -35,7 +35,7 @@ async function apiDeleteNote(id: string) {
   return res.json();
 }
 
-async function apiUndeleteNote(id: string) {
+async function apiUndeleteNote({ id }: { id: string; note: CachedNote }) {
   const res = await fetch(`/api/notes/t1/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -61,9 +61,9 @@ export const useCreateNote = () => {
     mutationFn: apiCreateNote,
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
 
-      const tempNote: Note = {
+      const tempNote: CachedNote = {
         _id: `temp-${Date.now()}`,
         title: input.title,
         content: input.content,
@@ -102,7 +102,7 @@ export const useDeleteNote = () => {
     mutationFn: apiDeleteNote,
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
       snapshots.forEach(([queryKey, data]) => {
         if (!data) return;
         qc.setQueryData(queryKey, {
@@ -124,7 +124,28 @@ export const useUndeleteNote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiUndeleteNote,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onMutate: async ({ note }) => {
+      await qc.cancelQueries({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
+      const restoredNote = { ...note, deletedAt: null };
+
+      snapshots.forEach(([queryKey, data]) => {
+        if (!data) return;
+        if (queryKey[2] === 'archived') return;
+        const firstPage = data.pages[0] ?? [];
+        qc.setQueryData(queryKey, {
+          ...data,
+          pages: [[restoredNote, ...firstPage], ...data.pages.slice(1)],
+        });
+      });
+
+      return { snapshots };
+    },
+    onError: (_err, _vars, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      toast.error('Failed to restore note');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
   });
 };
 
@@ -134,28 +155,57 @@ export const useUpdateNote = () => {
     mutationFn: apiUpdateNote,
     onMutate: async ({ id, archived, ...rest }) => {
       await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<Note[]>>({ queryKey: ['notes'] });
+      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
       const isArchiveToggle = archived !== undefined;
+
+      // Find the note across all caches so we can move it when toggling archive
+      let foundNote: CachedNote | undefined;
+      if (isArchiveToggle) {
+        for (const [, data] of snapshots) {
+          if (!data) continue;
+          for (const page of data.pages) {
+            const n = page.find((note) => note._id === id);
+            if (n) { foundNote = n; break; }
+          }
+          if (foundNote) break;
+        }
+      }
 
       snapshots.forEach(([queryKey, data]) => {
         if (!data) return;
         const isArchivedView = queryKey[2] === 'archived';
 
-        const updatedPages = data.pages.map((page) =>
-          page
-            .map((note) =>
-              note._id === id
-                ? { ...note, ...rest, archived: archived ?? note.archived }
-                : note
-            )
-            .filter((note) => {
-              if (note._id !== id || !isArchiveToggle) return true;
-              // Keep the note only if it now belongs to this view
-              return note.archived === isArchivedView;
-            })
-        );
-
-        qc.setQueryData(queryKey, { ...data, pages: updatedPages });
+        if (isArchiveToggle && foundNote) {
+          const noteNowBelongsHere = (archived === true) === isArchivedView;
+          if (noteNowBelongsHere) {
+            // Add to the destination view's first page (avoid duplicates)
+            const updatedNote = { ...foundNote, ...rest, archived: archived! };
+            const firstPage = data.pages[0] ?? [];
+            qc.setQueryData(queryKey, {
+              ...data,
+              pages: [
+                [updatedNote, ...firstPage.filter((n) => n._id !== id)],
+                ...data.pages.slice(1),
+              ],
+            });
+          } else {
+            // Remove from the source view
+            qc.setQueryData(queryKey, {
+              ...data,
+              pages: data.pages.map((page) => page.filter((note) => note._id !== id)),
+            });
+          }
+        } else {
+          // Plain update in place
+          qc.setQueryData(queryKey, {
+            ...data,
+            pages: data.pages.map((page) =>
+              page.map((note) =>
+                note._id === id ? { ...note, ...rest, archived: archived ?? note.archived } : note
+              )
+            ),
+          });
+        }
       });
 
       return { snapshots };

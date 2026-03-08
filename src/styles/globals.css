@@ -89,7 +89,7 @@
 }
 
 .dark {
-  --note-yellow: oklch(0.30 0.07 90);
+  --note-yellow: oklch(0.3 0.07 90);
   --note-red: oklch(0.27 0.06 15);
   --note-blue: oklch(0.26 0.06 250);
   --note-green: oklch(0.27 0.06 148);
@@ -130,9 +130,11 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--color-border);
+    outline-color: var(--color-ring);
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }
