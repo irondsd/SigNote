@@ -9,6 +9,7 @@ import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
 import { getQueryClient } from '@/utils/getQueryClient';
 import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
 
 type WagmiProviderProps = {
   children: ReactNode;
@@ -18,12 +19,20 @@ const appInfo = { appName: 'Next Web3 Starter' };
 
 export const Web3Provider: FC<WagmiProviderProps> = ({ children }) => {
   const queryClient = getQueryClient();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const rkTheme = mounted && resolvedTheme === 'dark' ? darkTheme() : lightTheme();
 
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider appInfo={appInfo} theme={theme === 'dark' ? darkTheme() : lightTheme()}>
+        <RainbowKitProvider appInfo={appInfo} theme={rkTheme}>
           {children}
         </RainbowKitProvider>
         <ReactQueryDevtools initialIsOpen={false} />
