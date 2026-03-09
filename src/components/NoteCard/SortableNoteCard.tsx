@@ -80,7 +80,7 @@ export function SortableNoteCard({ note, onClick, showArchivedBadge, isDragDisab
   );
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.4 : undefined,
   };
 

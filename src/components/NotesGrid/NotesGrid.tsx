@@ -46,6 +46,7 @@ export function NotesGrid({
 }: NotesGridProps) {
   const [selected, setSelected] = useState<NoteDocument | null>(null);
   const [activeNote, setActiveNote] = useState<NoteDocument | null>(null);
+  const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const reorderMutation = useReorderNote();
 
@@ -65,6 +66,10 @@ export function NotesGrid({
     (event: DragStartEvent) => {
       const note = notes?.find((n) => n._id.toString() === event.active.id);
       setActiveNote(note ?? null);
+      const rect = event.active.rect.current.initial;
+      if (rect) {
+        setActiveDragSize({ width: rect.width, height: rect.height });
+      }
     },
     [notes],
   );
@@ -72,6 +77,7 @@ export function NotesGrid({
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveNote(null);
+      setActiveDragSize(null);
       const { active, over } = event;
       if (!over || active.id === over.id || !notes) return;
 
@@ -142,7 +148,11 @@ export function NotesGrid({
         </SortableContext>
 
         <DragOverlay dropAnimation={null}>
-          {activeNote ? <NoteCard note={activeNote} onClick={() => {}} showArchivedBadge={showArchivedBadge} /> : null}
+          {activeNote ? (
+            <div style={activeDragSize ? { width: activeDragSize.width, height: activeDragSize.height } : undefined}>
+              <NoteCard note={activeNote} onClick={() => {}} showArchivedBadge={showArchivedBadge} />
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
 
