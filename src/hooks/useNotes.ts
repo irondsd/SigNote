@@ -26,7 +26,12 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
   }, [search]);
 
   return useInfiniteQuery({
-    queryKey: ['notes', address, archived === undefined ? 'all' : archived ? 'archived' : 'active', debouncedSearch.trim()],
+    queryKey: [
+      'notes',
+      address,
+      archived === undefined ? 'all' : archived ? 'archived' : 'active',
+      debouncedSearch.trim(),
+    ],
     queryFn: async ({ pageParam }: { pageParam: number }) => {
       const searchParams = new URLSearchParams();
       if (archived !== undefined) searchParams.set('archived', String(archived));
@@ -41,7 +46,7 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
       searchParams.set('limit', String(limit));
       searchParams.set('offset', String(offset));
 
-      const endpoint = `/api/notes/t1?${searchParams.toString()}`;
+      const endpoint = `/api/notes?${searchParams.toString()}`;
 
       const res = await fetch(endpoint);
       if (!res.ok) {

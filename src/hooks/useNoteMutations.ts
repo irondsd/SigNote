@@ -27,7 +27,7 @@ type UpdateNoteInput = {
 };
 
 async function apiCreateNote(input: CreateNoteInput) {
-  const res = await fetch('/api/notes/t1', {
+  const res = await fetch('/api/notes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
