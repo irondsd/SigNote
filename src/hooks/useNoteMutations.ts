@@ -17,7 +17,14 @@ export type CachedNote = {
 };
 
 type CreateNoteInput = { title: string; content: string };
-type UpdateNoteInput = { id: string; title?: string; content?: string; archived?: boolean; deleted?: boolean; color?: string | null };
+type UpdateNoteInput = {
+  id: string;
+  title?: string;
+  content?: string;
+  archived?: boolean;
+  deleted?: boolean;
+  color?: string | null;
+};
 
 async function apiCreateNote(input: CreateNoteInput) {
   const res = await fetch('/api/notes/t1', {
@@ -30,13 +37,13 @@ async function apiCreateNote(input: CreateNoteInput) {
 }
 
 async function apiDeleteNote(id: string) {
-  const res = await fetch(`/api/notes/t1/${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete note');
   return res.json();
 }
 
 async function apiUndeleteNote({ id }: { id: string; note: CachedNote }) {
-  const res = await fetch(`/api/notes/t1/${id}`, {
+  const res = await fetch(`/api/notes/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deleted: false }),
@@ -46,7 +53,7 @@ async function apiUndeleteNote({ id }: { id: string; note: CachedNote }) {
 }
 
 async function apiUpdateNote({ id, ...data }: UpdateNoteInput) {
-  const res = await fetch(`/api/notes/t1/${id}`, {
+  const res = await fetch(`/api/notes/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -165,7 +172,10 @@ export const useUpdateNote = () => {
           if (!data) continue;
           for (const page of data.pages) {
             const n = page.find((note) => note._id === id);
-            if (n) { foundNote = n; break; }
+            if (n) {
+              foundNote = n;
+              break;
+            }
           }
           if (foundNote) break;
         }
@@ -183,10 +193,7 @@ export const useUpdateNote = () => {
             const firstPage = data.pages[0] ?? [];
             qc.setQueryData(queryKey, {
               ...data,
-              pages: [
-                [updatedNote, ...firstPage.filter((n) => n._id !== id)],
-                ...data.pages.slice(1),
-              ],
+              pages: [[updatedNote, ...firstPage.filter((n) => n._id !== id)], ...data.pages.slice(1)],
             });
           } else {
             // Remove from the source view
@@ -200,9 +207,7 @@ export const useUpdateNote = () => {
           qc.setQueryData(queryKey, {
             ...data,
             pages: data.pages.map((page) =>
-              page.map((note) =>
-                note._id === id ? { ...note, ...rest, archived: archived ?? note.archived } : note
-              )
+              page.map((note) => (note._id === id ? { ...note, ...rest, archived: archived ?? note.archived } : note)),
             ),
           });
         }

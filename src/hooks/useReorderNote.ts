@@ -12,7 +12,7 @@ type ReorderInput = {
 };
 
 async function apiReorderNote({ id, position }: ReorderInput) {
-  const res = await fetch(`/api/notes/t1/${id}`, {
+  const res = await fetch(`/api/notes/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ position }),
