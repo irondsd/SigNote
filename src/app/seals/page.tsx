@@ -1,18 +1,114 @@
 'use client';
 
-import { Vault } from 'lucide-react';
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { Plus, Archive, Lock, LockOpen } from 'lucide-react';
+import { useSeals } from '@/hooks/useSeals';
+import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
+import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
+import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
+import { NewSealModal } from '@/components/NewSealModal/NewSealModal';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import styles from './page.module.scss';
 
 export default function SealsPage() {
+  const { data: session, status } = useSession();
+  const { profileStatus, isUnlocked, lock } = useEncryption();
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSeals({ archived: false });
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [showNewSeal, setShowNewSeal] = useState(false);
+  const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+
+  const isAuthenticated = !!session?.user?.address;
+  const notes = data?.pages.flatMap((page) => page) ?? [];
+  const showLoadingState = isLoading || status === 'loading' || profileStatus === 'loading';
+
+  const handleNewSeal = () => {
+    if (!isUnlocked) {
+      setOpenNewAfterUnlock(true);
+      setShowPassphrase(true);
+      return;
+    }
+    setShowNewSeal(true);
+  };
+
+  const handleUnlockSuccess = () => {
+    setShowPassphrase(false);
+    if (openNewAfterUnlock) {
+      setOpenNewAfterUnlock(false);
+      setShowNewSeal(true);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.topBar}>
-        <h1 className={styles.heading}>Seals</h1>
+        <div className={styles.headingGroup}>
+          <h1 className={styles.heading}>My Seals</h1>
+          {isAuthenticated && profileStatus === 'exists' && (
+            <span className={styles.lockBadge}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
+          )}
+        </div>
+
+        {isAuthenticated && profileStatus === 'exists' && (
+          <div className="flex gap-1">
+            {isUnlocked ? (
+              <Button variant="ghost" size="lg" onClick={lock} className={styles.button}>
+                <Lock size={18} />
+                Lock
+              </Button>
+            ) : (
+              <Button variant="ghost" size="lg" onClick={() => setShowPassphrase(true)} className={styles.button}>
+                <LockOpen size={18} />
+                Unlock
+              </Button>
+            )}
+            <Link href="/seals/archive">
+              <Button variant="ghost" size="lg" className={styles.button}>
+                <Archive size={18} />
+                Archive
+              </Button>
+            </Link>
+            <Button variant="default" size="lg" onClick={handleNewSeal} className={styles.button}>
+              <Plus size={18} />
+              New Seal
+            </Button>
+          </div>
+        )}
       </div>
-      <div className={styles.empty}>
-        <Vault size={48} strokeWidth={1.2} />
-        <p>Seals (Tier 3) — coming soon</p>
-      </div>
+
+      {showLoadingState ? (
+        <div className={styles.loading}>
+          <span className={styles.spinner} />
+        </div>
+      ) : !isAuthenticated ? (
+        <UnauthenticatedState />
+      ) : profileStatus === 'missing' ? (
+        <EncryptionSetup />
+      ) : (
+        <SealsGrid
+          notes={notes}
+          onNewNote={handleNewSeal}
+          onLoadMore={() => fetchNextPage()}
+          hasMore={hasNextPage ?? false}
+          isLoadingMore={isFetchingNextPage}
+        />
+      )}
+
+      {showPassphrase && (
+        <PassphraseModal
+          onSuccess={handleUnlockSuccess}
+          onClose={() => {
+            setShowPassphrase(false);
+            setOpenNewAfterUnlock(false);
+          }}
+        />
+      )}
+
+      {showNewSeal && <NewSealModal onClose={() => setShowNewSeal(false)} />}
     </div>
   );
 }

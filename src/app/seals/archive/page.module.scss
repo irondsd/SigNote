@@ -38,23 +38,6 @@
   white-space: nowrap;
 }
 
-.lockBadge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted-foreground);
-  background: var(--muted);
-  border-radius: 6px;
-  padding: 2px 8px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.button {
-  @media (max-width: 500px) {
-    padding: 8px;
-  }
-}
-
 .loading {
   display: flex;
   align-items: center;

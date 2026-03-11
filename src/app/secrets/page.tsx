@@ -1,18 +1,114 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { Plus, Archive, Lock, LockOpen } from 'lucide-react';
+import { useSecrets } from '@/hooks/useSecrets';
+import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
+import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
+import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
+import { NewSecretModal } from '@/components/NewSecretModal/NewSecretModal';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import styles from './page.module.scss';
 
 export default function SecretsPage() {
+  const { data: session, status } = useSession();
+  const { profileStatus, isUnlocked, lock } = useEncryption();
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({ archived: false });
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [showNewSecret, setShowNewSecret] = useState(false);
+  const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+
+  const isAuthenticated = !!session?.user?.address;
+  const notes = data?.pages.flatMap((page) => page) ?? [];
+  const showLoadingState = isLoading || status === 'loading' || profileStatus === 'loading';
+
+  const handleNewSecret = () => {
+    if (!isUnlocked) {
+      setOpenNewAfterUnlock(true);
+      setShowPassphrase(true);
+      return;
+    }
+    setShowNewSecret(true);
+  };
+
+  const handleUnlockSuccess = () => {
+    setShowPassphrase(false);
+    if (openNewAfterUnlock) {
+      setOpenNewAfterUnlock(false);
+      setShowNewSecret(true);
+    }
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.topBar}>
-        <h1 className={styles.heading}>Secrets</h1>
+        <div className={styles.headingGroup}>
+          <h1 className={styles.heading}>My Secrets</h1>
+          {isAuthenticated && profileStatus === 'exists' && (
+            <span className={styles.lockBadge}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
+          )}
+        </div>
+
+        {isAuthenticated && profileStatus === 'exists' && (
+          <div className="flex gap-1">
+            {isUnlocked ? (
+              <Button variant="ghost" size="lg" onClick={lock} className={styles.button}>
+                <Lock size={18} />
+                Lock
+              </Button>
+            ) : (
+              <Button variant="ghost" size="lg" onClick={() => setShowPassphrase(true)} className={styles.button}>
+                <LockOpen size={18} />
+                Unlock
+              </Button>
+            )}
+            <Link href="/secrets/archive">
+              <Button variant="ghost" size="lg" className={styles.button}>
+                <Archive size={18} />
+                Archive
+              </Button>
+            </Link>
+            <Button variant="default" size="lg" onClick={handleNewSecret} className={styles.button}>
+              <Plus size={18} />
+              New Secret
+            </Button>
+          </div>
+        )}
       </div>
-      <div className={styles.empty}>
-        <ShieldCheck size={48} strokeWidth={1.2} />
-        <p>Secrets (Tier 2) — coming soon</p>
-      </div>
+
+      {showLoadingState ? (
+        <div className={styles.loading}>
+          <span className={styles.spinner} />
+        </div>
+      ) : !isAuthenticated ? (
+        <UnauthenticatedState />
+      ) : profileStatus === 'missing' ? (
+        <EncryptionSetup />
+      ) : (
+        <SecretsGrid
+          notes={notes}
+          onNewNote={handleNewSecret}
+          onLoadMore={() => fetchNextPage()}
+          hasMore={hasNextPage ?? false}
+          isLoadingMore={isFetchingNextPage}
+        />
+      )}
+
+      {showPassphrase && (
+        <PassphraseModal
+          onSuccess={handleUnlockSuccess}
+          onClose={() => {
+            setShowPassphrase(false);
+            setOpenNewAfterUnlock(false);
+          }}
+        />
+      )}
+
+      {showNewSecret && <NewSecretModal onClose={() => setShowNewSecret(false)} />}
     </div>
   );
 }

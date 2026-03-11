@@ -8,6 +8,7 @@ import { ThemeProvider } from 'next-themes';
 import { Sidebar } from '@/components/Sidebar/Sidebar';
 import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
 import { Toaster } from '@/components/ui/sonner';
+import { EncryptionProvider } from '@/contexts/EncryptionContext';
 
 export const metadata = {
   title: 'SigNote',
@@ -25,6 +26,7 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <Web3Provider>
+              <EncryptionProvider>
               <div className={s.shell}>
                 <Sidebar />
                 <div className={s.content}>
@@ -32,6 +34,7 @@ export default async function RootLayout({
                   <main className={s.main}>{children}</main>
                 </div>
               </div>
+              </EncryptionProvider>
             </Web3Provider>
           </AuthSessionProvider>
           <Toaster />

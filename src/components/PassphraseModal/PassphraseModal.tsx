@@ -1,0 +1,75 @@
+'use client';
+
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import styles from './PassphraseModal.module.scss';
+
+type PassphraseModalProps = {
+  onSuccess: () => void;
+  onClose: () => void;
+};
+
+export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
+  const { unlock } = useEncryption();
+  const [passphrase, setPassphrase] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passphrase.trim()) {
+      setError('Passphrase is required.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await unlock(passphrase);
+      onSuccess();
+    } catch {
+      setError('Incorrect passphrase. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <h2 className={styles.heading}>Unlock encrypted notes</h2>
+          <button className={styles.closeBtn} onClick={onClose} title="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form className={styles.body} onSubmit={handleSubmit}>
+          <p className={styles.hint}>Enter your passphrase to decrypt your notes for this session.</p>
+
+          <Input
+            type="password"
+            autoComplete="current-password"
+            placeholder="Your passphrase"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            disabled={loading}
+            autoFocus
+          />
+
+          {error && <p className={styles.error}>{error}</p>}
+
+          <div className={styles.actions}>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading || !passphrase.trim()}>
+              {loading ? 'Unlocking…' : 'Unlock'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
