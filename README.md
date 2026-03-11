@@ -2,7 +2,7 @@
 
 SigNote is a wallet-native notes app with three security tiers.
 
-It uses **Sign-In with Ethereum (SIWE)** for authentication and wallet signatures to derive encryption keys for higher-security notes. The goal is simple: keep note ownership tied to an Ethereum address while letting users choose the right privacy level for each note.
+It uses **Sign-In with Ethereum (SIWE)** for authentication and a passphrase-based encryption system for higher-security notes. The goal is simple: keep note ownership tied to an Ethereum address while letting users choose the right privacy level for each note.
 
 ## Core idea
 
@@ -10,54 +10,101 @@ SigNote organizes notes into three tiers:
 
 ### Tier 1 — Notes
 
-- Stored in MongoDB as plain text.
+- Stored as plain text in MongoDB.
 - Searchable by **title and content**.
 - Best for everyday notes where convenience matters more than encryption.
 
 ### Tier 2 — Secrets
 
-- `title` remains unencrypted.
-- `content` is encrypted on the client.
-- Search works by **title only**.
-- Encryption uses a single symmetric key derived from the user signing a predictable wallet message.
-- That derived key is kept **in memory for the active session**.
+- `title` remains unencrypted for search and navigation.
+- `body` is encrypted client-side before leaving the browser.
+- All bodies share a single session key derived from the master encryption key (MEK).
+- After passphrase unlock, all bodies decrypt in the background for the session.
+- Locking clears all key material from memory and session storage.
+- Searchable by **title only**.
 
 ### Tier 3 — Seals
 
 - `title` remains unencrypted.
-- `content` is encrypted on the client.
-- Search works by **title only**.
-- Each note gets its own symmetric key.
-- The key is derived from a wallet signature over a message that includes the `noteId`, so encryption is **per note**, not per session.
+- `body` is encrypted with a **unique per-note key** (NEK).
+- Bodies are never decrypted in bulk — each seal decrypts individually on demand inside its modal.
+- After viewing, the user can re-encrypt the note and the decrypted content is discarded.
+- Searchable by **title only**.
 
-For both Tier 2 and Tier 3, the database stores **encrypted note data only**, and encryption/decryption happen **client-side**.
+For both Tier 2 and Tier 3, the server stores **ciphertext only**, and all encryption and decryption happens **client-side using the Web Crypto API**. The server never sees plaintext note bodies or any key material capable of decrypting them.
 
-## Current repo status
+---
 
-This repository already includes:
+## Encryption model
 
-- SIWE-based authentication
-- Wallet connection with RainbowKit + Wagmi
-- Tier 1 note CRUD
-- Tier 1 search by title and content
-- Archive flow for Tier 1 notes
-- Next.js App Router UI with shadcn/ui-based components
+### Passphrase and key derivation
 
-Tier 2 (**Secrets**) and Tier 3 (**Seals**) represent the intended security model of the app and are currently being built out in the product.
+Encryption is unlocked with a user-chosen passphrase. The passphrase itself is never stored. Instead, during setup:
 
-## Stack
+1. A random 32-byte `salt` is generated client-side.
+2. The passphrase is run through **PBKDF2** (SHA-256, 600,000 iterations) to produce a 32-byte `deviceShare`.
+3. A random 32-byte `serverShare` is generated client-side and stored encrypted in MongoDB (associated with the wallet address).
+4. The **Master Encryption Key (MEK)** is `deviceShare XOR serverShare`. The MEK is never stored anywhere.
 
-- **Next.js** (App Router)
-- **React**
-- **NextAuth** with SIWE credentials flow
-- **MongoDB** with Mongoose
-- **Vercel-style serverless route handlers**
-- **Wagmi** + **RainbowKit** for wallet connection
-- **shadcn/ui** components
-- **Tiptap** editor
-- **Sass modules** for styling
+After setup, `deviceShare` is kept in `sessionStorage` for the duration of the browser session. This means the MEK can be reconstructed silently on page reload without re-prompting for a passphrase — and is automatically discarded when the tab closes.
 
-## How authentication works
+To unlock from a new tab or after `sessionStorage` is cleared, the user re-enters the passphrase. This re-derives `deviceShare` from the stored `salt`, fetches `serverShare` from the server, and reconstructs the MEK.
+
+### Two-share key architecture
+
+The MEK is split into two shares specifically to limit what either side alone can compromise:
+
+- **Server compromise**: An attacker who steals the database gets `serverShare` but not `deviceShare` (which is derived from the passphrase and never stored server-side). Without the passphrase, they cannot reconstruct the MEK.
+- **Client compromise**: An attacker who reads `sessionStorage` gets `deviceShare` but not `serverShare`. Without the server, they cannot reconstruct the MEK. (Once `sessionStorage` is cleared — on tab close or explicit lock — there is nothing to steal.)
+
+The MEK itself only ever exists in memory, as a non-extractable `CryptoKey` object, for the duration of an unlocked session.
+
+### Passphrase verification
+
+A `keyCheck` payload is stored with the encryption profile. It is an AES-GCM ciphertext of a known constant, encrypted with a key derived from the MEK using HKDF. On unlock, the app attempts to decrypt `keyCheck` — success means the passphrase was correct, failure means it was wrong. No oracle is needed on the server.
+
+### Key hierarchy (HKDF)
+
+Once the MEK is in memory it is imported as an HKDF base key (non-extractable). All working keys are derived from it using HKDF (SHA-256) with distinct `info` strings to ensure domain separation:
+
+| Derived key | HKDF info string | Used for |
+|---|---|---|
+| `secretBodyKey` | `signote-v1/secret-body` | Encrypting and decrypting all Secrets bodies |
+| `verifyKey` | `signote-v1/verify` | Encrypting the `keyCheck` payload |
+| `sealWrapKey(id)` | `signote-v1/seal-wrap/<noteId>` | Wrapping the per-note NEK for each Seal |
+
+Because the `sealWrapKey` derivation includes the note ID in the info string, each note gets a unique wrapping key even though they share the same MEK.
+
+### Secrets encryption
+
+Each Secret body is encrypted with AES-GCM 256-bit using `secretBodyKey`. A fresh random 12-byte IV is generated per encryption operation. The ciphertext and IV are stored together in MongoDB.
+
+### Seals encryption — per-note keys
+
+Each Seal uses a unique 32-byte Note Encryption Key (NEK):
+
+1. A random NEK is generated and used to encrypt the note body with AES-GCM 256-bit. The note ID is used as Additional Authenticated Data (AAD) on both operations.
+2. The NEK is then wrapped (encrypted) with `sealWrapKey(noteId)` — also AES-GCM, also with the note ID as AAD.
+3. The encrypted body and the wrapped NEK are both stored in MongoDB.
+
+To decrypt, the process is reversed: derive the seal wrapping key → unwrap the NEK → decrypt the body. If the note ID does not match the AAD used during encryption, decryption fails.
+
+This design means that if a single seal's NEK were somehow recovered, it compromises only that note, not all Seals.
+
+### Cryptographic primitives
+
+All cryptography uses the browser's built-in **Web Crypto API** (no third-party crypto libraries):
+
+- **PBKDF2** — passphrase-to-key derivation
+- **HKDF** — working key derivation from MEK
+- **AES-GCM 256-bit** — authenticated encryption for all ciphertexts
+- **XOR** — combining two 32-byte shares into the MEK
+
+Keys are created as non-extractable `CryptoKey` objects where possible, preventing JavaScript from reading the raw key bytes.
+
+---
+
+## Authentication
 
 SigNote authenticates users with SIWE:
 
@@ -68,13 +115,35 @@ SigNote authenticates users with SIWE:
 
 Because SIWE validates the domain and origin, `NEXTAUTH_URL` must exactly match the URL you use in the browser during local development and deployment.
 
+---
+
 ## Search model
 
-- **Tier 1:** searchable by title and content.
-- **Tier 2:** searchable by title only.
-- **Tier 3:** searchable by title only.
+| Tier | Searchable fields |
+|---|---|
+| Notes | Title + content |
+| Secrets | Title only |
+| Seals | Title only |
 
-This is intentional: titles stay visible for indexing and navigation, while higher-tier note bodies stay encrypted.
+Titles are intentionally left unencrypted to enable full-text indexing while keeping bodies private.
+
+---
+
+## Stack
+
+- **Next.js** (App Router)
+- **React 19**
+- **NextAuth** with SIWE credentials flow
+- **MongoDB** with Mongoose
+- **Web Crypto API** for all client-side encryption
+- **Wagmi** + **RainbowKit** for wallet connection
+- **TanStack Query v5** for server state
+- **shadcn/ui** components
+- **Tiptap** rich text editor
+- **dnd-kit** for drag-and-drop reordering
+- **Sass modules** for styling
+
+---
 
 ## Getting started
 
@@ -85,8 +154,6 @@ npm install
 ```
 
 ### 2. Create your local environment file
-
-Copy `.env.local.example` to `.env.local` and fill in the values.
 
 ```bash
 cp .env.local.example .env.local
@@ -103,16 +170,16 @@ NEXTAUTH_URL="http://localhost:5000"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
 ```
 
-#### Variable reference
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi |
+| `NEXT_PUBLIC_RPC_URL` | Ethereum RPC endpoint used by the app |
+| `MONGODB_URI` | MongoDB connection string |
+| `MONGODB_DB` | Database name |
+| `NEXTAUTH_URL` | Exact public app origin used for SIWE verification |
+| `NEXTAUTH_SECRET` | Secret used by NextAuth to sign sessions |
 
-- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`: WalletConnect project ID used by RainbowKit/Wagmi.
-- `NEXT_PUBLIC_RPC_URL`: Ethereum RPC endpoint used by the app.
-- `MONGODB_URI`: MongoDB connection string.
-- `MONGODB_DB`: database name.
-- `NEXTAUTH_URL`: exact public app origin used for SIWE verification.
-- `NEXTAUTH_SECRET`: secret used by NextAuth to sign sessions.
-
-> Note: the local dev script runs on port `5000`, so `NEXTAUTH_URL` should usually be `http://localhost:5000` unless you intentionally change the port.
+> The local dev script runs on port `5000`, so `NEXTAUTH_URL` should be `http://localhost:5000` unless you change the port.
 
 ### 4. Run the app
 
@@ -122,25 +189,47 @@ npm run dev
 
 Then open [http://localhost:5000](http://localhost:5000).
 
+---
+
 ## Project structure
 
-- `src/app` — App Router pages and API route handlers
-- `src/components` — UI and feature components
-- `src/config` — auth, wallet, and server configuration
-- `src/controllers` — MongoDB-facing application logic
-- `src/models` — Mongoose models
-- `src/hooks` — client data and mutation hooks
-- `src/providers` — app-wide React providers
+```
+src/
+├── app/                  # App Router pages and API route handlers
+│   ├── api/
+│   │   ├── encryption/   # Profile and key material endpoints
+│   │   ├── notes/        # Tier 1 CRUD
+│   │   ├── secrets/      # Tier 2 CRUD
+│   │   └── seals/        # Tier 3 CRUD
+│   ├── secrets/          # Tier 2 pages
+│   └── seals/            # Tier 3 pages
+├── components/           # UI and feature components
+├── config/               # Auth, wallet, and server configuration
+├── contexts/             # EncryptionContext — MEK lifecycle management
+├── controllers/          # MongoDB-facing application logic
+├── hooks/                # Client data and mutation hooks
+├── lib/
+│   └── crypto.ts         # All client-side cryptographic operations
+├── models/               # Mongoose models
+└── providers/            # App-wide React providers
+```
+
+---
 
 ## Security notes
 
-- Wallet authentication is handled with SIWE.
-- Tier 1 notes are intentionally not encrypted.
-- Tier 2 and Tier 3 are designed so encrypted note bodies are never decrypted on the server.
-- Higher-tier search is title-only because titles stay unencrypted.
-- Session-scoped key material should remain in memory only.
+- Wallet authentication is handled with SIWE; no passwords are involved in authentication.
+- The MEK never leaves the browser and is never sent to the server in any form.
+- The `serverShare` stored in MongoDB is useless without the user's passphrase.
+- `sessionStorage` (which holds `deviceShare`) is tab-scoped and cleared automatically when the tab closes.
+- Explicit lock clears both the in-memory MEK and the `sessionStorage` entry immediately.
+- Sign-out clears the MEK and device share as soon as the session becomes unauthenticated.
+- Tier 1 notes are intentionally not encrypted — they are meant for convenience, not privacy.
+- Titles across all tiers are stored unencrypted to support search and navigation.
 
-As with any cryptography-heavy app, treat this project as evolving software and review the implementation carefully before using it for sensitive real-world data.
+As with any cryptography-heavy app, treat this as evolving software and review the implementation carefully before using it for sensitive real-world data.
+
+---
 
 ## Open source
 
