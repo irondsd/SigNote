@@ -3,15 +3,13 @@ import type { ClientRect } from '@dnd-kit/core';
 
 const GAP = 12;
 
-type Transform = { x: number; y: number; scaleX?: number; scaleY?: number };
-
 export function variableGridSortingStrategy(args: {
   activeNodeRect: ClientRect | null;
   activeIndex: number;
   index: number;
   rects: (ClientRect | null)[];
   overIndex: number;
-}): Transform | null {
+}) {
   const { activeIndex, overIndex, index, rects } = args;
   if (activeIndex === overIndex) return null;
   const currentRect = rects[index];
@@ -27,5 +25,5 @@ export function variableGridSortingStrategy(args: {
     newY += (rects[newOrder[k]]?.height ?? 0) + GAP;
   }
 
-  return { x: 0, y: newY - currentRect.top };
+  return { x: 0, y: newY - currentRect.top, scaleX: 1, scaleY: 1 };
 }
