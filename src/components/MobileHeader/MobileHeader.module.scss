@@ -31,24 +31,6 @@
   letter-spacing: -0.3px;
 }
 
-.burger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  color: var(--foreground);
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--accent);
-  }
-}
-
 .overlay {
   position: fixed;
   inset: 0;
@@ -78,31 +60,6 @@
 
 .drawerOpen {
   transform: translateX(0);
-}
-
-.closeBtn {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted-foreground);
-  transition:
-    background 0.15s,
-    color 0.15s;
-  z-index: 1;
-
-  &:hover {
-    background: var(--accent);
-    color: var(--foreground);
-  }
 }
 
 @keyframes fadeIn {

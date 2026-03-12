@@ -137,23 +137,3 @@
   font-family: var(--font-mono), monospace;
   color: var(--foreground);
 }
-
-.signOutBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  flex-shrink: 0;
-
-  &:hover {
-    background: var(--destructive);
-    color: white;
-  }
-}

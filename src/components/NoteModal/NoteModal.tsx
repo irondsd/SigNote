@@ -5,24 +5,16 @@ import { Trash2, Archive, X, Pencil, Check, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
 import type { NoteDocument } from '@/models/Note';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import { NOTE_COLORS, SWITCH_COLORS } from '@/config/noteColors';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 import styles from './NoteModal.module.scss';
 
 type NoteModalProps = {
   note: NoteDocument;
   onClose: () => void;
-};
-
-const SWITCH_COLORS: Record<NoteColor, string> = {
-  yellow: '#FFD54F',
-  red: '#F28B82',
-  blue: '#90CAF9',
-  green: '#81C995',
-  clay: '#E6B8A2',
-  gray: '#BDBDBD',
 };
 
 function noteColorClass(color: string | null | undefined) {
@@ -97,9 +89,9 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
           <div className={styles.headerActions}>
             <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
               <PopoverTrigger asChild>
-                <button className={styles.iconBtn} title="Note color">
+                <Button variant="ghost" size="icon-sm" title="Note color">
                   <Palette size={16} />
-                </button>
+                </Button>
               </PopoverTrigger>
               <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
                 <div className={styles.colorSwatches}>
@@ -120,12 +112,12 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                 </div>
               </PopoverContent>
             </Popover>
-            <button className={styles.iconBtn} onClick={() => setEditing(!editing)} title="Edit">
+            <Button variant="ghost" size="icon-sm" onClick={() => setEditing(!editing)} title="Edit">
               <Pencil size={16} />
-            </button>
-            <button className={styles.iconBtn} onClick={onClose} title="Close">
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
               <X size={18} />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -149,24 +141,25 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
           <span className={styles.date}>Updated {date}</span>
           <div className={styles.actions}>
             {editing ? (
-              <button className={`${styles.actionBtn} ${styles.save}`} onClick={handleSave}>
+              <Button size="sm" onClick={handleSave}>
                 <Check size={15} />
                 Save
-              </button>
+              </Button>
             ) : (
               <>
-                <button
-                  className={`${styles.actionBtn} ${styles.archive}`}
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleArchiveToggle}
                   title={isArchived ? 'Unarchive' : 'Archive'}
                 >
                   <Archive size={15} />
                   {isArchived ? 'Unarchive' : 'Archive'}
-                </button>
-                <button className={`${styles.actionBtn} ${styles.delete}`} onClick={handleDelete}>
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleDelete}>
                   <Trash2 size={15} />
                   Delete
-                </button>
+                </Button>
               </>
             )}
           </div>

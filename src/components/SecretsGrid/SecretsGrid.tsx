@@ -12,7 +12,8 @@ import {
   type DragEndEvent,
   DragOverlay,
 } from '@dnd-kit/core';
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext } from '@dnd-kit/sortable';
+import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
@@ -137,7 +138,7 @@ export function SecretsGrid({
   const sensors = useSensors(pointerSensor, touchSensor);
 
   const noteIds = useMemo(() => (notes ?? []).map((n) => n._id), [notes]);
-  const dragEnabled = !isDragDisabled && (notes?.length ?? 0) > 1 && isUnlocked;
+  const dragEnabled = !isDragDisabled && (notes?.length ?? 0) > 1;
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -194,7 +195,7 @@ export function SecretsGrid({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={noteIds} strategy={rectSortingStrategy}>
+        <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={styles.grid}>
             {notes.map((note) => (
               <SortableEncryptedCard

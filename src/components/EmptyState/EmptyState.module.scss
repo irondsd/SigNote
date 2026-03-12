@@ -27,24 +27,3 @@
   color: var(--muted-foreground);
   margin: 0;
 }
-
-.btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 10px 20px;
-  border-radius: 10px;
-  border: none;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: opacity 0.15s;
-
-  &:hover {
-    opacity: 0.85;
-  }
-}

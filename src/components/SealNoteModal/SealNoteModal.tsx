@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import { Trash2, Archive, X, Pencil, Check, Palette, LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import { NOTE_COLORS, SWITCH_COLORS } from '@/config/noteColors';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -17,15 +18,6 @@ import styles from './SealNoteModal.module.scss';
 type SealNoteModalProps = {
   note: CachedSealNote;
   onClose: () => void;
-};
-
-const SWITCH_COLORS: Record<NoteColor, string> = {
-  yellow: '#FFD54F',
-  red: '#F28B82',
-  blue: '#90CAF9',
-  green: '#81C995',
-  clay: '#E6B8A2',
-  gray: '#BDBDBD',
 };
 
 function noteColorClass(color: string | null | undefined) {
@@ -175,9 +167,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             <div className={styles.headerActions}>
               <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
                 <PopoverTrigger asChild>
-                  <button className={styles.iconBtn} title="Note color">
+                  <Button variant="ghost" size="icon-sm" title="Note color">
                     <Palette size={16} />
-                  </button>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
                   <div className={styles.colorSwatches}>
@@ -199,13 +191,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                 </PopoverContent>
               </Popover>
               {isDecrypted && (
-                <button className={styles.iconBtn} onClick={() => setEditing(!editing)} title="Edit">
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(!editing)} title="Edit">
                   <Pencil size={16} />
-                </button>
+                </Button>
               )}
-              <button className={styles.iconBtn} onClick={handleClose} title="Close">
+              <Button variant="ghost" size="icon-sm" onClick={handleClose} title="Close">
                 <X size={18} />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -221,14 +213,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               <div className={styles.encryptedState}>
                 <EncryptedPlaceholder rows={4} />
                 {decryptError && <p className={styles.decryptError}>{decryptError}</p>}
-                <button
-                  className={styles.decryptBtn}
-                  onClick={handleDecrypt}
-                  disabled={decrypting}
-                >
+                <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
                   <LockOpen size={15} />
                   {decrypting ? 'Decrypting…' : 'Decrypt'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -237,30 +225,31 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             <span className={styles.date}>Updated {date}</span>
             <div className={styles.actions}>
               {isDecrypted && editing ? (
-                <button className={`${styles.actionBtn} ${styles.save}`} onClick={handleSave} disabled={saving}>
+                <Button size="sm" onClick={handleSave} disabled={saving}>
                   <Check size={15} />
                   {saving ? 'Saving…' : 'Save'}
-                </button>
+                </Button>
               ) : (
                 <>
                   {isDecrypted && (
-                    <button className={`${styles.actionBtn} ${styles.encrypt}`} onClick={handleEncrypt}>
+                    <Button variant="outline" size="sm" onClick={handleEncrypt}>
                       <Lock size={15} />
                       Encrypt
-                    </button>
+                    </Button>
                   )}
-                  <button
-                    className={`${styles.actionBtn} ${styles.archive}`}
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleArchiveToggle}
                     title={isArchived ? 'Unarchive' : 'Archive'}
                   >
                     <Archive size={15} />
                     {isArchived ? 'Unarchive' : 'Archive'}
-                  </button>
-                  <button className={`${styles.actionBtn} ${styles.delete}`} onClick={handleDelete}>
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={handleDelete}>
                     <Trash2 size={15} />
                     Delete
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

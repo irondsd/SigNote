@@ -5,8 +5,8 @@ import { signIn } from 'next-auth/react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
-import s from './SignInButton.module.scss';
 
 type SignInButtonProps = {
   size?: 'default' | 'large';
@@ -52,17 +52,25 @@ export function SignInButton({ size = 'default' }: SignInButtonProps) {
 
   if (size === 'large') {
     return (
-      <button className={s.siweBtnLarge} onClick={handleSignIn}>
+      <Button
+        size="lg"
+        className="w-full rounded-[14px] text-base font-bold h-auto py-[14px] px-8 shadow-[0_4px_20px_color-mix(in_oklch,var(--primary)_35%,transparent)] hover:-translate-y-px"
+        onClick={handleSignIn}
+      >
         <Wallet size={24} />
         Sign in with Ethereum
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button className={s.siweBtn} onClick={handleSignIn}>
+    <Button
+      variant="outline"
+      className="w-full bg-muted hover:bg-primary hover:text-primary-foreground hover:border-primary"
+      onClick={handleSignIn}
+    >
       <Wallet size={16} />
       Sign in with Ethereum
-    </button>
+    </Button>
   );
 }

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
+import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/utils/shortenAddress';
 import styles from './SidebarNav.module.scss';
 
@@ -85,9 +86,9 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
                 <div className={styles.walletDot} />
                 <span className={styles.walletAddress}>{shortenAddress(address)}</span>
               </div>
-              <button className={styles.signOutBtn} onClick={() => signOut({ redirect: false })} title="Sign out">
+              <Button variant="ghost" size="icon-xs" className="hover:bg-destructive hover:text-white" onClick={() => signOut({ redirect: false })} title="Sign out">
                 <LogOut size={15} />
-              </button>
+              </Button>
             </div>
           ) : (
             <SignInButton />

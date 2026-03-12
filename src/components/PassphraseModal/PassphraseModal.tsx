@@ -40,9 +40,9 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2 className={styles.heading}>Unlock encrypted notes</h2>
-          <button className={styles.closeBtn} onClick={onClose} title="Close">
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         <form className={styles.body} onSubmit={handleSubmit}>

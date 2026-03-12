@@ -1,6 +1,7 @@
 'use client';
 
 import { PenLine } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import styles from './EmptyState.module.scss';
 
 type EmptyStateProps = {
@@ -15,10 +16,10 @@ export function EmptyState({ onNewNote }: EmptyStateProps) {
       </div>
       <h3 className={styles.heading}>No notes yet</h3>
       <p className={styles.sub}>Create your first note to get started.</p>
-      <button className={styles.btn} onClick={onNewNote}>
+      <Button className="mt-2" onClick={onNewNote}>
         <PenLine size={16} />
         Create a note
-      </button>
+      </Button>
     </div>
   );
 }

@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 16px 8px;
   backdrop-filter: blur(3px);
   animation: fadeIn 0.15s ease;
 }
@@ -52,7 +52,9 @@
   color: var(--muted-foreground);
   transition: background 0.15s;
 
-  &:hover { background: var(--accent); }
+  &:hover {
+    background: var(--accent);
+  }
 }
 
 .body {
@@ -74,8 +76,13 @@
   padding: 6px 0;
   font-family: inherit;
 
-  &:focus { border-bottom-color: var(--primary); }
-  &::placeholder { color: var(--muted-foreground); font-weight: 400; }
+  &:focus {
+    border-bottom-color: var(--primary);
+  }
+  &::placeholder {
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
 }
 
 .footer {
@@ -100,7 +107,10 @@
   font-family: inherit;
   transition: background 0.15s;
 
-  &:hover { background: var(--accent); color: var(--accent-foreground); }
+  &:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 .saveBtn {
@@ -118,16 +128,31 @@
   font-family: inherit;
   transition: opacity 0.15s;
 
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { Button } from '@/components/ui/button';
 import styles from './NewNoteModal.module.scss';
 
 type NewNoteModalProps = {
@@ -26,9 +27,9 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2 className={styles.heading}>New Note</h2>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <Button variant="ghost" size="icon-sm" onClick={onClose}>
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         <div className={styles.body}>
@@ -48,18 +49,18 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
         </div>
 
         <div className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={14} />
             Cancel
-          </button>
-          <button
-            className={styles.saveBtn}
+          </Button>
+          <Button
+            size="sm"
             onClick={handleSave}
             disabled={!title.trim() && !content.trim()}
           >
             <Check size={14} />
             Save Note
-          </button>
+          </Button>
         </div>
       </div>
     </div>

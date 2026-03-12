@@ -39,24 +39,6 @@
   color: var(--popover-foreground);
 }
 
-.closeBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted-foreground);
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--accent);
-  }
-}
-
 .body {
   display: flex;
   flex-direction: column;
@@ -116,51 +98,6 @@
   gap: 8px;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
-}
-
-.cancelBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--muted-foreground);
-  font-family: inherit;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-}
-
-.saveBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 20px;
-  border-radius: 8px;
-  border: none;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  transition: opacity 0.15s;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &:hover:not(:disabled) {
-    opacity: 0.9;
-  }
 }
 
 @keyframes fadeIn {

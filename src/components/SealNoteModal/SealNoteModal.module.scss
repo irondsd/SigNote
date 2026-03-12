@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 16px 8px;
   backdrop-filter: blur(3px);
   animation: fadeIn 0.15s ease;
 }
@@ -25,12 +25,24 @@
   animation: slideUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.colorYellow { --note-modal-bg: var(--note-yellow); }
-.colorRed { --note-modal-bg: var(--note-red); }
-.colorBlue { --note-modal-bg: var(--note-blue); }
-.colorGreen { --note-modal-bg: var(--note-green); }
-.colorClay { --note-modal-bg: var(--note-clay); }
-.colorGray { --note-modal-bg: var(--note-gray); }
+.colorYellow {
+  --note-modal-bg: var(--note-yellow);
+}
+.colorRed {
+  --note-modal-bg: var(--note-red);
+}
+.colorBlue {
+  --note-modal-bg: var(--note-blue);
+}
+.colorGreen {
+  --note-modal-bg: var(--note-green);
+}
+.colorClay {
+  --note-modal-bg: var(--note-clay);
+}
+.colorGray {
+  --note-modal-bg: var(--note-gray);
+}
 
 .header {
   display: flex;
@@ -69,25 +81,6 @@
   flex-shrink: 0;
 }
 
-.iconBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted-foreground);
-  transition: background 0.15s, color 0.15s;
-
-  &:hover {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-}
-
 .body {
   flex: 1;
   overflow-y: auto;
@@ -102,30 +95,6 @@
   min-height: 120px;
 }
 
-.decryptBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: transparent;
-  color: var(--foreground);
-  transition: background 0.15s, border-color 0.15s;
-
-  &:hover:not(:disabled) {
-    background: var(--accent);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
 .decryptError {
   font-size: 13px;
   color: var(--destructive);
@@ -136,6 +105,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
   gap: 12px;
@@ -149,61 +119,6 @@
 .actions {
   display: flex;
   gap: 8px;
-}
-
-.actionBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  background: transparent;
-  color: var(--muted-foreground);
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.encrypt {
-  &:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-}
-
-.archive {
-  &:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--accent-foreground);
-    border-color: var(--border);
-  }
-}
-
-.delete {
-  color: var(--destructive);
-  border-color: var(--destructive);
-
-  &:hover:not(:disabled) {
-    background: var(--destructive);
-    color: white;
-  }
-}
-
-.save {
-  color: var(--primary);
-  border-color: var(--primary);
-
-  &:hover:not(:disabled) {
-    background: var(--primary);
-    color: var(--primary-foreground);
-  }
 }
 
 .colorPickerContent {
@@ -229,11 +144,15 @@
   flex-shrink: 0;
 
   &.swatchSelected {
-    box-shadow: 0 0 0 2px var(--note-modal-bg, var(--popover)), 0 0 0 4px var(--primary);
+    box-shadow:
+      0 0 0 2px var(--note-modal-bg, var(--popover)),
+      0 0 0 4px var(--primary);
   }
 
   &:hover:not(.swatchSelected) {
-    box-shadow: 0 0 0 2px var(--note-modal-bg, var(--popover)), 0 0 0 4px var(--muted-foreground);
+    box-shadow:
+      0 0 0 2px var(--note-modal-bg, var(--popover)),
+      0 0 0 4px var(--muted-foreground);
   }
 }
 
@@ -259,11 +178,21 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

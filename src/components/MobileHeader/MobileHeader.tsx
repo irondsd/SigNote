@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import styles from './MobileHeader.module.scss';
 import { SidebarNav } from '@/components/SidebarNav/SidebarNav';
 
@@ -15,13 +16,14 @@ export function MobileHeader() {
           <span className={styles.logoIcon}>✦</span>
           <span className={styles.logoText}>SigNote</span>
         </div>
-        <button
-          className={styles.burger}
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
         >
           <Menu size={22} />
-        </button>
+        </Button>
       </header>
 
       {/* Overlay */}
@@ -35,13 +37,15 @@ export function MobileHeader() {
 
       {/* Slide-out drawer from right */}
       <div className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`}>
-        <button
-          className={styles.closeBtn}
+        <Button
+          variant="outline"
+          size="icon-sm"
+          className="absolute top-[14px] right-[14px] z-[1]"
           onClick={() => setOpen(false)}
           aria-label="Close menu"
         >
           <X size={20} />
-        </button>
+        </Button>
         <SidebarNav onNavClick={() => setOpen(false)} />
       </div>
     </>

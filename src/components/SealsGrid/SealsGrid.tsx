@@ -12,7 +12,8 @@ import {
   type DragEndEvent,
   DragOverlay,
 } from '@dnd-kit/core';
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext } from '@dnd-kit/sortable';
+import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import { type CachedSealNote } from '@/hooks/useSealMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
@@ -112,7 +113,7 @@ export function SealsGrid({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={noteIds} strategy={rectSortingStrategy}>
+        <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={styles.grid}>
             {notes.map((note) => (
               <SortableEncryptedCard

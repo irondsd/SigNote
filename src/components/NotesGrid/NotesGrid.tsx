@@ -12,7 +12,8 @@ import {
   type DragEndEvent,
   DragOverlay,
 } from '@dnd-kit/core';
-import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext } from '@dnd-kit/sortable';
+import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
@@ -133,7 +134,7 @@ export function NotesGrid({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={noteIds} strategy={rectSortingStrategy}>
+        <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={styles.grid}>
             {notes.map((note) => (
               <SortableNoteCard
