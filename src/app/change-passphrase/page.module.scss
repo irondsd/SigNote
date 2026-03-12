@@ -66,27 +66,55 @@
   color: var(--foreground);
 }
 
-.inputRow {
+.inputWrapper {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+}
 
-  > :first-child {
-    flex: 1;
-    min-width: 0;
+.inputWithIcon {
+  flex: 1;
+  padding-right: 2.25rem;
+}
+
+.inputIcon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.inputIconBtn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--muted-foreground);
+
+  &:hover {
+    color: var(--foreground);
   }
 }
 
-.statusSlot {
-  flex-shrink: 0;
-  width: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.iconIdle {
+  color: var(--muted-foreground);
 }
 
 .iconValid {
   color: #22c55e;
+}
+
+.iconInvalid {
+  color: var(--destructive);
 }
 
 .spinning {

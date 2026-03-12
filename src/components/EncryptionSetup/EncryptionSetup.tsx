@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,9 @@ export function EncryptionSetup() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   function validate(): string {
     if (!passphrase) return 'Passphrase is required.';
@@ -64,30 +67,54 @@ export function EncryptionSetup() {
             <label className={styles.label} htmlFor="enc-passphrase">
               Passphrase
             </label>
-            <Input
-              id="enc-passphrase"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Enter a strong passphrase"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              disabled={loading}
-            />
+            <div className={styles.inputWrapper}>
+              <Input
+                id="enc-passphrase"
+                type={showPassphrase ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Enter a strong passphrase"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                disabled={loading}
+                className={styles.inputWithIcon}
+              />
+              <button
+                type="button"
+                className={styles.inputIconBtn}
+                onClick={() => setShowPassphrase((v) => !v)}
+                tabIndex={-1}
+                aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+              >
+                {showPassphrase ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           <div className={styles.field}>
             <label className={styles.label} htmlFor="enc-confirm">
               Confirm passphrase
             </label>
-            <Input
-              id="enc-confirm"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Repeat your passphrase"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              disabled={loading}
-            />
+            <div className={styles.inputWrapper}>
+              <Input
+                id="enc-confirm"
+                type={showConfirm ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Repeat your passphrase"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                disabled={loading}
+                className={styles.inputWithIcon}
+              />
+              <button
+                type="button"
+                className={styles.inputIconBtn}
+                onClick={() => setShowConfirm((v) => !v)}
+                tabIndex={-1}
+                aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
+              >
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           {error && <p className={styles.error}>{error}</p>}

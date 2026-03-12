@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle, KeyRound, Loader2 } from 'lucide-react';
+import { CheckCircle, Eye, EyeOff, HelpCircle, KeyRound, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -49,6 +49,9 @@ export default function ChangePassphrasePage() {
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const syncOldPassphraseFromDom = () => {
     const domValue = oldPassphraseInputRef.current?.value ?? '';
     if (!domValue || domValue === oldPassphrase) return;
@@ -68,6 +71,10 @@ export default function ChangePassphrasePage() {
     materialRef.current = null;
     try {
       const res = await fetch('/api/encryption/material');
+      if (res.status === 404) {
+        router.replace('/');
+        return;
+      }
       if (!res.ok) throw new Error('Failed to fetch material');
       const material: Material = await res.json();
       materialRef.current = material;
@@ -195,7 +202,7 @@ export default function ChangePassphrasePage() {
             <label className={styles.label} htmlFor="cp-old">
               Current passphrase
             </label>
-            <div className={styles.inputRow}>
+            <div className={styles.inputWrapper}>
               <Input
                 id="cp-old"
                 ref={oldPassphraseInputRef}
@@ -213,11 +220,14 @@ export default function ChangePassphrasePage() {
                 onInput={syncOldPassphraseFromDom}
                 onBlur={handleOldBlur}
                 disabled={submitting}
+                className={styles.inputWithIcon}
               />
-              <div className={styles.statusSlot}>
+              <span className={styles.inputIcon}>
+                {verifyState === 'idle' && <HelpCircle size={16} className={styles.iconIdle} />}
                 {verifyState === 'verifying' && <Loader2 size={16} className={styles.spinning} />}
                 {verifyState === 'valid' && <CheckCircle size={16} className={styles.iconValid} />}
-              </div>
+                {verifyState === 'invalid' && <XCircle size={16} className={styles.iconInvalid} />}
+              </span>
             </div>
             {verifyState === 'invalid' && <p className={styles.error}>Incorrect passphrase.</p>}
           </div>
@@ -226,15 +236,27 @@ export default function ChangePassphrasePage() {
             <label className={styles.label} htmlFor="cp-new">
               New passphrase
             </label>
-            <Input
-              id="cp-new"
-              type="password"
-              autoComplete="new-password"
-              placeholder="At least 16 characters"
-              value={newPassphrase}
-              onChange={(e) => setNewPassphrase(e.target.value)}
-              disabled={submitting}
-            />
+            <div className={styles.inputWrapper}>
+              <Input
+                id="cp-new"
+                type={showNew ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="At least 16 characters"
+                value={newPassphrase}
+                onChange={(e) => setNewPassphrase(e.target.value)}
+                disabled={submitting}
+                className={styles.inputWithIcon}
+              />
+              <button
+                type="button"
+                className={styles.inputIconBtn}
+                onClick={() => setShowNew((v) => !v)}
+                tabIndex={-1}
+                aria-label={showNew ? 'Hide passphrase' : 'Show passphrase'}
+              >
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
               <p className={styles.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
             )}
@@ -244,15 +266,27 @@ export default function ChangePassphrasePage() {
             <label className={styles.label} htmlFor="cp-confirm">
               Confirm new passphrase
             </label>
-            <Input
-              id="cp-confirm"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Repeat your new passphrase"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              disabled={submitting}
-            />
+            <div className={styles.inputWrapper}>
+              <Input
+                id="cp-confirm"
+                type={showConfirm ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder="Repeat your new passphrase"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                disabled={submitting}
+                className={styles.inputWithIcon}
+              />
+              <button
+                type="button"
+                className={styles.inputIconBtn}
+                onClick={() => setShowConfirm((v) => !v)}
+                tabIndex={-1}
+                aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
+              >
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
             {confirm && newPassphrase !== confirm && <p className={styles.error}>Passphrases do not match.</p>}
           </div>
 
