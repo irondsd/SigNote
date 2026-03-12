@@ -1,5 +1,9 @@
 export const POSITION_STEP = 1000;
 
+// Passphrase constraints
+export const MIN_PASSPHRASE_LENGTH = 16;
+export const MAX_PASSPHRASE_LENGTH = 256;
+
 // Encryption constants
 export const ENC_PBKDF2_ITERATIONS = 600_000;
 export const ENC_PBKDF2_LENGTH = 32;

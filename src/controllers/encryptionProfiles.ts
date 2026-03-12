@@ -33,6 +33,25 @@ export const getMaterialByAddress = async (address: string) => {
   return profile;
 };
 
+type UpdateProfileInput = {
+  serverShare: string;
+  salt: string;
+  keyCheck: EncryptedPayload;
+};
+
+export const updateProfile = async (address: string, data: UpdateProfileInput) => {
+  const result = await EncryptionProfileModel.findOneAndUpdate(
+    { walletAddress: address.toLowerCase() },
+    { $set: { ...data, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  )
+    .lean()
+    .exec();
+
+  if (!result) throw new Error('Profile not found');
+  return result;
+};
+
 export const createProfile = async (address: string, data: CreateProfileInput) => {
   const existing = await EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() }).lean().exec();
 

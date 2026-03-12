@@ -6,9 +6,7 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import styles from './EncryptionSetup.module.scss';
-
-const MIN_PASSPHRASE_LENGTH = 16;
-const MAX_PASSPHRASE_LENGTH = 256;
+import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 
 export function EncryptionSetup() {
   const { setupProfile } = useEncryption();

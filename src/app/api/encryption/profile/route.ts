@@ -2,7 +2,7 @@ import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createProfile, getProfileByAddress, ProfileAlreadyExistsError } from '@/controllers/encryptionProfiles';
+import { createProfile, getProfileByAddress, ProfileAlreadyExistsError, updateProfile } from '@/controllers/encryptionProfiles';
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 import { type EncryptedPayload, type KdfParams } from '@/models/EncryptionProfile';
@@ -64,4 +64,26 @@ export async function POST(req: NextRequest) {
     }
     throw err;
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const address = session?.user?.address;
+
+  if (!address) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const client = await getMongoClientFromMongoose();
+  attachDatabasePool(client);
+
+  const body = await req.json();
+  const { serverShare, salt, keyCheck } = body as {
+    serverShare: string;
+    salt: string;
+    keyCheck: EncryptedPayload;
+  };
+
+  await updateProfile(address, { serverShare, salt, keyCheck });
+  return NextResponse.json({ success: true });
 }
