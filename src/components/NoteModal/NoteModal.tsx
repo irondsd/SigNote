@@ -10,6 +10,8 @@ import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './NoteModal.module.scss';
 
 type NoteModalProps = {
@@ -71,8 +73,8 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const date = new Date(note.updatedAt).toLocaleString();
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={cn(styles.modal, noteColorClass(color))} onClick={(e) => e.stopPropagation()}>
+    <Backdrop onClose={onClose}>
+      <Modal className={cn(styles.modal, noteColorClass(color))}>
         {/* Header */}
         <div className={styles.header}>
           {editing ? (
@@ -164,7 +166,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </Modal>
+    </Backdrop>
   );
 }

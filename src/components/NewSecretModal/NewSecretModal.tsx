@@ -6,6 +6,8 @@ import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './NewSecretModal.module.scss';
 
 type NewSecretModalProps = {
@@ -33,8 +35,8 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   };
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <Backdrop onClose={onClose}>
+      <Modal>
         <div className={styles.header}>
           <h2 className={styles.heading}>New Secret</h2>
           <button className={styles.closeBtn} onClick={onClose}>
@@ -72,7 +74,7 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
             {saving ? 'Saving…' : 'Save Secret'}
           </button>
         </div>
-      </div>
-    </div>
+      </Modal>
+    </Backdrop>
   );
 }

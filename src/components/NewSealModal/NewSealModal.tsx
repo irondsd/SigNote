@@ -6,6 +6,8 @@ import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSealBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './NewSealModal.module.scss';
 
 type NewSealModalProps = {
@@ -38,8 +40,8 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
   };
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <Backdrop onClose={onClose}>
+      <Modal>
         <div className={styles.header}>
           <h2 className={styles.heading}>New Seal</h2>
           <button className={styles.closeBtn} onClick={onClose}>
@@ -77,7 +79,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
             {saving ? 'Saving…' : 'Save Seal'}
           </button>
         </div>
-      </div>
-    </div>
+      </Modal>
+    </Backdrop>
   );
 }

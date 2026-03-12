@@ -5,6 +5,8 @@ import { X } from 'lucide-react';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './PassphraseModal.module.scss';
 
 type PassphraseModalProps = {
@@ -36,8 +38,8 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
   };
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <Backdrop onClose={onClose} className={styles.backdrop}>
+      <Modal className={styles.modal}>
         <div className={styles.header}>
           <h2 className={styles.heading}>Unlock encrypted notes</h2>
           <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
@@ -69,7 +71,7 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </Modal>
+    </Backdrop>
   );
 }

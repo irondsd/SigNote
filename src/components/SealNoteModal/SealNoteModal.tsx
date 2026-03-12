@@ -13,6 +13,8 @@ import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/Encrypte
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './SealNoteModal.module.scss';
 
 type SealNoteModalProps = {
@@ -150,8 +152,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   return (
     <>
-      <div className={styles.backdrop} onClick={handleClose}>
-        <div className={cn(styles.modal, noteColorClass(color))} onClick={(e) => e.stopPropagation()}>
+      <Backdrop onClose={handleClose}>
+        <Modal className={cn(styles.modal, noteColorClass(color))}>
           <div className={styles.header}>
             {editing ? (
               <input
@@ -254,8 +256,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </Modal>
+      </Backdrop>
 
       {showPassphrase && (
         <PassphraseModal

@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
+import { Backdrop } from '@/components/Backdrop/Backdrop';
+import { Modal } from '@/components/Modal/Modal';
 import styles from './SecretNoteModal.module.scss';
 
 type SecretNoteModalProps = {
@@ -82,8 +84,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const date = new Date(note.updatedAt).toLocaleString();
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={cn(styles.modal, noteColorClass(color))} onClick={(e) => e.stopPropagation()}>
+    <Backdrop onClose={onClose}>
+      <Modal className={cn(styles.modal, noteColorClass(color))}>
         <div className={styles.header}>
           {editing ? (
             <input
@@ -167,7 +169,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </Modal>
+    </Backdrop>
   );
 }
