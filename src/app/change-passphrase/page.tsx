@@ -9,6 +9,15 @@ import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import styles from './page.module.scss';
+import {
+  createKeyCheck,
+  deriveDeviceShare,
+  generateSalt,
+  importMEK,
+  saveDeviceShare,
+  verifyKeyCheck,
+  xor32,
+} from '@/lib/crypto';
 
 type VerifyState = 'idle' | 'verifying' | 'valid' | 'invalid';
 
@@ -22,6 +31,7 @@ type Material = {
 export default function ChangePassphrasePage() {
   const { status } = useSession();
   const router = useRouter();
+  const oldPassphraseInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -39,6 +49,16 @@ export default function ChangePassphrasePage() {
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const syncOldPassphraseFromDom = () => {
+    const domValue = oldPassphraseInputRef.current?.value ?? '';
+    if (!domValue || domValue === oldPassphrase) return;
+
+    setOldPassphrase(domValue);
+    setVerifyState('idle');
+    mekBytesRef.current = null;
+    materialRef.current = null;
+  };
+
   const handleOldBlur = async () => {
     if (!oldPassphrase) return;
     if (status !== 'authenticated') return;
@@ -47,8 +67,6 @@ export default function ChangePassphrasePage() {
     mekBytesRef.current = null;
     materialRef.current = null;
     try {
-      const { deriveDeviceShare, importMEK, verifyKeyCheck, xor32 } = await import('@/lib/crypto');
-
       const res = await fetch('/api/encryption/material');
       if (!res.ok) throw new Error('Failed to fetch material');
       const material: Material = await res.json();
@@ -71,13 +89,26 @@ export default function ChangePassphrasePage() {
     }
   };
 
+  // Chrome can autofill password fields after hydration without firing onChange.
+  // Read the DOM value and sync it into React state shortly after mount.
+  useEffect(() => {
+    const raf = requestAnimationFrame(syncOldPassphraseFromDom);
+    const timeout = setTimeout(syncOldPassphraseFromDom, 150);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Trigger verification when session loads with a pre-filled field (browser autofill)
   useEffect(() => {
     if (status === 'authenticated' && oldPassphrase && verifyState === 'idle') {
-      handleOldBlur();
+      void handleOldBlur();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, oldPassphrase, verifyState]);
 
   if (status !== 'authenticated') return null;
 
@@ -102,9 +133,6 @@ export default function ChangePassphrasePage() {
     setSubmitError('');
     setSubmitting(true);
     try {
-      const { createKeyCheck, deriveDeviceShare, generateSalt, importMEK, saveDeviceShare, xor32 } =
-        await import('@/lib/crypto');
-
       const mekBytes = mekBytesRef.current;
       const { kdf } = materialRef.current;
 
@@ -170,6 +198,8 @@ export default function ChangePassphrasePage() {
             <div className={styles.inputRow}>
               <Input
                 id="cp-old"
+                ref={oldPassphraseInputRef}
+                name="current-password"
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter your current passphrase"
@@ -178,7 +208,9 @@ export default function ChangePassphrasePage() {
                   setOldPassphrase(e.target.value);
                   setVerifyState('idle');
                   mekBytesRef.current = null;
+                  materialRef.current = null;
                 }}
+                onInput={syncOldPassphraseFromDom}
                 onBlur={handleOldBlur}
                 disabled={submitting}
               />

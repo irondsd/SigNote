@@ -1,7 +1,7 @@
 import { type Address } from 'viem';
 import { POSITION_STEP } from '@/config/constants';
 import { SecretNoteModel } from '@/models/SecretNote';
-import { type EncryptedPayload } from '@/models/EncryptionProfile';
+import { type EncryptedPayload } from '@/types/crypto';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -29,13 +29,7 @@ export const createSecret = async (address: Address, title: string, encryptedBod
   });
 };
 
-export const getSecretsByAddress = async (
-  address: string,
-  archived?: boolean,
-  limit = 30,
-  offset = 0,
-  search = '',
-) => {
+export const getSecretsByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
   const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalized = search.trim();
 

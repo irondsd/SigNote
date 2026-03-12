@@ -1,7 +1,7 @@
 import { type Address } from 'viem';
 import { POSITION_STEP } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
-import { type EncryptedPayload } from '@/models/EncryptionProfile';
+import { type EncryptedPayload } from '@/types/crypto';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -15,7 +15,12 @@ export const getNextPosition = async (address: Address) => {
   return (last?.position ?? 0) + POSITION_STEP;
 };
 
-export const createSeal = async (address: Address, title: string, encryptedBody: EncryptedPayload | null = null, wrappedNoteKey: EncryptedPayload | null = null) => {
+export const createSeal = async (
+  address: Address,
+  title: string,
+  encryptedBody: EncryptedPayload | null = null,
+  wrappedNoteKey: EncryptedPayload | null = null,
+) => {
   const now = new Date();
   const position = await getNextPosition(address);
 
@@ -30,13 +35,7 @@ export const createSeal = async (address: Address, title: string, encryptedBody:
   });
 };
 
-export const getSealsByAddress = async (
-  address: string,
-  archived?: boolean,
-  limit = 30,
-  offset = 0,
-  search = '',
-) => {
+export const getSealsByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
   const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalized = search.trim();
 
@@ -65,11 +64,7 @@ type UpdateSealInput = {
 };
 
 export const updateSeal = async (id: string, data: UpdateSealInput) => {
-  return SealNoteModel.findByIdAndUpdate(
-    id,
-    { ...data, updatedAt: new Date() },
-    { returnDocument: 'after' },
-  ).exec();
+  return SealNoteModel.findByIdAndUpdate(id, { ...data, updatedAt: new Date() }, { returnDocument: 'after' }).exec();
 };
 
 export const deleteSeal = async (id: string) => {

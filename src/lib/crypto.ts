@@ -10,7 +10,7 @@ import {
   KEY_CHECK_PLAINTEXT,
   getSealKeyString,
 } from '@/config/constants';
-import { type EncryptedPayload, type KdfParams } from '@/models/EncryptionProfile';
+import { EncryptedPayload, KdfParams } from '@/types/crypto';
 
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
@@ -97,11 +97,7 @@ export async function deriveSealWrapKey(mek: CryptoKey, sealId: string): Promise
 
 // ─── AES-GCM primitives ──────────────────────────────────────────────────────
 
-export async function encryptAesGcm(
-  key: CryptoKey,
-  plaintext: string,
-  aad?: string,
-): Promise<EncryptedPayload> {
+export async function encryptAesGcm(key: CryptoKey, plaintext: string, aad?: string): Promise<EncryptedPayload> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const additionalData = aad ? encodeUtf8(aad) : undefined;
 
@@ -118,11 +114,7 @@ export async function encryptAesGcm(
   };
 }
 
-export async function decryptAesGcm(
-  key: CryptoKey,
-  payload: EncryptedPayload,
-  aad?: string,
-): Promise<string> {
+export async function decryptAesGcm(key: CryptoKey, payload: EncryptedPayload, aad?: string): Promise<string> {
   const iv = fromBase64(payload.iv);
   const ciphertext = fromBase64(payload.ciphertext);
   const additionalData = aad ? encodeUtf8(aad) : undefined;
@@ -213,20 +205,14 @@ type SealEncryptResult = {
   wrappedNoteKey: EncryptedPayload;
 };
 
-export async function encryptSealBody(
-  mek: CryptoKey,
-  plaintext: string,
-  sealId: string,
-): Promise<SealEncryptResult> {
+export async function encryptSealBody(mek: CryptoKey, plaintext: string, sealId: string): Promise<SealEncryptResult> {
   const aad = getSealKeyString(sealId);
 
   // Generate random Note Encryption Key (NEK)
   const nek = crypto.getRandomValues(new Uint8Array(32));
 
   // Import NEK as AES-GCM key for body encryption
-  const nekKey = await crypto.subtle.importKey('raw', nek, { name: 'AES-GCM', length: 256 }, false, [
-    'encrypt',
-  ]);
+  const nekKey = await crypto.subtle.importKey('raw', nek, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
 
   // Encrypt body with NEK
   const encryptedBody = await encryptAesGcm(nekKey, plaintext, aad);
@@ -255,9 +241,7 @@ export async function decryptSealBody(
   const nekBytes = await decryptBytesAesGcm(sealWrapKey, wrappedNoteKey, aad);
 
   // Import NEK for decryption
-  const nekKey = await crypto.subtle.importKey('raw', nekBytes, { name: 'AES-GCM', length: 256 }, false, [
-    'decrypt',
-  ]);
+  const nekKey = await crypto.subtle.importKey('raw', nekBytes, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
 
   // Decrypt body
   return decryptAesGcm(nekKey, encryptedBody, aad);

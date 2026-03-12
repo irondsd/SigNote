@@ -2,7 +2,7 @@
 
 import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { type EncryptedPayload } from '@/models/EncryptionProfile';
+import { type EncryptedPayload } from '@/types/crypto';
 
 export type CachedSealNote = {
   _id: string;
@@ -92,7 +92,9 @@ export const useCreateSeal = () => {
   const createMutation = useMutation({
     mutationFn: async (input: {
       title: string;
-      encryptBody: (sealId: string) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
+      encryptBody: (
+        sealId: string,
+      ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
     }) => {
       // Step 1: create with title only
       const created = await apiCreateSeal({ title: input.title });
@@ -215,7 +217,10 @@ export const useUpdateSeal = () => {
           if (!data) continue;
           for (const page of data.pages) {
             const n = page.find((note) => note._id === id);
-            if (n) { foundNote = n; break; }
+            if (n) {
+              foundNote = n;
+              break;
+            }
           }
           if (foundNote) break;
         }

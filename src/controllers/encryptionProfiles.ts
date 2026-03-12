@@ -1,4 +1,5 @@
-import { type EncryptedPayload, type KdfParams, EncryptionProfileModel } from '@/models/EncryptionProfile';
+import { EncryptionProfileModel } from '@/models/EncryptionProfile';
+import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 type CreateProfileInput = {
   version: number;

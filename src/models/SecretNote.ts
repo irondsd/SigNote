@@ -1,7 +1,7 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
 import { type Address } from 'viem';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
-import { type EncryptedPayload } from './EncryptionProfile';
+import { type EncryptedPayload } from '@/types/crypto';
 
 export type SecretNote = {
   address: Address;

@@ -17,7 +17,7 @@ import {
   verifyKeyCheck,
   xor32,
 } from '@/lib/crypto';
-import { type EncryptedPayload, type KdfParams } from '@/models/EncryptionProfile';
+import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,9 +28,7 @@ type ProfileData = {
   keyCheck: EncryptedPayload;
 };
 
-type ProfileResponse =
-  | { exists: false }
-  | ({ exists: true } & ProfileData);
+type ProfileResponse = { exists: false } | ({ exists: true } & ProfileData);
 
 type MaterialResponse = {
   version: number;

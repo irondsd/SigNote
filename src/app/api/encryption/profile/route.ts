@@ -2,10 +2,15 @@ import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { createProfile, getProfileByAddress, ProfileAlreadyExistsError, updateProfile } from '@/controllers/encryptionProfiles';
+import {
+  createProfile,
+  getProfileByAddress,
+  ProfileAlreadyExistsError,
+  updateProfile,
+} from '@/controllers/encryptionProfiles';
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
-import { type EncryptedPayload, type KdfParams } from '@/models/EncryptionProfile';
+import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 export const runtime = 'nodejs';
 

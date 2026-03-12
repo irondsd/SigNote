@@ -6,7 +6,7 @@ import { createSeal, getSealsByAddress } from '@/controllers/seals';
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 import { type Address } from 'viem';
-import { type EncryptedPayload } from '@/models/EncryptionProfile';
+import { type EncryptedPayload } from '@/types/crypto';
 
 export const runtime = 'nodejs';
 
