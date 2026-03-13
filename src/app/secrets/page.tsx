@@ -29,7 +29,7 @@ export default function SecretsPage() {
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
-  const showLoadingState = isLoading || status === 'loading' || profileStatus === 'loading';
+  const showLoadingState = status === 'loading' || (status === 'authenticated' && profileStatus === 'loading');
 
   const handleNewSecret = () => {
     if (!isUnlocked) {
