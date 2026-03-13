@@ -52,12 +52,7 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <TiptapEditor
-            content={content}
-            onChange={setContent}
-            editable={true}
-            placeholder="Write your secret…"
-          />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
         </div>
 
         <div className={styles.footer}>

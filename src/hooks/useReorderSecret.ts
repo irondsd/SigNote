@@ -26,7 +26,7 @@ export const useReorderSecret = () => {
 
   return useMutation({
     mutationFn: apiReorderSecret,
-    onMutate: async ({ id, position, oldIndex, newIndex }) => {
+    onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: ['secrets'] });
       const snapshots = qc.getQueriesData<InfiniteData<CachedSecretNote[]>>({ queryKey: ['secrets'] });
 

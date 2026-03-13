@@ -1,19 +1,14 @@
-"use client";
+'use client';
 
-import {
-  connectorsForWallets,
-  getDefaultConfig,
-  getDefaultWallets,
-} from "@rainbow-me/rainbowkit";
+import { connectorsForWallets, getDefaultConfig, getDefaultWallets } from '@rainbow-me/rainbowkit';
 
-import { server } from "./server";
+import { server } from './server';
 
-const walletConnectProjectId = process.env
-  .NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID as string;
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID as string;
 
 // this function has to be called on the client
 const walletConnectParams = {
-  appName: "Next Web3 Starter",
+  appName: 'Next Web3 Starter',
   projectId: walletConnectProjectId,
 };
 const { wallets } = getDefaultWallets(walletConnectParams);
@@ -28,8 +23,8 @@ const wagmiConfig = {
 export const config = getDefaultConfig({
   ...wagmiConfig,
   projectId: walletConnectProjectId,
-  appName: "Next Web3 Starter",
-  appDescription: "",
-  appUrl: "https://whatever.com",
-  appIcon: "",
+  appName: 'Next Web3 Starter',
+  appDescription: '',
+  appUrl: 'https://whatever.com',
+  appIcon: '',
 });

@@ -148,9 +148,7 @@ export function SealsGrid({
         </DragOverlay>
       </DndContext>
 
-      {hasMore && (
-        <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />
-      )}
+      {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
 
       {isLoadingMore && (
         <div className={styles.loading}>

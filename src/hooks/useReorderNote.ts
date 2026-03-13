@@ -26,7 +26,7 @@ export const useReorderNote = () => {
 
   return useMutation({
     mutationFn: apiReorderNote,
-    onMutate: async ({ id, position, oldIndex, newIndex }) => {
+    onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: ['notes'] });
       const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
 

@@ -57,12 +57,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <TiptapEditor
-            content={content}
-            onChange={setContent}
-            editable={true}
-            placeholder="Write your seal…"
-          />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" />
         </div>
 
         <div className={styles.footer}>

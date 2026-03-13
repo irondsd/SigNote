@@ -62,7 +62,7 @@ export function useEncryption(): EncryptionContextValue {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export function EncryptionProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status: sessionStatus } = useSession();
+  const { status: sessionStatus } = useSession();
   const qc = useQueryClient();
   const [mek, setMek] = useState<CryptoKey | null>(null);
 

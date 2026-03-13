@@ -26,7 +26,7 @@ export const useReorderSeal = () => {
 
   return useMutation({
     mutationFn: apiReorderSeal,
-    onMutate: async ({ id, position, oldIndex, newIndex }) => {
+    onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: ['seals'] });
       const snapshots = qc.getQueriesData<InfiniteData<CachedSealNote[]>>({ queryKey: ['seals'] });
 

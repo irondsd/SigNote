@@ -42,12 +42,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <TiptapEditor
-            content={content}
-            onChange={setContent}
-            editable={true}
-            placeholder="Write your note..."
-          />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." />
         </div>
 
         <div className={styles.footer}>
@@ -55,11 +50,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             <X size={14} />
             Cancel
           </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!title.trim() && !content.trim()}
-          >
+          <Button size="sm" onClick={handleSave} disabled={!title.trim() && !content.trim()}>
             <Check size={14} />
             Save Note
           </Button>

@@ -104,9 +104,21 @@
     }
 
     // Headings
-    h1 { font-size: 1.5em; font-weight: 700; margin: 0.5em 0 0.25em; }
-    h2 { font-size: 1.25em; font-weight: 700; margin: 0.5em 0 0.2em; }
-    h3 { font-size: 1.1em; font-weight: 600; margin: 0.4em 0 0.15em; }
+    h1 {
+      font-size: 1.5em;
+      font-weight: 700;
+      margin: 0.5em 0 0.25em;
+    }
+    h2 {
+      font-size: 1.25em;
+      font-weight: 700;
+      margin: 0.5em 0 0.2em;
+    }
+    h3 {
+      font-size: 1.1em;
+      font-weight: 600;
+      margin: 0.4em 0 0.15em;
+    }
 
     // Blockquote
     blockquote {

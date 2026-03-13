@@ -16,24 +16,13 @@ export function MobileHeader() {
           <span className={styles.logoIcon}>✦</span>
           <span className={styles.logoText}>SigNote</span>
         </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-        >
+        <Button variant="outline" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
           <Menu size={22} />
         </Button>
       </header>
 
       {/* Overlay */}
-      {open && (
-        <div
-          className={styles.overlay}
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
-      )}
+      {open && <div className={styles.overlay} onClick={() => setOpen(false)} aria-hidden />}
 
       {/* Slide-out drawer from right */}
       <div className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`}>

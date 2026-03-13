@@ -19,7 +19,7 @@ export default function SecretsPage() {
   const { data: session, status } = useSession();
   const { profileStatus, isUnlocked, lock } = useEncryption();
   const [search, setSearch] = useState('');
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
+  const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
     archived: search ? undefined : false,
     search,
   });
