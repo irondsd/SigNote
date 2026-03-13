@@ -7,12 +7,14 @@ import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
+import { cn } from '@/utils/cn';
 
 type SignInButtonProps = {
+  className?: string;
   size?: 'default' | 'large';
 };
 
-export function SignInButton({ size = 'default' }: SignInButtonProps) {
+export function SignInButton({ className, size = 'default' }: SignInButtonProps) {
   const { address, isConnected, chain } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { signMessageAsync } = useSignMessage();
@@ -54,7 +56,10 @@ export function SignInButton({ size = 'default' }: SignInButtonProps) {
     return (
       <Button
         size="lg"
-        className="w-full rounded-[14px] text-base font-bold h-auto py-[14px] px-8 shadow-[0_4px_20px_color-mix(in_oklch,var(--primary)_35%,transparent)] hover:-translate-y-px"
+        className={cn(
+          'w-full rounded-[14px] text-base font-bold h-auto py-[14px] px-8 shadow-[0_4px_20px_color-mix(in_oklch,var(--primary)_35%,transparent)] hover:-translate-y-px',
+          className,
+        )}
         onClick={handleSignIn}
       >
         <Wallet size={24} />
@@ -66,7 +71,7 @@ export function SignInButton({ size = 'default' }: SignInButtonProps) {
   return (
     <Button
       variant="outline"
-      className="w-full bg-muted hover:bg-primary hover:text-primary-foreground hover:border-primary"
+      className={cn('w-full bg-muted hover:bg-primary hover:text-primary-foreground hover:border-primary', className)}
       onClick={handleSignIn}
     >
       <Wallet size={16} />

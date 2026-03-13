@@ -12,9 +12,11 @@ export function UnauthenticatedState() {
       </div>
       <h2 className={styles.heading}>Welcome to SigNote</h2>
       <p className={styles.sub}>
-        Sign in with your Ethereum wallet<br />to access your notes securely.
+        Sign in with your Ethereum wallet
+        <br />
+        to access your notes securely.
       </p>
-      <SignInButton size="large" />
+      <SignInButton size="large" className={'max-w-100'} />
     </div>
   );
 }
