@@ -21,7 +21,7 @@ import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
-import { useReorderSecret } from '@/hooks/useReorderSecret';
+import { useReorder } from '@/hooks/useReorder';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSecretBody } from '@/lib/crypto';
 import { calculatePosition } from '@/utils/calculatePosition';
@@ -57,7 +57,7 @@ export function SecretsGrid({
   const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, string>>(new Map());
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const reorderMutation = useReorderSecret();
+  const reorderMutation = useReorder('secrets');
 
   const openDecryptedNote = useCallback(
     (note: CachedSecretNote) => {

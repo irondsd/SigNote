@@ -19,7 +19,7 @@ import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { useReorderNote } from '@/hooks/useReorderNote';
+import { useReorder } from '@/hooks/useReorder';
 import { calculatePosition } from '@/utils/calculatePosition';
 import styles from './NotesGrid.module.scss';
 import { EmptyStateArchive } from '../EmptyStateArchive/EmptyStateArchive';
@@ -49,7 +49,7 @@ export function NotesGrid({
   const [activeNote, setActiveNote] = useState<NoteDocument | null>(null);
   const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const reorderMutation = useReorderNote();
+  const reorderMutation = useReorder('notes');
 
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: { distance: 8 },
