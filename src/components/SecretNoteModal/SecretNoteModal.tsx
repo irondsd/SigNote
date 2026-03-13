@@ -84,7 +84,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const date = new Date(note.updatedAt).toLocaleString();
 
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop onClose={onClose} disableClose={editing}>
       <Modal className={cn(styles.modal, noteColorClass(color))}>
         <div className={styles.header}>
           {editing ? (

@@ -73,7 +73,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const date = new Date(note.updatedAt).toLocaleString();
 
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop onClose={onClose} disableClose={editing}>
       <Modal className={cn(styles.modal, noteColorClass(color))}>
         {/* Header */}
         <div className={styles.header}>

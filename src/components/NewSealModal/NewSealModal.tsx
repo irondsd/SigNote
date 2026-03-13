@@ -39,8 +39,13 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
     }
   };
 
+  const handleBackdropClose = () => {
+    const contentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+    if (contentEmpty) onClose();
+  };
+
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop onClose={handleBackdropClose}>
       <Modal>
         <div className={styles.header}>
           <h2 className={styles.heading}>New Seal</h2>

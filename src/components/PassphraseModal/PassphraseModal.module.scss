@@ -35,6 +35,17 @@
   line-height: 1.5;
 }
 
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputWithIcon {
+  flex: 1;
+  padding-right: 2.25rem;
+}
+
 .error {
   font-size: 13px;
   color: var(--destructive);

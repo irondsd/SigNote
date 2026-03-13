@@ -152,7 +152,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   return (
     <>
-      <Backdrop onClose={handleClose}>
+      <Backdrop onClose={handleClose} disableClose={editing}>
         <Modal className={cn(styles.modal, noteColorClass(color))}>
           <div className={styles.header}>
             {editing ? (
