@@ -4,6 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
+import { useDisconnect } from 'wagmi';
 import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
@@ -27,8 +28,14 @@ type SidebarNavProps = {
 export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { disconnect } = useDisconnect();
 
   const address = session?.user?.address;
+
+  const handleSignOut = async () => {
+    disconnect();
+    signOut({ redirect: false });
+  };
 
   return (
     <nav className={styles.nav}>
@@ -86,7 +93,13 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
                 <div className={styles.walletDot} />
                 <span className={styles.walletAddress}>{shortenAddress(address)}</span>
               </div>
-              <Button variant="ghost" size="icon-xs" className="hover:bg-destructive hover:text-white" onClick={() => signOut({ redirect: false })} title="Sign out">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="hover:bg-destructive hover:text-white"
+                onClick={handleSignOut}
+                title="Sign out"
+              >
                 <LogOut size={15} />
               </Button>
             </div>
