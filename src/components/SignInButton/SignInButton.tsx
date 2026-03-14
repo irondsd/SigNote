@@ -96,6 +96,7 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
   if (size === 'large') {
     return (
       <Button
+        data-testid="sign-in-button"
         size="lg"
         disabled={busy}
         className={cn(
@@ -112,6 +113,7 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
 
   return (
     <Button
+      data-testid="sign-in-button"
       variant="outline"
       disabled={busy}
       className={cn('w-full bg-muted hover:bg-primary hover:text-primary-foreground hover:border-primary', className)}

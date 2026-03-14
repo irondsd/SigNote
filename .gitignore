@@ -41,3 +41,5 @@ yarn-error.log*
 next-env.d.ts
 .vscode
 backup
+mock-provider.js
+test-results
