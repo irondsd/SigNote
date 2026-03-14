@@ -144,6 +144,10 @@
   :global(ul[data-type='taskList'] li > div) {
     flex: 1;
   }
+
+  code {
+    text-wrap: auto;
+  }
 }
 
 .archivedBadge {
