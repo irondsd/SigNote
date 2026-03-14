@@ -20,7 +20,7 @@ import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteC
 import { SealNoteModal } from '@/components/SealNoteModal/SealNoteModal';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
-import { useReorderSeal } from '@/hooks/useReorderSeal';
+import { useReorder } from '@/hooks/useReorder';
 import { calculatePosition } from '@/utils/calculatePosition';
 import styles from './SealsGrid.module.scss';
 
@@ -49,7 +49,7 @@ export function SealsGrid({
   const [activeNote, setActiveNote] = useState<CachedSealNote | null>(null);
   const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const reorderMutation = useReorderSeal();
+  const reorderMutation = useReorder('seals');
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
@@ -148,9 +148,7 @@ export function SealsGrid({
         </DragOverlay>
       </DndContext>
 
-      {hasMore && (
-        <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />
-      )}
+      {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
 
       {isLoadingMore && (
         <div className={styles.loading}>

@@ -21,7 +21,7 @@ import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
-import { useReorderSecret } from '@/hooks/useReorderSecret';
+import { useReorder } from '@/hooks/useReorder';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSecretBody } from '@/lib/crypto';
 import { calculatePosition } from '@/utils/calculatePosition';
@@ -57,7 +57,35 @@ export function SecretsGrid({
   const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, string>>(new Map());
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const reorderMutation = useReorderSecret();
+  const reorderMutation = useReorder('secrets');
+
+  const openDecryptedNote = useCallback(
+    (note: CachedSecretNote) => {
+      const cached = decryptedPreviews.get(note._id);
+      if (cached !== undefined) {
+        setSelected(note);
+        setSelectedDecrypted(cached);
+        return;
+      }
+
+      if (!mek || !note.encryptedBody) {
+        setSelected(note);
+        setSelectedDecrypted('');
+        return;
+      }
+
+      decryptSecretBody(mek, note.encryptedBody)
+        .then((content) => {
+          setSelected(note);
+          setSelectedDecrypted(content);
+        })
+        .catch(() => {
+          setSelected(note);
+          setSelectedDecrypted('');
+        });
+    },
+    [decryptedPreviews, mek],
+  );
 
   // Decrypt previews when mek becomes available or notes change
   useEffect(() => {
@@ -85,40 +113,6 @@ export function SecretsGrid({
     });
   }, [mek, notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clear decrypted content when locked
-  useEffect(() => {
-    if (!isUnlocked) {
-      setDecryptedPreviews(new Map());
-      setSelected(null);
-      setSelectedDecrypted('');
-    }
-  }, [isUnlocked]);
-
-  // After unlock, open the note that was clicked while locked
-  useEffect(() => {
-    if (!pendingNote || !mek) return;
-    const note = pendingNote;
-    setPendingNote(null);
-    const cached = decryptedPreviews.get(note._id);
-    if (cached !== undefined) {
-      setSelected(note);
-      setSelectedDecrypted(cached);
-    } else if (note.encryptedBody) {
-      decryptSecretBody(mek, note.encryptedBody)
-        .then((content) => {
-          setSelected(note);
-          setSelectedDecrypted(content);
-        })
-        .catch(() => {
-          setSelected(note);
-          setSelectedDecrypted('');
-        });
-    } else {
-      setSelected(note);
-      setSelectedDecrypted('');
-    }
-  }, [mek, pendingNote]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleNoteClick = useCallback(
     (note: CachedSecretNote) => {
       if (!isUnlocked) {
@@ -126,11 +120,9 @@ export function SecretsGrid({
         setShowPassphrase(true);
         return;
       }
-      const decrypted = decryptedPreviews.get(note._id) ?? '';
-      setSelected(note);
-      setSelectedDecrypted(decrypted);
+      openDecryptedNote(note);
     },
-    [isUnlocked, decryptedPreviews],
+    [isUnlocked, openDecryptedNote],
   );
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
@@ -231,9 +223,7 @@ export function SecretsGrid({
         </DragOverlay>
       </DndContext>
 
-      {hasMore && (
-        <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />
-      )}
+      {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
 
       {isLoadingMore && (
         <div className={styles.loading}>
@@ -243,7 +233,13 @@ export function SecretsGrid({
 
       {showPassphrase && (
         <PassphraseModal
-          onSuccess={() => setShowPassphrase(false)}
+          onSuccess={() => {
+            setShowPassphrase(false);
+            if (pendingNote) {
+              openDecryptedNote(pendingNote);
+              setPendingNote(null);
+            }
+          }}
           onClose={() => {
             setShowPassphrase(false);
             setPendingNote(null);
@@ -251,7 +247,7 @@ export function SecretsGrid({
         />
       )}
 
-      {selected && (
+      {selected && isUnlocked && (
         <SecretNoteModal
           note={selected}
           decryptedContent={selectedDecrypted}

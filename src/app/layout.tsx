@@ -27,13 +27,13 @@ export default async function RootLayout({
           <AuthSessionProvider>
             <Web3Provider>
               <EncryptionProvider>
-              <div className={s.shell}>
-                <Sidebar />
-                <div className={s.content}>
-                  <MobileHeader />
-                  <main className={s.main}>{children}</main>
+                <div className={s.shell}>
+                  <Sidebar />
+                  <div className={s.content}>
+                    <MobileHeader />
+                    <main className={s.main}>{children}</main>
+                  </div>
                 </div>
-              </div>
               </EncryptionProvider>
             </Web3Provider>
           </AuthSessionProvider>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Eye, EyeOff } from 'lucide-react';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ type PassphraseModalProps = {
 export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
   const { unlock } = useEncryption();
   const [passphrase, setPassphrase] = useState('');
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -50,15 +51,29 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
         <form className={styles.body} onSubmit={handleSubmit}>
           <p className={styles.hint}>Enter your passphrase to decrypt your notes for this session.</p>
 
-          <Input
-            type="password"
-            autoComplete="current-password"
-            placeholder="Your passphrase"
-            value={passphrase}
-            onChange={(e) => setPassphrase(e.target.value)}
-            disabled={loading}
-            autoFocus
-          />
+          <div className={styles.inputWrapper}>
+            <Input
+              type={showPassphrase ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Your passphrase"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              disabled={loading}
+              autoFocus
+              className={styles.inputWithIcon}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
+              onClick={() => setShowPassphrase((v) => !v)}
+              tabIndex={-1}
+              aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+            >
+              {showPassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+          </div>
 
           {error && <p className={styles.error}>{error}</p>}
 

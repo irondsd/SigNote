@@ -46,7 +46,9 @@ export function SortableEncryptedCard({
       const touch = e.touches[0];
       startPosRef.current = { x: touch.clientX, y: touch.clientY };
       shouldPreventScrollRef.current = false;
-      touchTimerRef.current = setTimeout(() => { shouldPreventScrollRef.current = true; }, 200);
+      touchTimerRef.current = setTimeout(() => {
+        shouldPreventScrollRef.current = true;
+      }, 200);
     };
 
     const onTouchMove = (e: TouchEvent) => {

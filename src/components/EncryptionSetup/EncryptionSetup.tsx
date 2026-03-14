@@ -78,15 +78,21 @@ export function EncryptionSetup() {
                 disabled={loading}
                 className={styles.inputWithIcon}
               />
-              <button
+              <Button
                 type="button"
-                className={styles.inputIconBtn}
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
                 onClick={() => setShowPassphrase((v) => !v)}
                 tabIndex={-1}
                 aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
               >
-                {showPassphrase ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+                {showPassphrase ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
             </div>
           </div>
 
@@ -105,15 +111,21 @@ export function EncryptionSetup() {
                 disabled={loading}
                 className={styles.inputWithIcon}
               />
-              <button
+              <Button
                 type="button"
-                className={styles.inputIconBtn}
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground absolute inset-y-0 right-0"
                 onClick={() => setShowConfirm((v) => !v)}
                 tabIndex={-1}
                 aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
               >
-                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+                {showConfirm ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
             </div>
           </div>
 

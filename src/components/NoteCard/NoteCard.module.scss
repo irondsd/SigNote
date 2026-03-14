@@ -4,6 +4,8 @@
   align-items: flex-start;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -47,6 +49,8 @@
   margin: 0;
   line-height: 1.4;
   word-break: break-word;
+  overflow-wrap: anywhere;
+  width: 100%;
 }
 
 .content {
@@ -55,6 +59,7 @@
   color: var(--muted-foreground);
   line-height: 1.55;
   word-break: break-word;
+  overflow-wrap: anywhere;
   min-height: 40px;
   max-height: 250px;
   overflow: hidden;
@@ -138,6 +143,10 @@
 
   :global(ul[data-type='taskList'] li > div) {
     flex: 1;
+  }
+
+  code {
+    text-wrap: auto;
   }
 }
 

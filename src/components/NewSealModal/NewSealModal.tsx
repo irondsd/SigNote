@@ -39,8 +39,13 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
     }
   };
 
+  const handleBackdropClose = () => {
+    const contentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+    if (contentEmpty) onClose();
+  };
+
   return (
-    <Backdrop onClose={onClose}>
+    <Backdrop onClose={handleBackdropClose}>
       <Modal>
         <div className={styles.header}>
           <h2 className={styles.heading}>New Seal</h2>
@@ -57,12 +62,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
           />
-          <TiptapEditor
-            content={content}
-            onChange={setContent}
-            editable={true}
-            placeholder="Write your seal…"
-          />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" />
         </div>
 
         <div className={styles.footer}>

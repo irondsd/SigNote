@@ -19,7 +19,7 @@ export default function SecretsPage() {
   const { data: session, status } = useSession();
   const { profileStatus, isUnlocked, lock } = useEncryption();
   const [search, setSearch] = useState('');
-  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
+  const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
     archived: search ? undefined : false,
     search,
   });
@@ -72,7 +72,7 @@ export default function SecretsPage() {
                   size="icon"
                   aria-label="Clear search"
                   onClick={() => setSearch('')}
-                  className="text-muted-foreground focus-visible:ring-ring/50 absolute inset-y-0 right-0 rounded-l-none hover:bg-transparent"
+                  className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
                 >
                   <CircleXIcon />
                   <span className="sr-only">Clear input</span>

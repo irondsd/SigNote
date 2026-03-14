@@ -67,11 +67,11 @@ A `keyCheck` payload is stored with the encryption profile. It is an AES-GCM cip
 
 Once the MEK is in memory it is imported as an HKDF base key (non-extractable). All working keys are derived from it using HKDF (SHA-256) with distinct `info` strings to ensure domain separation:
 
-| Derived key | HKDF info string | Used for |
-|---|---|---|
-| `secretBodyKey` | `signote-v1/secret-body` | Encrypting and decrypting all Secrets bodies |
-| `verifyKey` | `signote-v1/verify` | Encrypting the `keyCheck` payload |
-| `sealWrapKey(id)` | `signote-v1/seal-wrap/<noteId>` | Wrapping the per-note NEK for each Seal |
+| Derived key       | HKDF info string                | Used for                                     |
+| ----------------- | ------------------------------- | -------------------------------------------- |
+| `secretBodyKey`   | `signote-v1/secret-body`        | Encrypting and decrypting all Secrets bodies |
+| `verifyKey`       | `signote-v1/verify`             | Encrypting the `keyCheck` payload            |
+| `sealWrapKey(id)` | `signote-v1/seal-wrap/<noteId>` | Wrapping the per-note NEK for each Seal      |
 
 Because the `sealWrapKey` derivation includes the note ID in the info string, each note gets a unique wrapping key even though they share the same MEK.
 
@@ -119,11 +119,11 @@ Because SIWE validates the domain and origin, `NEXTAUTH_URL` must exactly match 
 
 ## Search model
 
-| Tier | Searchable fields |
-|---|---|
-| Notes | Title + content |
-| Secrets | Title only |
-| Seals | Title only |
+| Tier    | Searchable fields |
+| ------- | ----------------- |
+| Notes   | Title + content   |
+| Secrets | Title only        |
+| Seals   | Title only        |
 
 Titles are intentionally left unencrypted to enable full-text indexing while keeping bodies private.
 
@@ -170,14 +170,14 @@ NEXTAUTH_URL="http://localhost:5000"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
 ```
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi |
-| `NEXT_PUBLIC_RPC_URL` | Ethereum RPC endpoint used by the app |
-| `MONGODB_URI` | MongoDB connection string |
-| `MONGODB_DB` | Database name |
-| `NEXTAUTH_URL` | Exact public app origin used for SIWE verification |
-| `NEXTAUTH_SECRET` | Secret used by NextAuth to sign sessions |
+| Variable                               | Description                                        |
+| -------------------------------------- | -------------------------------------------------- |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi  |
+| `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app              |
+| `MONGODB_URI`                          | MongoDB connection string                          |
+| `MONGODB_DB`                           | Database name                                      |
+| `NEXTAUTH_URL`                         | Exact public app origin used for SIWE verification |
+| `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions           |
 
 > The local dev script runs on port `5000`, so `NEXTAUTH_URL` should be `http://localhost:5000` unless you change the port.
 

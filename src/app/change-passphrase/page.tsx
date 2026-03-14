@@ -247,15 +247,17 @@ export default function ChangePassphrasePage() {
                 disabled={submitting}
                 className={styles.inputWithIcon}
               />
-              <button
+              <Button
                 type="button"
-                className={styles.inputIconBtn}
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
                 onClick={() => setShowNew((v) => !v)}
                 tabIndex={-1}
                 aria-label={showNew ? 'Hide passphrase' : 'Show passphrase'}
               >
-                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
             </div>
             {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
               <p className={styles.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
@@ -277,15 +279,21 @@ export default function ChangePassphrasePage() {
                 disabled={submitting}
                 className={styles.inputWithIcon}
               />
-              <button
+              <Button
                 type="button"
-                className={styles.inputIconBtn}
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground absolute inset-y-0 right-0"
                 onClick={() => setShowConfirm((v) => !v)}
                 tabIndex={-1}
                 aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
               >
-                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+                {showConfirm ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
             </div>
             {confirm && newPassphrase !== confirm && <p className={styles.error}>Passphrases do not match.</p>}
           </div>

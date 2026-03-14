@@ -17,11 +17,7 @@ export function EncryptedPlaceholder({ rows = 3 }: EncryptedPlaceholderProps) {
     <div className={styles.wrapper}>
       <div className={styles.bars}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div
-            key={i}
-            className={styles.bar}
-            style={{ width: rowWidths[i % rowWidths.length] }}
-          />
+          <div key={i} className={styles.bar} style={{ width: rowWidths[i % rowWidths.length] }} />
         ))}
       </div>
       <Tooltip>

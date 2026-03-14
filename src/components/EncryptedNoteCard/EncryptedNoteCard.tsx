@@ -43,10 +43,7 @@ export function EncryptedNoteCard({
       {title && <h3 className={styles.title}>{title}</h3>}
 
       {decryptedContent ? (
-        <div
-          className={styles.content}
-          dangerouslySetInnerHTML={{ __html: decryptedContent }}
-        />
+        <div className={styles.content} dangerouslySetInnerHTML={{ __html: decryptedContent }} />
       ) : (
         <div className={styles.content}>
           <EncryptedPlaceholder rows={3} />

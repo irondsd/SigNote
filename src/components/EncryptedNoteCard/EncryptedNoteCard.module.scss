@@ -21,12 +21,24 @@
   }
 }
 
-.colorYellow { --note-card-bg: var(--note-yellow); }
-.colorRed { --note-card-bg: var(--note-red); }
-.colorBlue { --note-card-bg: var(--note-blue); }
-.colorGreen { --note-card-bg: var(--note-green); }
-.colorClay { --note-card-bg: var(--note-clay); }
-.colorGray { --note-card-bg: var(--note-gray); }
+.colorYellow {
+  --note-card-bg: var(--note-yellow);
+}
+.colorRed {
+  --note-card-bg: var(--note-red);
+}
+.colorBlue {
+  --note-card-bg: var(--note-blue);
+}
+.colorGreen {
+  --note-card-bg: var(--note-green);
+}
+.colorClay {
+  --note-card-bg: var(--note-clay);
+}
+.colorGray {
+  --note-card-bg: var(--note-gray);
+}
 
 .title {
   font-size: 15px;
@@ -49,9 +61,17 @@
   width: 100%;
   pointer-events: none;
 
-  :global(p) { margin: 0; }
-  :global(ul), :global(ol) { margin: 0 0 0.3em; padding-left: 1.2em; }
-  :global(li) { margin: 0; }
+  :global(p) {
+    margin: 0;
+  }
+  :global(ul),
+  :global(ol) {
+    margin: 0 0 0.3em;
+    padding-left: 1.2em;
+  }
+  :global(li) {
+    margin: 0;
+  }
 }
 
 .archivedBadge {
