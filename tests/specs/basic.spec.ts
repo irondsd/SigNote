@@ -15,7 +15,6 @@ test.describe('basic tests', () => {
   });
 
   test('should load the homepage successfully', async ({ page }) => {
-    await page.goto('/');
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
 

@@ -1,8 +1,4 @@
 import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.resolve(__dirname, 'tests/', '.env'), quiet: true });
 
 const BASE_TIMEOUT = 5000; // 5 seconds
 
@@ -18,7 +14,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: 1,
+  workers: 5,
   /* Reporter to use. Add html for richer downloadable artifact on CI */
   reporter: [process.env.CI ? ['html', { outputFolder: 'playwright-report', open: 'never' }] : ['list']],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
