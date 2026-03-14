@@ -91,7 +91,9 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
             <div className={styles.walletRow}>
               <div className={styles.walletInfo}>
                 <div className={styles.walletDot} />
-                <span data-testid="wallet-address" className={styles.walletAddress}>{shortenAddress(address)}</span>
+                <span data-testid="wallet-address" className={styles.walletAddress}>
+                  {shortenAddress(address)}
+                </span>
               </div>
               <Button
                 data-testid="sign-out-button"
