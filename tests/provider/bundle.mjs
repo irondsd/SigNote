@@ -48,6 +48,13 @@ if (!rpcUrl) {
   }
 }
 
+if (rpcUrl === undefined) {
+  throw new Error(
+    'NEXT_PUBLIC_RPC_URL is not defined in .env.test. ' +
+      'Set NEXT_PUBLIC_RPC_URL in tests/.env.test (or ../../.env.test) before running the provider bundle.'
+  );
+}
+
 const result = await esbuild.build({
   entryPoints: [path.join(import.meta.dirname, 'mock-provider.ts')],
   bundle: true,
