@@ -6,7 +6,10 @@
     "dev": "next dev -p 5000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "test:bundle": "node tests/provider/bundle.mjs",
+    "test": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -43,12 +46,15 @@
     "wagmi": "^2.9.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.27.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "mongodb-memory-server": "^11.0.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

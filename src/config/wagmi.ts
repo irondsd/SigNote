@@ -5,6 +5,7 @@ import {
   getDefaultConfig,
   getDefaultWallets,
 } from "@rainbow-me/rainbowkit";
+import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
 
 import { server } from "./server";
 
@@ -17,7 +18,15 @@ const walletConnectParams = {
   projectId: walletConnectProjectId,
 };
 const { wallets } = getDefaultWallets(walletConnectParams);
-const connectors = connectorsForWallets([...wallets], walletConnectParams);
+const connectors = connectorsForWallets(
+  [
+    ...wallets,
+    // Injected wallet uses window.ethereum directly — needed for e2e tests
+    // with mock provider (the MetaMask option uses @metamask/sdk instead)
+    { groupName: "Other", wallets: [injectedWallet] },
+  ],
+  walletConnectParams,
+);
 
 // extend server wagmi config with connectors on the client
 const wagmiConfig = {
