@@ -3,13 +3,12 @@ import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
 import { signIn } from '../utils/signIn';
-import { seedNotes } from '../utils/seedNotes';
+import { seedNotes } from '../fixtures/seedNotes';
 
 test.describe.configure({ mode: 'parallel' });
 
 // Helper: locate a note card by its visible text
-const noteCard = (page: Page, title: string) =>
-  page.getByTestId('note-card').filter({ hasText: title });
+const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
 
 // Helper: full sign-in setup for a fresh test account
 const setup = async (page: Page, startUrl = '/') => {
@@ -172,10 +171,7 @@ test.describe('search notes', () => {
   test('clearing search hides archived notes', async ({ page }) => {
     const { privateKey, account } = makeAccount();
     const tag = `clr${Date.now()}`;
-    await seedNotes(account.address, [
-      { title: `${tag} active` },
-      { title: `${tag} archived`, archived: true },
-    ]);
+    await seedNotes(account.address, [{ title: `${tag} active` }, { title: `${tag} archived`, archived: true }]);
 
     await mockProvider(page);
     await page.goto('/');
