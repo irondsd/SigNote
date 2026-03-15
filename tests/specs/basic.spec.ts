@@ -39,4 +39,23 @@ test.describe('basic tests', () => {
     // Verify no critical console errors occurred
     expect(consoleErrors).toHaveLength(0);
   });
+
+  test('should switch themes via the theme toggle', async ({ page }) => {
+    await page.waitForLoadState('networkidle');
+
+    const html = page.locator('html');
+
+    // Switch to dark
+    await page.getByTestId('dark-theme-btn').first().click();
+    await expect(html).toHaveClass(/dark/);
+
+    // Switch to light
+    await page.getByTestId('light-theme-btn').first().click();
+    await expect(html).not.toHaveClass(/dark/);
+    await expect(html).toHaveClass(/light/);
+
+    // Switch back to system
+    await page.getByTestId('system-theme-btn').first().click();
+    await expect(html).toHaveClass(/light/);
+  });
 });

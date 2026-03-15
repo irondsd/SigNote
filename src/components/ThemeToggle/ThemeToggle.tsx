@@ -16,6 +16,7 @@ export function ThemeToggle() {
         className={theme === 'light' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('light')}
         title="Light theme"
+        data-testid="light-theme-btn"
       >
         <Sun size={15} />
       </Button>
@@ -25,6 +26,7 @@ export function ThemeToggle() {
         className={theme === 'system' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('system')}
         title="System theme"
+        data-testid="system-theme-btn"
       >
         <Monitor size={15} />
       </Button>
@@ -34,6 +36,7 @@ export function ThemeToggle() {
         className={theme === 'dark' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('dark')}
         title="Dark theme"
+        data-testid="dark-theme-btn"
       >
         <Moon size={15} />
       </Button>
