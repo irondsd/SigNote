@@ -1,32 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trash2, Archive, X, Pencil, Check, Palette, LockOpen, Lock } from 'lucide-react';
+import { Trash2, Archive, Check, LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/utils/cn';
-import { NOTE_COLORS, SWITCH_COLORS } from '@/config/noteColors';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
-import { Backdrop } from '@/components/Backdrop/Backdrop';
-import { Modal } from '@/components/Modal/Modal';
+import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import styles from './SealNoteModal.module.scss';
 
 type SealNoteModalProps = {
   note: CachedSealNote;
   onClose: () => void;
 };
-
-function noteColorClass(color: string | null | undefined) {
-  if (!color) return undefined;
-  const key = `color${color.charAt(0).toUpperCase()}${color.slice(1)}`;
-  return styles[key as keyof typeof styles];
-}
 
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const { mek } = useEncryption();
@@ -150,114 +140,71 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const date = new Date(note.updatedAt).toLocaleString();
 
+  const footerActions = isDecrypted && editing ? (
+    <Button size="sm" onClick={handleSave} disabled={saving}>
+      <Check size={15} />
+      {saving ? 'Saving…' : 'Save'}
+    </Button>
+  ) : (
+    <>
+      {isDecrypted ? (
+        <Button variant="outline" size="sm" onClick={handleEncrypt}>
+          <Lock size={15} />
+          Encrypt
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
+          <LockOpen size={15} />
+          {decrypting ? 'Decrypting…' : 'Decrypt'}
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleArchiveToggle}
+        title={isArchived ? 'Unarchive' : 'Archive'}
+      >
+        <Archive size={15} />
+        {isArchived ? 'Unarchive' : 'Archive'}
+      </Button>
+      <Button variant="destructive" size="sm" onClick={handleDelete}>
+        <Trash2 size={15} />
+        Delete
+      </Button>
+    </>
+  );
+
   return (
     <>
-      <Backdrop onClose={handleClose} disableClose={editing}>
-        <Modal className={cn(styles.modal, noteColorClass(color))}>
-          <div className={styles.header}>
-            {editing ? (
-              <input
-                className={styles.titleInput}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Title"
-                autoFocus
-              />
-            ) : (
-              <h2 className={styles.title}>{note.title || 'Untitled'}</h2>
-            )}
-            <div className={styles.headerActions}>
-              <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon-sm" title="Note color">
-                    <Palette size={16} />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
-                  <div className={styles.colorSwatches}>
-                    <button
-                      className={cn(styles.swatch, styles.swatchDefault, !color && styles.swatchSelected)}
-                      onClick={() => handleColorChange(null)}
-                      title="Default"
-                    />
-                    {NOTE_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        className={cn(styles.swatch, color === c && styles.swatchSelected)}
-                        style={{ background: SWITCH_COLORS[c] }}
-                        onClick={() => handleColorChange(c)}
-                        title={c.charAt(0).toUpperCase() + c.slice(1)}
-                      />
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {isDecrypted && (
-                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(!editing)} title="Edit">
-                  <Pencil size={16} />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon-sm" onClick={handleClose} title="Close">
-                <X size={18} />
-              </Button>
-            </div>
+      <SharedNoteModal
+        title={note.title ?? ''}
+        editing={editing}
+        onTitleChange={setTitle}
+        color={color}
+        onColorChange={handleColorChange}
+        colorPickerOpen={colorPickerOpen}
+        onColorPickerOpenChange={setColorPickerOpen}
+        showEditButton={isDecrypted}
+        onEditToggle={() => setEditing(!editing)}
+        onClose={handleClose}
+        disableClose={editing}
+        date={date}
+        footerActions={footerActions}
+      >
+        {isDecrypted ? (
+          <TiptapEditor
+            content={decryptedContent}
+            onChange={(html) => setDecryptedContent(html)}
+            editable={editing}
+            placeholder="Write your seal…"
+          />
+        ) : (
+          <div className={styles.encryptedState}>
+            <EncryptedPlaceholder rows={4} />
+            {decryptError && <p className={styles.decryptError}>{decryptError}</p>}
           </div>
-
-          <div className={styles.body}>
-            {isDecrypted ? (
-              <TiptapEditor
-                content={decryptedContent}
-                onChange={(html) => setDecryptedContent(html)}
-                editable={editing}
-                placeholder="Write your seal…"
-              />
-            ) : (
-              <div className={styles.encryptedState}>
-                <EncryptedPlaceholder rows={4} />
-                {decryptError && <p className={styles.decryptError}>{decryptError}</p>}
-                <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
-                  <LockOpen size={15} />
-                  {decrypting ? 'Decrypting…' : 'Decrypt'}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className={styles.footer}>
-            <span className={styles.date}>Updated {date}</span>
-            <div className={styles.actions}>
-              {isDecrypted && editing ? (
-                <Button size="sm" onClick={handleSave} disabled={saving}>
-                  <Check size={15} />
-                  {saving ? 'Saving…' : 'Save'}
-                </Button>
-              ) : (
-                <>
-                  {isDecrypted && (
-                    <Button variant="outline" size="sm" onClick={handleEncrypt}>
-                      <Lock size={15} />
-                      Encrypt
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleArchiveToggle}
-                    title={isArchived ? 'Unarchive' : 'Archive'}
-                  >
-                    <Archive size={15} />
-                    {isArchived ? 'Unarchive' : 'Archive'}
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={handleDelete}>
-                    <Trash2 size={15} />
-                    Delete
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </Modal>
-      </Backdrop>
+        )}
+      </SharedNoteModal>
 
       {showPassphrase && (
         <PassphraseModal
