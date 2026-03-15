@@ -36,12 +36,12 @@ test.describe('connect wallet', () => {
         }
         return false;
       }),
-      walletAddress.waitFor({ state: 'visible', timeout: 15000 }),
+      walletAddress.waitFor({ state: 'visible' }),
     ]);
 
     // Wait for the full SIWE flow to complete:
     // eth_requestAccounts → nonce fetch → personal_sign → signIn → session update
-    await expect(walletAddress).toBeVisible({ timeout: 15000 });
+    await expect(walletAddress).toBeVisible();
 
     // Verify the correct address is displayed
     const expectedShort = shortenAddress(account.address);
@@ -49,5 +49,36 @@ test.describe('connect wallet', () => {
 
     // Verify authenticated UI — UnauthenticatedState should be gone
     await expect(page.getByText('Welcome to SigNote')).not.toBeVisible();
+  });
+
+  test('should sign out and return to unauthenticated state', async ({ page }) => {
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    const walletAddress = page.getByTestId('wallet-address').first();
+    await Promise.any([
+      page.waitForFunction(() => {
+        const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
+        const buttons = modal?.querySelectorAll('button');
+        for (const btn of buttons || []) {
+          if (btn.textContent?.includes('Browser Wallet')) {
+            btn.scrollIntoView();
+            btn.click();
+            return true;
+          }
+        }
+        return false;
+      }),
+      walletAddress.waitFor({ state: 'visible' }),
+    ]);
+
+    await expect(walletAddress).toBeVisible();
+
+    // Sign out
+    await page.getByTestId('sign-out-button').first().click();
+
+    // Verify unauthenticated state is restored
+    await expect(signInButton).toBeVisible();
+    await expect(walletAddress).not.toBeVisible();
   });
 });
