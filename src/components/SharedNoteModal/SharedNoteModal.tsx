@@ -75,12 +75,14 @@ export function SharedNoteModal({
               <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
                 <div className={styles.colorSwatches}>
                   <button
+                    type="button"
                     className={cn(styles.swatch, styles.swatchDefault, !color && styles.swatchSelected)}
                     onClick={() => onColorChange(null)}
                     title="Default"
                   />
                   {NOTE_COLORS.map((c) => (
                     <button
+                      type="button"
                       key={c}
                       className={cn(styles.swatch, color === c && styles.swatchSelected)}
                       style={{ background: SWITCH_COLORS[c] }}
