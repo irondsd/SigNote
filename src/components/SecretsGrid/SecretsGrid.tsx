@@ -1,31 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragStartEvent,
-  type DragEndEvent,
-  DragOverlay,
-} from '@dnd-kit/core';
-import { SortableContext } from '@dnd-kit/sortable';
-import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
+import { useCallback, useEffect, useState } from 'react';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
 import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
-import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
-import { useReorder } from '@/hooks/useReorder';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSecretBody } from '@/lib/crypto';
-import { calculatePosition } from '@/utils/calculatePosition';
-import styles from './SecretsGrid.module.scss';
+import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 
 type SecretsGridProps = {
   notes: CachedSecretNote[] | undefined;
@@ -53,11 +36,7 @@ export function SecretsGrid({
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const [pendingNote, setPendingNote] = useState<CachedSecretNote | null>(null);
   const [showPassphrase, setShowPassphrase] = useState(false);
-  const [activeNote, setActiveNote] = useState<CachedSecretNote | null>(null);
-  const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, string>>(new Map());
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const reorderMutation = useReorder('secrets');
 
   const openDecryptedNote = useCallback(
     (note: CachedSecretNote) => {
@@ -125,112 +104,45 @@ export function SecretsGrid({
     [isUnlocked, openDecryptedNote],
   );
 
-  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
-  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
-  const sensors = useSensors(pointerSensor, touchSensor);
-
-  const noteIds = useMemo(() => (notes ?? []).map((n) => n._id), [notes]);
-  const dragEnabled = !isDragDisabled && (notes?.length ?? 0) > 1;
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const note = notes?.find((n) => n._id === event.active.id);
-      setActiveNote(note ?? null);
-      const rect = event.active.rect.current.initial;
-      if (rect) setActiveDragSize({ width: rect.width, height: rect.height });
-    },
-    [notes],
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      setActiveNote(null);
-      setActiveDragSize(null);
-      const { active, over } = event;
-      if (!over || active.id === over.id || !notes) return;
-
-      const oldIndex = notes.findIndex((n) => n._id === active.id);
-      const newIndex = notes.findIndex((n) => n._id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      const withoutDragged = notes.filter((_, i) => i !== oldIndex);
-      const above = newIndex > 0 ? withoutDragged[newIndex - 1].position : null;
-      const below = newIndex < withoutDragged.length ? withoutDragged[newIndex].position : null;
-      const newPosition = calculatePosition(above, below);
-
-      reorderMutation.mutate({ id: active.id as string, position: newPosition, oldIndex, newIndex });
-    },
-    [notes, reorderMutation],
-  );
-
-  useEffect(() => {
-    if (!sentinelRef.current || !hasMore || !onLoadMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore && hasMore) onLoadMore();
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, onLoadMore]);
-
-  if (!notes || notes.length === 0) {
-    return archive ? <EmptyStateArchive /> : <EmptyState onNewNote={onNewNote} />;
-  }
-
   return (
-    <>
-      <DndContext
-        sensors={dragEnabled ? sensors : undefined}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
-          <div className={styles.grid}>
-            {notes.map((note) => (
-              <SortableEncryptedCard
-                key={note._id}
-                id={note._id}
-                title={note.title}
-                updatedAt={note.updatedAt}
-                color={note.color}
-                onClick={() => handleNoteClick(note)}
-                decryptedContent={isUnlocked ? decryptedPreviews.get(note._id) : undefined}
-                showArchivedBadge={showArchivedBadge}
-                archived={note.archived}
-                isDragDisabled={!dragEnabled}
-              />
-            ))}
-          </div>
-        </SortableContext>
-
-        <DragOverlay dropAnimation={null}>
-          {activeNote ? (
-            <div style={activeDragSize ? { width: activeDragSize.width, height: activeDragSize.height } : undefined}>
-              <EncryptedNoteCard
-                title={activeNote.title}
-                updatedAt={activeNote.updatedAt}
-                color={activeNote.color}
-                onClick={() => {}}
-                decryptedContent={isUnlocked ? decryptedPreviews.get(activeNote._id) : undefined}
-                showArchivedBadge={showArchivedBadge}
-                archived={activeNote.archived}
-              />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-
-      {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
-
-      {isLoadingMore && (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
-        </div>
+    <BaseGrid
+      notes={notes}
+      getId={(note) => note._id}
+      reorderType="secrets"
+      archive={archive}
+      onNewNote={onNewNote}
+      onLoadMore={onLoadMore}
+      hasMore={hasMore}
+      isLoadingMore={isLoadingMore}
+      showArchivedBadge={showArchivedBadge}
+      isDragDisabled={isDragDisabled}
+      onNoteClick={handleNoteClick}
+      renderCard={(note, onClick, showBadge, dragDisabled) => (
+        <SortableEncryptedCard
+          key={note._id}
+          id={note._id}
+          title={note.title}
+          updatedAt={note.updatedAt}
+          color={note.color}
+          onClick={onClick}
+          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id) : undefined}
+          showArchivedBadge={showBadge}
+          archived={note.archived}
+          isDragDisabled={dragDisabled}
+        />
       )}
-
+      renderOverlayCard={(note, showBadge) => (
+        <EncryptedNoteCard
+          title={note.title}
+          updatedAt={note.updatedAt}
+          color={note.color}
+          onClick={() => {}}
+          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id) : undefined}
+          showArchivedBadge={showBadge}
+          archived={note.archived}
+        />
+      )}
+    >
       {showPassphrase && (
         <PassphraseModal
           onSuccess={() => {
@@ -257,6 +169,6 @@ export function SecretsGrid({
           }}
         />
       )}
-    </>
+    </BaseGrid>
   );
 }
