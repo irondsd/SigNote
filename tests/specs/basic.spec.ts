@@ -54,6 +54,9 @@ test.describe('basic tests', () => {
     await expect(html).not.toHaveClass(/dark/);
     await expect(html).toHaveClass(/light/);
 
+    // Ensure a deterministic color scheme before switching back to system
+    await page.emulateMedia({ colorScheme: 'light' });
+
     // Switch back to system
     await page.getByTestId('system-theme-btn').first().click();
     await expect(html).toHaveClass(/light/);
