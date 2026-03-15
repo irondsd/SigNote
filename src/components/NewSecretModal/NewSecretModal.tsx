@@ -6,9 +6,9 @@ import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { Backdrop } from '@/components/Backdrop/Backdrop';
-import { Modal } from '@/components/Modal/Modal';
-import styles from './NewSecretModal.module.scss';
+import { Button } from '@/components/ui/button';
+import { NewModal } from '@/components/NewModal/NewModal';
+import styles from '@/components/NewModal/NewModal.module.scss';
 
 type NewSecretModalProps = {
   onClose: () => void;
@@ -40,41 +40,35 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   };
 
   return (
-    <Backdrop onClose={handleBackdropClose}>
-      <Modal>
-        <div className={styles.header}>
-          <h2 className={styles.heading}>New Secret</h2>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className={styles.body}>
-          <input
-            className={styles.titleInput}
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
-        </div>
-
-        <div className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose}>
+    <NewModal
+      heading="New Secret"
+      onClose={onClose}
+      onBackdropClose={handleBackdropClose}
+      footer={
+        <>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={14} />
             Cancel
-          </button>
-          <button
-            className={styles.saveBtn}
+          </Button>
+          <Button
+            size="sm"
             onClick={handleSave}
             disabled={(!title.trim() && !content.trim()) || saving || !mek}
           >
             <Check size={14} />
             {saving ? 'Saving…' : 'Save Secret'}
-          </button>
-        </div>
-      </Modal>
-    </Backdrop>
+          </Button>
+        </>
+      }
+    >
+      <input
+        className={styles.titleInput}
+        placeholder="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus
+      />
+      <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
+    </NewModal>
   );
 }

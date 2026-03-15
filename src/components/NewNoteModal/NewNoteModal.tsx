@@ -5,9 +5,8 @@ import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
-import { Backdrop } from '@/components/Backdrop/Backdrop';
-import { Modal } from '@/components/Modal/Modal';
-import styles from './NewNoteModal.module.scss';
+import { NewModal } from '@/components/NewModal/NewModal';
+import styles from '@/components/NewModal/NewModal.module.scss';
 
 type NewNoteModalProps = {
   onClose: () => void;
@@ -32,28 +31,12 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
   };
 
   return (
-    <Backdrop onClose={handleBackdropClose}>
-      <Modal>
-        <div className={styles.header}>
-          <h2 className={styles.heading}>New Note</h2>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
-            <X size={18} />
-          </Button>
-        </div>
-
-        <div className={styles.body}>
-          <input
-            data-testid="note-title-input"
-            className={styles.titleInput}
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." />
-        </div>
-
-        <div className={styles.footer}>
+    <NewModal
+      heading="New Note"
+      onClose={onClose}
+      onBackdropClose={handleBackdropClose}
+      footer={
+        <>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X size={14} />
             Cancel
@@ -62,8 +45,18 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             <Check size={14} />
             Save Note
           </Button>
-        </div>
-      </Modal>
-    </Backdrop>
+        </>
+      }
+    >
+      <input
+        data-testid="note-title-input"
+        className={styles.titleInput}
+        placeholder="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus
+      />
+      <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." />
+    </NewModal>
   );
 }
