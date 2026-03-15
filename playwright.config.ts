@@ -14,7 +14,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: 10,
+  workers: process.env.CI ? 1 : 10,
   /* Reporter to use. Add html for richer downloadable artifact on CI */
   reporter: [process.env.CI ? ['html', { outputFolder: 'playwright-report', open: 'never' }] : ['list']],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
