@@ -21,7 +21,7 @@ export function NewModal({ heading, onClose, onBackdropClose, footer, children }
       <Modal>
         <div className={styles.header}>
           <h2 className={styles.heading}>{heading}</h2>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close" title="Close">
             <X size={18} />
           </Button>
         </div>
