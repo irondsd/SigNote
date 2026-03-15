@@ -79,6 +79,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
         <div className={styles.header}>
           {editing ? (
             <input
+              data-testid="note-title-input"
               className={styles.titleInput}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -86,12 +87,12 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
               autoFocus
             />
           ) : (
-            <h2 className={styles.title}>{note.title || 'Untitled'}</h2>
+            <h2 data-testid="note-title" className={styles.title}>{note.title || 'Untitled'}</h2>
           )}
           <div className={styles.headerActions}>
             <Popover open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon-sm" title="Note color">
+                <Button data-testid="color-palette-btn" variant="ghost" size="icon-sm" title="Note color">
                   <Palette size={16} />
                 </Button>
               </PopoverTrigger>
@@ -114,7 +115,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                 </div>
               </PopoverContent>
             </Popover>
-            <Button variant="ghost" size="icon-sm" onClick={() => setEditing(!editing)} title="Edit">
+            <Button data-testid="edit-btn" variant="ghost" size="icon-sm" onClick={() => setEditing(!editing)} title="Edit">
               <Pencil size={16} />
             </Button>
             <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
@@ -140,16 +141,17 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
 
         {/* Footer */}
         <div className={styles.footer}>
-          <span className={styles.date}>Updated {date}</span>
+          <span data-testid="note-date" className={styles.date}>Updated {date}</span>
           <div className={styles.actions}>
             {editing ? (
-              <Button size="sm" onClick={handleSave}>
+              <Button data-testid="save-btn" size="sm" onClick={handleSave}>
                 <Check size={15} />
                 Save
               </Button>
             ) : (
               <>
                 <Button
+                  data-testid="archive-btn"
                   variant="outline"
                   size="sm"
                   onClick={handleArchiveToggle}
@@ -158,7 +160,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
                   <Archive size={15} />
                   {isArchived ? 'Unarchive' : 'Archive'}
                 </Button>
-                <Button variant="destructive" size="sm" onClick={handleDelete}>
+                <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>
                   <Trash2 size={15} />
                   Delete
                 </Button>

@@ -18,8 +18,10 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
   const [content, setContent] = useState('');
   const createNote = useCreateNote();
 
+  const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+
   const handleSave = () => {
-    if (!title.trim() && !content.trim()) return;
+    if (!title.trim() && isContentEmpty) return;
     createNote.mutate({ title: title.trim(), content: content.trim() });
     onClose();
   };
@@ -41,6 +43,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
 
         <div className={styles.body}>
           <input
+            data-testid="note-title-input"
             className={styles.titleInput}
             placeholder="Title"
             value={title}
@@ -55,7 +58,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             <X size={14} />
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={!title.trim() && !content.trim()}>
+          <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={!title.trim() && isContentEmpty}>
             <Check size={14} />
             Save Note
           </Button>

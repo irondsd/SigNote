@@ -1,6 +1,10 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { execSync } from 'child_process';
 import path from 'path';
+import { config } from 'dotenv';
+
+// Load .env.test so test workers (spawned after globalSetup) inherit these vars
+config({ path: path.resolve(__dirname, '../../.env.test') });
 
 const MONGO_TEST_PORT = 27018;
 type GlobalWithMongo = typeof globalThis & {

@@ -18,31 +18,29 @@ test.describe('connect wallet', () => {
     const signInButton = page.getByTestId('sign-in-button').first();
     await expect(signInButton).toBeVisible();
 
-    // Click sign-in to open RainbowKit modal
+    // Click sign-in and complete the SIWE flow (RainbowKit may auto-connect via accountsChanged)
     await signInButton.click();
 
-    // Select Browser Wallet (injectedWallet using window.ethereum) from the RainbowKit modal
-    const connectModal = page.locator('[aria-labelledby="rk_connect_title"]');
-    await expect(connectModal).toBeVisible();
-
-    // The injected connector causes continuous re-renders in the RainbowKit modal,
-    // making DOM elements unstable. Click via JS to bypass Playwright stability checks.
-    await page.waitForFunction(() => {
-      const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
-      const buttons = modal?.querySelectorAll('button');
-      for (const btn of buttons || []) {
-        if (btn.textContent?.includes('Browser Wallet')) {
-          btn.scrollIntoView();
-          btn.click();
-          return true;
+    // Race: modal appears → click Browser Wallet, OR auto-connect completes without modal
+    const walletAddress = page.getByTestId('wallet-address').first();
+    await Promise.any([
+      page.waitForFunction(() => {
+        const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
+        const buttons = modal?.querySelectorAll('button');
+        for (const btn of buttons || []) {
+          if (btn.textContent?.includes('Browser Wallet')) {
+            btn.scrollIntoView();
+            btn.click();
+            return true;
+          }
         }
-      }
-      return false;
-    });
+        return false;
+      }),
+      walletAddress.waitFor({ state: 'visible', timeout: 15000 }),
+    ]);
 
     // Wait for the full SIWE flow to complete:
     // eth_requestAccounts → nonce fetch → personal_sign → signIn → session update
-    const walletAddress = page.getByTestId('wallet-address').first();
     await expect(walletAddress).toBeVisible({ timeout: 15000 });
 
     // Verify the correct address is displayed
