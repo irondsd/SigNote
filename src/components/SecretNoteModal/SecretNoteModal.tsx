@@ -97,7 +97,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
   return (
     <SharedNoteModal
-      title={note.title ?? ''}
+      title={title}
       editing={editing}
       onTitleChange={setTitle}
       color={color}
