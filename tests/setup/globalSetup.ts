@@ -21,7 +21,7 @@ async function waitForServer(url: string, timeoutMs = 50000): Promise<void> {
     } catch {
       // not ready yet
     }
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
 }
@@ -41,11 +41,11 @@ export default async function globalSetup() {
   console.log(`MongoMemoryServer started at ${mongod.getUri()}`);
 
   // Spawn Next.js with the current process.env (which now includes MONGODB_URI)
-  const server = spawn('npm', ['run', 'dev'], {
+  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const server = spawn(npmCommand, ['run', 'dev'], {
     env: { ...process.env },
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'ignore',
-    shell: true,
   });
   (globalThis as GlobalWithMongo).__SERVER__ = server;
 
