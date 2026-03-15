@@ -63,12 +63,20 @@ export function SharedNoteModal({
               autoFocus
             />
           ) : (
-            <h2 data-testid="note-title" className={styles.title}>{title || 'Untitled'}</h2>
+            <h2 data-testid="note-title" className={styles.title}>
+              {title || 'Untitled'}
+            </h2>
           )}
           <div className={styles.headerActions}>
             <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
               <PopoverTrigger asChild>
-                <Button data-testid="color-palette-btn" variant="ghost" size="icon-sm" title="Note color">
+                <Button
+                  data-testid="color-palette-btn"
+                  variant="ghost"
+                  size="icon-sm"
+                  title="Note color"
+                  aria-label="Note color"
+                >
                   <Palette size={16} />
                 </Button>
               </PopoverTrigger>
@@ -79,6 +87,7 @@ export function SharedNoteModal({
                     className={cn(styles.swatch, styles.swatchDefault, !color && styles.swatchSelected)}
                     onClick={() => onColorChange(null)}
                     title="Default"
+                    aria-label="Default"
                   />
                   {NOTE_COLORS.map((c) => (
                     <button
@@ -88,17 +97,25 @@ export function SharedNoteModal({
                       style={{ background: SWITCH_COLORS[c] }}
                       onClick={() => onColorChange(c)}
                       title={c.charAt(0).toUpperCase() + c.slice(1)}
+                      aria-label={c.charAt(0).toUpperCase() + c.slice(1)}
                     />
                   ))}
                 </div>
               </PopoverContent>
             </Popover>
             {showEditButton && (
-              <Button data-testid="edit-btn" variant="ghost" size="icon-sm" onClick={onEditToggle} title="Edit">
+              <Button
+                data-testid="edit-btn"
+                variant="ghost"
+                size="icon-sm"
+                onClick={onEditToggle}
+                title="Edit"
+                aria-label="Edit"
+              >
                 <Pencil size={16} />
               </Button>
             )}
-            <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
+            <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close" aria-label="Close">
               <X size={18} />
             </Button>
           </div>
@@ -107,7 +124,9 @@ export function SharedNoteModal({
         <div className={styles.body}>{children}</div>
 
         <div className={styles.footer}>
-          <span data-testid="note-date" className={styles.date}>Updated {date}</span>
+          <span data-testid="note-date" className={styles.date}>
+            Updated {date}
+          </span>
           <div className={styles.actions}>{footerActions}</div>
         </div>
       </Modal>
