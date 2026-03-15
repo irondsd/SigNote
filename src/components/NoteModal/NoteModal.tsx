@@ -87,7 +87,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
 
   return (
     <SharedNoteModal
-      title={note.title ?? ''}
+      title={title}
       editing={editing}
       onTitleChange={setTitle}
       color={color}
