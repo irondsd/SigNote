@@ -55,6 +55,7 @@ export function SharedNoteModal({
         <div className={styles.header}>
           {editing ? (
             <input
+              data-testid="note-title-input"
               className={styles.titleInput}
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
@@ -62,12 +63,12 @@ export function SharedNoteModal({
               autoFocus
             />
           ) : (
-            <h2 className={styles.title}>{title || 'Untitled'}</h2>
+            <h2 data-testid="note-title" className={styles.title}>{title || 'Untitled'}</h2>
           )}
           <div className={styles.headerActions}>
             <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon-sm" title="Note color">
+                <Button data-testid="color-palette-btn" variant="ghost" size="icon-sm" title="Note color">
                   <Palette size={16} />
                 </Button>
               </PopoverTrigger>
@@ -91,7 +92,7 @@ export function SharedNoteModal({
               </PopoverContent>
             </Popover>
             {showEditButton && (
-              <Button variant="ghost" size="icon-sm" onClick={onEditToggle} title="Edit">
+              <Button data-testid="edit-btn" variant="ghost" size="icon-sm" onClick={onEditToggle} title="Edit">
                 <Pencil size={16} />
               </Button>
             )}
@@ -104,7 +105,7 @@ export function SharedNoteModal({
         <div className={styles.body}>{children}</div>
 
         <div className={styles.footer}>
-          <span className={styles.date}>Updated {date}</span>
+          <span data-testid="note-date" className={styles.date}>Updated {date}</span>
           <div className={styles.actions}>{footerActions}</div>
         </div>
       </Modal>
