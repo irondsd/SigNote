@@ -42,30 +42,6 @@
   }
 }
 
-.contentInput {
-  width: 100%;
-  background: var(--muted);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  outline: none;
-  color: var(--popover-foreground);
-  font-size: 14px;
-  line-height: 1.65;
-  padding: 12px;
-  resize: vertical;
-  font-family: inherit;
-  min-height: 180px;
-
-  &:focus {
-    border-color: var(--primary);
-    background: transparent;
-  }
-
-  &::placeholder {
-    color: var(--muted-foreground);
-  }
-}
-
 .footer {
   display: flex;
   justify-content: flex-end;
