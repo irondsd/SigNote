@@ -18,17 +18,17 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
   const [content, setContent] = useState('');
   const createNote = useCreateNote();
 
+  const isTitleEmpty = !title.trim();
   const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
 
   const handleSave = () => {
-    if (!title.trim() && isContentEmpty) return;
+    if (isTitleEmpty && isContentEmpty) return;
     createNote.mutate({ title: title.trim(), content: content.trim() });
     onClose();
   };
 
   const handleBackdropClose = () => {
-    const contentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
-    if (contentEmpty) onClose();
+    if (isContentEmpty) onClose();
   };
 
   return (
@@ -58,7 +58,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
             <X size={14} />
             Cancel
           </Button>
-          <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={!title.trim() && isContentEmpty}>
+          <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={isTitleEmpty && isContentEmpty}>
             <Check size={14} />
             Save Note
           </Button>

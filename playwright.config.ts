@@ -42,13 +42,8 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'export NODE_ENV=test && npm run dev',
-    url: 'http://localhost:5000',
-    reuseExistingServer: !process.env.CI,
-    timeout: BASE_TIMEOUT * 10,
-  },
+  // The dev server is started inside globalSetup (after MongoDB) so that it
+  // inherits the dynamic MONGODB_URI. webServer is intentionally omitted here.
   globalSetup: './tests/setup/globalSetup.ts',
   globalTeardown: './tests/setup/globalTeardown.ts',
 });
