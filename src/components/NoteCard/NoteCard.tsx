@@ -30,6 +30,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
 
   return (
     <div
+      data-testid="note-card"
       className={cn(styles.card, colorClass(note.color))}
       role="button"
       tabIndex={0}
@@ -44,7 +45,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
           dangerouslySetInnerHTML={{ __html: note.content }}
         />
       )}
-      {showArchivedBadge && note.archived && <span className={styles.archivedBadge}>Archived</span>}
+      {showArchivedBadge && note.archived && <span data-testid="archived-badge" className={styles.archivedBadge}>Archived</span>}
       <span className={styles.date}>{date}</span>
     </div>
   );

@@ -85,7 +85,7 @@ export function SortableNoteCard({ note, onClick, showArchivedBadge, isDragDisab
   };
 
   return (
-    <div ref={combinedRef} style={style} {...attributes} {...listeners}>
+    <div ref={combinedRef} style={style} {...(!isDragDisabled ? attributes : {})} {...(!isDragDisabled ? listeners : {})}>
       <NoteCard note={note} onClick={onClick} showArchivedBadge={showArchivedBadge} />
     </div>
   );
