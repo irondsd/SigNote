@@ -9,15 +9,6 @@ test.describe.configure({ mode: 'parallel' });
 
 const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
 
-const setup = async (page: Page) => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto('/');
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
-};
-
 const openInEditMode = async (page: Page, title: string) => {
   await noteCard(page, title).click();
   await page.getByTestId('edit-btn').click();
@@ -25,9 +16,7 @@ const openInEditMode = async (page: Page, title: string) => {
 };
 
 const saveAndGetContent = async (page: Page, noteId: string): Promise<string> => {
-  const patchPromise = page.waitForResponse(
-    (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-  );
+  const patchPromise = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
   await page.getByTestId('save-btn').click();
   await patchPromise;
   const res = await page.request.get('/api/notes');
@@ -160,8 +149,7 @@ test.describe('checkboxes', () => {
     const [note] = await seedNotes(account.address, [
       {
         title,
-        content:
-          '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>my task</p></li></ul>',
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>my task</p></li></ul>',
       },
     ]);
 
@@ -254,9 +242,7 @@ test.describe('code blocks', () => {
   test('clicking inline code in view mode copies to clipboard', async ({ page }) => {
     const { account, privateKey } = makeAccount();
     const title = `Copy Inline ${Date.now()}`;
-    await seedNotes(account.address, [
-      { title, content: '<p><code>hello world</code></p>' },
-    ]);
+    await seedNotes(account.address, [{ title, content: '<p><code>hello world</code></p>' }]);
 
     await mockProvider(page);
     await page.goto('/');
