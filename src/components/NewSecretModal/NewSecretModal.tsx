@@ -21,9 +21,12 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   const [saving, setSaving] = useState(false);
   const createSecret = useCreateSecret();
 
+  const isTitleEmpty = !title.trim();
+  const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+
   const handleSave = async () => {
     if (!mek) return;
-    if (!title.trim() && !content.trim()) return;
+    if (isTitleEmpty && isContentEmpty) return;
     setSaving(true);
     try {
       const encryptedBody = content.trim() ? await encryptSecretBody(mek, content.trim()) : null;
@@ -51,9 +54,10 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
             Cancel
           </Button>
           <Button
+            data-testid="save-secret-btn"
             size="sm"
             onClick={handleSave}
-            disabled={(!title.trim() && !content.trim()) || saving || !mek}
+            disabled={(isTitleEmpty && isContentEmpty) || saving || !mek}
           >
             <Check size={14} />
             {saving ? 'Saving…' : 'Save Secret'}
@@ -62,6 +66,7 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
       }
     >
       <input
+        data-testid="note-title-input"
         className={styles.titleInput}
         placeholder="Title"
         value={title}

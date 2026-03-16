@@ -29,6 +29,7 @@ export function EncryptedNoteCard({
 
   return (
     <NoteCardBase
+      data-testid="secret-card"
       title={title}
       updatedAt={updatedAt}
       color={color}

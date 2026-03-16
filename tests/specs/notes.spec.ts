@@ -253,6 +253,36 @@ test.describe('delete note', () => {
 // ─── Group 5: Edit Note ───────────────────────────────────────────────────────
 
 test.describe('edit note', () => {
+  test('edit note content updates content field', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const title = `Content Edit ${Date.now()}`;
+    const [seededNote] = await seedNotes(account.address, [{ title, content: '<p>Old content</p>' }]);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await noteCard(page, title).click();
+    await expect(page.getByTestId('note-title')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.type('New content');
+
+    const patchPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('save-btn').click();
+    await patchPromise;
+
+    const notesRes = await page.request.get('/api/notes');
+    const notes = await notesRes.json();
+    const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    expect(updated.content).toContain('New content');
+  });
+
   test('edit note updates title and bumps updatedAt', async ({ page }) => {
     const { privateKey, account } = makeAccount();
     const originalTitle = `Original ${Date.now()}`;

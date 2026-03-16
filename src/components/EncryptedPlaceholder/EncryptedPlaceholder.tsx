@@ -14,7 +14,7 @@ export function EncryptedPlaceholder({ rows = 3 }: EncryptedPlaceholderProps) {
   const rowWidths = ['85%', '70%', '90%', '60%', '75%'];
 
   return (
-    <div className={styles.wrapper}>
+    <div data-testid="encrypted-placeholder" className={styles.wrapper}>
       <div className={styles.bars}>
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className={styles.bar} style={{ width: rowWidths[i % rowWidths.length] }} />

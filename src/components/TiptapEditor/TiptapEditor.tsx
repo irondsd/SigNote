@@ -77,6 +77,7 @@ export function TiptapEditor({ content, onChange, editable, placeholder }: Tipta
 
   return (
     <div
+      data-testid="tiptap-editor"
       className={`${styles.editor} ${editable ? styles.editable : styles.readonly}`}
       data-placeholder={placeholder}
       onClick={handleClick}
