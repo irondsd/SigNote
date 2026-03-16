@@ -13,7 +13,7 @@ if (!rpcUrl) {
   } catch {
     throw new Error(
       `NEXT_PUBLIC_RPC_URL is not set in the environment and the test env file "${envPath}" does not exist. ` +
-      'Set NEXT_PUBLIC_RPC_URL in your environment or create a .env.test file with this variable.'
+        'Set NEXT_PUBLIC_RPC_URL in your environment or create a .env.test file with this variable.',
     );
   }
 
@@ -43,7 +43,7 @@ if (!rpcUrl) {
   if (!rpcUrl) {
     throw new Error(
       `NEXT_PUBLIC_RPC_URL is not defined in ${envPath}. ` +
-      'Set it in the .env.test file or provide it via the NEXT_PUBLIC_RPC_URL environment variable.'
+        'Set it in the .env.test file or provide it via the NEXT_PUBLIC_RPC_URL environment variable.',
     );
   }
 }
@@ -51,7 +51,7 @@ if (!rpcUrl) {
 if (rpcUrl === undefined) {
   throw new Error(
     'NEXT_PUBLIC_RPC_URL is not defined in .env.test. ' +
-      'Set NEXT_PUBLIC_RPC_URL in tests/.env.test (or ../../.env.test) before running the provider bundle.'
+      'Set NEXT_PUBLIC_RPC_URL in tests/.env.test (or ../../.env.test) before running the provider bundle.',
   );
 }
 

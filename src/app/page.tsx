@@ -63,7 +63,13 @@ export default function Page() {
                 Archive
               </Button>
             </Link>
-            <Button data-testid="new-note-btn" variant="default" size="lg" onClick={() => setShowNewNote(true)} className={styles.button}>
+            <Button
+              data-testid="new-note-btn"
+              variant="default"
+              size="lg"
+              onClick={() => setShowNewNote(true)}
+              className={styles.button}
+            >
               <Plus size={18} />
               New Note
             </Button>

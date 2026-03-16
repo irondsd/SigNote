@@ -22,11 +22,7 @@ function toBase64(buf: ArrayBuffer | Uint8Array): string {
 async function encryptContent(secretBodyKey: CryptoKey, plaintext: string) {
   const subtle = globalThis.crypto.subtle;
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    secretBodyKey,
-    new TextEncoder().encode(plaintext),
-  );
+  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv }, secretBodyKey, new TextEncoder().encode(plaintext));
   return { alg: 'A256GCM' as const, iv: toBase64(iv), ciphertext: toBase64(ciphertext) };
 }
 
@@ -42,7 +38,7 @@ export const seedSecrets = async (
   const subtle = globalThis.crypto.subtle;
 
   // Import MEK as HKDF base key
-  const mek = await subtle.importKey('raw', mekBytes, 'HKDF', false, ['deriveKey']);
+  const mek = await subtle.importKey('raw', new Uint8Array(mekBytes), 'HKDF', false, ['deriveKey']);
 
   // Derive secret body key via HKDF
   const secretBodyKey = await subtle.deriveKey(
@@ -70,10 +66,7 @@ export const seedSecrets = async (
   const created: SecretNoteDocument[] = [];
   for (const secret of secrets) {
     const now = new Date();
-    const encryptedBody =
-      secret.content?.trim()
-        ? await encryptContent(secretBodyKey, secret.content.trim())
-        : null;
+    const encryptedBody = secret.content?.trim() ? await encryptContent(secretBodyKey, secret.content.trim()) : null;
 
     const doc = await SecretNoteModel.create({
       address,

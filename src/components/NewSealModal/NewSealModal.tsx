@@ -55,11 +55,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
             <X size={14} />
             Cancel
           </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={(!title.trim() && !content.trim()) || saving || !mek}
-          >
+          <Button size="sm" onClick={handleSave} disabled={(!title.trim() && !content.trim()) || saving || !mek}>
             <Check size={14} />
             {saving ? 'Saving…' : 'Save Seal'}
           </Button>

@@ -140,39 +140,35 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const date = new Date(note.updatedAt).toLocaleString();
 
-  const footerActions = isDecrypted && editing ? (
-    <Button size="sm" onClick={handleSave} disabled={saving}>
-      <Check size={15} />
-      {saving ? 'Saving…' : 'Save'}
-    </Button>
-  ) : (
-    <>
-      {isDecrypted ? (
-        <Button variant="outline" size="sm" onClick={handleEncrypt}>
-          <Lock size={15} />
-          Encrypt
-        </Button>
-      ) : (
-        <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
-          <LockOpen size={15} />
-          {decrypting ? 'Decrypting…' : 'Decrypt'}
-        </Button>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleArchiveToggle}
-        title={isArchived ? 'Unarchive' : 'Archive'}
-      >
-        <Archive size={15} />
-        {isArchived ? 'Unarchive' : 'Archive'}
+  const footerActions =
+    isDecrypted && editing ? (
+      <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Check size={15} />
+        {saving ? 'Saving…' : 'Save'}
       </Button>
-      <Button variant="destructive" size="sm" onClick={handleDelete}>
-        <Trash2 size={15} />
-        Delete
-      </Button>
-    </>
-  );
+    ) : (
+      <>
+        {isDecrypted ? (
+          <Button variant="outline" size="sm" onClick={handleEncrypt}>
+            <Lock size={15} />
+            Encrypt
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
+            <LockOpen size={15} />
+            {decrypting ? 'Decrypting…' : 'Decrypt'}
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={handleArchiveToggle} title={isArchived ? 'Unarchive' : 'Archive'}>
+          <Archive size={15} />
+          {isArchived ? 'Unarchive' : 'Archive'}
+        </Button>
+        <Button variant="destructive" size="sm" onClick={handleDelete}>
+          <Trash2 size={15} />
+          Delete
+        </Button>
+      </>
+    );
 
   return (
     <>

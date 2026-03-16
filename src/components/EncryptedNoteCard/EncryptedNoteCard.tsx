@@ -23,9 +23,11 @@ export function EncryptedNoteCard({
   showArchivedBadge = false,
   archived = false,
 }: EncryptedNoteCardProps) {
-  const content = decryptedContent
-    ? <div dangerouslySetInnerHTML={{ __html: decryptedContent }} />
-    : <EncryptedPlaceholder rows={3} />;
+  const content = decryptedContent ? (
+    <div dangerouslySetInnerHTML={{ __html: decryptedContent }} />
+  ) : (
+    <EncryptedPlaceholder rows={3} />
+  );
 
   return (
     <NoteCardBase

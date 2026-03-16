@@ -95,7 +95,12 @@ export function SortableEncryptedCard({
   };
 
   return (
-    <div ref={combinedRef} style={style} {...(!isDragDisabled ? attributes : {})} {...(!isDragDisabled ? listeners : {})}>
+    <div
+      ref={combinedRef}
+      style={style}
+      {...(!isDragDisabled ? attributes : {})}
+      {...(!isDragDisabled ? listeners : {})}
+    >
       <EncryptedNoteCard
         title={title}
         updatedAt={updatedAt}

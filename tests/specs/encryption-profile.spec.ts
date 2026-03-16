@@ -101,13 +101,9 @@ test.describe('encryption profile', () => {
         const subtle = crypto.subtle;
         const decode = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
-        const keyMaterial = await subtle.importKey(
-          'raw',
-          new TextEncoder().encode(newPassphrase),
-          'PBKDF2',
-          false,
-          ['deriveBits'],
-        );
+        const keyMaterial = await subtle.importKey('raw', new TextEncoder().encode(newPassphrase), 'PBKDF2', false, [
+          'deriveBits',
+        ]);
         const bits = await subtle.deriveBits(
           {
             name: 'PBKDF2',

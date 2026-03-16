@@ -126,9 +126,7 @@ export function BaseGrid<T extends BaseItem>({
       >
         <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={styles.grid}>
-            {notes.map((note) =>
-              renderCard(note, () => onNoteClick(note), showArchivedBadge, !dragEnabled),
-            )}
+            {notes.map((note) => renderCard(note, () => onNoteClick(note), showArchivedBadge, !dragEnabled))}
           </div>
         </SortableContext>
 
@@ -141,9 +139,7 @@ export function BaseGrid<T extends BaseItem>({
         </DragOverlay>
       </DndContext>
 
-      {hasMore && (
-        <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />
-      )}
+      {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
 
       {isLoadingMore && (
         <div className={styles.loading}>

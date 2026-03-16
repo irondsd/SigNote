@@ -52,9 +52,7 @@ export function NotesGrid({
           isDragDisabled={dragDisabled}
         />
       )}
-      renderOverlayCard={(note, showBadge) => (
-        <NoteCard note={note} onClick={() => {}} showArchivedBadge={showBadge} />
-      )}
+      renderOverlayCard={(note, showBadge) => <NoteCard note={note} onClick={() => {}} showArchivedBadge={showBadge} />}
     >
       {selected && <NoteModal note={selected} onClose={() => setSelected(null)} />}
     </BaseGrid>
