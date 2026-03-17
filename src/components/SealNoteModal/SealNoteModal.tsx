@@ -142,28 +142,28 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const footerActions =
     isDecrypted && editing ? (
-      <Button size="sm" onClick={handleSave} disabled={saving}>
+      <Button data-testid="save-btn" size="sm" onClick={handleSave} disabled={saving}>
         <Check size={15} />
         {saving ? 'Saving…' : 'Save'}
       </Button>
     ) : (
       <>
         {isDecrypted ? (
-          <Button variant="outline" size="sm" onClick={handleEncrypt}>
+          <Button data-testid="encrypt-btn" variant="outline" size="sm" onClick={handleEncrypt}>
             <Lock size={15} />
             Encrypt
           </Button>
         ) : (
-          <Button variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
+          <Button data-testid="decrypt-btn" variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
             <LockOpen size={15} />
             {decrypting ? 'Decrypting…' : 'Decrypt'}
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={handleArchiveToggle} title={isArchived ? 'Unarchive' : 'Archive'}>
+        <Button data-testid="archive-btn" variant="outline" size="sm" onClick={handleArchiveToggle} title={isArchived ? 'Unarchive' : 'Archive'}>
           <Archive size={15} />
           {isArchived ? 'Unarchive' : 'Archive'}
         </Button>
-        <Button variant="destructive" size="sm" onClick={handleDelete}>
+        <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>
           <Trash2 size={15} />
           Delete
         </Button>

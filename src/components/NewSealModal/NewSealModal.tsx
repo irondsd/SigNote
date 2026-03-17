@@ -21,9 +21,12 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
   const [saving, setSaving] = useState(false);
   const createSeal = useCreateSeal();
 
+  const isTitleEmpty = !title.trim();
+  const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+
   const handleSave = async () => {
     if (!mek) return;
-    if (!title.trim() && !content.trim()) return;
+    if (isTitleEmpty && isContentEmpty) return;
     setSaving(true);
     try {
       createSeal.mutate({
@@ -55,7 +58,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
             <X size={14} />
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={(!title.trim() && !content.trim()) || saving || !mek}>
+          <Button data-testid="save-seal-btn" size="sm" onClick={handleSave} disabled={(isTitleEmpty && isContentEmpty) || saving || !mek}>
             <Check size={14} />
             {saving ? 'Saving…' : 'Save Seal'}
           </Button>
@@ -63,6 +66,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
       }
     >
       <input
+        data-testid="note-title-input"
         className={styles.titleInput}
         placeholder="Title"
         value={title}

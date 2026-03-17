@@ -95,6 +95,42 @@ test.describe('lock / unlock state', () => {
   });
 });
 
+// ─── Lock / Unlock State on Seals Page ───────────────────────────────────────
+
+test.describe('lock / unlock state on seals page', () => {
+  test('shows Locked badge on /seals when profile exists but session not unlocked', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+
+    await mockProvider(page);
+    await page.goto('/seals');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await expect(page.getByText('Unlocked')).not.toBeVisible();
+  });
+
+  test('Unlock button on /seals opens passphrase modal and correct passphrase unlocks', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+
+    await mockProvider(page);
+    await page.goto('/seals');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await page.getByRole('button', { name: 'Unlock', exact: true }).click();
+    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
+
+    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByRole('button', { name: 'Unlock' }).last().click();
+
+    await expect(page.getByText('Unlocked')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText('Locked', { exact: true })).not.toBeVisible();
+  });
+});
+
 // ─── Wrong Passphrase ────────────────────────────────────────────────────────
 
 test.describe('wrong passphrase', () => {

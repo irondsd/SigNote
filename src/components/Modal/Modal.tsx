@@ -9,7 +9,7 @@ type ModalProps = {
 
 export function Modal({ children, className }: ModalProps) {
   return (
-    <div className={cn(styles.modal, className)} onClick={(e) => e.stopPropagation()}>
+    <div data-testid="note-modal" className={cn(styles.modal, className)} onClick={(e) => e.stopPropagation()}>
       {children}
     </div>
   );
