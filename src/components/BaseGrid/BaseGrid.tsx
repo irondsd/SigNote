@@ -14,8 +14,6 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
 import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
-import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useReorder } from '@/hooks/useReorder';
 import { calculatePosition } from '@/utils/calculatePosition';
 import styles from './BaseGrid.module.scss';
@@ -30,8 +28,6 @@ type BaseGridProps<T extends BaseItem> = {
   reorderType: 'notes' | 'secrets' | 'seals';
   renderCard: (note: T, onClick: () => void, showArchivedBadge: boolean, isDragDisabled: boolean) => ReactNode;
   renderOverlayCard: (note: T, showArchivedBadge: boolean) => ReactNode;
-  archive?: boolean;
-  onNewNote?: () => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -47,8 +43,6 @@ export function BaseGrid<T extends BaseItem>({
   reorderType,
   renderCard,
   renderOverlayCard,
-  archive = false,
-  onNewNote,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -113,7 +107,7 @@ export function BaseGrid<T extends BaseItem>({
   }, [hasMore, isLoadingMore, onLoadMore]);
 
   if (!notes || notes.length === 0) {
-    return archive ? <EmptyStateArchive /> : <EmptyState onNewNote={onNewNote} />;
+    return null;
   }
 
   return (

@@ -6,6 +6,7 @@ import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -46,10 +47,11 @@ export default function SecretsArchivePage() {
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
         <EncryptionSetup />
+      ) : notes.length === 0 ? (
+        <EmptyStateArchive />
       ) : (
         <SecretsGrid
           notes={notes}
-          archive
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}

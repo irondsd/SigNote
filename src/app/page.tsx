@@ -7,6 +7,8 @@ import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import styles from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -29,7 +31,7 @@ export default function Page() {
     <div className={styles.page}>
       <div className={styles.topBar}>
         <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>My Notes</h1>
+          <h1 className={styles.heading}>Notes</h1>
           {isAuthenticated && (
             <div className={styles.searchWrap}>
               <Search size={16} className={styles.searchIcon} />
@@ -82,15 +84,22 @@ export default function Page() {
           <span className={styles.spinner} />
         </div>
       ) : isAuthenticated ? (
-        <NotesGrid
-          notes={notes}
-          onNewNote={() => setShowNewNote(true)}
-          onLoadMore={() => fetchNextPage()}
-          hasMore={hasNextPage ?? false}
-          isLoadingMore={isFetchingNextPage}
-          showArchivedBadge={!!search}
-          isDragDisabled={!!search}
-        />
+        notes.length === 0 ? (
+          search ? (
+            <EmptyResults onClear={() => setSearch('')} />
+          ) : (
+            <EmptyState onNewNote={() => setShowNewNote(true)} />
+          )
+        ) : (
+          <NotesGrid
+            notes={notes}
+            onLoadMore={() => fetchNextPage()}
+            hasMore={hasNextPage ?? false}
+            isLoadingMore={isFetchingNextPage}
+            showArchivedBadge={!!search}
+            isDragDisabled={!!search}
+          />
+        )
       ) : (
         <UnauthenticatedState />
       )}

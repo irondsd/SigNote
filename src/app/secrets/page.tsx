@@ -7,6 +7,8 @@ import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { NewSecretModal } from '@/components/NewSecretModal/NewSecretModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -118,10 +120,15 @@ export default function SecretsPage() {
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
         <EncryptionSetup />
+      ) : notes.length === 0 ? (
+        search ? (
+          <EmptyResults onClear={() => setSearch('')} />
+        ) : (
+          <EmptyState onNewNote={handleNewSecret} />
+        )
       ) : (
         <SecretsGrid
           notes={notes}
-          onNewNote={handleNewSecret}
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}

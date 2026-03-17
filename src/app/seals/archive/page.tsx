@@ -6,6 +6,7 @@ import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -46,10 +47,11 @@ export default function SealsArchivePage() {
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
         <EncryptionSetup />
+      ) : notes.length === 0 ? (
+        <EmptyStateArchive />
       ) : (
         <SealsGrid
           notes={notes}
-          archive
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}

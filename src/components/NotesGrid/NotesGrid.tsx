@@ -9,8 +9,6 @@ import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 
 type NotesGridProps = {
   notes: NoteDocument[] | undefined;
-  archive?: boolean;
-  onNewNote?: () => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -20,8 +18,6 @@ type NotesGridProps = {
 
 export function NotesGrid({
   notes,
-  archive = false,
-  onNewNote,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -35,8 +31,6 @@ export function NotesGrid({
       notes={notes}
       getId={(note) => note._id.toString()}
       reorderType="notes"
-      archive={archive}
-      onNewNote={onNewNote}
       onLoadMore={onLoadMore}
       hasMore={hasMore}
       isLoadingMore={isLoadingMore}

@@ -9,8 +9,6 @@ import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 
 type SealsGridProps = {
   notes: CachedSealNote[] | undefined;
-  archive?: boolean;
-  onNewNote?: () => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -20,8 +18,6 @@ type SealsGridProps = {
 
 export function SealsGrid({
   notes,
-  archive = false,
-  onNewNote,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -35,8 +31,6 @@ export function SealsGrid({
       notes={notes}
       getId={(note) => note._id}
       reorderType="seals"
-      archive={archive}
-      onNewNote={onNewNote}
       onLoadMore={onLoadMore}
       hasMore={hasMore}
       isLoadingMore={isLoadingMore}

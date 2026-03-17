@@ -12,8 +12,6 @@ import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 
 type SecretsGridProps = {
   notes: CachedSecretNote[] | undefined;
-  archive?: boolean;
-  onNewNote?: () => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -23,8 +21,6 @@ type SecretsGridProps = {
 
 export function SecretsGrid({
   notes,
-  archive = false,
-  onNewNote,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -133,8 +129,6 @@ export function SecretsGrid({
       notes={notes}
       getId={(note) => note._id}
       reorderType="secrets"
-      archive={archive}
-      onNewNote={onNewNote}
       onLoadMore={onLoadMore}
       hasMore={hasMore}
       isLoadingMore={isLoadingMore}

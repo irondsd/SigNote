@@ -7,6 +7,8 @@ import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { NewSealModal } from '@/components/NewSealModal/NewSealModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -118,10 +120,15 @@ export default function SealsPage() {
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
         <EncryptionSetup />
+      ) : notes.length === 0 ? (
+        search ? (
+          <EmptyResults onClear={() => setSearch('')} />
+        ) : (
+          <EmptyState onNewNote={handleNewSeal} />
+        )
       ) : (
         <SealsGrid
           notes={notes}
-          onNewNote={handleNewSeal}
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}

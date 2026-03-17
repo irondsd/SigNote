@@ -5,6 +5,7 @@ import { Notebook } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
+import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import styles from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -42,13 +43,16 @@ export default function Page() {
           <span className={styles.spinner} />
         </div>
       ) : isAuthenticated ? (
-        <NotesGrid
-          notes={notes}
-          onLoadMore={() => fetchNextPage()}
-          hasMore={hasNextPage ?? false}
-          isLoadingMore={isFetchingNextPage}
-          archive
-        />
+        notes.length === 0 ? (
+          <EmptyStateArchive />
+        ) : (
+          <NotesGrid
+            notes={notes}
+            onLoadMore={() => fetchNextPage()}
+            hasMore={hasNextPage ?? false}
+            isLoadingMore={isFetchingNextPage}
+          />
+        )
       ) : (
         <UnauthenticatedState />
       )}
