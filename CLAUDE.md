@@ -22,17 +22,18 @@ Tests require a running dev server and MongoDB; the global setup (`tests/setup/g
 
 Notes exist in three security tiers, each with its own MongoDB model, API route, and UI:
 
-| Tier | Route | Model | Encryption |
-|------|-------|-------|------------|
-| 1 – Notes | `/api/notes/t1` | `Note` | None — plaintext, full-text searchable |
-| 2 – Secrets | `/api/secrets/t2` | `SecretNote` | AES-GCM, shared session key derived from MEK |
-| 3 – Seals | `/api/seals/t3` | `SealNote` | AES-GCM, unique per-note key wrapped with MEK |
+| Tier        | Route             | Model        | Encryption                                    |
+| ----------- | ----------------- | ------------ | --------------------------------------------- |
+| 1 – Notes   | `/api/notes/t1`   | `Note`       | None — plaintext, full-text searchable        |
+| 2 – Secrets | `/api/secrets/t2` | `SecretNote` | AES-GCM, shared session key derived from MEK  |
+| 3 – Seals   | `/api/seals/t3`   | `SealNote`   | AES-GCM, unique per-note key wrapped with MEK |
 
 ### Encryption Key Management
 
 All crypto operations are in `src/lib/crypto.ts` using the Web Crypto API only.
 
 The Master Encryption Key (MEK) is never stored:
+
 - `deviceShare` = PBKDF2(passphrase, salt, 600k iterations) → stored in `sessionStorage`
 - `serverShare` = random 32 bytes encrypted in MongoDB (`EncryptionProfile`)
 - `MEK = deviceShare XOR serverShare` — reconstructed in memory on unlock

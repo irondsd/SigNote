@@ -56,10 +56,7 @@ async function fetchMaterialRequest(): Promise<MaterialResponse> {
   return res.json();
 }
 
-async function reconstructMek(
-  deviceShare: Uint8Array,
-  material: MaterialResponse,
-): Promise<CryptoKey | null> {
+async function reconstructMek(deviceShare: Uint8Array, material: MaterialResponse): Promise<CryptoKey | null> {
   const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
   const mekBytes = xor32(deviceShare, serverShareBytes);
   const candidate = await importMEK(mekBytes);

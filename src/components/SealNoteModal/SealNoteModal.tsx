@@ -159,7 +159,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             {decrypting ? 'Decrypting…' : 'Decrypt'}
           </Button>
         )}
-        <Button data-testid="archive-btn" variant="outline" size="sm" onClick={handleArchiveToggle} title={isArchived ? 'Unarchive' : 'Archive'}>
+        <Button
+          data-testid="archive-btn"
+          variant="outline"
+          size="sm"
+          onClick={handleArchiveToggle}
+          title={isArchived ? 'Unarchive' : 'Archive'}
+        >
           <Archive size={15} />
           {isArchived ? 'Unarchive' : 'Archive'}
         </Button>

@@ -52,9 +52,7 @@ test.describe('create seal', () => {
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('My seal content');
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 
@@ -69,9 +67,7 @@ test.describe('create seal', () => {
     await page.getByRole('button', { name: 'New Seal' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 

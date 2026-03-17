@@ -30,8 +30,7 @@ export default function SealsPage() {
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
-  const showLoadingState =
-    isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
+  const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   const handleNewSeal = () => {
     if (!isUnlocked) {
