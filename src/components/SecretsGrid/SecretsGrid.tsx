@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
@@ -35,7 +35,7 @@ export function SecretsGrid({
   const isUnlocked = phase === 'unlocked';
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
-  const [pendingNote, setPendingNote] = useState<CachedSecretNote | null>(null);
+  const pendingNoteRef = useRef<CachedSecretNote | null>(null);
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, string>>(new Map());
 
@@ -95,9 +95,9 @@ export function SecretsGrid({
 
   // Trigger open after passphrase unlock provides mek (mirrors SealNoteModal pattern)
   useEffect(() => {
-    if (!mek || !pendingNote) return;
-    const note = pendingNote;
-    setPendingNote(null);
+    const note = pendingNoteRef.current;
+    if (!mek || !note) return;
+    pendingNoteRef.current = null;
 
     if (!note.encryptedBody) {
       setSelected(note);
@@ -114,12 +114,12 @@ export function SecretsGrid({
         setSelected(note);
         setSelectedDecrypted('');
       });
-  }, [mek, pendingNote]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mek]);
 
   const handleNoteClick = useCallback(
     (note: CachedSecretNote) => {
       if (!isUnlocked) {
-        setPendingNote(note);
+        pendingNoteRef.current = note;
         setShowPassphrase(true);
         return;
       }
@@ -175,7 +175,7 @@ export function SecretsGrid({
           }}
           onClose={() => {
             setShowPassphrase(false);
-            setPendingNote(null);
+            pendingNoteRef.current = null;
           }}
         />
       )}
