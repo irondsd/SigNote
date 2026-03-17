@@ -1,8 +1,16 @@
 'use client';
 
-import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { type EncryptedPayload } from '@/types/crypto';
+import {
+  cancelAndSnapshot,
+  insertAtTop,
+  filterOut,
+  patchInPlace,
+  toggleArchive,
+  restoreSnapshots,
+} from '@/lib/queryCache';
 
 export type CachedSealNote = {
   _id: string;
@@ -33,6 +41,8 @@ type UpdateSealInput = {
   deleted?: boolean;
   color?: string | null;
 };
+
+const ROOT = 'seals';
 
 async function apiCreateSeal(input: CreateSealInput) {
   const res = await fetch('/api/seals', {
@@ -89,30 +99,22 @@ async function apiPatchSeal(id: string, data: Partial<Omit<UpdateSealInput, 'id'
 export const useCreateSeal = () => {
   const qc = useQueryClient();
 
-  const createMutation = useMutation({
+  return useMutation({
     mutationFn: async (input: {
       title: string;
       encryptBody: (
         sealId: string,
       ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
     }) => {
-      // Step 1: create with title only
       const created = await apiCreateSeal({ title: input.title });
-
-      // Step 2: encrypt body if encryptBody provided
       const encrypted = await input.encryptBody(created._id);
-
       if (encrypted) {
-        // Step 3: patch with encrypted body
         return apiPatchSeal(created._id, encrypted);
       }
-
       return created;
     },
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: ['seals'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSealNote[]>>({ queryKey: ['seals'] });
-
+      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
       const tempNote: CachedSealNote = {
         _id: `temp-${Date.now()}`,
         title: input.title,
@@ -126,27 +128,15 @@ export const useCreateSeal = () => {
         updatedAt: new Date().toISOString(),
         color: null,
       };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[tempNote, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      insertAtTop(qc, snapshots, tempNote);
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to create seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['seals'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
-
-  return createMutation;
 };
 
 export const useDeleteSeal = () => {
@@ -154,22 +144,15 @@ export const useDeleteSeal = () => {
   return useMutation({
     mutationFn: apiDeleteSeal,
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: ['seals'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSealNote[]>>({ queryKey: ['seals'] });
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: data.pages.map((page) => page.filter((n) => n._id !== id)),
-        });
-      });
+      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
+      filterOut(qc, snapshots, id);
       return { snapshots };
     },
     onError: (_err, _id, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['seals'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -178,27 +161,15 @@ export const useUndeleteSeal = () => {
   return useMutation({
     mutationFn: apiUndeleteSeal,
     onMutate: async ({ note }) => {
-      await qc.cancelQueries({ queryKey: ['seals'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSealNote[]>>({ queryKey: ['seals'] });
-      const restored = { ...note, deletedAt: null };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[restored, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
+      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['seals'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -207,60 +178,18 @@ export const useUpdateSeal = () => {
   return useMutation({
     mutationFn: apiUpdateSeal,
     onMutate: async ({ id, archived, ...rest }) => {
-      await qc.cancelQueries({ queryKey: ['seals'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSealNote[]>>({ queryKey: ['seals'] });
-      const isArchiveToggle = archived !== undefined;
-
-      let foundNote: CachedSealNote | undefined;
-      if (isArchiveToggle) {
-        for (const [, data] of snapshots) {
-          if (!data) continue;
-          for (const page of data.pages) {
-            const n = page.find((note) => note._id === id);
-            if (n) {
-              foundNote = n;
-              break;
-            }
-          }
-          if (foundNote) break;
-        }
+      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
+      if (archived !== undefined) {
+        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedSealNote>);
+      } else {
+        patchInPlace(qc, snapshots, id, rest as Partial<CachedSealNote>);
       }
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        const isArchivedView = queryKey[2] === 'archived';
-
-        if (isArchiveToggle && foundNote) {
-          const noteNowBelongsHere = (archived === true) === isArchivedView;
-          if (noteNowBelongsHere) {
-            const updated = { ...foundNote, ...rest, archived: archived! };
-            const firstPage = data.pages[0] ?? [];
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: [[updated, ...firstPage.filter((n) => n._id !== id)], ...data.pages.slice(1)],
-            });
-          } else {
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: data.pages.map((page) => page.filter((n) => n._id !== id)),
-            });
-          }
-        } else {
-          qc.setQueryData(queryKey, {
-            ...data,
-            pages: data.pages.map((page) =>
-              page.map((n) => (n._id === id ? { ...n, ...rest, archived: archived ?? n.archived } : n)),
-            ),
-          });
-        }
-      });
-
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['seals'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };

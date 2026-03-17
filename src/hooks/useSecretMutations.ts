@@ -1,8 +1,16 @@
 'use client';
 
-import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { type EncryptedPayload } from '@/types/crypto';
+import {
+  cancelAndSnapshot,
+  insertAtTop,
+  filterOut,
+  patchInPlace,
+  toggleArchive,
+  restoreSnapshots,
+} from '@/lib/queryCache';
 
 export type CachedSecretNote = {
   _id: string;
@@ -26,6 +34,8 @@ type UpdateSecretInput = {
   deleted?: boolean;
   color?: string | null;
 };
+
+const ROOT = 'secrets';
 
 async function apiCreateSecret(input: CreateSecretInput) {
   const res = await fetch('/api/secrets', {
@@ -68,9 +78,7 @@ export const useCreateSecret = () => {
   return useMutation({
     mutationFn: apiCreateSecret,
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: ['secrets'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSecretNote[]>>({ queryKey: ['secrets'] });
-
+      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
       const tempNote: CachedSecretNote = {
         _id: `temp-${Date.now()}`,
         title: input.title,
@@ -83,24 +91,14 @@ export const useCreateSecret = () => {
         updatedAt: new Date().toISOString(),
         color: null,
       };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[tempNote, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      insertAtTop(qc, snapshots, tempNote);
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to create secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['secrets'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -109,22 +107,15 @@ export const useDeleteSecret = () => {
   return useMutation({
     mutationFn: apiDeleteSecret,
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: ['secrets'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSecretNote[]>>({ queryKey: ['secrets'] });
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: data.pages.map((page) => page.filter((n) => n._id !== id)),
-        });
-      });
+      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
+      filterOut(qc, snapshots, id);
       return { snapshots };
     },
     onError: (_err, _id, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['secrets'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -133,27 +124,15 @@ export const useUndeleteSecret = () => {
   return useMutation({
     mutationFn: apiUndeleteSecret,
     onMutate: async ({ note }) => {
-      await qc.cancelQueries({ queryKey: ['secrets'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSecretNote[]>>({ queryKey: ['secrets'] });
-      const restored = { ...note, deletedAt: null };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[restored, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
+      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['secrets'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -162,60 +141,18 @@ export const useUpdateSecret = () => {
   return useMutation({
     mutationFn: apiUpdateSecret,
     onMutate: async ({ id, archived, ...rest }) => {
-      await qc.cancelQueries({ queryKey: ['secrets'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedSecretNote[]>>({ queryKey: ['secrets'] });
-      const isArchiveToggle = archived !== undefined;
-
-      let foundNote: CachedSecretNote | undefined;
-      if (isArchiveToggle) {
-        for (const [, data] of snapshots) {
-          if (!data) continue;
-          for (const page of data.pages) {
-            const n = page.find((note) => note._id === id);
-            if (n) {
-              foundNote = n;
-              break;
-            }
-          }
-          if (foundNote) break;
-        }
+      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
+      if (archived !== undefined) {
+        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedSecretNote>);
+      } else {
+        patchInPlace(qc, snapshots, id, rest as Partial<CachedSecretNote>);
       }
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        const isArchivedView = queryKey[2] === 'archived';
-
-        if (isArchiveToggle && foundNote) {
-          const noteNowBelongsHere = (archived === true) === isArchivedView;
-          if (noteNowBelongsHere) {
-            const updated = { ...foundNote, ...rest, archived: archived! };
-            const firstPage = data.pages[0] ?? [];
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: [[updated, ...firstPage.filter((n) => n._id !== id)], ...data.pages.slice(1)],
-            });
-          } else {
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: data.pages.map((page) => page.filter((n) => n._id !== id)),
-            });
-          }
-        } else {
-          qc.setQueryData(queryKey, {
-            ...data,
-            pages: data.pages.map((page) =>
-              page.map((n) => (n._id === id ? { ...n, ...rest, archived: archived ?? n.archived } : n)),
-            ),
-          });
-        }
-      });
-
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['secrets'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };

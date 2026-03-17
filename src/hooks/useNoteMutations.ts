@@ -1,7 +1,15 @@
 'use client';
 
-import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import {
+  cancelAndSnapshot,
+  insertAtTop,
+  filterOut,
+  patchInPlace,
+  toggleArchive,
+  restoreSnapshots,
+} from '@/lib/queryCache';
 
 export type CachedNote = {
   _id: string;
@@ -25,6 +33,8 @@ type UpdateNoteInput = {
   deleted?: boolean;
   color?: string | null;
 };
+
+const ROOT = 'notes';
 
 async function apiCreateNote(input: CreateNoteInput) {
   const res = await fetch('/api/notes', {
@@ -67,9 +77,7 @@ export const useCreateNote = () => {
   return useMutation({
     mutationFn: apiCreateNote,
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
-
+      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
       const tempNote: CachedNote = {
         _id: `temp-${Date.now()}`,
         title: input.title,
@@ -82,24 +90,14 @@ export const useCreateNote = () => {
         updatedAt: new Date().toISOString(),
         color: null,
       };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[tempNote, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      insertAtTop(qc, snapshots, tempNote);
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to create note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -108,22 +106,15 @@ export const useDeleteNote = () => {
   return useMutation({
     mutationFn: apiDeleteNote,
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: data.pages.map((page) => page.filter((note) => note._id !== id)),
-        });
-      });
+      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
+      filterOut(qc, snapshots, id);
       return { snapshots };
     },
     onError: (_err, _id, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -132,27 +123,15 @@ export const useUndeleteNote = () => {
   return useMutation({
     mutationFn: apiUndeleteNote,
     onMutate: async ({ note }) => {
-      await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
-      const restoredNote = { ...note, deletedAt: null };
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        if (queryKey[2] === 'archived') return;
-        const firstPage = data.pages[0] ?? [];
-        qc.setQueryData(queryKey, {
-          ...data,
-          pages: [[restoredNote, ...firstPage], ...data.pages.slice(1)],
-        });
-      });
-
+      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
+      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
 
@@ -161,64 +140,18 @@ export const useUpdateNote = () => {
   return useMutation({
     mutationFn: apiUpdateNote,
     onMutate: async ({ id, archived, ...rest }) => {
-      await qc.cancelQueries({ queryKey: ['notes'] });
-      const snapshots = qc.getQueriesData<InfiniteData<CachedNote[]>>({ queryKey: ['notes'] });
-      const isArchiveToggle = archived !== undefined;
-
-      // Find the note across all caches so we can move it when toggling archive
-      let foundNote: CachedNote | undefined;
-      if (isArchiveToggle) {
-        for (const [, data] of snapshots) {
-          if (!data) continue;
-          for (const page of data.pages) {
-            const n = page.find((note) => note._id === id);
-            if (n) {
-              foundNote = n;
-              break;
-            }
-          }
-          if (foundNote) break;
-        }
+      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
+      if (archived !== undefined) {
+        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedNote>);
+      } else {
+        patchInPlace(qc, snapshots, id, rest as Partial<CachedNote>);
       }
-
-      snapshots.forEach(([queryKey, data]) => {
-        if (!data) return;
-        const isArchivedView = queryKey[2] === 'archived';
-
-        if (isArchiveToggle && foundNote) {
-          const noteNowBelongsHere = (archived === true) === isArchivedView;
-          if (noteNowBelongsHere) {
-            // Add to the destination view's first page (avoid duplicates)
-            const updatedNote = { ...foundNote, ...rest, archived: archived! };
-            const firstPage = data.pages[0] ?? [];
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: [[updatedNote, ...firstPage.filter((n) => n._id !== id)], ...data.pages.slice(1)],
-            });
-          } else {
-            // Remove from the source view
-            qc.setQueryData(queryKey, {
-              ...data,
-              pages: data.pages.map((page) => page.filter((note) => note._id !== id)),
-            });
-          }
-        } else {
-          // Plain update in place
-          qc.setQueryData(queryKey, {
-            ...data,
-            pages: data.pages.map((page) =>
-              page.map((note) => (note._id === id ? { ...note, ...rest, archived: archived ?? note.archived } : note)),
-            ),
-          });
-        }
-      });
-
       return { snapshots };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([queryKey, data]) => qc.setQueryData(queryKey, data));
+      if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['notes'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });
 };
