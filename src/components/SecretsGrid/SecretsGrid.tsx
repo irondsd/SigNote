@@ -93,6 +93,29 @@ export function SecretsGrid({
     });
   }, [mek, notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Trigger open after passphrase unlock provides mek (mirrors SealNoteModal pattern)
+  useEffect(() => {
+    if (!mek || !pendingNote) return;
+    const note = pendingNote;
+    setPendingNote(null);
+
+    if (!note.encryptedBody) {
+      setSelected(note);
+      setSelectedDecrypted('');
+      return;
+    }
+
+    decryptSecretBody(mek, note.encryptedBody)
+      .then((content) => {
+        setSelected(note);
+        setSelectedDecrypted(content);
+      })
+      .catch(() => {
+        setSelected(note);
+        setSelectedDecrypted('');
+      });
+  }, [mek, pendingNote]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNoteClick = useCallback(
     (note: CachedSecretNote) => {
       if (!isUnlocked) {
@@ -148,10 +171,7 @@ export function SecretsGrid({
         <PassphraseModal
           onSuccess={() => {
             setShowPassphrase(false);
-            if (pendingNote) {
-              openDecryptedNote(pendingNote);
-              setPendingNote(null);
-            }
+            // pendingNote is picked up by the useEffect above when mek becomes available
           }}
           onClose={() => {
             setShowPassphrase(false);

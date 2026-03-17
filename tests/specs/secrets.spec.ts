@@ -193,6 +193,31 @@ test.describe('view secret', () => {
     // Secret modal should open after unlock
     await expect(page.getByTestId('note-title')).toBeVisible({ timeout: 20000 });
   });
+
+  test('clicking card when locked shows decrypted content in modal immediately after unlock', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const title = `First Unlock Content ${Date.now()}`;
+    const contentText = 'Secret content visible after unlock';
+    await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
+
+    await mockProvider(page);
+    await page.goto('/secrets');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    // Click card while locked
+    await secretCard(page, title).click();
+    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
+
+    // Unlock
+    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByRole('button', { name: 'Unlock' }).last().click();
+
+    // Modal should show content immediately — without close/reopen
+    await expect(page.getByTestId('note-title')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('tiptap-editor')).toContainText(contentText, { timeout: 5000 });
+  });
 });
 
 // ─── Group 3: Edit Secret ─────────────────────────────────────────────────────
