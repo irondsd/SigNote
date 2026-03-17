@@ -17,7 +17,8 @@ import styles from './page.module.scss';
 
 export default function SealsPage() {
   const { data: session, status } = useSession();
-  const { profileStatus, isUnlocked, lock } = useEncryption();
+  const { phase, lock } = useEncryption();
+  const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSeals({
     archived: search ? undefined : false,
@@ -30,7 +31,7 @@ export default function SealsPage() {
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState =
-    isLoading || status === 'loading' || (status === 'authenticated' && profileStatus === 'loading');
+    isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   const handleNewSeal = () => {
     if (!isUnlocked) {
@@ -54,10 +55,10 @@ export default function SealsPage() {
       <div className={styles.topBar}>
         <div className={styles.headingGroup}>
           <h1 className={styles.heading}>My Seals</h1>
-          {isAuthenticated && profileStatus === 'exists' && (
+          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
             <span className={styles.lockBadge}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
           )}
-          {isAuthenticated && profileStatus === 'exists' && (
+          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
             <div className={styles.searchWrap}>
               <Search size={16} className={styles.searchIcon} />
               <Input
@@ -83,7 +84,7 @@ export default function SealsPage() {
           )}
         </div>
 
-        {isAuthenticated && profileStatus === 'exists' && (
+        {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
           <div className="flex gap-1">
             {isUnlocked ? (
               <Button variant="ghost" size="lg" onClick={lock} className={styles.button}>
@@ -116,7 +117,7 @@ export default function SealsPage() {
         </div>
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
-      ) : profileStatus === 'missing' ? (
+      ) : phase === 'setup' ? (
         <EncryptionSetup />
       ) : (
         <SealsGrid

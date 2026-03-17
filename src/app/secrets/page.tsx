@@ -17,7 +17,8 @@ import styles from './page.module.scss';
 
 export default function SecretsPage() {
   const { data: session, status } = useSession();
-  const { profileStatus, isUnlocked, lock } = useEncryption();
+  const { phase, lock } = useEncryption();
+  const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
     archived: search ? undefined : false,
@@ -29,7 +30,7 @@ export default function SecretsPage() {
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
-  const showLoadingState = status === 'loading' || (status === 'authenticated' && profileStatus === 'loading');
+  const showLoadingState = status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   const handleNewSecret = () => {
     if (!isUnlocked) {
@@ -53,10 +54,10 @@ export default function SecretsPage() {
       <div className={styles.topBar}>
         <div className={styles.headingGroup}>
           <h1 className={styles.heading}>My Secrets</h1>
-          {isAuthenticated && profileStatus === 'exists' && (
+          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
             <span className={styles.lockBadge}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
           )}
-          {isAuthenticated && profileStatus === 'exists' && (
+          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
             <div className={styles.searchWrap}>
               <Search size={16} className={styles.searchIcon} />
               <Input
@@ -82,7 +83,7 @@ export default function SecretsPage() {
           )}
         </div>
 
-        {isAuthenticated && profileStatus === 'exists' && (
+        {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
           <div className="flex gap-1">
             {isUnlocked ? (
               <Button variant="ghost" size="lg" onClick={lock} className={styles.button}>
@@ -115,7 +116,7 @@ export default function SecretsPage() {
         </div>
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
-      ) : profileStatus === 'missing' ? (
+      ) : phase === 'setup' ? (
         <EncryptionSetup />
       ) : (
         <SecretsGrid

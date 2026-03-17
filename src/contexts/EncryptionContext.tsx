@@ -38,16 +38,72 @@ type MaterialResponse = {
   keyCheck: EncryptedPayload;
 };
 
-export type ProfileStatus = 'loading' | 'missing' | 'exists';
+export type EncryptionPhase = 'loading' | 'setup' | 'locked' | 'unlocked';
 
 type EncryptionContextValue = {
-  profileStatus: ProfileStatus;
-  isUnlocked: boolean;
+  phase: EncryptionPhase;
   mek: CryptoKey | null;
   unlock: (passphrase: string) => Promise<void>;
   lock: () => void;
   setupProfile: (passphrase: string) => Promise<void>;
 };
+
+// ─── Private helpers ─────────────────────────────────────────────────────────
+
+async function fetchMaterialRequest(): Promise<MaterialResponse> {
+  const res = await fetch('/api/encryption/material');
+  if (!res.ok) throw new Error('Failed to fetch encryption material');
+  return res.json();
+}
+
+async function reconstructMek(
+  deviceShare: Uint8Array,
+  material: MaterialResponse,
+): Promise<CryptoKey | null> {
+  const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
+  const mekBytes = xor32(deviceShare, serverShareBytes);
+  const candidate = await importMEK(mekBytes);
+  return (await verifyKeyCheck(candidate, material.keyCheck)) ? candidate : null;
+}
+
+// ─── Internal hook ────────────────────────────────────────────────────────────
+
+function useMekRehydration(
+  sessionStatus: string,
+  profileExists: boolean,
+): { mek: CryptoKey | null; setMek: (key: CryptoKey | null) => void } {
+  const [mek, setMek] = useState<CryptoKey | null>(null);
+
+  // Silent rehydration: if deviceShare is in sessionStorage, reconstruct MEK on mount
+  useEffect(() => {
+    if (sessionStatus !== 'authenticated' || !profileExists || mek) return;
+
+    const deviceShare = loadDeviceShare();
+    if (!deviceShare) return;
+
+    (async () => {
+      try {
+        const material = await fetchMaterialRequest();
+        const key = await reconstructMek(deviceShare, material);
+        if (key) setMek(key);
+        else clearDeviceShare();
+      } catch {
+        // Silently fail; user will need to unlock manually
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStatus, profileExists]);
+
+  // Lock when session ends
+  useEffect(() => {
+    if (sessionStatus === 'unauthenticated') {
+      setMek(null);
+      clearDeviceShare();
+    }
+  }, [sessionStatus]);
+
+  return { mek, setMek };
+}
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +120,6 @@ export function useEncryption(): EncryptionContextValue {
 export function EncryptionProvider({ children }: { children: React.ReactNode }) {
   const { status: sessionStatus } = useSession();
   const qc = useQueryClient();
-  const [mek, setMek] = useState<CryptoKey | null>(null);
 
   // Fetch the encryption profile (non-sensitive metadata)
   const { data: profileResponse, isLoading: profileLoading } = useQuery<ProfileResponse>({
@@ -78,80 +133,32 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     staleTime: Infinity, // profile rarely changes
   });
 
-  // Compute profile status
-  const profileStatus: ProfileStatus = (() => {
+  const profileExists = !profileLoading && !!profileResponse?.exists;
+  const { mek, setMek } = useMekRehydration(sessionStatus, profileExists);
+
+  // Single source of truth for all rendering decisions
+  const phase: EncryptionPhase = (() => {
     if (sessionStatus !== 'authenticated' || profileLoading) return 'loading';
-    if (!profileResponse) return 'loading';
-    return profileResponse.exists ? 'exists' : 'missing';
+    if (!profileResponse?.exists) return 'setup';
+    return mek ? 'unlocked' : 'locked';
   })();
-
-  // Fetch encryption material (includes serverShare) — only when needed
-  const fetchMaterial = useCallback(async (): Promise<MaterialResponse> => {
-    const res = await fetch('/api/encryption/material');
-    if (!res.ok) throw new Error('Failed to fetch encryption material');
-    return res.json();
-  }, []);
-
-  // Silent re-hydration: if deviceShare is in sessionStorage, reconstruct MEK on mount
-  useEffect(() => {
-    if (sessionStatus !== 'authenticated' || profileStatus !== 'exists' || mek) return;
-
-    const deviceShare = loadDeviceShare();
-    if (!deviceShare) return;
-
-    (async () => {
-      try {
-        const material = await fetchMaterial();
-        const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
-        const mekBytes = xor32(deviceShare, serverShareBytes);
-        const reconstructed = await importMEK(mekBytes);
-
-        // Verify key check before setting MEK
-        const valid = await verifyKeyCheck(reconstructed, material.keyCheck);
-        if (valid) {
-          setMek(reconstructed);
-        } else {
-          // Stored deviceShare is stale/wrong — clear it
-          clearDeviceShare();
-        }
-      } catch {
-        // Silently fail; user will need to unlock manually
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStatus, profileStatus]);
-
-  // Lock when session ends
-  useEffect(() => {
-    if (sessionStatus === 'unauthenticated') {
-      setMek(null);
-      clearDeviceShare();
-    }
-  }, [sessionStatus]);
 
   const unlock = useCallback(
     async (passphrase: string): Promise<void> => {
-      const material = await fetchMaterial();
+      const material = await fetchMaterialRequest();
       const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
-      const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
-      const mekBytes = xor32(deviceShare, serverShareBytes);
-      const candidate = await importMEK(mekBytes);
-
-      const valid = await verifyKeyCheck(candidate, material.keyCheck);
-      if (!valid) {
-        throw new Error('Incorrect passphrase');
-      }
-
+      const key = await reconstructMek(deviceShare, material);
+      if (!key) throw new Error('Incorrect passphrase');
       saveDeviceShare(deviceShare);
-      setMek(candidate);
+      setMek(key);
     },
-    [fetchMaterial],
+    [setMek],
   );
 
   const lock = useCallback(() => {
     setMek(null);
     clearDeviceShare();
-  }, []);
+  }, [setMek]);
 
   const setupProfile = useCallback(
     async (passphrase: string): Promise<void> => {
@@ -189,20 +196,11 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       // Invalidate profile query so the page re-renders in unlocked state
       await qc.invalidateQueries({ queryKey: ['encryption-profile'] });
     },
-    [qc],
+    [qc, setMek],
   );
 
   return (
-    <EncryptionContext.Provider
-      value={{
-        profileStatus,
-        isUnlocked: mek !== null,
-        mek,
-        unlock,
-        lock,
-        setupProfile,
-      }}
-    >
+    <EncryptionContext.Provider value={{ phase, mek, unlock, lock, setupProfile }}>
       {children}
     </EncryptionContext.Provider>
   );

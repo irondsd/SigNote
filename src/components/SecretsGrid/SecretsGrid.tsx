@@ -31,7 +31,8 @@ export function SecretsGrid({
   showArchivedBadge = false,
   isDragDisabled = false,
 }: SecretsGridProps) {
-  const { mek, isUnlocked } = useEncryption();
+  const { mek, phase } = useEncryption();
+  const isUnlocked = phase === 'unlocked';
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const [pendingNote, setPendingNote] = useState<CachedSecretNote | null>(null);

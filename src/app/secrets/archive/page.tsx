@@ -13,12 +13,12 @@ import styles from './page.module.scss';
 
 export default function SecretsArchivePage() {
   const { data: session, status } = useSession();
-  const { profileStatus } = useEncryption();
+  const { phase } = useEncryption();
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({ archived: true });
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
-  const showLoadingState = isLoading || status === 'loading' || profileStatus === 'loading';
+  const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   return (
     <div className={styles.page}>
@@ -44,7 +44,7 @@ export default function SecretsArchivePage() {
         </div>
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
-      ) : profileStatus === 'missing' ? (
+      ) : phase === 'setup' ? (
         <EncryptionSetup />
       ) : (
         <SecretsGrid
