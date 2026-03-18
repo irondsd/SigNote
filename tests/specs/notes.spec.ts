@@ -382,3 +382,66 @@ test.describe('note color', () => {
     expect(updated.color).toBeNull();
   });
 });
+
+// ─── Group 7: Modal Max Height ────────────────────────────────────────────────
+
+test.describe('modal max height', () => {
+  const bigContent = Array.from({ length: 200 }, (_, i) => `<p>Line ${i + 1}</p>`).join('');
+
+  test('new note modal height is capped at 90% of window height', async ({ page }) => {
+    await setup(page);
+
+    await page.getByTestId('new-note-btn').click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.press('Enter');
+    for (let i = 0; i < 200; i++) {
+      await page.keyboard.press('Enter');
+    }
+
+    const modalBox = await page.getByTestId('note-modal').boundingBox();
+    const windowHeight = await page.evaluate(() => window.innerHeight);
+
+    expect(modalBox!.height).toBeLessThanOrEqual(windowHeight * 0.9 + 2);
+  });
+
+  test('note modal in view mode height is capped at 90% of window height', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const title = `View Height ${Date.now()}`;
+    await seedNotes(account.address, [{ title, content: bigContent }]);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await noteCard(page, title).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    const modalBox = await page.getByTestId('note-modal').boundingBox();
+    const windowHeight = await page.evaluate(() => window.innerHeight);
+
+    expect(modalBox!.height).toBeLessThanOrEqual(windowHeight * 0.9 + 2);
+  });
+
+  test('note modal in edit mode height is capped at 90% of window height', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const title = `Edit Height ${Date.now()}`;
+    await seedNotes(account.address, [{ title, content: bigContent }]);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await noteCard(page, title).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+
+    const modalBox = await page.getByTestId('note-modal').boundingBox();
+    const windowHeight = await page.evaluate(() => window.innerHeight);
+
+    expect(modalBox!.height).toBeLessThanOrEqual(windowHeight * 0.9 + 2);
+  });
+});
