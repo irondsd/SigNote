@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
+import { mobileSignIn } from '../utils/mobileSignIn';
 import { mockProvider } from '../utils/mockProvider';
 import { signIn } from '../utils/signIn';
 import { seedNotes } from '../fixtures/seedNotes';
@@ -27,9 +28,7 @@ const startDrag = async (page: Page, sourceTitle: string, targetTitle: string) =
 };
 
 const dragCard = async (page: Page, sourceTitle: string, targetTitle: string) => {
-  const patchDone = page.waitForResponse(
-    (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-  );
+  const patchDone = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
   await startDrag(page, sourceTitle, targetTitle);
   await page.mouse.up();
   await patchDone;
@@ -62,9 +61,9 @@ test.describe('desktop reorder', () => {
       { title: `${tag} Note 6`, content: longContent },
       { title: `${tag} Note 5`, content: longContent },
       { title: `${tag} Note 4`, content: longContent },
-      { title: `${tag} Note 3`, content: '<p></p>' },
-      { title: `${tag} Note 2`, content: '<p></p>' },
-      { title: `${tag} Note 1`, content: '<p></p>' },
+      { title: `${tag} Note 3`, content: '<p>123</p>' },
+      { title: `${tag} Note 2`, content: '<p>123</p>' },
+      { title: `${tag} Note 1`, content: '<p>123</p>' },
     ]);
 
     await page.reload();
@@ -92,9 +91,7 @@ test.describe('desktop reorder', () => {
     // Confirm server state (API returns notes sorted by position desc)
     const resp = await page.request.get('/api/notes');
     const notes = await resp.json();
-    const titles = notes
-      .map((n: { title: string }) => n.title)
-      .filter((t: string) => t.startsWith(tag));
+    const titles = notes.map((n: { title: string }) => n.title).filter((t: string) => t.startsWith(tag));
     expect(titles).toEqual([
       `${tag} Note 1`,
       `${tag} Note 5`,
@@ -242,29 +239,6 @@ test.describe('mobile reorder', () => {
     await page.goto('/');
     await changeAccount(page, privateKey);
     return { account };
-  };
-
-  // Copied from mobile.spec.ts — handles the mobile sign-in drawer flow.
-  const mobileSignIn = async (page: Page) => {
-    const drawer = page.getByTestId('mobile-drawer');
-    await page.getByTestId('mobile-menu-btn').click();
-    await drawer.getByTestId('sign-in-button').click();
-    await Promise.any([
-      page.waitForFunction(() => {
-        const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
-        const buttons = modal?.querySelectorAll('button');
-        for (const btn of buttons || []) {
-          if (btn.textContent?.includes('Browser Wallet')) {
-            (btn as HTMLElement).scrollIntoView();
-            (btn as HTMLElement).click();
-            return true;
-          }
-        }
-        return false;
-      }),
-      drawer.getByTestId('wallet-address').waitFor({ state: 'visible', timeout: 15000 }),
-    ]);
-    await expect(drawer.getByTestId('wallet-address')).toBeVisible({ timeout: 15000 });
   };
 
   // ─── Test 5: Tap + immediate drag scrolls window, does not reorder ────────
