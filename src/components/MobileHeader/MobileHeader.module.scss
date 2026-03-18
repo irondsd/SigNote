@@ -5,13 +5,20 @@
   padding: 12px 16px;
   background: var(--sidebar);
   border-bottom: 1px solid var(--sidebar-border);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 40;
+  transition: transform 0.3s ease;
 
   @media (min-width: 768px) {
     display: none;
   }
+}
+
+.headerHidden {
+  transform: translateY(-100%);
 }
 
 .logo {

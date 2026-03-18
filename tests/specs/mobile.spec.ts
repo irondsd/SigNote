@@ -120,3 +120,38 @@ test('loads all 50 notes via infinite scroll', async ({ page }) => {
   // Note 01 is the last to load (lowest position) — confirms full scroll-through
   await expect(page.getByTestId('note-card').filter({ hasText: 'Scroll Note 01' })).toBeVisible();
 });
+
+// ─── Test 5: Header hides on scroll down, reappears on scroll up ─────────────
+
+test('header hides on scroll down and reappears on scroll up', async ({ page }) => {
+  const { account } = await setup(page);
+  await mobileSignIn(page);
+
+  await seedNotes(
+    account.address,
+    Array.from({ length: 15 }, (_, i) => ({ title: `Header Scroll Note ${i + 1}` })),
+  );
+  await page.reload();
+  await expect(page.getByTestId('note-card')).toHaveCount(15, { timeout: 10000 });
+
+  // 1. Header visible at top of page
+  const headerY = () =>
+    page.getByTestId('mobile-header').evaluate((el) => el.getBoundingClientRect().y);
+
+  expect(await headerY()).toBeGreaterThanOrEqual(0);
+
+  // 2. Scroll down 500px — header hides
+  await page.evaluate(() => window.scrollTo(0, 500));
+  await page.waitForTimeout(400);
+  expect(await headerY()).toBeLessThan(0);
+
+  // 3. Scroll up 40px (to 460px) — header slides back into view
+  await page.evaluate(() => window.scrollTo(0, 460));
+  await page.waitForTimeout(400);
+  expect(await headerY()).toBeGreaterThanOrEqual(0);
+
+  // 4. Scroll down 40px (back to 500px) — header hides again
+  await page.evaluate(() => window.scrollTo(0, 500));
+  await page.waitForTimeout(400);
+  expect(await headerY()).toBeLessThan(0);
+});

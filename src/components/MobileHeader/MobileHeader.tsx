@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import styles from './MobileHeader.module.scss';
@@ -8,10 +8,32 @@ import { SidebarNav } from '@/components/SidebarNav/SidebarNav';
 
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const y = window.scrollY;
+      if (y < 50) {
+        setHidden(false);
+      } else {
+        setHidden(y > lastScrollY.current);
+      }
+      lastScrollY.current = y;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <>
-      <header className={styles.header}>
+      <header
+        ref={headerRef}
+        className={`${styles.header} ${hidden ? styles.headerHidden : ''}`}
+        data-testid="mobile-header"
+      >
         <div className={styles.logo}>
           <span className={styles.logoIcon}>✦</span>
           <span className={styles.logoText}>SigNote</span>

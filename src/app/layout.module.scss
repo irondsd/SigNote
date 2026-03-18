@@ -10,6 +10,10 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+
+  @media (max-width: 767px) {
+    padding-top: 60px; /* mobile header height */
+  }
 }
 
 .main {
