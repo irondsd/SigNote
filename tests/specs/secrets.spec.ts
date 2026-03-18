@@ -503,3 +503,48 @@ test.describe('search secrets', () => {
     await expect(secretCard(page, `${tag} archived`)).not.toBeVisible();
   });
 });
+
+// ─── Group 7: Infinite Scroll Decryption ─────────────────────────────────────
+
+test.describe('infinite scroll decryption', () => {
+  test('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+
+    // Seed 50 secrets: 'Secret 01' gets lowest position → appears last in desc sort
+    await seedSecrets(
+      account.address,
+      mekBytes,
+      Array.from({ length: 50 }, (_, i) => {
+        const num = String(i + 1).padStart(2, '0');
+        return { title: `Secret ${num}`, content: `Content of Secret ${num}` };
+      }),
+    );
+
+    await mockProvider(page);
+    await page.goto('/secrets');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+    await unlock(page);
+
+    // Page 1 (30 items): Secret 50 → Secret 21
+    await expect(secretCard(page, 'Secret 50')).toBeVisible();
+
+    // Scroll 1 — load page 2: Secret 20 → Secret 11
+    const scroll1 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await scroll1;
+
+    // Scroll 2 — load page 3: Secret 10 → Secret 01
+    const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await scroll2;
+
+    // Secret 01 should now be visible on screen
+    await expect(secretCard(page, 'Secret 01')).toBeVisible();
+
+    // And it should be auto-decrypted: no encrypted placeholder, content visible
+    await expect(secretCard(page, 'Secret 01').getByTestId('encrypted-placeholder')).not.toBeVisible();
+    await expect(secretCard(page, 'Secret 01')).toContainText('Content of Secret 01');
+  });
+});
