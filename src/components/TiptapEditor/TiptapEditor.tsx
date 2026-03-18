@@ -1,13 +1,21 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import CodeBlock from '@tiptap/extension-code-block';
 import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { toast } from 'sonner';
 import styles from './TiptapEditor.module.scss';
+import { CodeBlockView } from './CodeBlockView';
+
+const CustomCodeBlock = CodeBlock.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockView);
+  },
+});
 
 type TiptapEditorProps = {
   content: string;
@@ -22,7 +30,8 @@ export function TiptapEditor({ content, onChange, editable, placeholder }: Tipta
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
+      CustomCodeBlock,
       Link.configure({ openOnClick: true, autolink: true }),
       TaskList,
       TaskItem.configure({ nested: false }),
@@ -42,8 +51,9 @@ export function TiptapEditor({ content, onChange, editable, placeholder }: Tipta
   }, [editor, editable]);
 
   const handleClick = (e: React.MouseEvent) => {
-    if (!editable && (e.target as HTMLElement).tagName === 'CODE') {
-      const text = (e.target as HTMLElement).textContent ?? '';
+    const target = e.target as HTMLElement;
+    if (!editable && target.tagName === 'CODE' && !target.closest('pre')) {
+      const text = target.textContent ?? '';
       navigator.clipboard.writeText(text).then(() => {
         toast.success('Copied to clipboard');
       });

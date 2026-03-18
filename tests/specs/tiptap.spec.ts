@@ -258,7 +258,7 @@ test.describe('code blocks', () => {
     await expect(page.getByText('Copied to clipboard')).toBeVisible();
   });
 
-  test('clicking code block in view mode copies to clipboard', async ({ page }) => {
+  test('clicking copy button on code block copies to clipboard', async ({ page }) => {
     const { account, privateKey } = makeAccount();
     const title = `Copy Block ${Date.now()}`;
     await seedNotes(account.address, [
@@ -274,9 +274,27 @@ test.describe('code blocks', () => {
     await noteCard(page, title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
-    await page.getByTestId('tiptap-editor').locator('pre code').first().click();
+    // Hover to reveal the copy button, then click it
+    await page.getByTestId('tiptap-editor').locator('pre').first().hover();
+    await page.getByRole('button', { name: 'Copy code' }).click();
 
     await expect(page.getByText('Copied to clipboard')).toBeVisible();
+  });
+
+  test('code block shows language label in view mode', async ({ page }) => {
+    const { account, privateKey } = makeAccount();
+    const title = `Code Block Language ${Date.now()}`;
+    await seedNotes(account.address, [{ title, content: '<pre><code class="language-bash">echo hello</code></pre>' }]);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await noteCard(page, title).click();
+    await expect(page.getByTestId('tiptap-editor')).toBeVisible();
+
+    await expect(page.getByTestId('tiptap-editor').getByText('sh')).toBeVisible();
   });
 });
 
