@@ -284,7 +284,9 @@ test.describe('code blocks', () => {
   test('code block shows language label in view mode', async ({ page }) => {
     const { account, privateKey } = makeAccount();
     const title = `Code Block Language ${Date.now()}`;
-    await seedNotes(account.address, [{ title, content: '<pre><code class="language-bash">echo hello</code></pre>' }]);
+    await seedNotes(account.address, [
+      { title, content: '<pre><code class="language-typescript">echo hello</code></pre>' },
+    ]);
 
     await mockProvider(page);
     await page.goto('/');
@@ -294,7 +296,7 @@ test.describe('code blocks', () => {
     await noteCard(page, title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
-    await expect(page.getByTestId('tiptap-editor').getByText('sh')).toBeVisible();
+    await expect(page.getByTestId('tiptap-editor').getByText('typescript')).toBeVisible();
   });
 });
 
