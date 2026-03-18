@@ -470,7 +470,77 @@ test.describe('archive and unarchive seal', () => {
   });
 });
 
-// ─── Group 6: Search Seals ────────────────────────────────────────────────────
+// ─── Group 6: Auto-Encrypt Timer ─────────────────────────────────────────────
+
+test.describe('auto-encrypt timer', () => {
+  test('decrypted seal auto-encrypts after 60 seconds', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const title = `Auto Encrypt ${Date.now()}`;
+    const contentText = 'Timer should hide this';
+    await seedSeals(account.address, mekBytes, [{ title, content: contentText }]);
+
+    // Accelerate setInterval so 1s ticks become 10ms (~600ms total for 60 ticks)
+    await page.addInitScript(() => {
+      const orig = window.setInterval.bind(window);
+      // @ts-expect-error override
+      window.setInterval = (fn: TimerHandler, ms?: number, ...args: unknown[]) => orig(fn, 10, ...args);
+    });
+
+    await mockProvider(page);
+    await page.goto('/seals');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+    await unlock(page);
+
+    await sealCard(page, title).click();
+    const modal = page.getByTestId('note-modal');
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText(contentText, { timeout: 10000 });
+
+    // Auto-encrypt should fire after ~600ms (60 ticks * 10ms)
+    await expect(modal.getByTestId('encrypted-placeholder')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+  });
+
+  test('clicking timer extends time and prevents auto-encrypt', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const title = `Extend Timer ${Date.now()}`;
+    const contentText = 'Should stay visible';
+    await seedSeals(account.address, mekBytes, [{ title, content: contentText }]);
+
+    // Accelerate setInterval: 1s ticks become 100ms (gives time to interact between ticks)
+    await page.addInitScript(() => {
+      const orig = window.setInterval.bind(window);
+      // @ts-expect-error override
+      window.setInterval = (fn: TimerHandler, ms?: number, ...args: unknown[]) => orig(fn, 100, ...args);
+    });
+
+    await mockProvider(page);
+    await page.goto('/seals');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+    await unlock(page);
+
+    await sealCard(page, title).click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText(contentText, { timeout: 10000 });
+
+    // Wait ~3s (30 of 60 ticks at 100ms), then click timer to add 60s
+    await page.waitForTimeout(3000);
+    await page.getByTestId('decrypt-timer').click();
+
+    // Content should still be visible — timer was extended
+    await expect(page.getByTestId('tiptap-editor')).toContainText(contentText);
+
+    // Eventually auto-encrypt should fire after remaining ~90 ticks * 100ms = ~9s
+    await expect(page.getByTestId('encrypted-placeholder')).toBeVisible({ timeout: 15000 });
+  });
+});
+
+// ─── Group 7: Search Seals ────────────────────────────────────────────────────
 
 test.describe('search seals', () => {
   test('search returns both archived and non-archived results by title', async ({ page }) => {

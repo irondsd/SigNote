@@ -1,3 +1,13 @@
+.decryptedBody {
+  position: relative;
+}
+
+.timerWrapper {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+
 .encryptedState {
   display: flex;
   flex-direction: column;

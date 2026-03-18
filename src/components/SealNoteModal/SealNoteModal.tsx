@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Trash2, Archive, Check, LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
@@ -10,8 +10,12 @@ import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/Encrypte
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { DecryptTimer } from './DecryptTimer';
 import styles from './SealNoteModal.module.scss';
+
+const DECRYPT_FOR_SECONDS = 60;
 
 type SealNoteModalProps = {
   note: CachedSealNote;
@@ -32,6 +36,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [showPassphrase, setShowPassphrase] = useState(false);
   // Set to true after passphrase unlock — triggers decrypt via useEffect when mek is available
   const [pendingDecrypt, setPendingDecrypt] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
 
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
@@ -58,6 +64,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     try {
       const plaintext = await decryptSealBody(currentMek, note.encryptedBody, note.wrappedNoteKey, note._id);
       setDecryptedContent(plaintext);
+      totalTimeRef.current = DECRYPT_FOR_SECONDS;
+      setTimeLeft(DECRYPT_FOR_SECONDS);
     } catch {
       setDecryptError('Failed to decrypt. The note may be corrupted.');
     } finally {
@@ -75,10 +83,27 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     performDecrypt(mek);
   };
 
-  const handleEncrypt = () => {
+  const handleEncrypt = useCallback(() => {
     setDecryptedContent(null);
     setEditing(false);
-  };
+    setTimeLeft(null);
+    totalTimeRef.current = DECRYPT_FOR_SECONDS;
+  }, []);
+
+  // Auto-encrypt countdown
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0 || editing) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          handleEncrypt();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timeLeft, editing, handleEncrypt]);
 
   const handleSave = async () => {
     if (!mek || decryptedContent === null) return;
@@ -138,6 +163,14 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     onClose();
   };
 
+  const handleTimerClick = () => {
+    setTimeLeft((prev) => {
+      const next = (prev ?? 0) + DECRYPT_FOR_SECONDS;
+      totalTimeRef.current = next;
+      return next;
+    });
+  };
+
   const date = new Date(note.updatedAt).toLocaleString();
 
   const footerActions =
@@ -194,12 +227,27 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         footerActions={footerActions}
       >
         {isDecrypted ? (
-          <TiptapEditor
-            content={decryptedContent}
-            onChange={(html) => setDecryptedContent(html)}
-            editable={editing}
-            placeholder="Write your seal…"
-          />
+          <div className={styles.decryptedBody}>
+            <TiptapEditor
+              content={decryptedContent}
+              onChange={(html) => setDecryptedContent(html)}
+              editable={editing}
+              placeholder="Write your seal…"
+            />
+            {timeLeft !== null && !editing && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={styles.timerWrapper}>
+                    <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="z-200">
+                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
+                  minute
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         ) : (
           <div className={styles.encryptedState}>
             <EncryptedPlaceholder rows={4} />
