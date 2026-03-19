@@ -21,7 +21,7 @@ import styles from './page.module.scss';
 export default function SecretsPage() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const { phase, lock, mek } = useEncryption();
+  const { phase, lock } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
@@ -34,6 +34,7 @@ export default function SecretsPage() {
 
   useEffect(() => {
     if (searchParams.has('draft')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to router.push URL change is intentional, not cascading
       setShowNewSecret(true);
       window.history.replaceState({}, '', '/secrets');
     }
@@ -156,9 +157,7 @@ export default function SecretsPage() {
         />
       )}
 
-      {showNewSecret && (
-        <NewSecretModal onClose={() => setShowNewSecret(false)} />
-      )}
+      {showNewSecret && <NewSecretModal onClose={() => setShowNewSecret(false)} />}
     </div>
   );
 }

@@ -21,7 +21,7 @@ import styles from './page.module.scss';
 export default function SealsPage() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const { phase, lock, mek } = useEncryption();
+  const { phase, lock } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSeals({
@@ -34,6 +34,7 @@ export default function SealsPage() {
 
   useEffect(() => {
     if (searchParams.has('draft')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to router.push URL change is intentional, not cascading
       setShowNewSeal(true);
       window.history.replaceState({}, '', '/seals');
     }
@@ -156,9 +157,7 @@ export default function SealsPage() {
         />
       )}
 
-      {showNewSeal && (
-        <NewSealModal onClose={() => setShowNewSeal(false)} />
-      )}
+      {showNewSeal && <NewSealModal onClose={() => setShowNewSeal(false)} />}
     </div>
   );
 }

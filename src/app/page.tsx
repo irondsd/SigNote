@@ -27,6 +27,7 @@ export default function Page() {
 
   useEffect(() => {
     if (searchParams.has('draft')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to router.push URL change is intentional, not cascading
       setShowNewNote(true);
       window.history.replaceState({}, '', '/');
     }
@@ -113,9 +114,7 @@ export default function Page() {
         <UnauthenticatedState />
       )}
 
-      {showNewNote && (
-        <NewNoteModal onClose={() => setShowNewNote(false)} />
-      )}
+      {showNewNote && <NewNoteModal onClose={() => setShowNewNote(false)} />}
     </div>
   );
 }
