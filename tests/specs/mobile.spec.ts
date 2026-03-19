@@ -18,7 +18,6 @@ const setup = async (page: Page) => {
   return { privateKey, account };
 };
 
-
 // ─── Test 1: Signed-out state + sidebar opens ────────────────────────────────
 
 test('shows signed-out state and opens sidebar drawer', async ({ page }) => {
@@ -135,8 +134,7 @@ test('header hides on scroll down and reappears on scroll up', async ({ page }) 
   await expect(page.getByTestId('note-card')).toHaveCount(15, { timeout: 10000 });
 
   // 1. Header visible at top of page
-  const headerY = () =>
-    page.getByTestId('mobile-header').evaluate((el) => el.getBoundingClientRect().y);
+  const headerY = () => page.getByTestId('mobile-header').evaluate((el) => el.getBoundingClientRect().y);
 
   expect(await headerY()).toBeGreaterThanOrEqual(0);
 

@@ -22,10 +22,10 @@ const seedDraft = (
   page: Page,
   data: { type: 'note' | 'secret' | 'seal'; title: string; content: string; encrypted: boolean },
 ) =>
-  page.evaluate(
-    ({ key, draft }) => localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() })),
-    { key: DRAFT_KEY, draft: data },
-  );
+  page.evaluate(({ key, draft }) => localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() })), {
+    key: DRAFT_KEY,
+    draft: data,
+  });
 
 // Sign in with a fresh account (no encryption profile)
 const setup = async (page: Page, startUrl = '/') => {
@@ -280,9 +280,7 @@ test.describe('note draft restore', () => {
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
 
     // Save the note
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
     await page.getByTestId('save-note-btn').click();
     await postPromise;
 
