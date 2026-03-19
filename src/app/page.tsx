@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Archive, Search, CircleXIcon } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
@@ -16,12 +17,20 @@ import { Input } from '@/components/ui/input';
 
 export default function Page() {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useNotes({
     archived: search ? undefined : false,
     search,
   });
   const [showNewNote, setShowNewNote] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.has('draft')) {
+      setShowNewNote(true);
+      window.history.replaceState({}, '', '/');
+    }
+  }, [searchParams]);
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -104,7 +113,9 @@ export default function Page() {
         <UnauthenticatedState />
       )}
 
-      {showNewNote && <NewNoteModal onClose={() => setShowNewNote(false)} />}
+      {showNewNote && (
+        <NewNoteModal onClose={() => setShowNewNote(false)} />
+      )}
     </div>
   );
 }

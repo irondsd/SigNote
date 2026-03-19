@@ -9,6 +9,7 @@ import { Sidebar } from '@/components/Sidebar/Sidebar';
 import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
 import { Toaster } from '@/components/ui/sonner';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
+import { DraftToast } from '@/components/DraftToast/DraftToast';
 
 export const metadata = {
   title: 'SigNote',
@@ -34,6 +35,7 @@ export default async function RootLayout({
                     <main className={s.main}>{children}</main>
                   </div>
                 </div>
+                <DraftToast />
               </EncryptionProvider>
             </Web3Provider>
           </AuthSessionProvider>

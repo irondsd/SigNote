@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Archive, Lock, LockOpen, Search, CircleXIcon } from 'lucide-react';
 import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
@@ -19,7 +20,8 @@ import styles from './page.module.scss';
 
 export default function SealsPage() {
   const { data: session, status } = useSession();
-  const { phase, lock } = useEncryption();
+  const searchParams = useSearchParams();
+  const { phase, lock, mek } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSeals({
@@ -29,6 +31,13 @@ export default function SealsPage() {
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [showNewSeal, setShowNewSeal] = useState(false);
   const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.has('draft')) {
+      setShowNewSeal(true);
+      window.history.replaceState({}, '', '/seals');
+    }
+  }, [searchParams]);
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -147,7 +156,9 @@ export default function SealsPage() {
         />
       )}
 
-      {showNewSeal && <NewSealModal onClose={() => setShowNewSeal(false)} />}
+      {showNewSeal && (
+        <NewSealModal onClose={() => setShowNewSeal(false)} />
+      )}
     </div>
   );
 }

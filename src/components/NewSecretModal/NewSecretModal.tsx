@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useEncryption } from '@/contexts/EncryptionContext';
-import { encryptSecretBody } from '@/lib/crypto';
+import { encryptSecretBody, decryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
+import { saveDraft, clearDraft, isDraftRestorePending, consumeDraftRestore } from '@/lib/draft';
 import styles from '@/components/NewModal/NewModal.module.scss';
 
 type NewSecretModalProps = {
@@ -19,17 +20,55 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [restoringDraft, setRestoringDraft] = useState(isDraftRestorePending);
   const createSecret = useCreateSecret();
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();
   const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
 
+  useEffect(() => {
+    if (!restoringDraft || !mek) return;
+    const draft = consumeDraftRestore();
+    if (!draft || draft.type !== 'secret') {
+      setRestoringDraft(false);
+      return;
+    }
+    setTitle(draft.title);
+    decryptSecretBody(mek, JSON.parse(draft.content)).then((decrypted) => {
+      setContent(decrypted);
+      setRestoringDraft(false);
+    });
+  }, [mek, restoringDraft]);
+
+  useEffect(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    if (isContentEmpty || !mek) return;
+
+    draftTimerRef.current = setTimeout(async () => {
+      const payload = await encryptSecretBody(mek, content);
+      saveDraft({
+        type: 'secret',
+        title,
+        content: JSON.stringify(payload),
+        encrypted: true,
+        savedAt: Date.now(),
+      });
+    }, 500);
+
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [title, content, isContentEmpty, mek]);
+
   const handleSave = async () => {
     if (!mek) return;
     if (isTitleEmpty && isContentEmpty) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     setSaving(true);
     try {
       const encryptedBody = content.trim() ? await encryptSecretBody(mek, content.trim()) : null;
+      clearDraft();
       createSecret.mutate({ title: title.trim(), encryptedBody });
       onClose();
     } finally {
@@ -73,7 +112,9 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
       />
-      <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
+      {!restoringDraft && (
+        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
+      )}
     </NewModal>
   );
 }

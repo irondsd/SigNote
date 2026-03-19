@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Archive, Lock, LockOpen, Search, CircleXIcon } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
@@ -19,7 +20,8 @@ import styles from './page.module.scss';
 
 export default function SecretsPage() {
   const { data: session, status } = useSession();
-  const { phase, lock } = useEncryption();
+  const searchParams = useSearchParams();
+  const { phase, lock, mek } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [search, setSearch] = useState('');
   const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
@@ -29,6 +31,13 @@ export default function SecretsPage() {
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [showNewSecret, setShowNewSecret] = useState(false);
   const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.has('draft')) {
+      setShowNewSecret(true);
+      window.history.replaceState({}, '', '/secrets');
+    }
+  }, [searchParams]);
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -147,7 +156,9 @@ export default function SecretsPage() {
         />
       )}
 
-      {showNewSecret && <NewSecretModal onClose={() => setShowNewSecret(false)} />}
+      {showNewSecret && (
+        <NewSecretModal onClose={() => setShowNewSecret(false)} />
+      )}
     </div>
   );
 }
