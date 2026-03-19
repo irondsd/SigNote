@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Archive, Search, CircleXIcon } from 'lucide-react';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 
-export default function Page() {
+function NotesPage() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
@@ -116,5 +116,13 @@ export default function Page() {
 
       {showNewNote && <NewNoteModal onClose={() => setShowNewNote(false)} />}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <NotesPage />
+    </Suspense>
   );
 }

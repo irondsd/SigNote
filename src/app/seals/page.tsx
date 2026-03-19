@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Archive, Lock, LockOpen, Search, CircleXIcon } from 'lucide-react';
@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import styles from './page.module.scss';
 
-export default function SealsPage() {
+function SealsPageContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const { phase, lock } = useEncryption();
@@ -159,5 +159,13 @@ export default function SealsPage() {
 
       {showNewSeal && <NewSealModal onClose={() => setShowNewSeal(false)} />}
     </div>
+  );
+}
+
+export default function SealsPage() {
+  return (
+    <Suspense>
+      <SealsPageContent />
+    </Suspense>
   );
 }
