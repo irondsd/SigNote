@@ -1,45 +1,24 @@
-import { attachDatabasePool } from '@vercel/functions';
-import { getServerSession } from 'next-auth';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { createSeal, getSealsByAddress } from '@/controllers/seals';
-import { authOptions } from '@/config/auth';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
-import { type Address } from 'viem';
+import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const address = session?.user?.address as Address;
-
-  if (!address) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export const GET = withSession(async (req, { address }) => {
   const archivedParam = req.nextUrl.searchParams.get('archived');
   const archived = archivedParam === null ? undefined : archivedParam === 'true';
   const limit = Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30);
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
   const search = (req.nextUrl.searchParams.get('q') || '').trim();
 
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
-
   const seals = await getSealsByAddress(address, archived, limit, offset, search);
 
   return NextResponse.json(seals);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const address = session?.user?.address as Address;
-
-  if (!address) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export const POST = withSession(async (req, { address }) => {
   const body = await req.json();
   const { title, encryptedBody, wrappedNoteKey } = body as {
     title?: string;
@@ -47,11 +26,8 @@ export async function POST(req: NextRequest) {
     wrappedNoteKey?: EncryptedPayload;
   };
 
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
-
   // encryptedBody and wrappedNoteKey are optional for 2-step creation flow
   const seal = await createSeal(address, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null);
 
   return NextResponse.json(seal, { status: 201 });
-}
+});
