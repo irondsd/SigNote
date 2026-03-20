@@ -1,15 +1,14 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { ShieldCheck } from 'lucide-react';
+import { SquareAsterisk } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useEncryption } from '@/contexts/EncryptionContext';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
 import styles from './page.module.scss';
 
 export default function SecretsArchivePage() {
@@ -23,21 +22,7 @@ export default function SecretsArchivePage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>Archived Secrets</h1>
-        </div>
-        {isAuthenticated && (
-          <div className="flex gap-1">
-            <Link href="/secrets">
-              <Button variant="ghost" size="lg">
-                <ShieldCheck size={18} />
-                Secrets
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+      <ArchivePageHeader title="Archived Secrets" backHref="/secrets" backLabel="Secrets" BackIcon={SquareAsterisk} />
 
       {showLoadingState ? (
         <div className={styles.loading}>

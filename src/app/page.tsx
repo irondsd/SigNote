@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Archive, Search, CircleXIcon } from 'lucide-react';
+import { Plus, Archive } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
@@ -13,7 +13,7 @@ import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import styles from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
 
 function NotesPage() {
   const { data: session, status } = useSession();
@@ -39,55 +39,28 @@ function NotesPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>Notes</h1>
-          {isAuthenticated && (
-            <div className={styles.searchWrap}>
-              <Search size={16} className={styles.searchIcon} />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search notes..."
-                aria-label="Search notes"
-                className={`${styles.searchInput}${search ? ` ${styles.searchInputWithClear}` : ''}`}
-              />
-              {search && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Clear search"
-                  onClick={() => setSearch('')}
-                  className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                >
-                  <CircleXIcon />
-                  <span className="sr-only">Clear input</span>
+      <PageHeader
+        title="Notes"
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search notes"
+        showSearch={isAuthenticated}
+        actions={
+          isAuthenticated ? (
+            <>
+              <Link href="/archive">
+                <Button variant="ghost" size="icon" aria-label="Archive" title="Archive">
+                  <Archive size={18} />
                 </Button>
-              )}
-            </div>
-          )}
-        </div>
-        {isAuthenticated && (
-          <div className="flex gap-1">
-            <Link href="/archive">
-              <Button variant="ghost" size="lg" className={styles.button}>
-                <Archive size={18} />
-                Archive
+              </Link>
+              <Button data-testid="new-note-btn" variant="default" onClick={() => setShowNewNote(true)}>
+                <Plus size={18} />
+                New Note
               </Button>
-            </Link>
-            <Button
-              data-testid="new-note-btn"
-              variant="default"
-              size="lg"
-              onClick={() => setShowNewNote(true)}
-              className={styles.button}
-            >
-              <Plus size={18} />
-              New Note
-            </Button>
-          </div>
-        )}
-      </div>
+            </>
+          ) : undefined
+        }
+      />
 
       {showLoadingState ? (
         <div className={styles.loading}>

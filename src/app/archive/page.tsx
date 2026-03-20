@@ -1,14 +1,13 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { Notebook } from 'lucide-react';
+import { NotebookText } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
+import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
 import styles from './page.module.scss';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 
 export default function Page() {
   const { data: session, status } = useSession();
@@ -22,21 +21,7 @@ export default function Page() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>My Archived Notes</h1>
-        </div>
-        {isAuthenticated && (
-          <div className="flex gap-1">
-            <Link href="/">
-              <Button variant="ghost" size="lg">
-                <Notebook size={18} />
-                Notes
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+      <ArchivePageHeader title="Archived Notes" backHref="/" backLabel="Notes" BackIcon={NotebookText} />
 
       {showLoadingState ? (
         <div className={styles.loading}>

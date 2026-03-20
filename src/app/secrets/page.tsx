@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Archive, Lock, LockOpen, Search, CircleXIcon } from 'lucide-react';
+import { Plus, Archive, Lock, LockOpen } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
@@ -14,8 +14,8 @@ import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { NewSecretModal } from '@/components/NewSecretModal/NewSecretModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { PageHeader } from '@/components/PageHeader/PageHeader';
 import styles from './page.module.scss';
 
 function SecretsPageContent() {
@@ -63,64 +63,39 @@ function SecretsPageContent() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>My Secrets</h1>
-          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
-            <span className={styles.lockBadge}>{isUnlocked ? 'Unlocked' : 'Locked'}</span>
-          )}
-          {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
-            <div className={styles.searchWrap}>
-              <Search size={16} className={styles.searchIcon} />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search secrets..."
-                aria-label="Search secrets"
-                className={`${styles.searchInput}${search ? ` ${styles.searchInputWithClear}` : ''}`}
-              />
-              {search && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Clear search"
-                  onClick={() => setSearch('')}
-                  className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                >
-                  <CircleXIcon />
-                  <span className="sr-only">Clear input</span>
+      <PageHeader
+        title="Secrets"
+        search={search}
+        onSearchChange={setSearch}
+        placeholder="Search secrets"
+        showSearch={isAuthenticated && (phase === 'locked' || phase === 'unlocked')}
+        actions={
+          isAuthenticated && (phase === 'locked' || phase === 'unlocked') ? (
+            <>
+              <Link href="/secrets/archive">
+                <Button variant="ghost" size="icon" aria-label="Archive" title="Archive">
+                  <Archive size={18} />
+                </Button>
+              </Link>
+              {isUnlocked ? (
+                <Button variant="secondary" onClick={lock} aria-label="Lock" title="Lock">
+                  <Lock size={18} />
+                  <span className={styles.lockLabel}>Lock</span>
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => setShowPassphrase(true)} aria-label="Unlock" title="Unlock">
+                  <LockOpen size={18} />
+                  <span className={styles.lockLabel}>Unlock</span>
                 </Button>
               )}
-            </div>
-          )}
-        </div>
-
-        {isAuthenticated && (phase === 'locked' || phase === 'unlocked') && (
-          <div className="flex gap-1">
-            {isUnlocked ? (
-              <Button variant="ghost" size="lg" onClick={lock} className={styles.button}>
-                <Lock size={18} />
-                Lock
+              <Button variant="default" onClick={handleNewSecret}>
+                <Plus size={18} />
+                New Secret
               </Button>
-            ) : (
-              <Button variant="ghost" size="lg" onClick={() => setShowPassphrase(true)} className={styles.button}>
-                <LockOpen size={18} />
-                Unlock
-              </Button>
-            )}
-            <Link href="/secrets/archive">
-              <Button variant="ghost" size="lg" className={styles.button}>
-                <Archive size={18} />
-                Archive
-              </Button>
-            </Link>
-            <Button variant="default" size="lg" onClick={handleNewSecret} className={styles.button}>
-              <Plus size={18} />
-              New Secret
-            </Button>
-          </div>
-        )}
-      </div>
+            </>
+          ) : undefined
+        }
+      />
 
       {showLoadingState ? (
         <div className={styles.loading}>

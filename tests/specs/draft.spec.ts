@@ -54,7 +54,7 @@ const unlock = async (page: Page) => {
   await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
   await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
   await page.getByRole('button', { name: 'Unlock' }).last().click();
-  await expect(page.getByText('Unlocked')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
 };
 
 // ─── Group 1: Draft saving ────────────────────────────────────────────────────
@@ -313,8 +313,8 @@ test.describe('encrypted draft restore', () => {
     // Hard reload on /secrets — DraftToast remounts; phase transitions to 'locked'
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
-    // Wait for Locked badge so phaseRef is settled before clicking Continue
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible({ timeout: 5000 });
+    // Wait for Unlock button so phaseRef is settled before clicking Continue
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
     // Click Continue — session is locked, so PassphraseModal should appear
@@ -342,7 +342,7 @@ test.describe('encrypted draft restore', () => {
     // Hard reload — DraftToast shows; phase = 'locked'
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
     // Continue → PassphraseModal → unlock → soft nav to /secrets?draft=true
@@ -376,7 +376,7 @@ test.describe('encrypted draft restore', () => {
 
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved seal draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -405,8 +405,8 @@ test.describe('encrypted draft restore', () => {
     // Do NOT clear sessionStorage — MEK is still rehydratable on next load
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
-    // Wait for Unlocked badge to confirm MEK reconstructed before clicking Continue
-    await expect(page.getByText('Unlocked', { exact: true })).toBeVisible({ timeout: 20000 });
+    // Wait for Lock button to confirm MEK reconstructed before clicking Continue
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();

@@ -131,6 +131,7 @@ test.describe('search notes', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search notes' }).fill(tag);
 
     await expect(noteCard(page, `${tag} note 1`)).toBeVisible();
@@ -157,6 +158,7 @@ test.describe('search notes', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search notes' });
 
     await searchInput.fill(dogsTag);
@@ -178,6 +180,7 @@ test.describe('search notes', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search notes' });
     await searchInput.fill(tag);
 

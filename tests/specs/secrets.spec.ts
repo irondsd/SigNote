@@ -33,7 +33,7 @@ const unlock = async (page: Page) => {
   await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
   await page.getByRole('button', { name: 'Unlock' }).last().click();
   // PBKDF2 at 600k iterations can be slow; allow enough time
-  await expect(page.getByText('Unlocked')).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
 };
 
 // ─── Group 1: Create Secret ───────────────────────────────────────────────────
@@ -439,6 +439,7 @@ test.describe('search secrets', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search secrets' }).fill(tag);
 
     await expect(secretCard(page, `${tag} secret 1`)).toBeVisible();
@@ -466,6 +467,7 @@ test.describe('search secrets', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
 
     await searchInput.fill(dogsTag);
@@ -491,6 +493,7 @@ test.describe('search secrets', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
+    await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
     await searchInput.fill(tag);
 

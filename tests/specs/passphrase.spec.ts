@@ -47,8 +47,8 @@ test.describe('lock / unlock state', () => {
   test('shows Locked badge when profile exists but session not unlocked', async ({ page }) => {
     await setup(page);
 
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByText('Unlocked')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
   });
 
   test('Unlock button opens the passphrase modal', async ({ page }) => {
@@ -65,33 +65,33 @@ test.describe('lock / unlock state', () => {
 
     await unlock(page);
 
-    await expect(page.getByText('Unlocked')).toBeVisible();
-    await expect(page.getByText('Locked', { exact: true })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).not.toBeVisible();
   });
 
   test('Lock button re-locks the session', async ({ page }) => {
     await setup(page);
 
     await unlock(page);
-    await expect(page.getByText('Unlocked')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Lock' }).click();
+    await page.getByRole('button', { name: 'Lock', exact: true }).click();
 
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByText('Unlocked')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
   });
 
   test('session persists across page reload', async ({ page }) => {
     await setup(page);
 
     await unlock(page);
-    await expect(page.getByText('Unlocked')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
 
     // Should still be unlocked (sessionStorage rehydration)
-    await expect(page.getByText('Unlocked')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
   });
 });
 
@@ -107,8 +107,8 @@ test.describe('lock / unlock state on seals page', () => {
     await changeAccount(page, privateKey);
     await signIn(page);
 
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByText('Unlocked')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
   });
 
   test('Unlock button on /seals opens passphrase modal and correct passphrase unlocks', async ({ page }) => {
@@ -126,8 +126,8 @@ test.describe('lock / unlock state on seals page', () => {
     await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
-    await expect(page.getByText('Unlocked')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Locked', { exact: true })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).not.toBeVisible();
   });
 });
 
@@ -144,8 +144,9 @@ test.describe('wrong passphrase', () => {
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     await expect(page.getByText('Incorrect passphrase')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByText('Unlocked')).not.toBeVisible();
+    // Modal still open (error shown) means session is still locked
+    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
   });
 
   test('correct passphrase after wrong one succeeds', async ({ page }) => {
@@ -161,7 +162,7 @@ test.describe('wrong passphrase', () => {
     await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
-    await expect(page.getByText('Unlocked')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
   });
 
   test('cancel passphrase modal keeps session locked', async ({ page }) => {
@@ -172,6 +173,6 @@ test.describe('wrong passphrase', () => {
     await page.getByRole('button', { name: 'Cancel' }).click();
 
     await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
   });
 });

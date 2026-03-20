@@ -36,7 +36,7 @@ test.describe('encryption profile', () => {
     await signIn(page);
 
     await expect(page.locator('#enc-passphrase')).not.toBeVisible();
-    await expect(page.getByText('Locked')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
   });
 
   test('should setup encryption profile', async ({ page }) => {

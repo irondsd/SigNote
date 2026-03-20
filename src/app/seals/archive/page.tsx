@@ -1,15 +1,14 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { Vault } from 'lucide-react';
+import { BookLock } from 'lucide-react';
 import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useEncryption } from '@/contexts/EncryptionContext';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
 import styles from './page.module.scss';
 
 export default function SealsArchivePage() {
@@ -23,21 +22,7 @@ export default function SealsArchivePage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topBar}>
-        <div className={styles.headingGroup}>
-          <h1 className={styles.heading}>Archived Seals</h1>
-        </div>
-        {isAuthenticated && (
-          <div className="flex gap-1">
-            <Link href="/seals">
-              <Button variant="ghost" size="lg">
-                <Vault size={18} />
-                Seals
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
+      <ArchivePageHeader title="Archived Seals" backHref="/seals" backLabel="Seals" BackIcon={BookLock} />
 
       {showLoadingState ? (
         <div className={styles.loading}>
