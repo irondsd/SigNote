@@ -13,7 +13,7 @@ import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { DecryptTimer } from './DecryptTimer';
-import styles from './SealNoteModal.module.scss';
+import s from './SealNoteModal.module.scss';
 
 const DECRYPT_FOR_SECONDS = 60;
 
@@ -227,7 +227,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         footerActions={footerActions}
       >
         {isDecrypted ? (
-          <div className={styles.decryptedBody}>
+          <div className={s.decryptedBody}>
             <TiptapEditor
               content={decryptedContent}
               onChange={(html) => setDecryptedContent(html)}
@@ -237,7 +237,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             {timeLeft !== null && !editing && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className={styles.timerWrapper}>
+                  <div className={s.timerWrapper}>
                     <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
                   </div>
                 </TooltipTrigger>
@@ -249,9 +249,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             )}
           </div>
         ) : (
-          <div className={styles.encryptedState}>
+          <div className={s.encryptedState}>
             <EncryptedPlaceholder rows={4} />
-            {decryptError && <p className={styles.decryptError}>{decryptError}</p>}
+            {decryptError && <p className={s.decryptError}>{decryptError}</p>}
           </div>
         )}
       </SharedNoteModal>

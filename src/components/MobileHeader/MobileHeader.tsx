@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import styles from './MobileHeader.module.scss';
+import s from './MobileHeader.module.scss';
 import { SidebarNav } from '@/components/SidebarNav/SidebarNav';
 
 export function MobileHeader() {
@@ -29,14 +29,10 @@ export function MobileHeader() {
 
   return (
     <>
-      <header
-        ref={headerRef}
-        className={`${styles.header} ${hidden ? styles.headerHidden : ''}`}
-        data-testid="mobile-header"
-      >
-        <div className={styles.logo}>
-          <span className={styles.logoIcon}>✦</span>
-          <span className={styles.logoText}>SigNote</span>
+      <header ref={headerRef} className={`${s.header} ${hidden ? s.headerHidden : ''}`} data-testid="mobile-header">
+        <div className={s.logo}>
+          <span className={s.logoIcon}>✦</span>
+          <span className={s.logoText}>SigNote</span>
         </div>
         <Button
           variant="outline"
@@ -50,10 +46,10 @@ export function MobileHeader() {
       </header>
 
       {/* Overlay */}
-      {open && <div className={styles.overlay} onClick={() => setOpen(false)} aria-hidden />}
+      {open && <div className={s.overlay} onClick={() => setOpen(false)} aria-hidden />}
 
       {/* Slide-out drawer from right */}
-      <div className={`${styles.drawer} ${open ? styles.drawerOpen : ''}`} data-testid="mobile-drawer">
+      <div className={`${s.drawer} ${open ? s.drawerOpen : ''}`} data-testid="mobile-drawer">
         <Button
           variant="outline"
           size="icon-sm"

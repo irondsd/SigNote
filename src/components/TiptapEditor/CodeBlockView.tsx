@@ -3,7 +3,7 @@
 import { NodeViewWrapper, NodeViewContent, type NodeViewProps } from '@tiptap/react';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import styles from './CodeBlockView.module.scss';
+import s from './CodeBlockView.module.scss';
 import { Button } from '../ui/button';
 
 export function CodeBlockView({ node, editor }: NodeViewProps) {
@@ -19,9 +19,9 @@ export function CodeBlockView({ node, editor }: NodeViewProps) {
   };
 
   return (
-    <NodeViewWrapper className={`${styles.wrapper} ${hasOverlay ? styles.withOverlay : ''}`}>
-      {language && <span className={styles.langBadge}>{language}</span>}
-      <Button className={styles.copyBtn} onClick={handleCopy} aria-label="Copy code">
+    <NodeViewWrapper className={`${s.wrapper} ${hasOverlay ? s.withOverlay : ''}`}>
+      {language && <span className={s.langBadge}>{language}</span>}
+      <Button className={s.copyBtn} onClick={handleCopy} aria-label="Copy code">
         <Copy size={14} />
       </Button>
       <pre>

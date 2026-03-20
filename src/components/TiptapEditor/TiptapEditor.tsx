@@ -8,7 +8,7 @@ import Link from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { toast } from 'sonner';
-import styles from './TiptapEditor.module.scss';
+import s from './TiptapEditor.module.scss';
 import { CodeBlockView } from './CodeBlockView';
 
 const CustomCodeBlock = CodeBlock.extend({
@@ -88,7 +88,7 @@ export function TiptapEditor({ content, onChange, editable, placeholder }: Tipta
   return (
     <div
       data-testid="tiptap-editor"
-      className={`${styles.editor} ${editable ? styles.editable : styles.readonly}`}
+      className={`${s.editor} ${editable ? s.editable : s.readonly}`}
       data-placeholder={placeholder}
       onClick={handleClick}
       onMouseDown={handleMouseDown}

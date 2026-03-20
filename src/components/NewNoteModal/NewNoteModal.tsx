@@ -7,7 +7,7 @@ import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft, consumeDraftRestore } from '@/lib/draft';
-import styles from '@/components/NewModal/NewModal.module.scss';
+import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewNoteModalProps = {
   onClose: () => void;
@@ -72,7 +72,7 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
     >
       <input
         data-testid="note-title-input"
-        className={styles.titleInput}
+        className={s.titleInput}
         placeholder="Title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}

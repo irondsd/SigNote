@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
-import styles from './PassphraseModal.module.scss';
+import s from './PassphraseModal.module.scss';
 
 type PassphraseModalProps = {
   onSuccess: () => void;
@@ -39,19 +39,19 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
   };
 
   return (
-    <Backdrop onClose={onClose} className={styles.backdrop}>
-      <Modal className={styles.modal}>
-        <div className={styles.header}>
-          <h2 className={styles.heading}>Unlock encrypted notes</h2>
+    <Backdrop onClose={onClose} className={s.backdrop}>
+      <Modal className={s.modal}>
+        <div className={s.header}>
+          <h2 className={s.heading}>Unlock encrypted notes</h2>
           <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
             <X size={18} />
           </Button>
         </div>
 
-        <form className={styles.body} onSubmit={handleSubmit}>
-          <p className={styles.hint}>Enter your passphrase to decrypt your notes for this session.</p>
+        <form className={s.body} onSubmit={handleSubmit}>
+          <p className={s.hint}>Enter your passphrase to decrypt your notes for this session.</p>
 
-          <div className={styles.inputWrapper}>
+          <div className={s.inputWrapper}>
             <Input
               type={showPassphrase ? 'text' : 'password'}
               autoComplete="current-password"
@@ -60,7 +60,7 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
               onChange={(e) => setPassphrase(e.target.value)}
               disabled={loading}
               autoFocus
-              className={styles.inputWithIcon}
+              className={s.inputWithIcon}
             />
             <Button
               type="button"
@@ -75,9 +75,9 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
             </Button>
           </div>
 
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={s.error}>{error}</p>}
 
-          <div className={styles.actions}>
+          <div className={s.actions}>
             <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
               Cancel
             </Button>

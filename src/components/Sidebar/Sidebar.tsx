@@ -1,11 +1,11 @@
 'use client';
 
-import styles from './Sidebar.module.scss';
+import s from './Sidebar.module.scss';
 import { SidebarNav } from '@/components/SidebarNav/SidebarNav';
 
 export function Sidebar() {
   return (
-    <aside className={styles.sidebar}>
+    <aside className={s.sidebar}>
       <SidebarNav />
     </aside>
   );

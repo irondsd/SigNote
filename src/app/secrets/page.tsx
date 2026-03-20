@@ -16,7 +16,7 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
-import styles from './page.module.scss';
+import s from './page.module.scss';
 
 function SecretsPageContent() {
   const { data: session, status } = useSession();
@@ -62,7 +62,7 @@ function SecretsPageContent() {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={s.page}>
       <PageHeader
         title="Secrets"
         search={search}
@@ -80,12 +80,12 @@ function SecretsPageContent() {
               {isUnlocked ? (
                 <Button variant="secondary" onClick={lock} aria-label="Lock" title="Lock">
                   <Lock size={18} />
-                  <span className={styles.lockLabel}>Lock</span>
+                  <span className={s.lockLabel}>Lock</span>
                 </Button>
               ) : (
                 <Button variant="secondary" onClick={() => setShowPassphrase(true)} aria-label="Unlock" title="Unlock">
                   <LockOpen size={18} />
-                  <span className={styles.lockLabel}>Unlock</span>
+                  <span className={s.lockLabel}>Unlock</span>
                 </Button>
               )}
               <Button variant="default" onClick={handleNewSecret}>
@@ -98,8 +98,8 @@ function SecretsPageContent() {
       />
 
       {showLoadingState ? (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
+        <div className={s.loading}>
+          <span className={s.spinner} />
         </div>
       ) : !isAuthenticated ? (
         <UnauthenticatedState />

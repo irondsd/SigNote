@@ -10,7 +10,7 @@ import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
-import styles from './page.module.scss';
+import s from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
@@ -38,7 +38,7 @@ function NotesPage() {
   const showLoadingState = isLoading || status === 'loading';
 
   return (
-    <div className={styles.page}>
+    <div className={s.page}>
       <PageHeader
         title="Notes"
         search={search}
@@ -63,8 +63,8 @@ function NotesPage() {
       />
 
       {showLoadingState ? (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
+        <div className={s.loading}>
+          <span className={s.spinner} />
         </div>
       ) : isAuthenticated ? (
         notes.length === 0 ? (

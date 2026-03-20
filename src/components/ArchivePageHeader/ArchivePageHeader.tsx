@@ -1,7 +1,7 @@
 import { type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import styles from './ArchivePageHeader.module.scss';
+import s from './ArchivePageHeader.module.scss';
 
 interface ArchivePageHeaderProps {
   title: string;
@@ -12,9 +12,9 @@ interface ArchivePageHeaderProps {
 
 export function ArchivePageHeader({ title, backHref, backLabel, BackIcon }: ArchivePageHeaderProps) {
   return (
-    <div className={styles.topBar}>
-      <h1 className={styles.title}>{title}</h1>
-      <div className={styles.actions}>
+    <div className={s.topBar}>
+      <h1 className={s.title}>{title}</h1>
+      <div className={s.actions}>
         <Link href={backHref}>
           <Button variant="ghost">
             <BackIcon size={18} />

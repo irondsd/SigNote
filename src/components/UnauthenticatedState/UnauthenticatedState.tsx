@@ -2,16 +2,16 @@
 
 import { Wallet } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
-import styles from './UnauthenticatedState.module.scss';
+import s from './UnauthenticatedState.module.scss';
 
 export function UnauthenticatedState() {
   return (
-    <div className={styles.container}>
-      <div className={styles.icon}>
+    <div className={s.container}>
+      <div className={s.icon}>
         <Wallet size={56} strokeWidth={1} />
       </div>
-      <h2 className={styles.heading}>Welcome to SigNote</h2>
-      <p className={styles.sub}>
+      <h2 className={s.heading}>Welcome to SigNote</h2>
+      <p className={s.sub}>
         Sign in with your Ethereum wallet
         <br />
         to access your notes securely.

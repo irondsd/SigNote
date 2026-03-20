@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from 'react';
 import { cn } from '@/utils/cn';
-import styles from './Backdrop.module.scss';
+import s from './Backdrop.module.scss';
 
 type BackdropProps = {
   onClose: () => void;
@@ -18,7 +18,7 @@ export function Backdrop({ onClose, className, children, disableClose }: Backdro
   }, []);
 
   return (
-    <div className={cn(styles.backdrop, className)} onClick={disableClose ? undefined : onClose}>
+    <div className={cn(s.backdrop, className)} onClick={disableClose ? undefined : onClose}>
       {children}
     </div>
   );

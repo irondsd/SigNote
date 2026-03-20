@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { cn } from '@/utils/cn';
-import styles from './Modal.module.scss';
+import s from './Modal.module.scss';
 
 type ModalProps = {
   children: ReactNode;
@@ -9,7 +9,7 @@ type ModalProps = {
 
 export function Modal({ children, className }: ModalProps) {
   return (
-    <div data-testid="note-modal" className={cn(styles.modal, className)} onClick={(e) => e.stopPropagation()}>
+    <div data-testid="note-modal" className={cn(s.modal, className)} onClick={(e) => e.stopPropagation()}>
       {children}
     </div>
   );

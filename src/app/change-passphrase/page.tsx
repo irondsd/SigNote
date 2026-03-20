@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import styles from './page.module.scss';
+import s from './page.module.scss';
 import {
   createKeyCheck,
   deriveDeviceShare,
@@ -172,16 +172,16 @@ export default function ChangePassphrasePage() {
 
   if (screen === 'success') {
     return (
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <div className={styles.successIcon}>
+      <div className={s.container}>
+        <div className={s.card}>
+          <div className={s.successIcon}>
             <CheckCircle size={48} strokeWidth={1.3} />
           </div>
-          <h2 className={styles.heading}>Passphrase changed</h2>
-          <p className={styles.successText}>
+          <h2 className={s.heading}>Passphrase changed</h2>
+          <p className={s.successText}>
             Your encryption keys have been updated. Your old passphrase will no longer work.
           </p>
-          <Button asChild variant="outline" className={styles.submitBtn}>
+          <Button asChild variant="outline" className={s.submitBtn}>
             <Link href="/secrets">Back to Secrets</Link>
           </Button>
         </div>
@@ -190,19 +190,19 @@ export default function ChangePassphrasePage() {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        <div className={styles.iconWrap}>
+    <div className={s.container}>
+      <div className={s.card}>
+        <div className={s.iconWrap}>
           <KeyRound size={40} strokeWidth={1.3} />
         </div>
-        <h2 className={styles.heading}>Change passphrase</h2>
+        <h2 className={s.heading}>Change passphrase</h2>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="cp-old">
+        <form className={s.form} onSubmit={handleSubmit}>
+          <div className={s.field}>
+            <label className={s.label} htmlFor="cp-old">
               Current passphrase
             </label>
-            <div className={styles.inputWrapper}>
+            <div className={s.inputWrapper}>
               <Input
                 id="cp-old"
                 ref={oldPassphraseInputRef}
@@ -220,23 +220,23 @@ export default function ChangePassphrasePage() {
                 onInput={syncOldPassphraseFromDom}
                 onBlur={handleOldBlur}
                 disabled={submitting}
-                className={styles.inputWithIcon}
+                className={s.inputWithIcon}
               />
-              <span className={styles.inputIcon}>
-                {verifyState === 'idle' && <HelpCircle size={16} className={styles.iconIdle} />}
-                {verifyState === 'verifying' && <Loader2 size={16} className={styles.spinning} />}
-                {verifyState === 'valid' && <CheckCircle size={16} className={styles.iconValid} />}
-                {verifyState === 'invalid' && <XCircle size={16} className={styles.iconInvalid} />}
+              <span className={s.inputIcon}>
+                {verifyState === 'idle' && <HelpCircle size={16} className={s.iconIdle} />}
+                {verifyState === 'verifying' && <Loader2 size={16} className={s.spinning} />}
+                {verifyState === 'valid' && <CheckCircle size={16} className={s.iconValid} />}
+                {verifyState === 'invalid' && <XCircle size={16} className={s.iconInvalid} />}
               </span>
             </div>
-            {verifyState === 'invalid' && <p className={styles.error}>Incorrect passphrase.</p>}
+            {verifyState === 'invalid' && <p className={s.error}>Incorrect passphrase.</p>}
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="cp-new">
+          <div className={s.field}>
+            <label className={s.label} htmlFor="cp-new">
               New passphrase
             </label>
-            <div className={styles.inputWrapper}>
+            <div className={s.inputWrapper}>
               <Input
                 id="cp-new"
                 type={showNew ? 'text' : 'password'}
@@ -245,7 +245,7 @@ export default function ChangePassphrasePage() {
                 value={newPassphrase}
                 onChange={(e) => setNewPassphrase(e.target.value)}
                 disabled={submitting}
-                className={styles.inputWithIcon}
+                className={s.inputWithIcon}
               />
               <Button
                 type="button"
@@ -260,15 +260,15 @@ export default function ChangePassphrasePage() {
               </Button>
             </div>
             {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
-              <p className={styles.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
+              <p className={s.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
             )}
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="cp-confirm">
+          <div className={s.field}>
+            <label className={s.label} htmlFor="cp-confirm">
               Confirm new passphrase
             </label>
-            <div className={styles.inputWrapper}>
+            <div className={s.inputWrapper}>
               <Input
                 id="cp-confirm"
                 type={showConfirm ? 'text' : 'password'}
@@ -277,7 +277,7 @@ export default function ChangePassphrasePage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 disabled={submitting}
-                className={styles.inputWithIcon}
+                className={s.inputWithIcon}
               />
               <Button
                 type="button"
@@ -295,12 +295,12 @@ export default function ChangePassphrasePage() {
                 )}
               </Button>
             </div>
-            {confirm && newPassphrase !== confirm && <p className={styles.error}>Passphrases do not match.</p>}
+            {confirm && newPassphrase !== confirm && <p className={s.error}>Passphrases do not match.</p>}
           </div>
 
-          {submitError && <p className={styles.error}>{submitError}</p>}
+          {submitError && <p className={s.error}>{submitError}</p>}
 
-          <Button type="submit" disabled={!canSubmit} className={styles.submitBtn}>
+          <Button type="submit" disabled={!canSubmit} className={s.submitBtn}>
             {submitting ? 'Updating…' : 'Change passphrase'}
           </Button>
         </form>

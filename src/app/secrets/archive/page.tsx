@@ -9,7 +9,7 @@ import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
-import styles from './page.module.scss';
+import s from './page.module.scss';
 
 export default function SecretsArchivePage() {
   const { data: session, status } = useSession();
@@ -21,12 +21,12 @@ export default function SecretsArchivePage() {
   const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   return (
-    <div className={styles.page}>
+    <div className={s.page}>
       <ArchivePageHeader title="Archived Secrets" backHref="/secrets" backLabel="Secrets" BackIcon={SquareAsterisk} />
 
       {showLoadingState ? (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
+        <div className={s.loading}>
+          <span className={s.spinner} />
         </div>
       ) : !isAuthenticated ? (
         <UnauthenticatedState />

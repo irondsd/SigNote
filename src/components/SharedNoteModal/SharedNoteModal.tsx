@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
-import styles from './SharedNoteModal.module.scss';
+import s from './SharedNoteModal.module.scss';
 
 type SharedNoteModalProps = {
   title: string;
@@ -30,7 +30,7 @@ type SharedNoteModalProps = {
 function noteColorClass(color: string | null | undefined) {
   if (!color) return undefined;
   const key = `color${color.charAt(0).toUpperCase()}${color.slice(1)}`;
-  return styles[key as keyof typeof styles];
+  return s[key as keyof typeof s];
 }
 
 export function SharedNoteModal({
@@ -51,23 +51,23 @@ export function SharedNoteModal({
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal className={cn(styles.modal, noteColorClass(color))}>
-        <div className={styles.header}>
+      <Modal className={cn(s.modal, noteColorClass(color))}>
+        <div className={s.header}>
           {editing ? (
             <input
               data-testid="note-title-input"
-              className={styles.titleInput}
+              className={s.titleInput}
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Title"
               autoFocus
             />
           ) : (
-            <h2 data-testid="note-title" className={styles.title}>
+            <h2 data-testid="note-title" className={s.title}>
               {title || 'Untitled'}
             </h2>
           )}
-          <div className={styles.headerActions}>
+          <div className={s.headerActions}>
             <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
               <PopoverTrigger asChild>
                 <Button
@@ -80,11 +80,11 @@ export function SharedNoteModal({
                   <Palette size={16} />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className={cn(styles.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
-                <div className={styles.colorSwatches}>
+              <PopoverContent className={cn(s.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
+                <div className={s.colorSwatches}>
                   <button
                     type="button"
-                    className={cn(styles.swatch, styles.swatchDefault, !color && styles.swatchSelected)}
+                    className={cn(s.swatch, s.swatchDefault, !color && s.swatchSelected)}
                     onClick={() => onColorChange(null)}
                     title="Default"
                     aria-label="Default"
@@ -93,7 +93,7 @@ export function SharedNoteModal({
                     <button
                       type="button"
                       key={c}
-                      className={cn(styles.swatch, color === c && styles.swatchSelected)}
+                      className={cn(s.swatch, color === c && s.swatchSelected)}
                       style={{ background: SWITCH_COLORS[c] }}
                       onClick={() => onColorChange(c)}
                       title={c.charAt(0).toUpperCase() + c.slice(1)}
@@ -121,13 +121,13 @@ export function SharedNoteModal({
           </div>
         </div>
 
-        <div className={styles.body}>{children}</div>
+        <div className={s.body}>{children}</div>
 
-        <div className={styles.footer}>
-          <span data-testid="note-date" className={styles.date}>
+        <div className={s.footer}>
+          <span data-testid="note-date" className={s.date}>
             Updated {date}
           </span>
-          <div className={styles.actions}>{footerActions}</div>
+          <div className={s.actions}>{footerActions}</div>
         </div>
       </Modal>
     </Backdrop>

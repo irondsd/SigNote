@@ -2,7 +2,7 @@
 
 import { Lock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import styles from './EncryptedPlaceholder.module.scss';
+import s from './EncryptedPlaceholder.module.scss';
 
 type EncryptedPlaceholderProps = {
   /** Number of placeholder bar rows to render */
@@ -14,15 +14,15 @@ export function EncryptedPlaceholder({ rows = 3 }: EncryptedPlaceholderProps) {
   const rowWidths = ['85%', '70%', '90%', '60%', '75%'];
 
   return (
-    <div data-testid="encrypted-placeholder" className={styles.wrapper}>
-      <div className={styles.bars}>
+    <div data-testid="encrypted-placeholder" className={s.wrapper}>
+      <div className={s.bars}>
         {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className={styles.bar} style={{ width: rowWidths[i % rowWidths.length] }} />
+          <div key={i} className={s.bar} style={{ width: rowWidths[i % rowWidths.length] }} />
         ))}
       </div>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={styles.lockIcon} aria-label="Content is encrypted">
+          <div className={s.lockIcon} aria-label="Content is encrypted">
             <Lock size={14} />
           </div>
         </TooltipTrigger>

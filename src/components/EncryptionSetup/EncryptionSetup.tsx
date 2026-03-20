@@ -5,7 +5,7 @@ import { Eye, EyeOff, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import styles from './EncryptionSetup.module.scss';
+import s from './EncryptionSetup.module.scss';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 
 export function EncryptionSetup() {
@@ -46,28 +46,28 @@ export function EncryptionSetup() {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        <div className={styles.iconWrap}>
+    <div className={s.container}>
+      <div className={s.card}>
+        <div className={s.iconWrap}>
           <ShieldCheck size={40} strokeWidth={1.3} />
         </div>
-        <h2 className={styles.heading}>Set up encrypted notes</h2>
+        <h2 className={s.heading}>Set up encrypted notes</h2>
 
-        <div className={styles.warningBox}>
-          <AlertTriangle size={16} className={styles.warningIcon} />
-          <div className={styles.warningText}>
+        <div className={s.warningBox}>
+          <AlertTriangle size={16} className={s.warningIcon} />
+          <div className={s.warningText}>
             <p>Your passphrase is never stored by the app.</p>
             <p>If you forget it, your encrypted notes cannot be recovered.</p>
             <p>Use a strong passphrase of at least 16 characters — ideally multiple random words.</p>
           </div>
         </div>
 
-        <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="enc-passphrase">
+        <form className={s.form} onSubmit={handleSubmit}>
+          <div className={s.field}>
+            <label className={s.label} htmlFor="enc-passphrase">
               Passphrase
             </label>
-            <div className={styles.inputWrapper}>
+            <div className={s.inputWrapper}>
               <Input
                 id="enc-passphrase"
                 type={showPassphrase ? 'text' : 'password'}
@@ -76,7 +76,7 @@ export function EncryptionSetup() {
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
                 disabled={loading}
-                className={styles.inputWithIcon}
+                className={s.inputWithIcon}
               />
               <Button
                 type="button"
@@ -96,11 +96,11 @@ export function EncryptionSetup() {
             </div>
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="enc-confirm">
+          <div className={s.field}>
+            <label className={s.label} htmlFor="enc-confirm">
               Confirm passphrase
             </label>
-            <div className={styles.inputWrapper}>
+            <div className={s.inputWrapper}>
               <Input
                 id="enc-confirm"
                 type={showConfirm ? 'text' : 'password'}
@@ -109,7 +109,7 @@ export function EncryptionSetup() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 disabled={loading}
-                className={styles.inputWithIcon}
+                className={s.inputWithIcon}
               />
               <Button
                 type="button"
@@ -129,9 +129,9 @@ export function EncryptionSetup() {
             </div>
           </div>
 
-          {error && <p className={styles.error}>{error}</p>}
+          {error && <p className={s.error}>{error}</p>}
 
-          <Button type="submit" disabled={loading} className={styles.submitBtn}>
+          <Button type="submit" disabled={loading} className={s.submitBtn}>
             {loading ? 'Creating encryption keys…' : 'Create encryption keys'}
           </Button>
         </form>

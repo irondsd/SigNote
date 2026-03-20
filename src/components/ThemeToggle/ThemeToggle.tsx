@@ -3,13 +3,13 @@
 import { useTheme } from 'next-themes';
 import { Sun, Moon, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import styles from './ThemeToggle.module.scss';
+import s from './ThemeToggle.module.scss';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className={styles.toggle}>
+    <div className={s.toggle}>
       <Button
         variant="ghost"
         size="icon-xs"

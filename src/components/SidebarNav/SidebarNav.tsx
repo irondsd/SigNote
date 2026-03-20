@@ -9,7 +9,7 @@ import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/utils/shortenAddress';
-import styles from './SidebarNav.module.scss';
+import s from './SidebarNav.module.scss';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -38,22 +38,18 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   };
 
   return (
-    <nav className={styles.nav}>
+    <nav className={s.nav}>
       {/* Logo */}
-      <div className={styles.logo}>
-        <div className={styles.logoIcon}>✦</div>
-        <span className={styles.logoText}>SigNote</span>
+      <div className={s.logo}>
+        <div className={s.logoIcon}>✦</div>
+        <span className={s.logoText}>SigNote</span>
       </div>
 
       {/* Nav links */}
-      <ul className={styles.links}>
+      <ul className={s.links}>
         {NAV_LINKS.map(({ href, label, icon: Icon }) => (
           <li key={href}>
-            <Link
-              href={href}
-              className={`${styles.link} ${pathname === href ? styles.active : ''}`}
-              onClick={onNavClick}
-            >
+            <Link href={href} className={`${s.link} ${pathname === href ? s.active : ''}`} onClick={onNavClick}>
               <Icon size={18} strokeWidth={1.8} />
               <span>{label}</span>
             </Link>
@@ -61,37 +57,32 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         ))}
       </ul>
 
-      <div className={styles.spacer} />
+      <div className={s.spacer} />
 
       {/* Bottom section */}
-      <div className={styles.bottom}>
-        <div className={styles.themeRow}>
-          <span className={styles.label}>Theme</span>
+      <div className={s.bottom}>
+        <div className={s.themeRow}>
+          <span className={s.label}>Theme</span>
           <ThemeToggle />
         </div>
 
-        <div className={styles.externalLinks}>
-          <a
-            href="https://github.com/irondsd/signote"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.extLink}
-          >
+        <div className={s.externalLinks}>
+          <a href="https://github.com/irondsd/signote" target="_blank" rel="noopener noreferrer" className={s.extLink}>
             <Github size={15} />
             GitHub
           </a>
-          <a href="#" className={styles.extLink}>
+          <a href="#" className={s.extLink}>
             <BookOpen size={15} />
             Docs
           </a>
         </div>
 
-        <div className={styles.authSection}>
+        <div className={s.authSection}>
           {address ? (
-            <div className={styles.walletRow}>
-              <div className={styles.walletInfo}>
-                <div className={styles.walletDot} />
-                <span data-testid="wallet-address" className={styles.walletAddress}>
+            <div className={s.walletRow}>
+              <div className={s.walletInfo}>
+                <div className={s.walletDot} />
+                <span data-testid="wallet-address" className={s.walletAddress}>
                   {shortenAddress(address)}
                 </span>
               </div>

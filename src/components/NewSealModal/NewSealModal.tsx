@@ -9,7 +9,7 @@ import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft, isDraftRestorePending, consumeDraftRestore } from '@/lib/draft';
-import styles from '@/components/NewModal/NewModal.module.scss';
+import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewSealModalProps = {
   onClose: () => void;
@@ -112,7 +112,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
     >
       <input
         data-testid="note-title-input"
-        className={styles.titleInput}
+        className={s.titleInput}
         placeholder="Title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}

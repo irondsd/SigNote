@@ -16,7 +16,7 @@ import { SortableContext } from '@dnd-kit/sortable';
 import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import { useReorder } from '@/hooks/useReorder';
 import { calculatePosition } from '@/utils/calculatePosition';
-import styles from './BaseGrid.module.scss';
+import s from './BaseGrid.module.scss';
 
 type BaseItem = {
   position: number;
@@ -119,7 +119,7 @@ export function BaseGrid<T extends BaseItem>({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
-          <div className={styles.grid}>
+          <div className={s.grid}>
             {notes.map((note) => renderCard(note, () => onNoteClick(note), showArchivedBadge, !dragEnabled))}
           </div>
         </SortableContext>
@@ -136,8 +136,8 @@ export function BaseGrid<T extends BaseItem>({
       {hasMore && <div ref={sentinelRef} style={{ height: '1px', visibility: 'hidden', marginTop: '20px' }} />}
 
       {isLoadingMore && (
-        <div className={styles.loading}>
-          <span className={styles.spinner} />
+        <div className={s.loading}>
+          <span className={s.spinner} />
         </div>
       )}
 

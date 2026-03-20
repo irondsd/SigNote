@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import styles from './PageHeader.module.scss';
+import s from './PageHeader.module.scss';
 
 interface PageHeaderProps {
   title: string;
@@ -47,33 +47,33 @@ export function PageHeader({
 
   if (searchActive) {
     return (
-      <div className={styles.topBar}>
-        <div className={styles.searchRow} key="search">
+      <div className={s.topBar}>
+        <div className={s.searchRow} key="search">
           <Button
             variant="ghost"
             size="icon"
             onClick={closeSearch}
             aria-label="Cancel search"
             title="Cancel search"
-            className={styles.backBtn}
+            className={s.backBtn}
           >
             <ArrowLeft size={18} />
           </Button>
-          <div className={styles.inputWrap}>
+          <div className={s.inputWrap}>
             <Input
               ref={inputRef}
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={placeholder}
               aria-label={placeholder}
-              className={styles.input}
+              className={s.input}
             />
             {search && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={closeSearch}
-                className={styles.clearBtn}
+                className={s.clearBtn}
                 aria-label="Clear search"
                 title="Clear search"
               >
@@ -87,10 +87,10 @@ export function PageHeader({
   }
 
   return (
-    <div className={styles.topBar}>
-      <div className={styles.normalRow} key="normal">
-        <h1 className={styles.title}>{title}</h1>
-        <div className={styles.actions}>
+    <div className={s.topBar}>
+      <div className={s.normalRow} key="normal">
+        <h1 className={s.title}>{title}</h1>
+        <div className={s.actions}>
           {showSearch && (
             <Button variant="ghost" size="icon" onClick={openSearch} aria-label="Search" title="Search">
               <Search size={18} />
