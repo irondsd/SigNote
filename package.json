@@ -37,6 +37,8 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sass": "^1.97.3",
     "shadcn": "^3.8.5",
     "siwe": "^3.0.0",

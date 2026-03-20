@@ -1,0 +1,134 @@
+.prose {
+  max-width: 720px;
+  padding: 40px 32px;
+  color: var(--foreground);
+  line-height: 1.7;
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 0.75em;
+    color: var(--foreground);
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 2em 0 0.5em;
+    color: var(--foreground);
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 1.5em 0 0.4em;
+    color: var(--foreground);
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    margin: 1em 0 0.3em;
+    color: var(--foreground);
+  }
+
+  p {
+    margin: 0.75em 0;
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.875em;
+    font-family: var(--font-geist-mono), monospace;
+  }
+
+  pre {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 1em 0;
+
+    code {
+      background: none;
+      padding: 0;
+      font-size: 0.875em;
+    }
+  }
+
+  ul,
+  ol {
+    padding-left: 1.5em;
+    margin: 0.75em 0;
+  }
+
+  li {
+    margin: 0.3em 0;
+  }
+
+  blockquote {
+    border-left: 3px solid var(--primary);
+    padding-left: 1em;
+    color: var(--muted-foreground);
+    margin: 1em 0;
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.9em;
+
+    th,
+    td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--muted);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) td {
+      background: var(--muted);
+    }
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 8px;
+  }
+
+  @media (max-width: 767px) {
+    padding: 24px 16px;
+
+    h1 {
+      font-size: 1.6rem;
+    }
+  }
+}

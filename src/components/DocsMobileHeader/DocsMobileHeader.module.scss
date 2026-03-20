@@ -21,6 +21,12 @@
   transform: translateY(-100%);
 }
 
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
 .overlay {
   position: fixed;
   inset: 0;

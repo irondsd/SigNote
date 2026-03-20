@@ -3,11 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import s from './MobileHeader.module.scss';
-import { SidebarNav } from '@/components/SidebarNav/SidebarNav';
+import { DocsSidebarNav, DocPage } from '@/components/DocsSidebarNav/DocsSidebarNav';
+import s from './DocsMobileHeader.module.scss';
 import { Logo } from '../Logo/Logo';
 
-export function MobileHeader() {
+type Props = {
+  pages: DocPage[];
+};
+
+export function DocsMobileHeader({ pages }: Props) {
   const [open, setOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
@@ -30,24 +34,17 @@ export function MobileHeader() {
 
   return (
     <>
-      <header ref={headerRef} className={`${s.header} ${hidden ? s.headerHidden : ''}`} data-testid="mobile-header">
+      <header ref={headerRef} className={`${s.header} ${hidden ? s.headerHidden : ''}`}>
         <Logo />
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-          data-testid="mobile-menu-btn"
-        >
+        <div className={s.title}>Documentation</div>
+        <Button variant="outline" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
           <Menu size={22} />
         </Button>
       </header>
 
-      {/* Overlay */}
       {open && <div className={s.overlay} onClick={() => setOpen(false)} aria-hidden />}
 
-      {/* Slide-out drawer from right */}
-      <div className={`${s.drawer} ${open ? s.drawerOpen : ''}`} data-testid="mobile-drawer">
+      <div className={`${s.drawer} ${open ? s.drawerOpen : ''}`}>
         <Button
           variant="outline"
           size="icon-sm"
@@ -57,7 +54,7 @@ export function MobileHeader() {
         >
           <X size={20} />
         </Button>
-        <SidebarNav onNavClick={() => setOpen(false)} />
+        <DocsSidebarNav pages={pages} onNavClick={() => setOpen(false)} />
       </div>
     </>
   );

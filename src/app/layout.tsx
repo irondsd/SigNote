@@ -5,11 +5,8 @@ import { Web3Provider } from '@/providers/Web3Provider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
 import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
-import { Sidebar } from '@/components/Sidebar/Sidebar';
-import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
 import { Toaster } from '@/components/ui/sonner';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
-import { DraftToast } from '@/components/DraftToast/DraftToast';
 
 export const metadata = {
   title: 'SigNote',
@@ -28,14 +25,7 @@ export default async function RootLayout({
           <AuthSessionProvider>
             <Web3Provider>
               <EncryptionProvider>
-                <div className={s.shell}>
-                  <Sidebar />
-                  <div className={s.content}>
-                    <MobileHeader />
-                    <main className={s.main}>{children}</main>
-                  </div>
-                </div>
-                <DraftToast />
+                {children}
               </EncryptionProvider>
             </Web3Provider>
           </AuthSessionProvider>

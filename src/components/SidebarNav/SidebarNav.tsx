@@ -71,10 +71,10 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
             <Github size={15} />
             GitHub
           </a>
-          <a href="#" className={s.extLink}>
+          <Link href="/docs" className={s.extLink}>
             <BookOpen size={15} />
             Docs
-          </a>
+          </Link>
         </div>
 
         <div className={s.authSection}>
