@@ -16,10 +16,6 @@
   white-space: nowrap;
   flex-shrink: 0;
 
-  @media (max-width: 767px) {
-    flex-basis: 100%;
-  }
-
   @media (min-width: 768px) {
     flex: 1;
   }

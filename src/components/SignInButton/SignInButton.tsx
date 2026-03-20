@@ -7,7 +7,7 @@ import { useAccount, useAccountEffect, useDisconnect, useSignMessage } from 'wag
 import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import '@rainbow-me/rainbowkit/s.css';
+import '@rainbow-me/rainbowkit/styles.css';
 import { cn } from '@/utils/cn';
 import { EthereumIcon } from '../EthereumIcon/EthereumIcon';
 import { Address } from 'viem';
