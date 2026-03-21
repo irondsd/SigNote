@@ -1,5 +1,6 @@
 'use client';
 
+import DOMPurify from 'dompurify';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 
@@ -19,7 +20,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       showArchivedBadge={showArchivedBadge}
       archived={note.archived}
       data-testid="note-card"
-      content={note.content ? <div dangerouslySetInnerHTML={{ __html: note.content }} /> : undefined}
+      content={note.content ? <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content) }} /> : undefined}
     />
   );
 }
