@@ -15,21 +15,19 @@ function buildPageList(): DocPage[] {
   const docsDir = path.join(process.cwd(), 'src/docs');
   const files = fs.readdirSync(docsDir).filter((f) => f.endsWith('.md'));
 
-  const pages: DocPage[] = [];
-
-  if (files.includes('about.md')) {
-    pages.push({ slug: 'about', label: 'About', href: '/docs/about' });
-  }
-
-  files
-    .filter((f) => f !== 'about.md')
-    .sort()
-    .forEach((file) => {
-      const slug = file.replace(/\.md$/, '');
-      pages.push({ slug, label: slugToLabel(slug), href: `/docs/${slug}` });
-    });
-
-  return pages;
+  return files
+    .map((file) => {
+      const withoutExt = file.replace(/\.md$/, '');
+      const dotPos = withoutExt.indexOf('.');
+      if (dotPos === -1) return null;
+      const index = Number(withoutExt.slice(0, dotPos));
+      if (isNaN(index)) return null;
+      const slug = withoutExt.slice(dotPos + 1);
+      return { index, slug, label: slugToLabel(slug), href: `/docs/${slug}` };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .sort((a, b) => a.index - b.index)
+    .map(({ slug, label, href }) => ({ slug, label, href }));
 }
 
 export default function DocsLayout({ children }: { children: React.ReactNode }) {

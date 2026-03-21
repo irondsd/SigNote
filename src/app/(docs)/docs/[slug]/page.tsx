@@ -9,19 +9,35 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+function slugToFilename(docsDir: string, slug: string): string | null {
+  const files = fs.readdirSync(docsDir).filter((f) => f.endsWith('.md'));
+  const match = files.find((f) => {
+    const withoutExt = f.replace(/\.md$/, '');
+    const dotPos = withoutExt.indexOf('.');
+    return dotPos !== -1 && withoutExt.slice(dotPos + 1) === slug;
+  });
+  return match ? path.join(docsDir, match) : null;
+}
+
 export async function generateStaticParams() {
   const docsDir = path.join(process.cwd(), 'src/docs');
   return fs
     .readdirSync(docsDir)
     .filter((f) => f.endsWith('.md'))
-    .map((f) => ({ slug: f.replace(/\.md$/, '') }));
+    .map((f) => {
+      const withoutExt = f.replace(/\.md$/, '');
+      const dotPos = withoutExt.indexOf('.');
+      return dotPos !== -1 ? { slug: withoutExt.slice(dotPos + 1) } : null;
+    })
+    .filter((p): p is { slug: string } => p !== null);
 }
 
 export default async function DocsSlugPage({ params }: Props) {
   const { slug } = await params;
-  const filePath = path.join(process.cwd(), 'src/docs', `${slug}.md`);
+  const docsDir = path.join(process.cwd(), 'src/docs');
+  const filePath = slugToFilename(docsDir, slug);
 
-  if (!fs.existsSync(filePath)) {
+  if (!filePath) {
     notFound();
   }
 
