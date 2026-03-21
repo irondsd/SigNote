@@ -1,5 +1,6 @@
 'use client';
 
+import DOMPurify from 'dompurify';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 
@@ -24,7 +25,7 @@ export function EncryptedNoteCard({
   archived = false,
 }: EncryptedNoteCardProps) {
   const content = decryptedContent ? (
-    <div dangerouslySetInnerHTML={{ __html: decryptedContent }} />
+    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(decryptedContent) }} />
   ) : (
     <EncryptedPlaceholder rows={3} />
   );
