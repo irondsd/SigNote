@@ -1,8 +1,7 @@
 /**
  * Auto-lock tests
  *
- * Tests for soft lock (tab visibility), hard lock (inactivity/sleep),
- * and unsaved changes confirmation dialog.
+ * Tests for soft lock (tab visibility), hard lock (inactivity/sleep)
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -13,7 +12,8 @@ import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
-import { seedNotes } from '../fixtures/seedNotes';
+
+const sealCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -89,6 +89,50 @@ test.describe('soft lock', () => {
   });
 });
 
+// ─── Soft Lock — Seals ──────────────────────────────────────────────────────
+
+test.describe('soft lock — seals', () => {
+  test('soft lock re-encrypts an open decrypted seal', async ({ page }) => {
+    const { account, mekBytes } = await setup(page, '/seals');
+    await seedSeals(account.address, mekBytes, [{ title: 'SoftLock Seal', content: 'sealed secret' }]);
+    await page.reload();
+    await unlock(page);
+
+    // Open the seal and decrypt it
+    await sealCard(page, 'SoftLock Seal').click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByText('sealed secret')).toBeVisible({ timeout: 10000 });
+
+    // Simulate tab hidden — soft lock fires
+    await simulateTabHidden(page);
+
+    // Modal should re-encrypt: content hidden, Decrypt button visible again
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('sealed secret')).not.toBeVisible();
+  });
+
+  test('decrypt after soft lock does not require passphrase', async ({ page }) => {
+    const { account, mekBytes } = await setup(page, '/seals');
+    await seedSeals(account.address, mekBytes, [{ title: 'ReDecrypt Seal', content: 'soft decrypt test' }]);
+    await page.reload();
+    await unlock(page);
+
+    // Open the seal and decrypt it
+    await sealCard(page, 'ReDecrypt Seal').click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByText('soft decrypt test')).toBeVisible({ timeout: 10000 });
+
+    // Simulate tab hidden — soft lock fires
+    await simulateTabHidden(page);
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible({ timeout: 5000 });
+
+    // Click Decrypt — should NOT show passphrase modal, content appears directly
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByText('soft decrypt test')).toBeVisible({ timeout: 10000 });
+  });
+});
+
 // ─── Hard Lock ──────────────────────────────────────────────────────────────
 
 test.describe('hard lock', () => {
@@ -116,106 +160,5 @@ test.describe('hard lock', () => {
     // Clicking Unlock should show passphrase modal (not silent rehydrate)
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  });
-});
-
-// ─── Unsaved Changes Confirmation ───────────────────────────────────────────
-
-test.describe('unsaved changes confirmation', () => {
-  test('closing note modal with unsaved edits shows confirmation', async ({ page }) => {
-    const { account } = await setup(page, '/');
-    await seedNotes(account.address, [{ title: 'Unsaved Test', content: 'original' }]);
-    await page.reload();
-
-    // Open note modal and edit
-    await page.getByTestId('note-card').filter({ hasText: 'Unsaved Test' }).click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
-    await page.getByTestId('edit-btn').click();
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type(' modified');
-
-    // Try to close via X — should show confirmation
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
-
-    // Cancel keeps editing
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
-  });
-
-  test('discard button closes modal and discards changes', async ({ page }) => {
-    const { account } = await setup(page, '/');
-    await seedNotes(account.address, [{ title: 'Discard Test', content: 'original content' }]);
-    await page.reload();
-
-    // Open, edit, close, discard
-    await page.getByTestId('note-card').filter({ hasText: 'Discard Test' }).click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
-    await page.getByTestId('edit-btn').click();
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type(' extra');
-
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
-    await page.getByRole('button', { name: 'Discard', exact: true }).click();
-
-    // Modal should be closed
-    await expect(page.getByTestId('note-modal')).toHaveCount(0);
-  });
-
-  test('closing note modal without changes does NOT show confirmation', async ({ page }) => {
-    const { account } = await setup(page, '/');
-    await seedNotes(account.address, [{ title: 'NoConfirm Test' }]);
-    await page.reload();
-
-    // Open note modal in view mode (no edits)
-    await page.getByTestId('note-card').filter({ hasText: 'NoConfirm Test' }).click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
-
-    // Close — should NOT show confirmation dialog
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
-    await expect(page.getByTestId('note-modal')).toHaveCount(0);
-  });
-
-  test('new note modal with content shows confirmation on cancel', async ({ page }) => {
-    await setup(page, '/');
-
-    await page.getByTestId('new-note-btn').click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill('Draft title');
-
-    // Cancel — should show confirmation
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
-
-    // Discard closes
-    await page.getByRole('button', { name: 'Discard', exact: true }).click();
-    await expect(page.getByTestId('note-modal')).toHaveCount(0);
-  });
-
-  test('new note modal with empty content does NOT show confirmation', async ({ page }) => {
-    await setup(page, '/');
-
-    await page.getByTestId('new-note-btn').click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-
-    // Cancel with no content — should close immediately
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
-    await expect(page.getByTestId('note-modal')).toHaveCount(0);
-  });
-
-  test('new secret modal with content shows confirmation on cancel', async ({ page }) => {
-    await setup(page, '/secrets');
-    await unlock(page);
-
-    await page.getByRole('button', { name: 'New Secret' }).click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill('Secret draft');
-
-    // Cancel — should show confirmation
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
   });
 });

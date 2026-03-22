@@ -25,7 +25,7 @@ type SealNoteModalProps = {
 };
 
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
-  const { mek, phase, lockType } = useEncryption();
+  const { mek, phase, lockType, rehydrate } = useEncryption();
   const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
@@ -91,9 +91,23 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     }
   };
 
-  const handleDecrypt = () => {
+  const handleDecrypt = async () => {
     if (!mek) {
-      // No MEK — need passphrase first, then auto-decrypt via useEffect
+      if (lockType === 'soft') {
+        // Soft lock: deviceShare still in sessionStorage — rehydrate silently
+        setDecrypting(true);
+        setPendingDecrypt(true);
+        try {
+          await rehydrate();
+          // pendingDecrypt useEffect fires once mek is restored
+        } catch {
+          setDecrypting(false);
+          setPendingDecrypt(false);
+          setShowPassphrase(true);
+        }
+        return;
+      }
+      // Hard lock: need passphrase
       setPendingDecrypt(true);
       setShowPassphrase(true);
       return;

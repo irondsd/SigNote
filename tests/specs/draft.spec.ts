@@ -4,6 +4,7 @@ import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
 import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
+import { seedNotes } from '../fixtures/seedNotes';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -422,5 +423,106 @@ test.describe('encrypted draft restore', () => {
     // Modal opens directly with draft content
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue('Unlocked Secret Draft');
+  });
+});
+
+// ─── Unsaved Changes Confirmation ───────────────────────────────────────────
+
+test.describe('unsaved changes confirmation', () => {
+  test('closing note modal with unsaved edits shows confirmation', async ({ page }) => {
+    const { account } = await setup(page, '/');
+    await seedNotes(account.address, [{ title: 'Unsaved Test', content: 'original' }]);
+    await page.reload();
+
+    // Open note modal and edit
+    await page.getByTestId('note-card').filter({ hasText: 'Unsaved Test' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type(' modified');
+
+    // Try to close via X — should show confirmation
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
+
+    // Cancel keeps editing
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+  });
+
+  test('discard button closes modal and discards changes', async ({ page }) => {
+    const { account } = await setup(page, '/');
+    await seedNotes(account.address, [{ title: 'Discard Test', content: 'original content' }]);
+    await page.reload();
+
+    // Open, edit, close, discard
+    await page.getByTestId('note-card').filter({ hasText: 'Discard Test' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type(' extra');
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
+    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+
+    // Modal should be closed
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
+  });
+
+  test('closing note modal without changes does NOT show confirmation', async ({ page }) => {
+    const { account } = await setup(page, '/');
+    await seedNotes(account.address, [{ title: 'NoConfirm Test' }]);
+    await page.reload();
+
+    // Open note modal in view mode (no edits)
+    await page.getByTestId('note-card').filter({ hasText: 'NoConfirm Test' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    // Close — should NOT show confirmation dialog
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
+  });
+
+  test('new note modal with content shows confirmation on cancel', async ({ page }) => {
+    await setup(page, '/');
+
+    await page.getByTestId('new-note-btn').click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+    await page.getByTestId('note-title-input').fill('Draft title');
+
+    // Cancel — should show confirmation
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
+
+    // Discard closes
+    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
+  });
+
+  test('new note modal with empty content does NOT show confirmation', async ({ page }) => {
+    await setup(page, '/');
+
+    await page.getByTestId('new-note-btn').click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+
+    // Cancel with no content — should close immediately
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
+  });
+
+  test('new secret modal with content shows confirmation on cancel', async ({ page }) => {
+    await setup(page, '/secrets');
+    await unlock(page);
+
+    await page.getByRole('button', { name: 'New Secret' }).click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+    await page.getByTestId('note-title-input').fill('Secret draft');
+
+    // Cancel — should show confirmation
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
   });
 });
