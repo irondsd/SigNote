@@ -25,7 +25,7 @@ function SecretsPageContent() {
   const isUnlocked = phase === 'unlocked';
   const [rehydrating, setRehydrating] = useState(false);
   const [search, setSearch] = useState('');
-  const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
     archived: search ? undefined : false,
     search,
   });
@@ -43,7 +43,7 @@ function SecretsPageContent() {
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
-  const showLoadingState = status === 'loading' || (status === 'authenticated' && phase === 'loading');
+  const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   const handleUnlock = async () => {
     if (lockType === 'soft') {
