@@ -537,6 +537,7 @@ test.describe('infinite scroll decryption', () => {
     const scroll1 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll1;
+    await expect(secretCard(page, 'Secret 11')).toBeVisible(); // wait for page-2 render to settle before registering next listener
 
     // Scroll 2 — load page 3: Secret 10 → Secret 01
     const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
