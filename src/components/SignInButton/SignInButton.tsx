@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { useAccount, useAccountEffect, useDisconnect, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { cn } from '@/utils/cn';
@@ -56,12 +57,15 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
       const messageStr = message.prepareMessage();
       const signature = await signMessageAsync({ message: messageStr });
 
-      await signIn('credentials', {
+      const result = await signIn('credentials', {
         message: messageStr,
         signature,
         redirect: false,
       });
 
+      if (result?.error) {
+        toast.error('Sign in failed. Please try again.');
+      }
       setStep('idle');
     } catch (err) {
       console.error('SIWE error:', err);
