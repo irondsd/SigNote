@@ -45,6 +45,7 @@ export function SealsGrid({
           updatedAt={note.updatedAt}
           color={note.color}
           onClick={onClick}
+          ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
           isDragDisabled={dragDisabled}
@@ -56,6 +57,7 @@ export function SealsGrid({
           updatedAt={note.updatedAt}
           color={note.color}
           onClick={() => {}}
+          ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
         />

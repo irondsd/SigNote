@@ -11,6 +11,8 @@ type EncryptedNoteCardProps = {
   onClick: () => void;
   /** If provided, renders decrypted HTML preview instead of placeholder */
   decryptedContent?: string;
+  /** Base64 ciphertext for deterministic placeholder layout */
+  ciphertext?: string;
   showArchivedBadge?: boolean;
   archived?: boolean;
 };
@@ -21,13 +23,14 @@ export function EncryptedNoteCard({
   color,
   onClick,
   decryptedContent,
+  ciphertext,
   showArchivedBadge = false,
   archived = false,
 }: EncryptedNoteCardProps) {
   const content = decryptedContent ? (
     <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(decryptedContent) }} />
   ) : (
-    <EncryptedPlaceholder rows={3} />
+    <EncryptedPlaceholder rows={4} ciphertext={ciphertext} />
   );
 
   return (

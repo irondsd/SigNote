@@ -145,6 +145,7 @@ export function SecretsGrid({
           color={note.color}
           onClick={onClick}
           decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
+          ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
           isDragDisabled={dragDisabled}
@@ -157,6 +158,7 @@ export function SecretsGrid({
           color={note.color}
           onClick={() => {}}
           decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
+          ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
         />

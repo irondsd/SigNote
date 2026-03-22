@@ -12,6 +12,7 @@ type SortableEncryptedCardProps = {
   color: string | null | undefined;
   onClick: () => void;
   decryptedContent?: string;
+  ciphertext?: string;
   showArchivedBadge?: boolean;
   archived?: boolean;
   isDragDisabled?: boolean;
@@ -24,6 +25,7 @@ export function SortableEncryptedCard({
   color,
   onClick,
   decryptedContent,
+  ciphertext,
   showArchivedBadge,
   archived,
   isDragDisabled = false,
@@ -107,6 +109,7 @@ export function SortableEncryptedCard({
         color={color}
         onClick={onClick}
         decryptedContent={decryptedContent}
+        ciphertext={ciphertext}
         showArchivedBadge={showArchivedBadge}
         archived={archived}
       />

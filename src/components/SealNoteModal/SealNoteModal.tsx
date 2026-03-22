@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
-import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
+import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
@@ -316,7 +316,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           </div>
         ) : (
           <div className={s.encryptedState}>
-            <EncryptedPlaceholder rows={4} />
+            <EncryptedPlaceholder
+              rows={estimateLines(note.encryptedBody?.ciphertext ?? '')}
+              ciphertext={note.encryptedBody?.ciphertext}
+            />
             {decryptError && <p className={s.decryptError}>{decryptError}</p>}
           </div>
         )}

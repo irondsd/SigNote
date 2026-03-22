@@ -7,19 +7,66 @@ import s from './EncryptedPlaceholder.module.scss';
 type EncryptedPlaceholderProps = {
   /** Number of placeholder bar rows to render */
   rows?: number;
+  /** Base64 ciphertext used to deterministically generate word-strip layout */
+  ciphertext?: string;
 };
 
-export function EncryptedPlaceholder({ rows = 3 }: EncryptedPlaceholderProps) {
-  // Widths vary per row for a natural look
+function getByteAt(ct: string, i: number): number {
+  return ct.charCodeAt(i % ct.length);
+}
+
+type LineData = { weights: number[]; fillFraction: number };
+
+function generateLines(ciphertext: string, lineCount: number): LineData[] {
+  return Array.from({ length: lineCount }, (_, l) => {
+    const count = 3 + (getByteAt(ciphertext, l * 17) % 5); // 3–7 strips
+    const weights = Array.from({ length: count }, (_, s) => 1 + (getByteAt(ciphertext, l * 31 + s * 7 + 5) % 9));
+    const isLast = l === lineCount - 1;
+    const fillFraction = isLast ? 0.35 + (getByteAt(ciphertext, l * 13 + 2) % 30) / 100 : 1;
+    return { weights, fillFraction };
+  });
+}
+
+export function estimateLines(ciphertext: string): number {
+  const estimatedBytes = Math.floor(ciphertext.length * 0.75) - 16;
+  const lines = Math.ceil(Math.max(estimatedBytes, 0) / 60);
+  return Math.max(6, Math.min(15, lines));
+}
+
+export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlaceholderProps) {
   const rowWidths = ['85%', '70%', '90%', '60%', '75%'];
+
+  const getLineWidth = (i: number, fillFraction: number) => {
+    if (fillFraction < 1) return `${fillFraction * 100}%`;
+    if (i === 1 || i === 2) return 'calc(100% - 28px)';
+    return undefined;
+  };
+
+  const renderBars = () => {
+    if (ciphertext) {
+      const lines = generateLines(ciphertext, rows);
+      return lines.map((line, i) => (
+        <div
+          key={i}
+          className={s.line}
+          style={{ width: getLineWidth(i, line.fillFraction) }}
+        >
+          {line.weights.map((w, j) => (
+            <div key={j} className={s.strip} style={{ flex: `${w} 0 0` }} />
+          ))}
+        </div>
+      ));
+    }
+    return Array.from({ length: rows }).map((_, i) => {
+      const baseWidth = rowWidths[i % rowWidths.length];
+      const width = i === 1 || i === 2 ? 'calc(100% - 28px)' : baseWidth;
+      return <div key={i} className={s.bar} style={{ width }} />;
+    });
+  };
 
   return (
     <div data-testid="encrypted-placeholder" className={s.wrapper}>
-      <div className={s.bars}>
-        {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className={s.bar} style={{ width: rowWidths[i % rowWidths.length] }} />
-        ))}
-      </div>
+      <div className={s.bars}>{renderBars()}</div>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className={s.lockIcon} aria-label="Content is encrypted">
