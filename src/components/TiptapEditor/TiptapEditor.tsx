@@ -22,13 +22,15 @@ type TiptapEditorProps = {
   onChange: (html: string) => void;
   editable: boolean;
   placeholder?: string;
+  autoFocus?: boolean;
 };
 
-export function TiptapEditor({ content, onChange, editable, placeholder }: TiptapEditorProps) {
+export function TiptapEditor({ content, onChange, editable, placeholder, autoFocus }: TiptapEditorProps) {
   const editableRef = useRef(editable);
 
   const editor = useEditor({
     immediatelyRender: false,
+    autofocus: autoFocus ? 'end' : false,
     extensions: [
       StarterKit.configure({ codeBlock: false }),
       CustomCodeBlock,

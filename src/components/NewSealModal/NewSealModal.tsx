@@ -137,10 +137,9 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
         />
         {!restoringDraft && (
-          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" autoFocus />
         )}
       </NewModal>
 
