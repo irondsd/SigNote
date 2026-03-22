@@ -533,13 +533,16 @@ test.describe('infinite scroll decryption', () => {
     // Page 1 (30 items): Secret 50 → Secret 21
     await expect(secretCard(page, 'Secret 50')).toBeVisible();
 
-    // Scroll 1 — load page 2: Secret 20 → Secret 11
+    // Register both listeners before scrolling to avoid race conditions where
+    // the IntersectionObserver fires a fetch during the gap between awaits.
     const scroll1 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+    const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+
+    // Scroll 1 — load page 2: Secret 20 → Secret 11
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll1;
 
     // Scroll 2 — load page 3: Secret 10 → Secret 01
-    const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll2;
 

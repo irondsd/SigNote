@@ -49,8 +49,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const isDecrypted = decryptedContent !== null;
   const isDirty =
-    title !== (note.title ?? '') ||
-    (isDecrypted && decryptedContent !== originalDecryptedRef.current);
+    editing && (title !== (note.title ?? '') || (isDecrypted && decryptedContent !== originalDecryptedRef.current));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 
   // Trigger decrypt after passphrase unlock provides mek
@@ -283,7 +282,21 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           <div className={s.decryptedBody}>
             <TiptapEditor
               content={decryptedContent}
-              onChange={(html) => setDecryptedContent(html)}
+              onChange={async (html) => {
+                setDecryptedContent(html);
+                if (!editing && mek) {
+                  if (html.trim()) {
+                    const encrypted = await encryptSealBody(mek, html, note._id);
+                    updateSeal.mutate({
+                      id: note._id,
+                      encryptedBody: encrypted.encryptedBody,
+                      wrappedNoteKey: encrypted.wrappedNoteKey,
+                    });
+                  } else {
+                    updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
+                  }
+                }
+              }}
               editable={editing}
               placeholder="Write your seal…"
             />

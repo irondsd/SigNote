@@ -33,11 +33,7 @@ export function DocsSidebarNav({ pages, onNavClick }: Props) {
         <ul className={s.links}>
           {pages.map(({ href, label }) => (
             <li key={href}>
-              <Link
-                href={href}
-                className={`${s.link} ${pathname === href ? s.active : ''}`}
-                onClick={onNavClick}
-              >
+              <Link href={href} className={`${s.link} ${pathname === href ? s.active : ''}`} onClick={onNavClick}>
                 {label}
               </Link>
             </li>

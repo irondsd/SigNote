@@ -24,7 +24,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
-  const isDirty = title !== (note.title ?? '') || content !== (note.content ?? '');
+  const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 
   const handleClose = () => confirmClose(onClose);

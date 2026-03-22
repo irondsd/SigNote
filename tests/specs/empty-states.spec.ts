@@ -84,7 +84,6 @@ test.describe('empty archive', () => {
     await page.getByRole('link', { name: 'Go back' }).click();
     await expect(page).toHaveURL('/');
   });
-
 });
 
 // ─── Unauthenticated State ──────────────────────────────────────────────────

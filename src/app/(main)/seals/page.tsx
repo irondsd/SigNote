@@ -35,7 +35,6 @@ function SealsPageContent() {
 
   useEffect(() => {
     if (searchParams.has('draft')) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- responding to router.push URL change is intentional, not cascading
       setShowNewSeal(true);
       window.history.replaceState({}, '', '/seals');
     }
@@ -99,7 +98,13 @@ function SealsPageContent() {
                   <span className={s.lockLabel}>Lock</span>
                 </Button>
               ) : (
-                <Button variant="secondary" onClick={handleUnlock} disabled={rehydrating} aria-label="Unlock" title="Unlock">
+                <Button
+                  variant="secondary"
+                  onClick={handleUnlock}
+                  disabled={rehydrating}
+                  aria-label="Unlock"
+                  title="Unlock"
+                >
                   <LockOpen size={18} />
                   <span className={s.lockLabel}>{rehydrating ? 'Unlocking…' : 'Unlock'}</span>
                 </Button>

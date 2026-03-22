@@ -103,40 +103,40 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
 
   return (
     <>
-    <NewModal
-      heading="New Secret"
-      onClose={handleClose}
-      onBackdropClose={handleClose}
-      footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={handleClose}>
-            <X size={14} />
-            Cancel
-          </Button>
-          <Button
-            data-testid="save-secret-btn"
-            size="sm"
-            onClick={handleSave}
-            disabled={(isTitleEmpty && isContentEmpty) || saving}
-          >
-            <Check size={14} />
-            {saving ? 'Saving…' : 'Save Secret'}
-          </Button>
-        </>
-      }
-    >
-      <input
-        data-testid="note-title-input"
-        className={s.titleInput}
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        autoFocus
-      />
-      {!restoringDraft && (
-        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
-      )}
-    </NewModal>
+      <NewModal
+        heading="New Secret"
+        onClose={handleClose}
+        onBackdropClose={handleClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button
+              data-testid="save-secret-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={(isTitleEmpty && isContentEmpty) || saving}
+            >
+              <Check size={14} />
+              {saving ? 'Saving…' : 'Save Secret'}
+            </Button>
+          </>
+        }
+      >
+        <input
+          data-testid="note-title-input"
+          className={s.titleInput}
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
+        {!restoringDraft && (
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
+        )}
+      </NewModal>
 
       {showPassphrase && (
         <PassphraseModal

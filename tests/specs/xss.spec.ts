@@ -50,11 +50,7 @@ test.describe('XSS sanitization in NoteCard', () => {
   test('iframe should be stripped from DOM', async ({ page }) => {
     const title = `XSS iframe ${Date.now()}`;
 
-    await setupWithPayload(
-      page,
-      title,
-      '<iframe src="javascript:parent.__xssExecuted=true"></iframe>',
-    );
+    await setupWithPayload(page, title, '<iframe src="javascript:parent.__xssExecuted=true"></iframe>');
 
     // DOMPurify removes iframe elements entirely
     await expect(noteCard(page, title).locator('iframe')).toHaveCount(0);
@@ -63,11 +59,7 @@ test.describe('XSS sanitization in NoteCard', () => {
   test('safe HTML formatting is preserved after sanitization', async ({ page }) => {
     const title = `Safe HTML ${Date.now()}`;
 
-    await setupWithPayload(
-      page,
-      title,
-      '<p>Hello <strong>world</strong> <em>from</em> a note</p>',
-    );
+    await setupWithPayload(page, title, '<p>Hello <strong>world</strong> <em>from</em> a note</p>');
 
     // The card preview should still contain the text content
     await expect(noteCard(page, title)).toContainText('Hello');
@@ -115,11 +107,7 @@ test.describe('XSS sanitization in EncryptedNoteCard', () => {
   test('iframe should be stripped from DOM', async ({ page }) => {
     const title = `XSS Secret iframe ${Date.now()}`;
 
-    await setupSecretWithPayload(
-      page,
-      title,
-      '<iframe src="javascript:parent.__xssExecuted=true"></iframe>',
-    );
+    await setupSecretWithPayload(page, title, '<iframe src="javascript:parent.__xssExecuted=true"></iframe>');
 
     await expect(secretCard(page, title).locator('iframe')).toHaveCount(0);
   });

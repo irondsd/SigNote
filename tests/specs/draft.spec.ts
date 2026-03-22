@@ -5,6 +5,7 @@ import { mockProvider } from '../utils/mockProvider';
 import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedNotes } from '../fixtures/seedNotes';
+import { seedSecrets } from '../fixtures/seedSecrets';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -514,7 +515,7 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('new secret modal with content shows confirmation on cancel', async ({ page }) => {
-    await setup(page, '/secrets');
+    await setupEncrypted(page, '/secrets');
     await unlock(page);
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -524,5 +525,44 @@ test.describe('unsaved changes confirmation', () => {
     // Cancel — should show confirmation
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
+  });
+
+  test('clicking checkbox in view mode in a secret does NOT trigger discard dialog on close', async ({ page }) => {
+    const { account, mekBytes } = await setupEncrypted(page, '/secrets');
+    const checkboxContent =
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Secret task</p></li></ul>';
+    await seedSecrets(account.address, mekBytes, [{ title: 'Secret Checkbox Test', content: checkboxContent }]);
+    await page.reload();
+    await unlock(page);
+
+    await page.getByTestId('secret-card').filter({ hasText: 'Secret Checkbox Test' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    // Click the checkbox in view mode (not editing)
+    await page.getByTestId('tiptap-editor').getByRole('checkbox').click();
+
+    // Close — should NOT show confirmation dialog
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
+  });
+
+  test('clicking checkbox in view mode does NOT trigger discard dialog on close', async ({ page }) => {
+    const { account } = await setup(page, '/');
+    const checkboxContent =
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task item</p></li></ul>';
+    await seedNotes(account.address, [{ title: 'Checkbox Test', content: checkboxContent }]);
+    await page.reload();
+
+    await page.getByTestId('note-card').filter({ hasText: 'Checkbox Test' }).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    // Click the checkbox in view mode (not editing)
+    await page.getByTestId('tiptap-editor').getByRole('checkbox').click();
+
+    // Close — should NOT show confirmation dialog
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).not.toBeVisible();
+    await expect(page.getByTestId('note-modal')).toHaveCount(0);
   });
 });

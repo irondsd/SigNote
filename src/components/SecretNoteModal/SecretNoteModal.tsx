@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trash2, Archive, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
@@ -30,8 +30,10 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [saving, setSaving] = useState(false);
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [pendingSave, setPendingSave] = useState(false);
+  // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
+  const savedContentRef = useRef(decryptedContent);
 
-  const isDirty = title !== (note.title ?? '') || content !== decryptedContent;
+  const isDirty = editing && (title !== (note.title ?? '') || content !== savedContentRef.current);
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
   const handleClose = () => confirmClose(onClose);
 
@@ -147,7 +149,13 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       >
         <TiptapEditor
           content={content}
-          onChange={(html) => setContent(html)}
+          onChange={async (html) => {
+            setContent(html);
+            if (!editing && mek) {
+              const encryptedBody = html.trim() ? await encryptSecretBody(mek, html) : null;
+              updateSecret.mutate({ id: note._id, encryptedBody });
+            }
+          }}
           editable={editing}
           placeholder="Write your secret…"
         />

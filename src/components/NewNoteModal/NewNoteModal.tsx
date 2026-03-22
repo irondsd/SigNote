@@ -65,7 +65,12 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
               <X size={14} />
               Cancel
             </Button>
-            <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={isTitleEmpty && isContentEmpty}>
+            <Button
+              data-testid="save-note-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={isTitleEmpty && isContentEmpty}
+            >
               <Check size={14} />
               Save Note
             </Button>

@@ -33,17 +33,10 @@ export function SecretsGrid({
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const pendingNoteRef = useRef<CachedSecretNote | null>(null);
   const [showPassphrase, setShowPassphrase] = useState(false);
-  const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, string>>(new Map());
+  const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, { content: string; iv: string }>>(new Map());
 
   const openDecryptedNote = useCallback(
     (note: CachedSecretNote) => {
-      const cached = decryptedPreviews.get(note._id);
-      if (cached !== undefined) {
-        setSelected(note);
-        setSelectedDecrypted(cached);
-        return;
-      }
-
       if (!mek || !note.encryptedBody) {
         setSelected(note);
         setSelectedDecrypted('');
@@ -60,7 +53,7 @@ export function SecretsGrid({
           setSelectedDecrypted('');
         });
     },
-    [decryptedPreviews, mek],
+    [mek],
   );
 
   // Decrypt previews when mek becomes available or notes change; clear on lock
@@ -71,23 +64,27 @@ export function SecretsGrid({
       return;
     }
 
-    const alreadyDecrypted = new Set(decryptedPreviews.keys());
-    const toDecrypt = notes.filter((n) => !alreadyDecrypted.has(n._id) && n.encryptedBody);
+    // Re-decrypt notes that are new or whose encryptedBody IV has changed (i.e. were auto-saved)
+    const toDecrypt = notes.filter((n) => {
+      if (!n.encryptedBody) return false;
+      const cached = decryptedPreviews.get(n._id);
+      return !cached || cached.iv !== n.encryptedBody.iv;
+    });
     if (toDecrypt.length === 0) return;
 
     Promise.all(
       toDecrypt.map(async (n) => {
         try {
           const content = await decryptSecretBody(mek, n.encryptedBody!);
-          return [n._id, content] as [string, string];
+          return [n._id, content, n.encryptedBody!.iv] as [string, string, string];
         } catch {
-          return [n._id, ''] as [string, string];
+          return [n._id, '', n.encryptedBody!.iv] as [string, string, string];
         }
       }),
     ).then((results) => {
       setDecryptedPreviews((prev) => {
         const next = new Map(prev);
-        results.forEach(([id, content]) => next.set(id, content));
+        results.forEach(([id, content, iv]) => next.set(id, { content, iv }));
         return next;
       });
     });
@@ -147,7 +144,7 @@ export function SecretsGrid({
           updatedAt={note.updatedAt}
           color={note.color}
           onClick={onClick}
-          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id) : undefined}
+          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
           showArchivedBadge={showBadge}
           archived={note.archived}
           isDragDisabled={dragDisabled}
@@ -159,7 +156,7 @@ export function SecretsGrid({
           updatedAt={note.updatedAt}
           color={note.color}
           onClick={() => {}}
-          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id) : undefined}
+          decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
           showArchivedBadge={showBadge}
           archived={note.archived}
         />

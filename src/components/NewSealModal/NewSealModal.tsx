@@ -109,40 +109,40 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
 
   return (
     <>
-    <NewModal
-      heading="New Seal"
-      onClose={handleClose}
-      onBackdropClose={handleClose}
-      footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={handleClose}>
-            <X size={14} />
-            Cancel
-          </Button>
-          <Button
-            data-testid="save-seal-btn"
-            size="sm"
-            onClick={handleSave}
-            disabled={(isTitleEmpty && isContentEmpty) || saving}
-          >
-            <Check size={14} />
-            {saving ? 'Saving…' : 'Save Seal'}
-          </Button>
-        </>
-      }
-    >
-      <input
-        data-testid="note-title-input"
-        className={s.titleInput}
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        autoFocus
-      />
-      {!restoringDraft && (
-        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" />
-      )}
-    </NewModal>
+      <NewModal
+        heading="New Seal"
+        onClose={handleClose}
+        onBackdropClose={handleClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button
+              data-testid="save-seal-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={(isTitleEmpty && isContentEmpty) || saving}
+            >
+              <Check size={14} />
+              {saving ? 'Saving…' : 'Save Seal'}
+            </Button>
+          </>
+        }
+      >
+        <input
+          data-testid="note-title-input"
+          className={s.titleInput}
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
+        {!restoringDraft && (
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" />
+        )}
+      </NewModal>
 
       {showPassphrase && (
         <PassphraseModal
