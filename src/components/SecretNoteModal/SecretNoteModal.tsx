@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Trash2, Archive, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
+import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 
 type SecretNoteModalProps = {
   note: CachedSecretNote;
@@ -17,7 +20,7 @@ type SecretNoteModalProps = {
 };
 
 export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteModalProps) {
-  const { mek } = useEncryption();
+  const { mek, phase, lockType } = useEncryption();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(decryptedContent);
@@ -25,6 +28,28 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false);
+
+  const isDirty = title !== (note.title ?? '') || content !== decryptedContent;
+  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+  const handleClose = () => confirmClose(onClose);
+
+  // Hard lock: close modal if not editing
+  useEffect(() => {
+    if (phase === 'locked' && lockType === 'hard' && !editing) {
+      onClose();
+    }
+  }, [phase, lockType, editing, onClose]);
+
+  // Complete pending save after passphrase unlock restores mek
+  useEffect(() => {
+    if (pendingSave && mek) {
+      setPendingSave(false);
+      performSave(mek);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mek, pendingSave]);
 
   const deleteSecret = useDeleteSecret();
   const undeleteSecret = useUndeleteSecret();
@@ -46,16 +71,24 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     });
   };
 
-  const handleSave = async () => {
-    if (!mek) return;
+  const performSave = async (currentMek: CryptoKey) => {
     setSaving(true);
     try {
-      const encryptedBody = content.trim() ? await encryptSecretBody(mek, content) : null;
+      const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
       updateSecret.mutate({ id: note._id, title, encryptedBody });
       setEditing(false);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!mek) {
+      setPendingSave(true);
+      setShowPassphrase(true);
+      return;
+    }
+    performSave(mek);
   };
 
   const handleArchiveToggle = () => {
@@ -97,26 +130,40 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   );
 
   return (
-    <SharedNoteModal
-      title={title}
-      editing={editing}
-      onTitleChange={setTitle}
-      color={color}
-      onColorChange={handleColorChange}
-      colorPickerOpen={colorPickerOpen}
-      onColorPickerOpenChange={setColorPickerOpen}
-      onEditToggle={() => setEditing(!editing)}
-      onClose={onClose}
-      disableClose={editing}
-      date={date}
-      footerActions={footerActions}
-    >
-      <TiptapEditor
-        content={content}
-        onChange={(html) => setContent(html)}
-        editable={editing}
-        placeholder="Write your secret…"
-      />
-    </SharedNoteModal>
+    <>
+      <SharedNoteModal
+        title={title}
+        editing={editing}
+        onTitleChange={setTitle}
+        color={color}
+        onColorChange={handleColorChange}
+        colorPickerOpen={colorPickerOpen}
+        onColorPickerOpenChange={setColorPickerOpen}
+        onEditToggle={() => setEditing(!editing)}
+        onClose={handleClose}
+        disableClose={editing}
+        date={date}
+        footerActions={footerActions}
+      >
+        <TiptapEditor
+          content={content}
+          onChange={(html) => setContent(html)}
+          editable={editing}
+          placeholder="Write your secret…"
+        />
+      </SharedNoteModal>
+
+      {showPassphrase && (
+        <PassphraseModal
+          onSuccess={() => setShowPassphrase(false)}
+          onClose={() => {
+            setShowPassphrase(false);
+            setPendingSave(false);
+          }}
+        />
+      )}
+
+      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+    </>
   );
 }

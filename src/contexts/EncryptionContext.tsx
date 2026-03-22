@@ -39,12 +39,16 @@ type MaterialResponse = {
 };
 
 export type EncryptionPhase = 'loading' | 'setup' | 'locked' | 'unlocked';
+export type LockType = 'none' | 'soft' | 'hard';
 
 type EncryptionContextValue = {
   phase: EncryptionPhase;
+  lockType: LockType;
   mek: CryptoKey | null;
   unlock: (passphrase: string) => Promise<void>;
   lock: () => void;
+  softLock: () => void;
+  rehydrate: () => Promise<void>;
   setupProfile: (passphrase: string) => Promise<void>;
 };
 
@@ -132,6 +136,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   const profileExists = !profileLoading && !!profileResponse?.exists;
   const { mek, setMek } = useMekRehydration(sessionStatus, profileExists);
+  const [lockType, setLockType] = useState<LockType>('none');
 
   // Single source of truth for all rendering decisions
   const phase: EncryptionPhase = (() => {
@@ -148,6 +153,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       if (!key) throw new Error('Incorrect passphrase');
       saveDeviceShare(deviceShare);
       setMek(key);
+      setLockType('none');
     },
     [setMek],
   );
@@ -155,6 +161,25 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const lock = useCallback(() => {
     setMek(null);
     clearDeviceShare();
+    setLockType('hard');
+  }, [setMek]);
+
+  const softLock = useCallback(() => {
+    setMek(null);
+    setLockType('soft');
+  }, [setMek]);
+
+  const rehydrate = useCallback(async (): Promise<void> => {
+    const deviceShare = loadDeviceShare();
+    if (!deviceShare) throw new Error('No device share available');
+    const material = await fetchMaterialRequest();
+    const key = await reconstructMek(deviceShare, material);
+    if (!key) {
+      clearDeviceShare();
+      throw new Error('Failed to rehydrate');
+    }
+    setMek(key);
+    setLockType('none');
   }, [setMek]);
 
   const setupProfile = useCallback(
@@ -197,7 +222,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   );
 
   return (
-    <EncryptionContext.Provider value={{ phase, mek, unlock, lock, setupProfile }}>
+    <EncryptionContext.Provider value={{ phase, lockType, mek, unlock, lock, softLock, rehydrate, setupProfile }}>
       {children}
     </EncryptionContext.Provider>
   );

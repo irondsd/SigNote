@@ -63,9 +63,13 @@ export function SecretsGrid({
     [decryptedPreviews, mek],
   );
 
-  // Decrypt previews when mek becomes available or notes change
+  // Decrypt previews when mek becomes available or notes change; clear on lock
   useEffect(() => {
-    if (!mek || !notes) return;
+    if (!mek || !notes) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing state when mek is revoked is intentional, not cascading
+      setDecryptedPreviews(new Map());
+      return;
+    }
 
     const alreadyDecrypted = new Set(decryptedPreviews.keys());
     const toDecrypt = notes.filter((n) => !alreadyDecrypted.has(n._id) && n.encryptedBody);
@@ -174,7 +178,7 @@ export function SecretsGrid({
         />
       )}
 
-      {selected && isUnlocked && (
+      {selected && (
         <SecretNoteModal
           note={selected}
           decryptedContent={selectedDecrypted}

@@ -21,8 +21,9 @@ import s from './page.module.scss';
 function SecretsPageContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const { phase, lock } = useEncryption();
+  const { phase, lockType, lock, rehydrate } = useEncryption();
   const isUnlocked = phase === 'unlocked';
+  const [rehydrating, setRehydrating] = useState(false);
   const [search, setSearch] = useState('');
   const { data, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
     archived: search ? undefined : false,
@@ -43,6 +44,21 @@ function SecretsPageContent() {
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState = status === 'loading' || (status === 'authenticated' && phase === 'loading');
+
+  const handleUnlock = async () => {
+    if (lockType === 'soft') {
+      setRehydrating(true);
+      try {
+        await rehydrate();
+      } catch {
+        setShowPassphrase(true);
+      } finally {
+        setRehydrating(false);
+      }
+    } else {
+      setShowPassphrase(true);
+    }
+  };
 
   const handleNewSecret = () => {
     if (!isUnlocked) {
@@ -83,9 +99,9 @@ function SecretsPageContent() {
                   <span className={s.lockLabel}>Lock</span>
                 </Button>
               ) : (
-                <Button variant="secondary" onClick={() => setShowPassphrase(true)} aria-label="Unlock" title="Unlock">
+                <Button variant="secondary" onClick={handleUnlock} disabled={rehydrating} aria-label="Unlock" title="Unlock">
                   <LockOpen size={18} />
-                  <span className={s.lockLabel}>Unlock</span>
+                  <span className={s.lockLabel}>{rehydrating ? 'Unlocking…' : 'Unlock'}</span>
                 </Button>
               )}
               <Button variant="default" onClick={handleNewSecret}>

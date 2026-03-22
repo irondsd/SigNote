@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
+import { AutoLockListener } from '@/components/AutoLockListener/AutoLockListener';
 
 export const metadata = {
   title: 'SigNote',
@@ -25,6 +26,7 @@ export default async function RootLayout({
           <AuthSessionProvider>
             <Web3Provider>
               <EncryptionProvider>
+                <AutoLockListener />
                 {children}
               </EncryptionProvider>
             </Web3Provider>

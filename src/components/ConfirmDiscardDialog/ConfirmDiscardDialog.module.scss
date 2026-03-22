@@ -1,0 +1,30 @@
+.modal {
+  max-width: 360px;
+}
+
+.backdrop {
+  z-index: 210;
+}
+
+.heading {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+  padding: 20px 20px 0;
+  color: var(--popover-foreground);
+}
+
+.body {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin: 0;
+  padding: 10px 20px 0;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px 20px;
+}

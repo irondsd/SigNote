@@ -8,6 +8,8 @@ import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 
 type NoteModalProps = {
   note: NoteDocument;
@@ -21,6 +23,11 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+
+  const isDirty = title !== (note.title ?? '') || content !== (note.content ?? '');
+  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+
+  const handleClose = () => confirmClose(onClose);
 
   const deleteNote = useDeleteNote();
   const undeleteNote = useUndeleteNote();
@@ -86,31 +93,35 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   );
 
   return (
-    <SharedNoteModal
-      title={title}
-      editing={editing}
-      onTitleChange={setTitle}
-      color={color}
-      onColorChange={handleColorChange}
-      colorPickerOpen={colorPickerOpen}
-      onColorPickerOpenChange={setColorPickerOpen}
-      onEditToggle={() => setEditing(!editing)}
-      onClose={onClose}
-      disableClose={editing}
-      date={date}
-      footerActions={footerActions}
-    >
-      <TiptapEditor
-        content={content}
-        onChange={(html) => {
-          setContent(html);
-          if (!editing) {
-            updateNote.mutate({ id: note._id.toString(), content: html });
-          }
-        }}
-        editable={editing}
-        placeholder="Write your note..."
-      />
-    </SharedNoteModal>
+    <>
+      <SharedNoteModal
+        title={title}
+        editing={editing}
+        onTitleChange={setTitle}
+        color={color}
+        onColorChange={handleColorChange}
+        colorPickerOpen={colorPickerOpen}
+        onColorPickerOpenChange={setColorPickerOpen}
+        onEditToggle={() => setEditing(!editing)}
+        onClose={handleClose}
+        disableClose={editing}
+        date={date}
+        footerActions={footerActions}
+      >
+        <TiptapEditor
+          content={content}
+          onChange={(html) => {
+            setContent(html);
+            if (!editing) {
+              updateNote.mutate({ id: note._id.toString(), content: html });
+            }
+          }}
+          editable={editing}
+          placeholder="Write your note..."
+        />
+      </SharedNoteModal>
+
+      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+    </>
   );
 }

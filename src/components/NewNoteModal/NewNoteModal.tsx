@@ -6,6 +6,8 @@ import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
+import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { saveDraft, clearDraft, consumeDraftRestore } from '@/lib/draft';
 import s from '@/components/NewModal/NewModal.module.scss';
 
@@ -26,6 +28,9 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
 
   const isTitleEmpty = !title.trim();
   const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+  const isDirty = !isTitleEmpty || !isContentEmpty;
+  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+  const handleClose = () => confirmClose(onClose);
 
   useEffect(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
@@ -48,37 +53,37 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
     onClose();
   };
 
-  const handleBackdropClose = () => {
-    if (isContentEmpty) onClose();
-  };
-
   return (
-    <NewModal
-      heading="New Note"
-      onClose={onClose}
-      onBackdropClose={handleBackdropClose}
-      footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X size={14} />
-            Cancel
-          </Button>
-          <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={isTitleEmpty && isContentEmpty}>
-            <Check size={14} />
-            Save Note
-          </Button>
-        </>
-      }
-    >
-      <input
-        data-testid="note-title-input"
-        className={s.titleInput}
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        autoFocus
-      />
-      <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." />
-    </NewModal>
+    <>
+      <NewModal
+        heading="New Note"
+        onClose={handleClose}
+        onBackdropClose={handleClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button data-testid="save-note-btn" size="sm" onClick={handleSave} disabled={isTitleEmpty && isContentEmpty}>
+              <Check size={14} />
+              Save Note
+            </Button>
+          </>
+        }
+      >
+        <input
+          data-testid="note-title-input"
+          className={s.titleInput}
+          placeholder="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
+        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." />
+      </NewModal>
+
+      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+    </>
   );
 }

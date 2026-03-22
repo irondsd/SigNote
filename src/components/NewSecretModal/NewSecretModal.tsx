@@ -7,6 +7,9 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { encryptSecretBody, decryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
+import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
+import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft, isDraftRestorePending, consumeDraftRestore } from '@/lib/draft';
 import s from '@/components/NewModal/NewModal.module.scss';
@@ -20,12 +23,17 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false);
   const [restoringDraft, setRestoringDraft] = useState(isDraftRestorePending);
   const createSecret = useCreateSecret();
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();
   const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+  const isDirty = !isTitleEmpty || !isContentEmpty;
+  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+  const handleClose = () => confirmClose(onClose);
 
   useEffect(() => {
     if (!restoringDraft || !mek) return;
@@ -61,13 +69,21 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
     };
   }, [title, content, isContentEmpty, mek]);
 
-  const handleSave = async () => {
-    if (!mek) return;
+  // Complete pending save after passphrase unlock restores mek
+  useEffect(() => {
+    if (pendingSave && mek) {
+      setPendingSave(false);
+      performSave(mek);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mek, pendingSave]);
+
+  const performSave = async (currentMek: CryptoKey) => {
     if (isTitleEmpty && isContentEmpty) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     setSaving(true);
     try {
-      const encryptedBody = content.trim() ? await encryptSecretBody(mek, content.trim()) : null;
+      const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content.trim()) : null;
       clearDraft();
       createSecret.mutate({ title: title.trim(), encryptedBody });
       onClose();
@@ -76,19 +92,24 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
     }
   };
 
-  const handleBackdropClose = () => {
-    const contentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
-    if (contentEmpty) onClose();
+  const handleSave = async () => {
+    if (!mek) {
+      setPendingSave(true);
+      setShowPassphrase(true);
+      return;
+    }
+    performSave(mek);
   };
 
   return (
+    <>
     <NewModal
       heading="New Secret"
-      onClose={onClose}
-      onBackdropClose={handleBackdropClose}
+      onClose={handleClose}
+      onBackdropClose={handleClose}
       footer={
         <>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={handleClose}>
             <X size={14} />
             Cancel
           </Button>
@@ -96,7 +117,7 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
             data-testid="save-secret-btn"
             size="sm"
             onClick={handleSave}
-            disabled={(isTitleEmpty && isContentEmpty) || saving || !mek}
+            disabled={(isTitleEmpty && isContentEmpty) || saving}
           >
             <Check size={14} />
             {saving ? 'Saving…' : 'Save Secret'}
@@ -116,5 +137,18 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
         <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
       )}
     </NewModal>
+
+      {showPassphrase && (
+        <PassphraseModal
+          onSuccess={() => setShowPassphrase(false)}
+          onClose={() => {
+            setShowPassphrase(false);
+            setPendingSave(false);
+          }}
+        />
+      )}
+
+      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+    </>
   );
 }

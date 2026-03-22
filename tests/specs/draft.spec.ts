@@ -108,8 +108,9 @@ test.describe('draft saving', () => {
     let draft = await getDraft(page);
     expect(draft?.title).toBe('First draft');
 
-    // Close modal (without saving) and open a new one
+    // Close modal (without saving) — confirm discard, then open a new one
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
 
@@ -304,8 +305,9 @@ test.describe('encrypted draft restore', () => {
     await page.keyboard.type('Sensitive content');
     await page.waitForTimeout(700);
 
-    // Close modal without saving
+    // Close modal without saving — confirm discard
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
 
     // Clear sessionStorage to simulate a locked session on next page load
     await page.evaluate(() => sessionStorage.clear());
@@ -337,6 +339,7 @@ test.describe('encrypted draft restore', () => {
     await page.waitForTimeout(700);
 
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
     await page.evaluate(() => sessionStorage.clear());
 
     // Hard reload — DraftToast shows; phase = 'locked'
@@ -372,6 +375,7 @@ test.describe('encrypted draft restore', () => {
     await page.waitForTimeout(700);
 
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
     await page.evaluate(() => sessionStorage.clear());
 
     await page.reload();
@@ -401,6 +405,7 @@ test.describe('encrypted draft restore', () => {
     await page.keyboard.type('Unlocked body');
     await page.waitForTimeout(700);
     await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
 
     // Do NOT clear sessionStorage — MEK is still rehydratable on next load
     await page.reload();

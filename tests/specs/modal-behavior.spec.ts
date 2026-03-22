@@ -115,8 +115,9 @@ test.describe('modal close - discard', () => {
     const title = `Discard_${Date.now()}`;
     await page.getByTestId('note-title-input').fill(title);
 
-    // Close via X (or Cancel button)
+    // Close via X — triggers unsaved changes confirmation
     await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Discard' }).click();
 
     // Note should NOT appear in the grid
     await expect(noteCard(page, title)).toHaveCount(0);

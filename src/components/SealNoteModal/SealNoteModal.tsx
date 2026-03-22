@@ -12,6 +12,8 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { DecryptTimer } from './DecryptTimer';
 import s from './SealNoteModal.module.scss';
 
@@ -23,7 +25,7 @@ type SealNoteModalProps = {
 };
 
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
-  const { mek } = useEncryption();
+  const { mek, phase, lockType } = useEncryption();
   const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
@@ -36,14 +38,20 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [showPassphrase, setShowPassphrase] = useState(false);
   // Set to true after passphrase unlock — triggers decrypt via useEffect when mek is available
   const [pendingDecrypt, setPendingDecrypt] = useState(false);
+  const [pendingSave, setPendingSave] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
+  const originalDecryptedRef = useRef<string | null>(null);
 
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
   const updateSeal = useUpdateSeal();
 
   const isDecrypted = decryptedContent !== null;
+  const isDirty =
+    title !== (note.title ?? '') ||
+    (isDecrypted && decryptedContent !== originalDecryptedRef.current);
+  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 
   // Trigger decrypt after passphrase unlock provides mek
   useEffect(() => {
@@ -54,6 +62,15 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mek, pendingDecrypt]);
 
+  // Complete pending save after passphrase unlock restores mek
+  useEffect(() => {
+    if (pendingSave && mek) {
+      setPendingSave(false);
+      performSave(mek);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mek, pendingSave]);
+
   const performDecrypt = async (currentMek: CryptoKey) => {
     if (!note.encryptedBody || !note.wrappedNoteKey) {
       setDecryptedContent('');
@@ -63,6 +80,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     setDecryptError('');
     try {
       const plaintext = await decryptSealBody(currentMek, note.encryptedBody, note.wrappedNoteKey, note._id);
+      originalDecryptedRef.current = plaintext;
       setDecryptedContent(plaintext);
       totalTimeRef.current = DECRYPT_FOR_SECONDS;
       setTimeLeft(DECRYPT_FOR_SECONDS);
@@ -90,6 +108,17 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     totalTimeRef.current = DECRYPT_FOR_SECONDS;
   }, []);
 
+  // Soft lock: clear decrypted content in view mode
+  // Hard lock: close modal if not editing
+  useEffect(() => {
+    if (phase !== 'locked') return;
+    if (lockType === 'soft' && !editing && isDecrypted) {
+      handleEncrypt();
+    } else if (lockType === 'hard' && !editing) {
+      onClose();
+    }
+  }, [phase, lockType, editing, isDecrypted, handleEncrypt, onClose]);
+
   // Auto-encrypt countdown
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0 || editing) return;
@@ -105,15 +134,15 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     return () => clearInterval(id);
   }, [timeLeft, editing, handleEncrypt]);
 
-  const handleSave = async () => {
-    if (!mek || decryptedContent === null) return;
+  const performSave = async (currentMek: CryptoKey) => {
+    if (decryptedContent === null) return;
     setSaving(true);
     try {
       let encryptedBody = note.encryptedBody;
       let wrappedNoteKey = note.wrappedNoteKey;
 
       if (decryptedContent.trim()) {
-        const encrypted = await encryptSealBody(mek, decryptedContent, note._id);
+        const encrypted = await encryptSealBody(currentMek, decryptedContent, note._id);
         encryptedBody = encrypted.encryptedBody;
         wrappedNoteKey = encrypted.wrappedNoteKey;
       } else {
@@ -126,6 +155,15 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!mek) {
+      setPendingSave(true);
+      setShowPassphrase(true);
+      return;
+    }
+    performSave(mek);
   };
 
   const handleDelete = () => {
@@ -156,12 +194,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     setColorPickerOpen(false);
   };
 
-  const handleClose = () => {
-    // Clear plaintext from state on close
+  const doClose = () => {
     setDecryptedContent(null);
     setEditing(false);
     onClose();
   };
+
+  const handleClose = () => confirmClose(doClose);
 
   const handleTimerClick = () => {
     setTimeLeft((prev) => {
@@ -262,9 +301,12 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           onClose={() => {
             setShowPassphrase(false);
             setPendingDecrypt(false);
+            setPendingSave(false);
           }}
         />
       )}
+
+      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
     </>
   );
 }
