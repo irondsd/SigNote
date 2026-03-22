@@ -27,6 +27,8 @@ export function Backdrop({ onClose, className, children, disableClose }: Backdro
       setKeyboardOpen(window.innerHeight - vv.height > 150);
     };
 
+    // Initialize keyboardOpen on mount in case the keyboard is already visible
+    handleResize();
     vv.addEventListener('resize', handleResize);
     return () => vv.removeEventListener('resize', handleResize);
   }, []);
