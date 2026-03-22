@@ -510,7 +510,7 @@ test.describe('search secrets', () => {
 // ─── Group 7: Infinite Scroll Decryption ─────────────────────────────────────
 
 test.describe('infinite scroll decryption', () => {
-  test.only('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {
+  test('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {
     const { privateKey, account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
 
