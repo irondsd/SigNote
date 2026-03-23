@@ -10,6 +10,7 @@ import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/utils/shortenAddress';
 import s from './SidebarNav.module.scss';
+import { Logo } from '../Logo/Logo';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -39,13 +40,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
 
   return (
     <nav className={s.nav}>
-      {/* Logo */}
-      <div className={s.logo}>
-        <div className={s.logoIcon}>✦</div>
-        <span className={s.logoText}>SigNote</span>
-      </div>
-
-      {/* Nav links */}
+      <Logo className="mb-4" />
       <ul className={s.links}>
         {NAV_LINKS.map(({ href, label, icon: Icon }) => (
           <li key={href}>
@@ -56,7 +51,6 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
           </li>
         ))}
       </ul>
-
       <div className={s.spacer} />
 
       {/* Bottom section */}

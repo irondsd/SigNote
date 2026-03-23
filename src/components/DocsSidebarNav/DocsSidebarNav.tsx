@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import s from './DocsSidebarNav.module.scss';
+import { Logo } from '../Logo/Logo';
 
 export type DocPage = {
   slug: string;
@@ -21,12 +22,7 @@ export function DocsSidebarNav({ pages, onNavClick }: Props) {
 
   return (
     <nav className={s.nav}>
-      <div className={s.logo}>
-        <Link href="/" className={s.logoLink} onClick={onNavClick}>
-          <div className={s.logoIcon}>✦</div>
-          <span className={s.logoText}>SigNote</span>
-        </Link>
-      </div>
+      <Logo className="mb-4" />
 
       <div className={s.section}>
         <span className={s.sectionLabel}>Documentation</span>

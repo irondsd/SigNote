@@ -8,10 +8,19 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
 import { AutoLockListener } from '@/components/AutoLockListener/AutoLockListener';
+import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration/ServiceWorkerRegistration';
 
 export const metadata = {
   title: 'SigNote',
   description: 'Secure note-keeping with Ethereum wallet authentication',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default' as const,
+    title: 'SigNote',
+  },
+  icons: {
+    apple: '/icons/apple-touch-icon.png',
+  },
 };
 
 export default async function RootLayout({
@@ -32,6 +41,7 @@ export default async function RootLayout({
             </Web3Provider>
           </AuthSessionProvider>
           <Toaster />
+          <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>
     </html>
