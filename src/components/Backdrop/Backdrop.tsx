@@ -37,6 +37,7 @@ export function Backdrop({ onClose, className, children, disableClose }: Backdro
     <div
       className={cn(s.backdrop, keyboardOpen && s.keyboardOpen, className)}
       onClick={disableClose ? undefined : onClose}
+      data-backdrop="true"
     >
       {children}
     </div>

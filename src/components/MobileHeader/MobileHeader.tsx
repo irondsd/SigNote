@@ -44,7 +44,7 @@ export function MobileHeader() {
       </header>
 
       {/* Overlay */}
-      {open && <div className={s.overlay} onClick={() => setOpen(false)} aria-hidden />}
+      {open && <div className={s.overlay} onClick={() => setOpen(false)} aria-hidden data-drawer-open="true" />}
 
       {/* Slide-out drawer from right */}
       <div className={`${s.drawer} ${open ? s.drawerOpen : ''}`} data-testid="mobile-drawer">
