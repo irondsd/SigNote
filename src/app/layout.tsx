@@ -9,6 +9,21 @@ import { Toaster } from '@/components/ui/sonner';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
 import { AutoLockListener } from '@/components/AutoLockListener/AutoLockListener';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration/ServiceWorkerRegistration';
+import type { Viewport } from 'next';
+
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    {
+      media: '(prefers-color-scheme: light)',
+      color: '#FDF8F4',
+    },
+    {
+      media: '(prefers-color-scheme: dark)',
+      color: '#1E150D',
+    },
+  ],
+};
 
 export const metadata = {
   title: 'SigNote',
