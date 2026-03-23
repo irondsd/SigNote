@@ -5,20 +5,21 @@ import { SiweMessage } from 'siwe';
 import { consumeNonceRecord, ensureNonceIndexes } from '@/controllers/nonces';
 import { upsertSiweUser } from '@/controllers/users';
 
-const getExpectedDomain = () => {
-  if (process.env.VERCEL_URL) return process.env.VERCEL_URL;
+const vercelUrl = process.env.VERCEL_URL;
+const nextAuthUrl = process.env.NEXTAUTH_URL;
 
-  const authUrl = process.env.NEXTAUTH_URL;
-  if (!authUrl) return null;
-  return new URL(authUrl).host;
+const getExpectedDomain = () => {
+  if (vercelUrl) return vercelUrl;
+
+  if (!nextAuthUrl) return null;
+  return new URL(nextAuthUrl).host;
 };
 
 const getExpectedOrigin = () => {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (vercelUrl) return `https://${vercelUrl}`;
 
-  const authUrl = process.env.NEXTAUTH_URL;
-  if (!authUrl) return null;
-  return new URL(authUrl).origin;
+  if (!nextAuthUrl) return null;
+  return new URL(nextAuthUrl).origin;
 };
 
 export const authOptions: NextAuthOptions = {
