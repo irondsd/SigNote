@@ -56,6 +56,10 @@
   --note-clay: oklch(0.94 0.04 55);
   --note-gray: oklch(0.93 0 0);
   --code-bg: oklch(80% 0.00008 270 / 0.2);
+  --gradient-blob-1: oklch(0.67 0.16 58 / 0.09);
+  --gradient-blob-2: oklch(0.67 0.16 58 / 0.05);
+  --sidebar-gradient-top: oklch(0.993 0.003 286);
+  --primary-bg: linear-gradient(135deg, oklch(0.72 0.18 55) 0%, oklch(0.62 0.15 60) 100%);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -119,6 +123,9 @@
   --chart-3: oklch(0.67 0.16 58);
   --chart-4: oklch(0.56 0.15 49);
   --chart-5: oklch(0.47 0.12 46);
+  --gradient-blob-1: oklch(0.77 0.16 70 / 0.08);
+  --gradient-blob-2: oklch(0.77 0.16 70 / 0.05);
+  --primary-bg: linear-gradient(135deg, oklch(0.82 0.19 67) 0%, oklch(0.72 0.15 72) 100%);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
@@ -134,6 +141,10 @@
   }
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(ellipse 90% 70% at 80% -5%, var(--gradient-blob-1) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 55% at 5% 105%, var(--gradient-blob-2) 0%, transparent 70%);
+    background-attachment: fixed;
     color: var(--color-foreground);
   }
 }

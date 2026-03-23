@@ -131,10 +131,9 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
           placeholder="Title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          autoFocus
         />
         {!restoringDraft && (
-          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" />
+          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" autoFocus />
         )}
       </NewModal>
 
