@@ -9,17 +9,15 @@ const vercelUrl = process.env.VERCEL_URL;
 const nextAuthUrl = process.env.NEXTAUTH_URL;
 
 const getExpectedDomain = () => {
+  if (nextAuthUrl) return new URL(nextAuthUrl).host;
   if (vercelUrl) return vercelUrl;
-
-  if (!nextAuthUrl) return null;
-  return new URL(nextAuthUrl).host;
+  return null;
 };
 
 const getExpectedOrigin = () => {
+  if (nextAuthUrl) return new URL(nextAuthUrl).origin;
   if (vercelUrl) return `https://${vercelUrl}`;
-
-  if (!nextAuthUrl) return null;
-  return new URL(nextAuthUrl).origin;
+  return null;
 };
 
 export const authOptions: NextAuthOptions = {
