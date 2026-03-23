@@ -12,6 +12,8 @@ import {
   type DragEndEvent,
   DragOverlay,
 } from '@dnd-kit/core';
+
+const clearDragging = () => delete document.body.dataset.dragging;
 import { SortableContext } from '@dnd-kit/sortable';
 import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import { useReorder } from '@/hooks/useReorder';
@@ -65,6 +67,7 @@ export function BaseGrid<T extends BaseItem>({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
+      document.body.dataset.dragging = 'true';
       const note = notes?.find((n) => getId(n) === event.active.id);
       setActiveNote(note ?? null);
       const rect = event.active.rect.current.initial;
@@ -75,6 +78,7 @@ export function BaseGrid<T extends BaseItem>({
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      clearDragging();
       setActiveNote(null);
       setActiveDragSize(null);
       const { active, over } = event;
@@ -117,6 +121,7 @@ export function BaseGrid<T extends BaseItem>({
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={clearDragging}
       >
         <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={s.grid}>

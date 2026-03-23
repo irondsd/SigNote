@@ -1,12 +1,15 @@
 'use client';
 
-import { useRef, useLayoutEffect, useCallback } from 'react';
+import { useRef, useLayoutEffect, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 const PAGES = ['/', '/secrets', '/seals'];
-const EDGE_ZONE = 25;
-const THRESHOLD_RATIO = 0.3;
+const THRESHOLD_RATIO = 0.3; // fraction of screen width to commit navigation
+const ANGLE_RATIO = 2.0; // deltaX must be 2× greater than deltaY to count as horizontal (~26°)
 const ANIM_MS = 220;
+
+// Gesture is 'pending' until direction is determined, then locked to 'swiping' or 'scrolling'
+type GestureState = 'idle' | 'pending' | 'swiping' | 'scrolling';
 
 export function SwipeNavWrapper({
   children,
@@ -19,14 +22,21 @@ export function SwipeNavWrapper({
   const router = useRouter();
   const pathname = usePathname();
 
-  const startXRef = useRef<number | null>(null);
+  // Ref copy of pathname so touch handlers (closed over once) always read current value
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  const gestureRef = useRef<GestureState>('idle');
+  const startXRef = useRef(0);
+  const startYRef = useRef(0);
   const currentDeltaRef = useRef(0);
-  const activeRef = useRef(false);
   const animatingRef = useRef(false);
   const navDirectionRef = useRef<'left' | 'right' | null>(null);
   const prevPathnameRef = useRef(pathname);
 
-  // Runs before paint — cancels slide-out animation and starts slide-in with no visible flash
+  // Runs before paint — cancels slide-out and starts slide-in with no visible flash
   useLayoutEffect(() => {
     if (pathname === prevPathnameRef.current) return;
 
@@ -40,11 +50,9 @@ export function SwipeNavWrapper({
       return;
     }
 
-    // Cancel slide-out (including fill:forwards) so inline style takes effect
     el.getAnimations().forEach(a => a.cancel());
     el.style.transform = '';
 
-    // Slide new content in from the opposite edge
     const startX = dir === 'left' ? '100%' : '-100%';
     const anim = el.animate(
       [{ transform: `translateX(${startX})` }, { transform: 'translateX(0)' }],
@@ -58,101 +66,117 @@ export function SwipeNavWrapper({
     return () => anim.cancel();
   }, [pathname]);
 
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
+  // Non-passive touch listeners so we can preventDefault on confirmed horizontal swipes
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      // Safety: animatingRef can get stuck if the slide-in animation is cancelled before
+      // its finish event fires (e.g. rapid navigation, React strict-mode double-invoke).
+      // If no Web Animation is actually running on the element, reset the flag.
+      if (animatingRef.current && !mainRef.current?.getAnimations().length) {
+        animatingRef.current = false;
+      }
       if (animatingRef.current) return;
 
-      const idx = PAGES.indexOf(pathname);
-      if (idx === -1) return;
-
-      const touch = e.touches[0];
-      const x = touch.clientX;
-      const w = window.innerWidth;
-      const fromLeft = x <= EDGE_ZONE;
-      const fromRight = x >= w - EDGE_ZONE;
-
-      if (!fromLeft && !fromRight) return;
-      if (fromLeft && idx === 0) return;
-      if (fromRight && idx === PAGES.length - 1) return;
+      const idx = PAGES.indexOf(pathnameRef.current);
+      if (idx === -1) return; // archive or other non-main page
 
       if (document.querySelector('[data-backdrop]')) return;
       if (document.querySelector('[data-drawer-open]')) return;
 
-      startXRef.current = x;
+      gestureRef.current = 'pending';
+      startXRef.current = e.touches[0].clientX;
+      startYRef.current = e.touches[0].clientY;
       currentDeltaRef.current = 0;
-      activeRef.current = true;
-    },
-    [pathname],
-  );
+    };
 
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!activeRef.current || startXRef.current === null || !mainRef.current) return;
+    const onTouchMove = (e: TouchEvent) => {
+      const state = gestureRef.current;
+      if (state === 'idle' || state === 'scrolling') return;
 
+      const deltaX = e.touches[0].clientX - startXRef.current;
+      const deltaY = e.touches[0].clientY - startYRef.current;
+
+      // dnd-kit drag is active (200ms hold completed) — let it own this gesture
+      if (document.body.dataset.dragging === 'true') {
+        gestureRef.current = 'scrolling';
+        return;
+      }
+
+      if (state === 'pending') {
+        if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return; // wait for enough movement
+
+        if (Math.abs(deltaX) >= Math.abs(deltaY) * ANGLE_RATIO) {
+          // Confirmed horizontal — check if there's a page to go to
+          const idx = PAGES.indexOf(pathnameRef.current);
+          if (deltaX > 0 && idx === 0) { gestureRef.current = 'scrolling'; return; }
+          if (deltaX < 0 && idx === PAGES.length - 1) { gestureRef.current = 'scrolling'; return; }
+          gestureRef.current = 'swiping';
+        } else {
+          gestureRef.current = 'scrolling';
+          return;
+        }
+      }
+
+      // Confirmed horizontal swipe — block scroll and track position
+      e.preventDefault();
+      currentDeltaRef.current = deltaX;
+      el.style.transition = '';
+      el.style.transform = `translateX(${deltaX}px)`;
+    };
+
+    const onTouchEnd = () => {
+      if (gestureRef.current !== 'swiping') {
+        gestureRef.current = 'idle';
+        return;
+      }
+
+      gestureRef.current = 'idle';
+      const delta = currentDeltaRef.current;
+      currentDeltaRef.current = 0;
+
+      const pathname = pathnameRef.current;
       const idx = PAGES.indexOf(pathname);
-      const delta = e.touches[0].clientX - startXRef.current;
 
-      if (idx === 0 && delta > 0) return;
-      if (idx === PAGES.length - 1 && delta < 0) return;
+      if (Math.abs(delta) >= window.innerWidth * THRESHOLD_RATIO) {
+        const direction: 'left' | 'right' = delta < 0 ? 'left' : 'right';
+        const target = PAGES[direction === 'left' ? idx + 1 : idx - 1];
 
-      currentDeltaRef.current = delta;
-      mainRef.current.style.transition = '';
-      mainRef.current.style.transform = `translateX(${delta}px)`;
-    },
-    [pathname],
-  );
+        animatingRef.current = true;
+        navDirectionRef.current = direction;
+        prevPathnameRef.current = pathname;
 
-  const handleTouchEnd = useCallback(() => {
-    if (!activeRef.current || startXRef.current === null || !mainRef.current) return;
+        const finalX = direction === 'left' ? '-100%' : '100%';
+        const anim = el.animate(
+          [{ transform: `translateX(${delta}px)` }, { transform: `translateX(${finalX})` }],
+          { duration: ANIM_MS, easing: 'ease-in', fill: 'forwards' },
+        );
 
-    activeRef.current = false;
-    const el = mainRef.current;
-    const delta = currentDeltaRef.current;
-    currentDeltaRef.current = 0;
-    startXRef.current = null;
+        anim.addEventListener('finish', () => router.push(target));
+      } else {
+        // Snap back to original position
+        el.animate(
+          [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
+          { duration: 200, easing: 'ease-out' },
+        );
+      }
+    };
 
-    const idx = PAGES.indexOf(pathname);
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
 
-    if (Math.abs(delta) >= window.innerWidth * THRESHOLD_RATIO) {
-      const direction: 'left' | 'right' = delta < 0 ? 'left' : 'right';
-      const target = PAGES[direction === 'left' ? idx + 1 : idx - 1];
-
-      animatingRef.current = true;
-      navDirectionRef.current = direction;
-      prevPathnameRef.current = pathname;
-
-      // Animate from drag position to off-screen, then navigate
-      // fill:forwards keeps element off-screen until useLayoutEffect cancels it
-      const finalX = direction === 'left' ? '-100%' : '100%';
-      const anim = el.animate(
-        [{ transform: `translateX(${delta}px)` }, { transform: `translateX(${finalX})` }],
-        { duration: ANIM_MS, easing: 'ease-in', fill: 'forwards' },
-      );
-
-      anim.addEventListener('finish', () => {
-        router.push(target);
-      });
-    } else {
-      // Snap back to original position
-      const anim = el.animate(
-        [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
-        { duration: 200, easing: 'ease-out' },
-      );
-
-      anim.addEventListener('finish', () => {
-        el.style.transform = '';
-      });
-    }
-  }, [pathname, router]);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [router]);
 
   return (
-    <main
-      ref={mainRef}
-      className={className}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <main ref={mainRef} className={className}>
       {children}
     </main>
   );
