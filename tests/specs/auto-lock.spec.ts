@@ -70,6 +70,22 @@ test.describe('soft lock', () => {
     await expect(page.getByText('classified info')).not.toBeVisible();
   });
 
+  test('clicking secret card after soft lock does not require passphrase', async ({ page }) => {
+    const { account, mekBytes } = await setup(page);
+    await seedSecrets(account.address, mekBytes, [{ title: 'CardClick Secret', content: 'card click test' }]);
+    await page.reload();
+    await unlock(page);
+
+    // Soft lock
+    await simulateTabHidden(page);
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
+
+    // Click the card — should NOT show passphrase modal, modal opens directly
+    await page.getByTestId('secret-card').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByTestId('tiptap-editor').getByText('card click test')).toBeVisible({ timeout: 10000 });
+  });
+
   test('soft unlock does not require passphrase', async ({ page }) => {
     const { account, mekBytes } = await setup(page);
     await seedSecrets(account.address, mekBytes, [{ title: 'ReUnlock Secret', content: 'soft unlock test' }]);
