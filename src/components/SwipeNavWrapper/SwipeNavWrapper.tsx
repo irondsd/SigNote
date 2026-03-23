@@ -156,11 +156,7 @@ export function SwipeNavWrapper({
 
         anim.addEventListener('finish', () => router.push(target));
       } else {
-        // Snap back to original position
-        el.animate(
-          [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
-          { duration: 200, easing: 'ease-out' },
-        );
+        snapBack(delta);
       }
     };
 
@@ -175,13 +171,19 @@ export function SwipeNavWrapper({
       gestureRef.current = 'idle';
       const delta = currentDeltaRef.current;
       currentDeltaRef.current = 0;
+      snapBack(delta);
+    };
 
-      if (delta !== 0) {
-        el.animate(
-          [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
-          { duration: 200, easing: 'ease-out' },
-        );
-      }
+    const snapBack = (delta: number) => {
+      const anim = el.animate(
+        [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
+        { duration: 200, easing: 'ease-out' },
+      );
+      // Clear the inline style when done, otherwise the element snaps back to
+      // the inline translateX that was set during touchmove.
+      anim.addEventListener('finish', () => {
+        el.style.transform = '';
+      });
     };
 
     el.addEventListener('touchstart', onTouchStart, { passive: true });
