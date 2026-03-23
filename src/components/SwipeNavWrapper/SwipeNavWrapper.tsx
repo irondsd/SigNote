@@ -164,14 +164,36 @@ export function SwipeNavWrapper({
       }
     };
 
+    // touchcancel fires when the OS or browser steals the gesture (notification,
+    // Android back, scroll takeover). Without this the element stays mid-swipe forever.
+    const onTouchCancel = () => {
+      if (gestureRef.current !== 'swiping') {
+        gestureRef.current = 'idle';
+        return;
+      }
+
+      gestureRef.current = 'idle';
+      const delta = currentDeltaRef.current;
+      currentDeltaRef.current = 0;
+
+      if (delta !== 0) {
+        el.animate(
+          [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
+          { duration: 200, easing: 'ease-out' },
+        );
+      }
+    };
+
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchmove', onTouchMove, { passive: false });
     el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
     return () => {
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchCancel);
     };
   }, [router]);
 
