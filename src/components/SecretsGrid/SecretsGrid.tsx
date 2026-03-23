@@ -27,7 +27,7 @@ export function SecretsGrid({
   showArchivedBadge = false,
   isDragDisabled = false,
 }: SecretsGridProps) {
-  const { mek, phase } = useEncryption();
+  const { mek, phase, lockType, rehydrate } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
@@ -114,15 +114,24 @@ export function SecretsGrid({
   }, [mek]);
 
   const handleNoteClick = useCallback(
-    (note: CachedSecretNote) => {
+    async (note: CachedSecretNote) => {
       if (!isUnlocked) {
         pendingNoteRef.current = note;
-        setShowPassphrase(true);
+        if (lockType === 'soft') {
+          try {
+            await rehydrate();
+            // On success, mek is restored → existing useEffect opens the note
+          } catch {
+            setShowPassphrase(true);
+          }
+        } else {
+          setShowPassphrase(true);
+        }
         return;
       }
       openDecryptedNote(note);
     },
-    [isUnlocked, openDecryptedNote],
+    [isUnlocked, lockType, rehydrate, openDecryptedNote],
   );
 
   return (
