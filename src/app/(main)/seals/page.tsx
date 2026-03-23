@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Archive, Lock, LockOpen } from 'lucide-react';
+import { Archive, Lock, LockOpen, SquarePlus } from 'lucide-react';
 import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
@@ -110,7 +110,7 @@ function SealsPageContent() {
                 </Button>
               )}
               <Button variant="default" onClick={handleNewSeal}>
-                <Plus size={18} />
+                <SquarePlus size={18} />
                 New Seal
               </Button>
             </>

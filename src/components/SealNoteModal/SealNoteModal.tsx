@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Trash2, Archive, Check, LockOpen, Lock } from 'lucide-react';
+import { Trash2, Archive, ArchiveRestore, Check, LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -251,7 +251,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           onClick={handleArchiveToggle}
           title={isArchived ? 'Unarchive' : 'Archive'}
         >
-          <Archive size={15} />
+          {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
           {isArchived ? 'Unarchive' : 'Archive'}
         </Button>
         <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>

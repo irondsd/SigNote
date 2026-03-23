@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Archive } from 'lucide-react';
+import { SquarePlus, Archive } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
@@ -54,7 +54,7 @@ function NotesPage() {
                 </Button>
               </Link>
               <Button data-testid="new-note-btn" variant="default" onClick={() => setShowNewNote(true)}>
-                <Plus size={18} />
+                <SquarePlus size={18} />
                 New Note
               </Button>
             </>

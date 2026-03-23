@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, Archive, Check } from 'lucide-react';
+import { Trash2, Archive, Check, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -121,7 +121,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onClick={handleArchiveToggle}
         title={isArchived ? 'Unarchive' : 'Archive'}
       >
-        <Archive size={15} />
+        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
         {isArchived ? 'Unarchive' : 'Archive'}
       </Button>
       <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>

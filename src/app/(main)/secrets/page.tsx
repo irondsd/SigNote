@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Archive, Lock, LockOpen } from 'lucide-react';
+import { Archive, Lock, LockOpen, SquarePlus } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
@@ -110,7 +110,7 @@ function SecretsPageContent() {
                 </Button>
               )}
               <Button variant="default" onClick={handleNewSecret}>
-                <Plus size={18} />
+                <SquarePlus size={18} />
                 New Secret
               </Button>
             </>

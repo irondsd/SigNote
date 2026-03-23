@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Archive, Check } from 'lucide-react';
+import { Trash2, Archive, Check, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
@@ -82,7 +82,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
         onClick={handleArchiveToggle}
         title={isArchived ? 'Unarchive' : 'Archive'}
       >
-        <Archive size={15} />
+        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
         {isArchived ? 'Unarchive' : 'Archive'}
       </Button>
       <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>
