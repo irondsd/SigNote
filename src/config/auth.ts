@@ -6,20 +6,18 @@ import { consumeNonceRecord, ensureNonceIndexes } from '@/controllers/nonces';
 import { upsertSiweUser } from '@/controllers/users';
 
 const getExpectedDomain = () => {
-  const authUrl = process.env.NEXTAUTH_URL;
-  if (!authUrl) {
-    return null;
-  }
+  if (process.env.VERCEL_URL) return process.env.VERCEL_URL;
 
+  const authUrl = process.env.NEXTAUTH_URL;
+  if (!authUrl) return null;
   return new URL(authUrl).host;
 };
 
 const getExpectedOrigin = () => {
-  const authUrl = process.env.NEXTAUTH_URL;
-  if (!authUrl) {
-    return null;
-  }
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
+  const authUrl = process.env.NEXTAUTH_URL;
+  if (!authUrl) return null;
   return new URL(authUrl).origin;
 };
 
