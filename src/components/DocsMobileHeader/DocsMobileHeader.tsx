@@ -35,7 +35,7 @@ export function DocsMobileHeader({ pages }: Props) {
   return (
     <>
       <header ref={headerRef} className={`${s.header} ${hidden ? s.headerHidden : ''}`}>
-        <Logo className="mb-4" />
+        <Logo />
         <div className={s.title}>Documentation</div>
         <Button variant="outline" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
           <Menu size={22} />
