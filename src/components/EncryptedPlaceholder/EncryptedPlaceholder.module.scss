@@ -35,6 +35,14 @@
   opacity: 0.7;
 }
 
+.animMorph .strip,
+.animMorph .bar {
+  transition:
+    flex 0.1s ease,
+    width 0.1s ease,
+    opacity 0.1s ease;
+}
+
 .lockIcon {
   position: absolute;
   /* Fixed at center of row index 1: (16px offset + 10px height / 2) = 21px */
