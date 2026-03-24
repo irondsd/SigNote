@@ -172,6 +172,20 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const handleSave = async () => {
     if (!mek) {
+      if (lockType === 'soft') {
+        setSaving(true);
+        setPendingSave(true);
+        try {
+          await rehydrate();
+          // pendingSave useEffect fires when mek is restored
+        } catch {
+          setSaving(false);
+          setPendingSave(false);
+          setShowPassphrase(true);
+        }
+        return;
+      }
+      // Hard lock: passphrase required
       setPendingSave(true);
       setShowPassphrase(true);
       return;

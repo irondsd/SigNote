@@ -103,6 +103,27 @@ test.describe('soft lock', () => {
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('soft unlock test')).toBeVisible({ timeout: 10000 });
   });
+
+  test('save secret after soft lock does not require passphrase', async ({ page }) => {
+    const { account, mekBytes } = await setup(page);
+    await seedSecrets(account.address, mekBytes, [{ title: 'SaveSoftLock Secret', content: 'save after soft lock' }]);
+    await page.reload();
+    await unlock(page);
+
+    // Open the secret modal and enter editing mode
+    await page.getByTestId('secret-card').click();
+    await expect(page.getByTestId('tiptap-editor')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('edit-btn').click();
+
+    // Soft lock while in editing mode
+    await simulateTabHidden(page);
+
+    // Click Save — should NOT show passphrase modal
+    await page.getByTestId('save-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    // Editing mode should exit after save
+    await expect(page.getByTestId('save-btn')).not.toBeVisible({ timeout: 10000 });
+  });
 });
 
 // ─── Soft Lock — Seals ──────────────────────────────────────────────────────
@@ -146,6 +167,28 @@ test.describe('soft lock — seals', () => {
     await page.getByTestId('decrypt-btn').click();
     await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
     await expect(page.getByText('soft decrypt test')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('save seal after soft lock does not require passphrase', async ({ page }) => {
+    const { account, mekBytes } = await setup(page, '/seals');
+    await seedSeals(account.address, mekBytes, [{ title: 'SaveSoftLock Seal', content: 'save seal after soft lock' }]);
+    await page.reload();
+    await unlock(page);
+
+    // Open the seal, decrypt, and enter editing mode
+    await sealCard(page, 'SaveSoftLock Seal').click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByText('save seal after soft lock')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('edit-btn').click();
+
+    // Soft lock while in editing mode
+    await simulateTabHidden(page);
+
+    // Click Save — should NOT show passphrase modal
+    await page.getByTestId('save-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    // Editing mode should exit after save
+    await expect(page.getByTestId('save-btn')).not.toBeVisible({ timeout: 10000 });
   });
 });
 

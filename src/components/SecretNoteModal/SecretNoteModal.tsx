@@ -20,7 +20,7 @@ type SecretNoteModalProps = {
 };
 
 export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteModalProps) {
-  const { mek, phase, lockType } = useEncryption();
+  const { mek, phase, lockType, rehydrate } = useEncryption();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(decryptedContent);
@@ -86,6 +86,20 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
   const handleSave = async () => {
     if (!mek) {
+      if (lockType === 'soft') {
+        setSaving(true);
+        setPendingSave(true);
+        try {
+          await rehydrate();
+          // pendingSave useEffect fires when mek is restored
+        } catch {
+          setSaving(false);
+          setPendingSave(false);
+          setShowPassphrase(true);
+        }
+        return;
+      }
+      // Hard lock: passphrase required
       setPendingSave(true);
       setShowPassphrase(true);
       return;
