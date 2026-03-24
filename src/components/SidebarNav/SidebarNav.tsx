@@ -4,13 +4,15 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { useDisconnect } from 'wagmi';
+import { useDisconnect, useEnsName } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
 import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/utils/shortenAddress';
 import s from './SidebarNav.module.scss';
 import { Logo } from '../Logo/Logo';
+import { Address } from 'viem';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -31,7 +33,8 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
 
-  const address = session?.user?.address;
+  const address = session?.user?.address as Address | undefined;
+  const { data: ensName } = useEnsName({ address, chainId: mainnet.id });
 
   const handleSignOut = async () => {
     disconnect();
@@ -77,7 +80,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
               <div className={s.walletInfo}>
                 <div className={s.walletDot} />
                 <span data-testid="wallet-address" className={s.walletAddress}>
-                  {shortenAddress(address)}
+                  {ensName ?? shortenAddress(address)}
                 </span>
               </div>
               <Button
