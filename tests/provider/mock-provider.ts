@@ -27,6 +27,9 @@ let walletClient = createWalletClient({
   transport: http(RPC_URL),
 });
 
+// Methods that should reject on the next call
+const rejectMethods = new Set<string>();
+
 // This is the EIP-1193 provider object we will inject
 const mockProvider = {
   // Flags for provider detection
@@ -51,10 +54,24 @@ const mockProvider = {
   // Getter for current account address
   getCurrentAddress: () => account.address,
 
+  // Make the next call to the given method reject with a user-rejected error (EIP-1193 code 4001)
+  setRejectNextRequest(method: string) {
+    rejectMethods.add(method);
+    console.log('E2E Provider: will reject next request for method:', method);
+  },
+
   // The core method that handles all JSON-RPC requests
   // @ts-expect-error any
   async request({ method, params }) {
     console.log('E2E Provider received request:', { method, params });
+
+    if (rejectMethods.has(method)) {
+      rejectMethods.delete(method);
+      console.log('E2E Provider: rejecting request for method:', method);
+      const error = new Error('MetaMask Personal Message Signature: User denied message signature.');
+      (error as { code?: number }).code = 4001;
+      throw error;
+    }
 
     const requestParams = Array.isArray(params) ? params : [];
 

@@ -51,6 +51,58 @@ test.describe('connect wallet', () => {
     await expect(page.getByText('Welcome to SigNote')).not.toBeVisible();
   });
 
+  test('should reset button when wallet connection modal is cancelled', async ({ page }) => {
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    // Wait for the RainbowKit connect modal to appear
+    await page.waitForSelector('[aria-labelledby="rk_connect_title"]');
+
+    // Close the modal without connecting
+    await page.keyboard.press('Escape');
+
+    // Button must return to idle (enabled, original label)
+    await expect(signInButton).toBeEnabled();
+    await expect(signInButton).toContainText('Sign in with Ethereum');
+  });
+
+  test('should reset button when signature request is rejected', async ({ page }) => {
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    // Schedule the mock provider to reject the next personal_sign before the SIWE flow runs
+    await page.evaluate(() => {
+      window.ethereum.setRejectNextRequest('personal_sign');
+    });
+
+    // Click Browser Wallet in the modal (or handle auto-connect)
+    const walletAddress = page.getByTestId('wallet-address').first();
+    await Promise.any([
+      page.waitForFunction(() => {
+        const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
+        const buttons = modal?.querySelectorAll('button');
+        for (const btn of buttons || []) {
+          if (btn.textContent?.includes('Browser Wallet')) {
+            btn.scrollIntoView();
+            btn.click();
+            return true;
+          }
+        }
+        return false;
+      }),
+      walletAddress.waitFor({ state: 'visible' }),
+    ]).catch(() => {
+      // If wallet-address appeared it means auto-connect succeeded before rejection was set;
+      // this is fine — the test flow continues correctly.
+    });
+
+    // After rejection the button must return to idle (enabled, original label)
+    await expect(signInButton).toBeEnabled({ timeout: 10000 });
+    await expect(signInButton).toContainText('Sign in with Ethereum');
+    // User should not be signed in
+    await expect(walletAddress).not.toBeVisible();
+  });
+
   test('should sign out and return to unauthenticated state', async ({ page }) => {
     const signInButton = page.getByTestId('sign-in-button').first();
     await signInButton.click();
