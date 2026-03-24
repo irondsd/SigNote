@@ -48,7 +48,8 @@
   text-decoration: none;
   transition:
     background 0.15s,
-    color 0.15s;
+    color 0.15s,
+    box-shadow 0.15s;
 
   &:hover {
     background: var(--accent);
@@ -60,6 +61,7 @@
   background: var(--accent);
   color: var(--foreground);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .spacer {
@@ -125,12 +127,25 @@
   gap: 8px;
 }
 
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.5;
+  }
+}
+
 .walletDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: #22c55e;
   flex-shrink: 0;
+  animation: pulse 2.5s ease-in-out infinite;
 }
 
 .walletAddress {

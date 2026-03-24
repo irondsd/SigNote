@@ -15,6 +15,13 @@
   @media (min-width: 1600px) {
     grid-template-columns: repeat(4, 1fr);
   }
+
+  // Stagger card entrance animations via inherited CSS custom property
+  @for $i from 1 through 24 {
+    & > *:nth-child(#{$i}) {
+      --animation-index: #{$i - 1};
+    }
+  }
 }
 
 .loading {
