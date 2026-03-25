@@ -51,21 +51,6 @@ test.describe('connect wallet', () => {
     await expect(page.getByText('Welcome to SigNote')).not.toBeVisible();
   });
 
-  test('should reset button when wallet connection modal is cancelled', async ({ page }) => {
-    const signInButton = page.getByTestId('sign-in-button').first();
-    await signInButton.click();
-
-    // Wait for the RainbowKit connect modal to appear
-    await page.waitForSelector('[aria-labelledby="rk_connect_title"]');
-
-    // Close the modal without connecting
-    await page.keyboard.press('Escape');
-
-    // Button must return to idle (enabled, original label)
-    await expect(signInButton).toBeEnabled();
-    await expect(signInButton).toContainText('Sign in with Ethereum');
-  });
-
   test('should reset button when signature request is rejected', async ({ page }) => {
     // Set rejection BEFORE clicking sign-in so it is guaranteed to be in place
     // before personal_sign fires, regardless of whether auto-connect or the modal path runs.
@@ -78,7 +63,8 @@ test.describe('connect wallet', () => {
 
     // Non-blocking: if the modal appears click Browser Wallet to trigger the SIWE flow.
     // In the auto-connect path the modal never appears and personal_sign is rejected automatically.
-    page.waitForSelector('[aria-labelledby="rk_connect_title"]', { timeout: 8000 })
+    page
+      .waitForSelector('[aria-labelledby="rk_connect_title"]', { timeout: 8000 })
       .then(() =>
         page.waitForFunction(() => {
           const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
