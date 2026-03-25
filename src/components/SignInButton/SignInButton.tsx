@@ -2,7 +2,7 @@
 
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { signIn } from 'next-auth/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAccount, useAccountEffect, useDisconnect, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 import { Wallet } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { cn } from '@/utils/cn';
 import { EthereumIcon } from '../EthereumIcon/EthereumIcon';
-import { Address } from 'viem';
+import { Address, UserRejectedRequestError } from 'viem';
 
 type SignInButtonProps = {
   className?: string;
@@ -22,12 +22,28 @@ type Step = 'idle' | 'connecting' | 'signing';
 
 export function SignInButton({ className, size = 'default' }: SignInButtonProps) {
   const { address, isConnected, chain } = useAccount();
-  const { openConnectModal } = useConnectModal();
+  const { openConnectModal, connectModalOpen } = useConnectModal();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
 
   const [step, setStep] = useState<Step>('idle');
   const pendingSign = useRef(false);
+  const modalWasOpen = useRef(false);
+
+  // Reset to idle when the connect modal is closed without completing the connection
+  useEffect(() => {
+    if (connectModalOpen) {
+      modalWasOpen.current = true;
+      return;
+    }
+    if (modalWasOpen.current) {
+      modalWasOpen.current = false;
+      if (step === 'connecting' && !isConnected) {
+        pendingSign.current = false;
+        setStep('idle');
+      }
+    }
+  }, [connectModalOpen, step, isConnected]);
 
   useAccountEffect({
     onConnect({ address: connectedAddress }) {
@@ -69,7 +85,13 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
       setStep('idle');
     } catch (err) {
       console.error('SIWE error:', err);
-      // Stale WalletConnect session or rejected — disconnect and let user reconnect
+      if (err instanceof UserRejectedRequestError) {
+        // User rejected the signature — reset and let them try again
+        toast.error('Signature rejected. Please try again.');
+        setStep('idle');
+        return;
+      }
+      // Stale WalletConnect session — disconnect and let user reconnect
       disconnect();
       pendingSign.current = true;
       setStep('connecting');
