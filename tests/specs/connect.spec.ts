@@ -103,6 +103,25 @@ test.describe('connect wallet', () => {
     await expect(walletAddress).not.toBeVisible();
   });
 
+  test('should close modal and reset button when close button is clicked', async ({ page }) => {
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    // Wait for the RainbowKit connect modal to appear
+    const modal = page.locator('[aria-labelledby="rk_connect_title"]');
+    await expect(modal).toBeVisible();
+
+    // Click the modal's close button (the X)
+    await modal.getByRole('button', { name: /close/i }).click();
+
+    // Modal must disappear
+    await expect(modal).not.toBeVisible();
+
+    // Button must return to idle (enabled, original label)
+    await expect(signInButton).toBeEnabled();
+    await expect(signInButton).toContainText('Sign in with Ethereum');
+  });
+
   test('should sign out and return to unauthenticated state', async ({ page }) => {
     const signInButton = page.getByTestId('sign-in-button').first();
     await signInButton.click();
