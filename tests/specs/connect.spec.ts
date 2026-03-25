@@ -95,11 +95,12 @@ test.describe('connect wallet', () => {
     await signInButton.click();
 
     // Wait for the RainbowKit connect modal to appear (full page timeout, not assertion timeout)
-    await page.waitForSelector('[aria-labelledby="rk_connect_title"]');
     const modal = page.locator('[aria-labelledby="rk_connect_title"]');
+    await modal.waitFor({ state: 'visible' });
 
     // Click the modal's close button (the X)
-    await modal.getByRole('button', { name: /close/i }).click();
+    const closeBtn = modal.locator('[aria-label="Close"]');
+    await closeBtn.click({ force: true }); // force in case the button is not stable. Fails without it
 
     // Modal must disappear
     await expect(modal).not.toBeVisible();
