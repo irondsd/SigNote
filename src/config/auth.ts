@@ -2,7 +2,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import type { NextAuthOptions } from 'next-auth';
 import { SiweMessage } from 'siwe';
 
-import { consumeNonceRecord, ensureNonceIndexes } from '@/controllers/nonces';
+import { consumeNonceRecord } from '@/controllers/nonces';
 import { upsertSiweUser } from '@/controllers/users';
 
 const vercelUrl = process.env.VERCEL_URL;
@@ -66,7 +66,6 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          await ensureNonceIndexes();
           const consumedNonce = await consumeNonceRecord(result.data.nonce);
           if (!consumedNonce) {
             return null;
