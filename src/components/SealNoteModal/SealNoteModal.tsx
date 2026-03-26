@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { DecryptTimer } from './DecryptTimer';
 import s from './SealNoteModal.module.scss';
 
@@ -149,6 +150,14 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const performSave = async (currentMek: CryptoKey) => {
     if (decryptedContent === null) return;
+    if (title.length > MAX_TITLE) {
+      toast.error('Title is too long');
+      return;
+    }
+    if (decryptedContent.length > MAX_CONTENT) {
+      toast.error('Content is too large to save');
+      return;
+    }
     setSaving(true);
     try {
       let encryptedBody = note.encryptedBody;

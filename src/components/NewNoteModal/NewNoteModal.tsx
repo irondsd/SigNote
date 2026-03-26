@@ -10,6 +10,8 @@ import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmD
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { saveDraft, clearDraft, consumeDraftRestore } from '@/lib/draft';
 import s from '@/components/NewModal/NewModal.module.scss';
+import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { toast } from 'sonner';
 
 type NewNoteModalProps = {
   onClose: () => void;
@@ -47,6 +49,14 @@ export function NewNoteModal({ onClose }: NewNoteModalProps) {
 
   const handleSave = () => {
     if (isTitleEmpty && isContentEmpty) return;
+    if (title.length > MAX_TITLE) {
+      toast.error('Title is too long');
+      return;
+    }
+    if (content.length > MAX_CONTENT) {
+      toast.error('Content is too large to save');
+      return;
+    }
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     clearDraft();
     createNote.mutate({ title: title.trim(), content: content.trim() });

@@ -12,6 +12,7 @@ import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 
 type SecretNoteModalProps = {
   note: CachedSecretNote;
@@ -74,6 +75,14 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   };
 
   const performSave = async (currentMek: CryptoKey) => {
+    if (title.length > MAX_TITLE) {
+      toast.error('Title is too long');
+      return;
+    }
+    if (content.length > MAX_CONTENT) {
+      toast.error('Content is too large to save');
+      return;
+    }
     setSaving(true);
     try {
       const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;

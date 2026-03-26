@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 
 type NoteModalProps = {
   note: NoteDocument;
@@ -50,6 +51,14 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   };
 
   const handleSave = () => {
+    if (title.length > MAX_TITLE) {
+      toast.error('Title is too long');
+      return;
+    }
+    if (content.length > MAX_CONTENT) {
+      toast.error('Content is too large to save');
+      return;
+    }
     updateNote.mutate({ id: note._id.toString(), title, content });
     setEditing(false);
   };
