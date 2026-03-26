@@ -38,6 +38,9 @@ const secretNoteSchema = new Schema<SecretNote>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
+// Compound index for address-filtered queries
+secretNoteSchema.index({ address: 1, deletedAt: 1 });
+
 // TTL index — auto-delete soft-deleted notes after 1 hour
 secretNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 

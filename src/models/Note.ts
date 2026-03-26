@@ -28,6 +28,9 @@ const noteSchema = new Schema<Note>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
+// Compound index for address-filtered queries (the most common access pattern)
+noteSchema.index({ address: 1, deletedAt: 1 });
+
 // TTL index to automatically delete soft-deleted notes after 1 hour
 noteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 

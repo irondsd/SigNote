@@ -40,6 +40,9 @@ const sealNoteSchema = new Schema<SealNote>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
+// Compound index for address-filtered queries
+sealNoteSchema.index({ address: 1, deletedAt: 1 });
+
 // TTL index — auto-delete soft-deleted notes after 1 hour
 sealNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 
