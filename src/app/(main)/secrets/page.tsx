@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
 import { Archive, Lock, LockOpen, SquarePlus } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
@@ -13,6 +12,7 @@ import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { NewSecretModal } from '@/components/NewSecretModal/NewSecretModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
@@ -20,7 +20,6 @@ import s from './page.module.scss';
 
 function SecretsPageContent() {
   const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
   const { phase, lockType, lock, rehydrate } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [rehydrating, setRehydrating] = useState(false);
@@ -32,13 +31,16 @@ function SecretsPageContent() {
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [showNewSecret, setShowNewSecret] = useState(false);
   const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+  const [pendingContent, setPendingContent] = useState<{ title: string; content: string } | null>(null);
+  const { draftRestore, setDraftRestore } = useDraftRestore();
 
   useEffect(() => {
-    if (searchParams.has('draft')) {
+    if (draftRestore) {
+      setPendingContent(draftRestore);
+      setDraftRestore(null);
       setShowNewSecret(true);
-      window.history.replaceState({}, '', '/secrets');
     }
-  }, [searchParams]);
+  }, [draftRestore, setDraftRestore]);
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -153,7 +155,13 @@ function SecretsPageContent() {
         />
       )}
 
-      {showNewSecret && <NewSecretModal onClose={() => setShowNewSecret(false)} />}
+      {showNewSecret && (
+        <NewSecretModal
+          onClose={() => { setShowNewSecret(false); setPendingContent(null); }}
+          initialContent={pendingContent ?? undefined}
+          onSaveError={(vars) => { setPendingContent(vars); setShowNewSecret(true); }}
+        />
+      )}
     </div>
   );
 }

@@ -8,24 +8,21 @@ import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import { saveDraft, clearDraft, consumeDraftRestore } from '@/lib/draft';
+import { saveDraft, clearDraft } from '@/lib/draft';
 import s from '@/components/NewModal/NewModal.module.scss';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { toast } from 'sonner';
 
 type NewNoteModalProps = {
   onClose: () => void;
+  initialContent?: { title: string; content: string };
+  onSaveError?: (vars: { title: string; content: string }) => void;
 };
 
-export function NewNoteModal({ onClose }: NewNoteModalProps) {
-  const [initial] = useState(() => {
-    const draft = consumeDraftRestore();
-    if (draft?.type === 'note') return { title: draft.title, content: draft.content };
-    return { title: '', content: '' };
-  });
-  const [title, setTitle] = useState(initial.title);
-  const [content, setContent] = useState(initial.content);
-  const createNote = useCreateNote();
+export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteModalProps) {
+  const [title, setTitle] = useState(initialContent?.title ?? '');
+  const [content, setContent] = useState(initialContent?.content ?? '');
+  const createNote = useCreateNote({ onError: onSaveError });
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();

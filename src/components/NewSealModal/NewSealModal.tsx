@@ -4,31 +4,37 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useEncryption } from '@/contexts/EncryptionContext';
-import { encryptSealBody, encryptSecretBody, decryptSecretBody } from '@/lib/crypto';
+import { encryptSealBody, encryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { NewModal } from '@/components/NewModal/NewModal';
-import { saveDraft, clearDraft, isDraftRestorePending, consumeDraftRestore } from '@/lib/draft';
+import { saveDraft, clearDraft } from '@/lib/draft';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { toast } from 'sonner';
 import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewSealModalProps = {
   onClose: () => void;
+  initialContent?: { title: string; content: string };
+  onSaveError?: (vars: { title: string; content: string }) => void;
 };
 
-export function NewSealModal({ onClose }: NewSealModalProps) {
+export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealModalProps) {
   const { mek } = useEncryption();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [title, setTitle] = useState(initialContent?.title ?? '');
+  const [content, setContent] = useState(initialContent?.content ?? '');
   const [saving, setSaving] = useState(false);
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [pendingSave, setPendingSave] = useState(false);
-  const [restoringDraft, setRestoringDraft] = useState(isDraftRestorePending);
-  const createSeal = useCreateSeal();
+  const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
+  const createSeal = useCreateSeal({
+    onError: () => {
+      if (pendingRecoveryRef.current) onSaveError?.(pendingRecoveryRef.current);
+    },
+  });
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();
@@ -36,20 +42,6 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
   const isDirty = !isTitleEmpty || !isContentEmpty;
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
   const handleClose = () => confirmClose(onClose);
-
-  useEffect(() => {
-    if (!restoringDraft || !mek) return;
-    const draft = consumeDraftRestore();
-    if (!draft || draft.type !== 'seal') {
-      setRestoringDraft(false);
-      return;
-    }
-    setTitle(draft.title);
-    decryptSecretBody(mek, JSON.parse(draft.content)).then((decrypted) => {
-      setContent(decrypted);
-      setRestoringDraft(false);
-    });
-  }, [mek, restoringDraft]);
 
   useEffect(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
@@ -86,12 +78,15 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     setSaving(true);
     try {
+      const trimmedTitle = title.trim();
+      const trimmedContent = content.trim();
       clearDraft();
+      pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
       createSeal.mutate({
-        title: title.trim(),
+        title: trimmedTitle,
         encryptBody: async (sealId: string) => {
-          if (!content.trim()) return null;
-          return encryptSealBody(currentMek, content.trim(), sealId);
+          if (!trimmedContent) return null;
+          return encryptSealBody(currentMek, trimmedContent, sealId);
         },
       });
       onClose();
@@ -148,9 +143,7 @@ export function NewSealModal({ onClose }: NewSealModalProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        {!restoringDraft && (
-          <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" autoFocus />
-        )}
+        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" autoFocus />
       </NewModal>
 
       {showPassphrase && (

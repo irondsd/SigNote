@@ -86,7 +86,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     setSaving(true);
     try {
       const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
-      updateSecret.mutate({ id: note._id, title, encryptedBody });
+      updateSecret.mutate({ id: note._id, title, encryptedBody }, { onError: () => setEditing(true) });
       setEditing(false);
     } finally {
       setSaving(false);

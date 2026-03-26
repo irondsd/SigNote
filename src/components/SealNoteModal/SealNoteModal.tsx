@@ -172,7 +172,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         wrappedNoteKey = null;
       }
 
-      updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey });
+      updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
       setEditing(false);
     } finally {
       setSaving(false);

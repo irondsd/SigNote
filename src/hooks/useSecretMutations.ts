@@ -73,7 +73,7 @@ async function apiUpdateSecret({ id, ...data }: UpdateSecretInput) {
   return res.json();
 }
 
-export const useCreateSecret = () => {
+export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiCreateSecret,
@@ -96,7 +96,11 @@ export const useCreateSecret = () => {
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to create secret');
+      toast.error('Failed to create secret', {
+        description: 'Your content has been recovered.',
+        duration: Infinity,
+      });
+      callbacks?.onError?.();
     },
     onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });

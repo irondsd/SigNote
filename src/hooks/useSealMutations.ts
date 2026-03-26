@@ -96,7 +96,7 @@ async function apiPatchSeal(id: string, data: Partial<Omit<UpdateSealInput, 'id'
  * 2. Caller encrypts body using _id
  * 3. PATCH with encryptedBody + wrappedNoteKey
  */
-export const useCreateSeal = () => {
+export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
   const qc = useQueryClient();
 
   return useMutation({
@@ -133,7 +133,11 @@ export const useCreateSeal = () => {
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to create seal');
+      toast.error('Failed to create seal', {
+        description: 'Your content has been recovered.',
+        duration: Infinity,
+      });
+      callbacks?.onError?.();
     },
     onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });

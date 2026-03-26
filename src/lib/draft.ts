@@ -34,22 +34,3 @@ export function clearDraft(): void {
   }
 }
 
-// ─── Draft restore signaling ─────────────────────────────────────────────────
-// Module-level flag so DraftToast can signal modals that they're being opened
-// for a draft restore (vs. opened normally by the user).
-
-let _pendingRestore = false;
-
-export function startDraftRestore(): void {
-  _pendingRestore = true;
-}
-
-export function isDraftRestorePending(): boolean {
-  return _pendingRestore;
-}
-
-export function consumeDraftRestore(): DraftData | null {
-  if (!_pendingRestore) return null;
-  _pendingRestore = false;
-  return loadDraft();
-}

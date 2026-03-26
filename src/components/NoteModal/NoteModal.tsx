@@ -59,7 +59,10 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
       toast.error('Content is too large to save');
       return;
     }
-    updateNote.mutate({ id: note._id.toString(), title, content });
+    updateNote.mutate(
+      { id: note._id.toString(), title, content },
+      { onError: () => setEditing(true) },
+    );
     setEditing(false);
   };
 

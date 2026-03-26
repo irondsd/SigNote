@@ -72,7 +72,7 @@ async function apiUpdateNote({ id, ...data }: UpdateNoteInput) {
   return res.json();
 }
 
-export const useCreateNote = () => {
+export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) => void }) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: apiCreateNote,
@@ -93,9 +93,13 @@ export const useCreateNote = () => {
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots };
     },
-    onError: (_err, _vars, context) => {
+    onError: (_err, vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to create note');
+      toast.error('Failed to create note', {
+        description: 'Your content has been recovered.',
+        duration: Infinity,
+      });
+      callbacks?.onError?.(vars);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
   });

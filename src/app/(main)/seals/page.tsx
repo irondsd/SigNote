@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
 import { Archive, Lock, LockOpen, SquarePlus } from 'lucide-react';
 import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
@@ -13,6 +12,7 @@ import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { NewSealModal } from '@/components/NewSealModal/NewSealModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
@@ -20,7 +20,6 @@ import s from './page.module.scss';
 
 function SealsPageContent() {
   const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
   const { phase, lockType, lock, rehydrate } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [rehydrating, setRehydrating] = useState(false);
@@ -32,13 +31,16 @@ function SealsPageContent() {
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [showNewSeal, setShowNewSeal] = useState(false);
   const [openNewAfterUnlock, setOpenNewAfterUnlock] = useState(false);
+  const [pendingContent, setPendingContent] = useState<{ title: string; content: string } | null>(null);
+  const { draftRestore, setDraftRestore } = useDraftRestore();
 
   useEffect(() => {
-    if (searchParams.has('draft')) {
+    if (draftRestore) {
+      setPendingContent(draftRestore);
+      setDraftRestore(null);
       setShowNewSeal(true);
-      window.history.replaceState({}, '', '/seals');
     }
-  }, [searchParams]);
+  }, [draftRestore, setDraftRestore]);
 
   const isAuthenticated = !!session?.user?.address;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -153,7 +155,13 @@ function SealsPageContent() {
         />
       )}
 
-      {showNewSeal && <NewSealModal onClose={() => setShowNewSeal(false)} />}
+      {showNewSeal && (
+        <NewSealModal
+          onClose={() => { setShowNewSeal(false); setPendingContent(null); }}
+          initialContent={pendingContent ?? undefined}
+          onSaveError={(vars) => { setPendingContent(vars); setShowNewSeal(true); }}
+        />
+      )}
     </div>
   );
 }
