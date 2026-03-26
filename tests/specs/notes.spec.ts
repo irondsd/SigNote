@@ -88,6 +88,23 @@ test.describe('archive and unarchive', () => {
     await expect(noteCard(page, title)).toBeVisible();
   });
 
+  test('archived notes do not appear in the main list', async ({ page }) => {
+    const { privateKey, account } = makeAccount();
+    const tag = `archmain${Date.now()}`;
+    await seedNotes(account.address, [
+      { title: `${tag} active` },
+      { title: `${tag} archived`, archived: true },
+    ]);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
+
+    await expect(noteCard(page, `${tag} active`)).toBeVisible({ timeout: 10000 });
+    await expect(noteCard(page, `${tag} archived`)).not.toBeVisible();
+  });
+
   test('unarchive note moves it back to main grid', async ({ page }) => {
     const { privateKey, account } = makeAccount();
     const title = `To Unarchive ${Date.now()}`;
