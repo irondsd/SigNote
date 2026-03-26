@@ -12,6 +12,8 @@ import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmD
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft, isDraftRestorePending, consumeDraftRestore } from '@/lib/draft';
+import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { toast } from 'sonner';
 import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewSecretModalProps = {
@@ -93,6 +95,14 @@ export function NewSecretModal({ onClose }: NewSecretModalProps) {
   };
 
   const handleSave = async () => {
+    if (title.length > MAX_TITLE) {
+      toast.error('Title is too long');
+      return;
+    }
+    if (content.length > MAX_CONTENT) {
+      toast.error('Content is too large to save');
+      return;
+    }
     if (!mek) {
       setPendingSave(true);
       setShowPassphrase(true);
