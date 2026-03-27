@@ -12,9 +12,10 @@ import s from './PassphraseModal.module.scss';
 type PassphraseModalProps = {
   onSuccess: () => void;
   onClose: () => void;
+  address?: string;
 };
 
-export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
+export function PassphraseModal({ onSuccess, onClose, address }: PassphraseModalProps) {
   const { unlock } = useEncryption();
   const [passphrase, setPassphrase] = useState('');
   const [showPassphrase, setShowPassphrase] = useState(false);
@@ -50,6 +51,8 @@ export function PassphraseModal({ onSuccess, onClose }: PassphraseModalProps) {
 
         <form className={s.body} onSubmit={handleSubmit}>
           <p className={s.hint}>Enter your passphrase to decrypt your notes for this session.</p>
+
+          <input type="text" autoComplete="username" value={address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
 
           <div className={s.inputWrapper}>
             <Input

@@ -29,7 +29,7 @@ type Material = {
 };
 
 export default function ChangePassphrasePage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const oldPassphraseInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -198,6 +198,8 @@ export default function ChangePassphrasePage() {
         <h2 className={s.heading}>Change passphrase</h2>
 
         <form className={s.form} onSubmit={handleSubmit}>
+          <input type="text" autoComplete="username" value={session?.user?.address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
+
           <div className={s.field}>
             <label className={s.label} htmlFor="cp-old">
               Current passphrase

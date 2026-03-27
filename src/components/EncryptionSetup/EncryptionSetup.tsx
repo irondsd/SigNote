@@ -8,7 +8,11 @@ import { Input } from '@/components/ui/input';
 import s from './EncryptionSetup.module.scss';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 
-export function EncryptionSetup() {
+type EncryptionSetupProps = {
+  address?: string;
+};
+
+export function EncryptionSetup({ address }: EncryptionSetupProps) {
   const { setupProfile } = useEncryption();
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -63,6 +67,8 @@ export function EncryptionSetup() {
         </div>
 
         <form className={s.form} onSubmit={handleSubmit}>
+          <input type="text" autoComplete="username" value={address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
+
           <div className={s.field}>
             <label className={s.label} htmlFor="enc-passphrase">
               Passphrase
