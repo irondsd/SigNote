@@ -143,7 +143,13 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your seal…" autoFocus />
+        <TiptapEditor
+          content={content}
+          onChange={setContent}
+          editable={true}
+          placeholder="Write your seal…"
+          autoFocus
+        />
       </NewModal>
 
       {showPassphrase && (

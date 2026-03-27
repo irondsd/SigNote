@@ -14,9 +14,9 @@ const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const noteCard   = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
+const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
 const secretCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
-const sealCard   = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
+const sealCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
 
 const setup = async (page: Page, startUrl = '/') => {
   const { privateKey, account } = makeAccount();
@@ -70,9 +70,7 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse(
-      (r) => r.url().includes('/api/notes') && r.request().method() === 'POST',
-    );
+    const failedPost = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
     await page.getByTestId('save-note-btn').click();
     await failedPost;
 
@@ -117,9 +115,7 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
-    );
+    const failedPost = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'POST');
     await page.getByTestId('save-secret-btn').click();
     await failedPost;
 
@@ -165,9 +161,7 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST',
-    );
+    const failedPost = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
     await page.getByTestId('save-seal-btn').click();
     await failedPost;
 

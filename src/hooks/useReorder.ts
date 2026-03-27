@@ -20,8 +20,7 @@ export function useReorder<T extends WithId>(resource: Resource) {
   const queryKey = resource;
 
   return useMutation({
-    mutationFn: ({ id, position }: ReorderInput) =>
-      api.patch(`/api/${queryKey}/${id}`, { json: { position } }).json(),
+    mutationFn: ({ id, position }: ReorderInput) => api.patch(`/api/${queryKey}/${id}`, { json: { position } }).json(),
     onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: [queryKey] });
       const snapshots = qc.getQueriesData<InfiniteData<T[]>>({ queryKey: [queryKey] });

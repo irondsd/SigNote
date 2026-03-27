@@ -12,9 +12,7 @@ const DraftRestoreContext = createContext<{
 export function DraftRestoreProvider({ children }: { children: ReactNode }) {
   const [draftRestore, setDraftRestore] = useState<DraftRestoreData | null>(null);
   return (
-    <DraftRestoreContext.Provider value={{ draftRestore, setDraftRestore }}>
-      {children}
-    </DraftRestoreContext.Provider>
+    <DraftRestoreContext.Provider value={{ draftRestore, setDraftRestore }}>{children}</DraftRestoreContext.Provider>
   );
 }
 

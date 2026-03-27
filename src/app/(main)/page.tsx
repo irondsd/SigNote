@@ -91,9 +91,15 @@ function NotesPage() {
 
       {showNewNote && (
         <NewNoteModal
-          onClose={() => { setShowNewNote(false); setPendingContent(null); }}
+          onClose={() => {
+            setShowNewNote(false);
+            setPendingContent(null);
+          }}
           initialContent={pendingContent ?? undefined}
-          onSaveError={(vars) => { setPendingContent(vars); setShowNewNote(true); }}
+          onSaveError={(vars) => {
+            setPendingContent(vars);
+            setShowNewNote(true);
+          }}
         />
       )}
     </div>

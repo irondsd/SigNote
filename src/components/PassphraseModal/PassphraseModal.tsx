@@ -52,7 +52,14 @@ export function PassphraseModal({ onSuccess, onClose, address }: PassphraseModal
         <form className={s.body} onSubmit={handleSubmit}>
           <p className={s.hint}>Enter your passphrase to decrypt your notes for this session.</p>
 
-          <input type="text" autoComplete="username" value={address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
+          <input
+            type="text"
+            autoComplete="username"
+            value={address ?? ''}
+            readOnly
+            aria-hidden="true"
+            style={{ display: 'none' }}
+          />
 
           <div className={s.inputWrapper}>
             <Input

@@ -157,9 +157,15 @@ function SealsPageContent() {
 
       {showNewSeal && (
         <NewSealModal
-          onClose={() => { setShowNewSeal(false); setPendingContent(null); }}
+          onClose={() => {
+            setShowNewSeal(false);
+            setPendingContent(null);
+          }}
           initialContent={pendingContent ?? undefined}
-          onSaveError={(vars) => { setPendingContent(vars); setShowNewSeal(true); }}
+          onSaveError={(vars) => {
+            setPendingContent(vars);
+            setShowNewSeal(true);
+          }}
         />
       )}
     </div>

@@ -91,10 +91,7 @@ test.describe('archive and unarchive', () => {
   test('archived notes do not appear in the main list', async ({ page }) => {
     const { privateKey, account } = makeAccount();
     const tag = `archmain${Date.now()}`;
-    await seedNotes(account.address, [
-      { title: `${tag} active` },
-      { title: `${tag} archived`, archived: true },
-    ]);
+    await seedNotes(account.address, [{ title: `${tag} active` }, { title: `${tag} archived`, archived: true }]);
 
     await mockProvider(page);
     await page.goto('/');

@@ -33,4 +33,3 @@ export function clearDraft(): void {
     // ignore storage errors
   }
 }
-

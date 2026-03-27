@@ -204,7 +204,14 @@ export default function ChangePassphrasePage() {
         <h2 className={s.heading}>Change passphrase</h2>
 
         <form className={s.form} onSubmit={handleSubmit}>
-          <input type="text" autoComplete="username" value={session?.user?.address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
+          <input
+            type="text"
+            autoComplete="username"
+            value={session?.user?.address ?? ''}
+            readOnly
+            aria-hidden="true"
+            style={{ display: 'none' }}
+          />
 
           <div className={s.field}>
             <label className={s.label} htmlFor="cp-old">

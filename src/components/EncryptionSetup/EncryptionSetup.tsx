@@ -67,7 +67,14 @@ export function EncryptionSetup({ address }: EncryptionSetupProps) {
         </div>
 
         <form className={s.form} onSubmit={handleSubmit}>
-          <input type="text" autoComplete="username" value={address ?? ''} readOnly aria-hidden="true" style={{ display: 'none' }} />
+          <input
+            type="text"
+            autoComplete="username"
+            value={address ?? ''}
+            readOnly
+            aria-hidden="true"
+            style={{ display: 'none' }}
+          />
 
           <div className={s.field}>
             <label className={s.label} htmlFor="enc-passphrase">

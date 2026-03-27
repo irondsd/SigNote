@@ -158,9 +158,15 @@ function SecretsPageContent() {
 
       {showNewSecret && (
         <NewSecretModal
-          onClose={() => { setShowNewSecret(false); setPendingContent(null); }}
+          onClose={() => {
+            setShowNewSecret(false);
+            setPendingContent(null);
+          }}
           initialContent={pendingContent ?? undefined}
-          onSaveError={(vars) => { setPendingContent(vars); setShowNewSecret(true); }}
+          onSaveError={(vars) => {
+            setPendingContent(vars);
+            setShowNewSecret(true);
+          }}
         />
       )}
     </div>

@@ -11,13 +11,7 @@ const ANIM_MS = 220;
 // Gesture is 'pending' until direction is determined, then locked to 'swiping' or 'scrolling'
 type GestureState = 'idle' | 'pending' | 'swiping' | 'scrolling';
 
-export function SwipeNavWrapper({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className: string;
-}) {
+export function SwipeNavWrapper({ children, className }: { children: React.ReactNode; className: string }) {
   const mainRef = useRef<HTMLElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -50,14 +44,14 @@ export function SwipeNavWrapper({
       return;
     }
 
-    el.getAnimations().forEach(a => a.cancel());
+    el.getAnimations().forEach((a) => a.cancel());
     el.style.transform = '';
 
     const startX = dir === 'left' ? '100%' : '-100%';
-    const anim = el.animate(
-      [{ transform: `translateX(${startX})` }, { transform: 'translateX(0)' }],
-      { duration: ANIM_MS, easing: 'ease-out' },
-    );
+    const anim = el.animate([{ transform: `translateX(${startX})` }, { transform: 'translateX(0)' }], {
+      duration: ANIM_MS,
+      easing: 'ease-out',
+    });
 
     anim.addEventListener('finish', () => {
       animatingRef.current = false;
@@ -111,8 +105,14 @@ export function SwipeNavWrapper({
         if (Math.abs(deltaX) >= Math.abs(deltaY) * ANGLE_RATIO) {
           // Confirmed horizontal — check if there's a page to go to
           const idx = PAGES.indexOf(pathnameRef.current);
-          if (deltaX > 0 && idx === 0) { gestureRef.current = 'scrolling'; return; }
-          if (deltaX < 0 && idx === PAGES.length - 1) { gestureRef.current = 'scrolling'; return; }
+          if (deltaX > 0 && idx === 0) {
+            gestureRef.current = 'scrolling';
+            return;
+          }
+          if (deltaX < 0 && idx === PAGES.length - 1) {
+            gestureRef.current = 'scrolling';
+            return;
+          }
           gestureRef.current = 'swiping';
         } else {
           gestureRef.current = 'scrolling';
@@ -149,10 +149,11 @@ export function SwipeNavWrapper({
         prevPathnameRef.current = pathname;
 
         const finalX = direction === 'left' ? '-100%' : '100%';
-        const anim = el.animate(
-          [{ transform: `translateX(${delta}px)` }, { transform: `translateX(${finalX})` }],
-          { duration: ANIM_MS, easing: 'ease-in', fill: 'forwards' },
-        );
+        const anim = el.animate([{ transform: `translateX(${delta}px)` }, { transform: `translateX(${finalX})` }], {
+          duration: ANIM_MS,
+          easing: 'ease-in',
+          fill: 'forwards',
+        });
 
         anim.addEventListener('finish', () => router.push(target));
       } else {
@@ -175,10 +176,10 @@ export function SwipeNavWrapper({
     };
 
     const snapBack = (delta: number) => {
-      const anim = el.animate(
-        [{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }],
-        { duration: 200, easing: 'ease-out' },
-      );
+      const anim = el.animate([{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }], {
+        duration: 200,
+        easing: 'ease-out',
+      });
       // Clear the inline style when done, otherwise the element snaps back to
       // the inline translateX that was set during touchmove.
       anim.addEventListener('finish', () => {

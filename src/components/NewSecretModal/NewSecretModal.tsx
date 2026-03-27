@@ -137,7 +137,13 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your secret…" autoFocus />
+        <TiptapEditor
+          content={content}
+          onChange={setContent}
+          editable={true}
+          placeholder="Write your secret…"
+          autoFocus
+        />
       </NewModal>
 
       {showPassphrase && (

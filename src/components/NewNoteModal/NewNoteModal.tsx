@@ -91,7 +91,13 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        <TiptapEditor content={content} onChange={setContent} editable={true} placeholder="Write your note..." autoFocus />
+        <TiptapEditor
+          content={content}
+          onChange={setContent}
+          editable={true}
+          placeholder="Write your note..."
+          autoFocus
+        />
       </NewModal>
 
       {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
