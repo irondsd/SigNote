@@ -3,6 +3,7 @@
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { type EncryptedPayload } from '@/types/crypto';
+import { api } from '@/lib/api';
 import {
   cancelAndSnapshot,
   insertAtTop,
@@ -45,49 +46,23 @@ type UpdateSealInput = {
 const ROOT = 'seals';
 
 async function apiCreateSeal(input: CreateSealInput) {
-  const res = await fetch('/api/seals', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error('Failed to create seal');
-  return res.json() as Promise<CachedSealNote>;
+  return api.post('/api/seals', { json: input }).json<CachedSealNote>();
 }
 
 async function apiDeleteSeal(id: string) {
-  const res = await fetch(`/api/seals/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete seal');
-  return res.json();
+  return api.delete(`/api/seals/${id}`).json();
 }
 
 async function apiUndeleteSeal({ id }: { id: string; note: CachedSealNote }) {
-  const res = await fetch(`/api/seals/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deleted: false }),
-  });
-  if (!res.ok) throw new Error('Failed to undo delete');
-  return res.json();
+  return api.patch(`/api/seals/${id}`, { json: { deleted: false } }).json();
 }
 
 async function apiUpdateSeal({ id, ...data }: UpdateSealInput) {
-  const res = await fetch(`/api/seals/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update seal');
-  return res.json();
+  return api.patch(`/api/seals/${id}`, { json: data }).json();
 }
 
 async function apiPatchSeal(id: string, data: Partial<Omit<UpdateSealInput, 'id'>>) {
-  const res = await fetch(`/api/seals/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update seal');
-  return res.json() as Promise<CachedSealNote>;
+  return api.patch(`/api/seals/${id}`, { json: data }).json<CachedSealNote>();
 }
 
 /**

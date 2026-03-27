@@ -2,6 +2,7 @@
 
 import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 type Resource = 'notes' | 'secrets' | 'seals';
 
@@ -19,15 +20,8 @@ export function useReorder<T extends WithId>(resource: Resource) {
   const queryKey = resource;
 
   return useMutation({
-    mutationFn: async ({ id, position }: ReorderInput) => {
-      const res = await fetch(`/api/${queryKey}/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ position }),
-      });
-      if (!res.ok) throw new Error(`Failed to reorder ${resource}`);
-      return res.json();
-    },
+    mutationFn: ({ id, position }: ReorderInput) =>
+      api.patch(`/api/${queryKey}/${id}`, { json: { position } }).json(),
     onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: [queryKey] });
       const snapshots = qc.getQueriesData<InfiniteData<T[]>>({ queryKey: [queryKey] });

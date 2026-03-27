@@ -1,6 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
+import { Note } from '@/models/Note';
 
 type UseNotesProps = {
   archived?: boolean;
@@ -46,13 +48,7 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
       searchParams.set('limit', String(limit));
       searchParams.set('offset', String(offset));
 
-      const endpoint = `/api/notes?${searchParams.toString()}`;
-
-      const res = await fetch(endpoint);
-      if (!res.ok) {
-        throw new Error('Failed to fetch notes');
-      }
-      return res.json();
+      return api.get('/api/notes', { searchParams }).json<Note[]>();
     },
     getNextPageParam: (lastPage, allPages) => {
       // If the last page has fewer items than expected, there are no more pages

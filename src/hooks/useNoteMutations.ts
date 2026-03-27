@@ -2,6 +2,7 @@
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 import {
   cancelAndSnapshot,
   insertAtTop,
@@ -37,39 +38,19 @@ type UpdateNoteInput = {
 const ROOT = 'notes';
 
 async function apiCreateNote(input: CreateNoteInput) {
-  const res = await fetch('/api/notes', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error('Failed to create note');
-  return res.json();
+  return api.post('/api/notes', { json: input }).json();
 }
 
 async function apiDeleteNote(id: string) {
-  const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete note');
-  return res.json();
+  return api.delete(`/api/notes/${id}`).json();
 }
 
 async function apiUndeleteNote({ id }: { id: string; note: CachedNote }) {
-  const res = await fetch(`/api/notes/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deleted: false }),
-  });
-  if (!res.ok) throw new Error('Failed to undo delete');
-  return res.json();
+  return api.patch(`/api/notes/${id}`, { json: { deleted: false } }).json();
 }
 
 async function apiUpdateNote({ id, ...data }: UpdateNoteInput) {
-  const res = await fetch(`/api/notes/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update note');
-  return res.json();
+  return api.patch(`/api/notes/${id}`, { json: data }).json();
 }
 
 export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) => void }) => {

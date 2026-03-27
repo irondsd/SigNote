@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
+import { HTTPError } from 'ky';
+import { api } from '@/lib/api';
 import {
   clearDeviceShare,
   createKeyCheck,
@@ -55,9 +57,7 @@ type EncryptionContextValue = {
 // ─── Private helpers ─────────────────────────────────────────────────────────
 
 async function fetchMaterialRequest(): Promise<MaterialResponse> {
-  const res = await fetch('/api/encryption/material');
-  if (!res.ok) throw new Error('Failed to fetch encryption material');
-  return res.json();
+  return api.get('/api/encryption/material').json<MaterialResponse>();
 }
 
 async function reconstructMek(deviceShare: Uint8Array, material: MaterialResponse): Promise<CryptoKey | null> {
@@ -125,11 +125,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // Fetch the encryption profile (non-sensitive metadata)
   const { data: profileResponse, isLoading: profileLoading } = useQuery<ProfileResponse>({
     queryKey: ['encryption-profile'],
-    queryFn: async () => {
-      const res = await fetch('/api/encryption/profile');
-      if (!res.ok) throw new Error('Failed to fetch encryption profile');
-      return res.json();
-    },
+    queryFn: () => api.get('/api/encryption/profile').json<ProfileResponse>(),
     enabled: sessionStatus === 'authenticated',
     staleTime: Infinity, // profile rarely changes
   });
@@ -195,21 +191,16 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
       const keyCheck = await createKeyCheck(newMek);
 
-      const res = await fetch('/api/encryption/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          version: getEncVersion(),
-          serverShare: serverShareB64,
-          salt,
-          kdf: kdfParams,
-          keyCheck,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to create encryption profile');
+      try {
+        await api.post('/api/encryption/profile', {
+          json: { version: getEncVersion(), serverShare: serverShareB64, salt, kdf: kdfParams, keyCheck },
+        });
+      } catch (e) {
+        if (e instanceof HTTPError) {
+          const body = await e.response.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error || 'Failed to create encryption profile');
+        }
+        throw e;
       }
 
       saveDeviceShare(deviceShare);

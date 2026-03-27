@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { cn } from '@/utils/cn';
+import { api } from '@/lib/api';
 import { EthereumIcon } from '../EthereumIcon/EthereumIcon';
 import { Address, UserRejectedRequestError } from 'viem';
 
@@ -57,8 +58,7 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
   const doSign = async (address: Address) => {
     setStep('signing');
     try {
-      const nonceRes = await fetch('/api/auth/nonce');
-      const { nonce } = await nonceRes.json();
+      const { nonce } = await api.get('/api/auth/nonce').json<{ nonce: string }>();
 
       const message = new SiweMessage({
         domain: window.location.host,

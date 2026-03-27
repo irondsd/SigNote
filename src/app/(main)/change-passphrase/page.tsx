@@ -9,6 +9,8 @@ import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import s from './page.module.scss';
+import { HTTPError } from 'ky';
+import { api } from '@/lib/api';
 import {
   createKeyCheck,
   deriveDeviceShare,
@@ -70,13 +72,16 @@ export default function ChangePassphrasePage() {
     mekBytesRef.current = null;
     materialRef.current = null;
     try {
-      const res = await fetch('/api/encryption/material');
-      if (res.status === 404) {
-        router.replace('/');
-        return;
+      let material: Material;
+      try {
+        material = await api.get('/api/encryption/material').json<Material>();
+      } catch (e) {
+        if (e instanceof HTTPError && e.response.status === 404) {
+          router.replace('/');
+          return;
+        }
+        throw new Error('Failed to fetch material');
       }
-      if (!res.ok) throw new Error('Failed to fetch material');
-      const material: Material = await res.json();
       materialRef.current = material;
 
       const deviceShare = await deriveDeviceShare(oldPassphrase, material.salt, material.kdf);
@@ -151,15 +156,16 @@ export default function ChangePassphrasePage() {
       const mek = await importMEK(mekBytes);
       const newKeyCheck = await createKeyCheck(mek);
 
-      const res = await fetch('/api/encryption/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serverShare: newServerShareB64, salt: newSalt, keyCheck: newKeyCheck }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as { error?: string }).error || 'Failed to update passphrase.');
+      try {
+        await api.patch('/api/encryption/profile', {
+          json: { serverShare: newServerShareB64, salt: newSalt, keyCheck: newKeyCheck },
+        });
+      } catch (e) {
+        if (e instanceof HTTPError) {
+          const body = await e.response.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error || 'Failed to update passphrase.');
+        }
+        throw e;
       }
 
       saveDeviceShare(newDeviceShare);

@@ -1,6 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
+import { SealNote } from '@/models/SealNote';
 
 type UseSealsProps = {
   archived?: boolean;
@@ -40,9 +42,7 @@ export const useSeals = ({ archived, search = '' }: UseSealsProps) => {
       params.set('limit', String(limit));
       params.set('offset', String(offset));
 
-      const res = await fetch(`/api/seals?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch seals');
-      return res.json();
+      return api.get('/api/seals', { searchParams: params }).json<SealNote[]>();
     },
     getNextPageParam: (lastPage, allPages) => {
       if (allPages.length === 0) return undefined;

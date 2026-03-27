@@ -1,6 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { api } from '@/lib/api';
+import { SecretNote } from '@/models/SecretNote';
 
 type UseSecretsProps = {
   archived?: boolean;
@@ -40,9 +42,7 @@ export const useSecrets = ({ archived, search = '' }: UseSecretsProps) => {
       params.set('limit', String(limit));
       params.set('offset', String(offset));
 
-      const res = await fetch(`/api/secrets?${params.toString()}`);
-      if (!res.ok) throw new Error('Failed to fetch secrets');
-      return res.json();
+      return api.get('/api/secrets', { searchParams: params }).json<SecretNote[]>();
     },
     getNextPageParam: (lastPage, allPages) => {
       if (allPages.length === 0) return undefined;

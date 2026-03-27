@@ -3,6 +3,7 @@
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { type EncryptedPayload } from '@/types/crypto';
+import { api } from '@/lib/api';
 import {
   cancelAndSnapshot,
   insertAtTop,
@@ -38,39 +39,19 @@ type UpdateSecretInput = {
 const ROOT = 'secrets';
 
 async function apiCreateSecret(input: CreateSecretInput) {
-  const res = await fetch('/api/secrets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) throw new Error('Failed to create secret');
-  return res.json();
+  return api.post('/api/secrets', { json: input }).json();
 }
 
 async function apiDeleteSecret(id: string) {
-  const res = await fetch(`/api/secrets/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete secret');
-  return res.json();
+  return api.delete(`/api/secrets/${id}`).json();
 }
 
 async function apiUndeleteSecret({ id }: { id: string; note: CachedSecretNote }) {
-  const res = await fetch(`/api/secrets/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deleted: false }),
-  });
-  if (!res.ok) throw new Error('Failed to undo delete');
-  return res.json();
+  return api.patch(`/api/secrets/${id}`, { json: { deleted: false } }).json();
 }
 
 async function apiUpdateSecret({ id, ...data }: UpdateSecretInput) {
-  const res = await fetch(`/api/secrets/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update secret');
-  return res.json();
+  return api.patch(`/api/secrets/${id}`, { json: data }).json();
 }
 
 export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
