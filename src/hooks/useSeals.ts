@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
-import { SealNote } from '@/models/SealNote';
+import { CachedSealNote } from './useSealMutations';
 
 type UseSealsProps = {
   archived?: boolean;
@@ -42,7 +42,7 @@ export const useSeals = ({ archived, search = '' }: UseSealsProps) => {
       params.set('limit', String(limit));
       params.set('offset', String(offset));
 
-      return api.get('/api/seals', { searchParams: params }).json<SealNote[]>();
+      return api.get('/api/seals', { searchParams: params }).json<CachedSealNote[]>();
     },
     getNextPageParam: (lastPage, allPages) => {
       if (allPages.length === 0) return undefined;

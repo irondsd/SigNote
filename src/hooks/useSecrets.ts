@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
-import { SecretNote } from '@/models/SecretNote';
+import { CachedSecretNote } from './useSecretMutations';
 
 type UseSecretsProps = {
   archived?: boolean;
@@ -42,7 +42,7 @@ export const useSecrets = ({ archived, search = '' }: UseSecretsProps) => {
       params.set('limit', String(limit));
       params.set('offset', String(offset));
 
-      return api.get('/api/secrets', { searchParams: params }).json<SecretNote[]>();
+      return api.get('/api/secrets', { searchParams: params }).json<CachedSecretNote[]>();
     },
     getNextPageParam: (lastPage, allPages) => {
       if (allPages.length === 0) return undefined;
