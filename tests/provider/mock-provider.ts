@@ -27,6 +27,10 @@ let walletClient = createWalletClient({
   transport: http(RPC_URL),
 });
 
+// Tracks whether the site has been granted access to accounts (EIP-1193).
+// eth_accounts returns [] until authorized; eth_requestAccounts sets this flag.
+let authorized = false;
+
 // Methods that should reject on the next call
 const rejectMethods = new Set<string>();
 
@@ -38,8 +42,10 @@ const mockProvider = {
   // Event listeners, required by EIP-1193
   events: new Map<string, Array<(data: unknown) => void>>(),
 
-  // Custom method to change the account
-  setPrivateKey(newPrivateKey: `0x${string}`) {
+  // Custom method to change the account.
+  // When silent=false (default), emits accountsChanged and marks the site as authorized.
+  // When silent=true, only updates the key — no event and no authorization change.
+  setPrivateKey(newPrivateKey: `0x${string}`, silent = false) {
     currentPrivateKey = newPrivateKey;
     account = privateKeyToAccount(currentPrivateKey);
     walletClient = createWalletClient({
@@ -48,7 +54,10 @@ const mockProvider = {
       transport: http(RPC_URL),
     });
     console.log('E2E Provider: Account changed to:', account.address);
-    this.emit('accountsChanged', [account.address]);
+    if (!silent) {
+      authorized = true;
+      this.emit('accountsChanged', [account.address]);
+    }
   },
 
   // Getter for current account address
@@ -75,8 +84,14 @@ const mockProvider = {
 
     const requestParams = Array.isArray(params) ? params : [];
 
-    // Handle 'eth_requestAccounts' and 'eth_accounts'
-    if (method === 'eth_requestAccounts' || method === 'eth_accounts') {
+    // eth_accounts: returns the authorized address, or [] if not yet authorized (EIP-1193)
+    if (method === 'eth_accounts') {
+      return authorized ? [walletClient.account.address] : [];
+    }
+
+    // eth_requestAccounts: grants access and returns the address
+    if (method === 'eth_requestAccounts') {
+      authorized = true;
       return [walletClient.account.address];
     }
 
