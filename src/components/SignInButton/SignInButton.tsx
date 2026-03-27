@@ -31,20 +31,19 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
   const pendingSign = useRef(false);
   const modalWasOpen = useRef(false);
 
-  // Reset to idle when the connect modal is closed without completing the connection
   useEffect(() => {
     if (connectModalOpen) {
       modalWasOpen.current = true;
       return;
     }
-    if (modalWasOpen.current) {
+    if (modalWasOpen.current && !isConnected) {
       modalWasOpen.current = false;
-      if (step === 'connecting' && !isConnected) {
-        pendingSign.current = false;
-        setStep('idle');
-      }
+      pendingSign.current = false;
+      queueMicrotask(() => {
+        setStep((currentStep) => (currentStep === 'connecting' ? 'idle' : currentStep));
+      });
     }
-  }, [connectModalOpen, step, isConnected]);
+  }, [connectModalOpen, isConnected]);
 
   useAccountEffect({
     onConnect({ address: connectedAddress }) {
