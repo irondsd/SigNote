@@ -51,6 +51,65 @@ test.describe('connect wallet', () => {
     await expect(page.getByText('Welcome to SigNote')).not.toBeVisible();
   });
 
+  test('should reset button when signature request is rejected', async ({ page }) => {
+    // Set rejection BEFORE clicking sign-in so it is guaranteed to be in place
+    // before personal_sign fires, regardless of whether auto-connect or the modal path runs.
+    await page.evaluate(() => {
+      window.ethereum.setRejectNextRequest('personal_sign');
+    });
+
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    // Non-blocking: if the modal appears click Browser Wallet to trigger the SIWE flow.
+    // In the auto-connect path the modal never appears and personal_sign is rejected automatically.
+    page
+      .waitForSelector('[aria-labelledby="rk_connect_title"]', { timeout: 8000 })
+      .then(() =>
+        page.waitForFunction(() => {
+          const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
+          const buttons = modal?.querySelectorAll('button');
+          for (const btn of buttons || []) {
+            if (btn.textContent?.includes('Browser Wallet')) {
+              btn.scrollIntoView();
+              btn.click();
+              return true;
+            }
+          }
+          return false;
+        }),
+      )
+      .catch(() => {
+        // Auto-connect path — modal never appeared; rejection fires automatically.
+      });
+
+    // After rejection the button must return to idle (enabled, original label)
+    await expect(signInButton).toBeEnabled({ timeout: 15000 });
+    await expect(signInButton).toContainText('Sign in with Ethereum');
+    // User should not be signed in
+    await expect(page.getByTestId('wallet-address').first()).not.toBeVisible();
+  });
+
+  test('should close modal and reset button when close button is clicked', async ({ page }) => {
+    const signInButton = page.getByTestId('sign-in-button').first();
+    await signInButton.click();
+
+    // Wait for the RainbowKit connect modal to appear (full page timeout, not assertion timeout)
+    const modal = page.locator('[aria-labelledby="rk_connect_title"]');
+    await modal.waitFor({ state: 'visible' });
+
+    // Click the modal's close button (the X)
+    const closeBtn = modal.locator('[aria-label="Close"]');
+    await closeBtn.click({ force: true }); // force in case the button is not stable. Fails without it
+
+    // Modal must disappear
+    await expect(modal).not.toBeVisible();
+
+    // Button must return to idle (enabled, original label)
+    await expect(signInButton).toBeEnabled();
+    await expect(signInButton).toContainText('Sign in with Ethereum');
+  });
+
   test('should sign out and return to unauthenticated state', async ({ page }) => {
     const signInButton = page.getByTestId('sign-in-button').first();
     await signInButton.click();
