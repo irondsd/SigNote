@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useProfile } from '@/hooks/useProfile';
 import useCopy from '@/hooks/useCopy';
 import s from './page.module.scss';
+import Link from 'next/link';
 
 function StatItem({
   icon: Icon,
@@ -100,10 +101,24 @@ export default function ProfilePage() {
                 <span className={s.actionLabel}>Passphrase</span>
                 <span className={s.actionDesc}>Change the passphrase used to protect your secrets and seals.</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => router.push('/change-passphrase')}>
-                <KeyRound size={14} />
-                Change
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={profile?.hasEncryptionProfile ? undefined : 0} className={s.tooltipWrapper}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!profile?.hasEncryptionProfile}
+                      onClick={() => router.push('/change-passphrase')}
+                    >
+                      <KeyRound size={14} />
+                      Change
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!profile?.hasEncryptionProfile && (
+                  <TooltipContent side="left">No encryption profile set up</TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </CardContent>
         </Card>
@@ -151,10 +166,12 @@ export default function ProfilePage() {
                   Permanently deletes your account and all associated data including notes, secrets, and seals.
                 </span>
               </div>
-              <Button variant="destructive" size="sm">
-                <Trash2 size={14} />
-                Delete
-              </Button>
+              <Link href="/erase">
+                <Button variant="destructive" size="sm">
+                  <Trash2 size={14} />
+                  Delete
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

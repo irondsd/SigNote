@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import s from './page.module.scss';
 import { HTTPError } from 'ky';
 import { api } from '@/lib/api';
+import { useProfile } from '@/hooks/useProfile';
 import {
   createKeyCheck,
   deriveDeviceShare,
@@ -33,11 +34,16 @@ type Material = {
 export default function ChangePassphrasePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { data: profile, isLoading: profileLoading } = useProfile();
   const oldPassphraseInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
   }, [status, router]);
+
+  useEffect(() => {
+    if (!profileLoading && profile && !profile.hasEncryptionProfile) router.replace('/secrets');
+  }, [profileLoading, profile, router]);
 
   const [screen, setScreen] = useState<'form' | 'success'>('form');
 
@@ -77,7 +83,7 @@ export default function ChangePassphrasePage() {
         material = await api.get('/api/encryption/material').json<Material>();
       } catch (e) {
         if (e instanceof HTTPError && e.response.status === 404) {
-          router.replace('/');
+          router.replace('/secrets');
           return;
         }
         throw new Error('Failed to fetch material');
