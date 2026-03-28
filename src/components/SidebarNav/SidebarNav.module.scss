@@ -115,16 +115,30 @@
 .walletRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
   background: var(--muted);
   border-radius: 8px;
+  overflow: hidden;
+  padding-right: 4px;
 }
 
-.walletInfo {
+.walletLink {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 6px 8px 10px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 6px 0 0 6px;
+  transition:
+    background 0.15s,
+    color 0.15s;
+
+  &:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
 }
 
 @keyframes pulse {

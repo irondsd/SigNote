@@ -77,12 +77,12 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         <div className={s.authSection}>
           {address ? (
             <div className={s.walletRow}>
-              <div className={s.walletInfo}>
+              <Link href="/profile" className={s.walletLink} onClick={onNavClick}>
                 <div className={s.walletDot} />
                 <span data-testid="wallet-address" className={s.walletAddress}>
                   {ensName ?? shortenAddress(address)}
                 </span>
-              </div>
+              </Link>
               <Button
                 data-testid="sign-out-button"
                 variant="ghost"

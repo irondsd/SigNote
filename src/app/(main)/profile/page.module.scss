@@ -1,0 +1,129 @@
+.container {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  flex: 1;
+}
+
+.content {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+// Overview card
+.overviewBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.address {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-mono), monospace;
+  color: var(--foreground);
+  word-break: break-all;
+  flex: 1;
+}
+
+.joinedDate {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+// Stats grid
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 8px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.statIcon {
+  color: var(--muted-foreground);
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+// Action rows (security + danger)
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.actionInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.actionLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.actionDesc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+// Danger zone
+.dangerCard {
+  ring: 1px solid;
+  outline: 1.5px solid color-mix(in oklch, var(--destructive) 35%, transparent);
+  outline-offset: -1.5px;
+}
+
+.dangerTitle {
+  color: var(--destructive);
+}
+
+.dangerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.tooltipWrapper {
+  display: inline-flex;
+  flex-shrink: 0;
+}
