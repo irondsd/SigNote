@@ -11,11 +11,23 @@ import { useProfile } from '@/hooks/useProfile';
 import useCopy from '@/hooks/useCopy';
 import s from './page.module.scss';
 
-function StatItem({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number | undefined }) {
+function StatItem({
+  icon: Icon,
+  label,
+  value,
+  testId,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number | undefined;
+  testId: string;
+}) {
   return (
     <div className={s.statItem}>
       <Icon size={20} strokeWidth={1.6} className={s.statIcon} />
-      <span className={s.statValue}>{value ?? '—'}</span>
+      <span className={s.statValue} data-testid={testId}>
+        {value ?? '—'}
+      </span>
       <span className={s.statLabel}>{label}</span>
     </div>
   );
@@ -47,7 +59,9 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className={s.overviewBody}>
             <div className={s.addressRow}>
-              <span className={s.address}>{profile?.address ?? session.user.address}</span>
+              <span data-testid="profile-address" className={s.address}>
+                {profile?.address ?? session.user.address}
+              </span>
               <Button variant="ghost" size="icon-xs" onClick={copy} title="Copy address" disabled={!profile?.address}>
                 {isCopied ? <Check size={14} /> : <Copy size={14} />}
               </Button>
@@ -68,9 +82,9 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <div className={s.statsGrid}>
-              <StatItem icon={NotebookText} label="Notes" value={profile?.notesCount} />
-              <StatItem icon={SquareAsterisk} label="Secrets" value={profile?.secretsCount} />
-              <StatItem icon={BookLock} label="Seals" value={profile?.sealsCount} />
+              <StatItem icon={NotebookText} label="Notes" value={profile?.notesCount} testId="notes-count" />
+              <StatItem icon={SquareAsterisk} label="Secrets" value={profile?.secretsCount} testId="secrets-count" />
+              <StatItem icon={BookLock} label="Seals" value={profile?.sealsCount} testId="seals-count" />
             </div>
           </CardContent>
         </Card>
@@ -112,6 +126,7 @@ export default function ProfilePage() {
                 <TooltipTrigger asChild>
                   <span tabIndex={profile?.hasEncryptionProfile ? undefined : 0} className={s.tooltipWrapper}>
                     <Button
+                      data-testid="erase-profile-btn"
                       variant="destructive"
                       size="sm"
                       disabled={!profile?.hasEncryptionProfile}

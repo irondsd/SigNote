@@ -12,6 +12,7 @@ export type SeedNote = {
   content?: string;
   archived?: boolean;
   color?: NoteColor | null;
+  deletedAt?: Date | null;
 };
 
 export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<NoteDocument[]> => {
@@ -40,7 +41,7 @@ export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<No
       position,
       createdAt: now,
       updatedAt: now,
-      deletedAt: null,
+      deletedAt: note.deletedAt !== undefined ? note.deletedAt : null,
     });
     created.push(doc);
     position += POSITION_STEP;

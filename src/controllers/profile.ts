@@ -8,7 +8,10 @@ import { EncryptionProfileModel } from '@/models/EncryptionProfile';
 
 export const getProfileData = async (address: Address) => {
   const [user, notesCount, secretsCount, sealsCount, encryptionProfileExists] = await Promise.all([
-    UserModel.findOne({ addressLower: address.toLowerCase() }).select({ addressChecksum: 1, createdAt: 1 }).lean().exec(),
+    UserModel.findOne({ addressLower: address.toLowerCase() })
+      .select({ addressChecksum: 1, createdAt: 1 })
+      .lean()
+      .exec(),
     NoteModel.countDocuments({ address, deletedAt: null }),
     SecretNoteModel.countDocuments({ address, deletedAt: null }),
     SealNoteModel.countDocuments({ address, deletedAt: null }),
