@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { EraseFlow } from '@/components/erase/EraseFlow';
 import s from '@/components/erase/EraseFlow.module.scss';
 
@@ -24,6 +25,7 @@ const EXPLANATION = (
 export default function EraseEncryptionPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -43,7 +45,12 @@ export default function EraseEncryptionPage() {
       steps={STEPS}
       doneTitle="Encryption profile erased"
       doneDesc="Your encrypted data has been removed. You can set up a new encryption profile from your profile page."
-      onDone={() => router.push('/profile')}
+      onDone={() => {
+        void qc.invalidateQueries({ queryKey: ['profile'] });
+        void qc.invalidateQueries({ queryKey: ['secrets'] });
+        void qc.invalidateQueries({ queryKey: ['seals'] });
+        router.push('/profile');
+      }}
     />
   );
 }
