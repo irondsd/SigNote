@@ -15,7 +15,7 @@ export const getProfileData = async (address: Address) => {
     NoteModel.countDocuments({ address, deletedAt: null }),
     SecretNoteModel.countDocuments({ address, deletedAt: null }),
     SealNoteModel.countDocuments({ address, deletedAt: null }),
-    EncryptionProfileModel.exists({ walletAddress: address.toLowerCase() }),
+    EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() }).select({ createdAt: 1 }).lean().exec(),
   ]);
 
   if (!user) return null;
@@ -27,5 +27,6 @@ export const getProfileData = async (address: Address) => {
     secretsCount,
     sealsCount,
     hasEncryptionProfile: encryptionProfileExists !== null,
+    encryptionProfileCreatedAt: encryptionProfileExists?.createdAt ?? null,
   };
 };

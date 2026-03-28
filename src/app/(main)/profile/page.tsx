@@ -3,7 +3,17 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Check, Copy, KeyRound, NotebookText, BookLock, SquareAsterisk, Trash2, ShieldOff } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  KeyRound,
+  NotebookText,
+  BookLock,
+  SquareAsterisk,
+  Trash2,
+  ShieldOff,
+  ShieldCheck,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -50,6 +60,14 @@ export default function ProfilePage() {
     ? new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : null;
 
+  const encryptionSetupDate = profile?.encryptionProfileCreatedAt
+    ? new Date(profile.encryptionProfileCreatedAt).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null;
+
   return (
     <div className={s.container}>
       <div className={s.content}>
@@ -93,9 +111,34 @@ export default function ProfilePage() {
         {/* Security */}
         <Card>
           <CardHeader>
-            <CardTitle>Security</CardTitle>
+            <CardTitle>Encryption</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={s.securityBody}>
+            <div className={s.encryptionStatus}>
+              {encryptionSetupDate ? (
+                <ShieldCheck size={16} className={s.encryptionSetupIcon} />
+              ) : (
+                <ShieldOff size={16} className={s.encryptionOffIcon} />
+              )}
+              <div className={s.encryptionStatusInfo}>
+                <span className={s.actionLabel}>Encryption profile</span>
+                {encryptionSetupDate ? (
+                  <span className={s.actionDesc}>
+                    Set up on <strong>{encryptionSetupDate}</strong>
+                  </span>
+                ) : (
+                  <span className={s.actionDesc}>
+                    Not set up ·{' '}
+                    <Link href="/secrets" className={s.setupLink}>
+                      Set up →
+                    </Link>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={s.divider} />
+
             <div className={s.actionRow}>
               <div className={s.actionInfo}>
                 <span className={s.actionLabel}>Passphrase</span>

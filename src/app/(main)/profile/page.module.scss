@@ -77,6 +77,40 @@
   font-weight: 500;
 }
 
+// Security card
+.securityBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.encryptionStatus {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.encryptionStatusInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.encryptionSetupIcon {
+  color: oklch(0.6 0.15 150);
+  flex-shrink: 0;
+}
+
+.encryptionOffIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.setupLink {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 // Action rows (security + danger)
 .actionRow {
   display: flex;

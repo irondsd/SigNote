@@ -76,10 +76,7 @@ test.describe('statistics', () => {
   test('does not count soft-deleted notes', async ({ page }) => {
     const { account } = await setup(page);
 
-    await seedNotes(account.address, [
-      { title: 'Visible note' },
-      { title: 'Deleted note', deletedAt: new Date() },
-    ]);
+    await seedNotes(account.address, [{ title: 'Visible note' }, { title: 'Deleted note', deletedAt: new Date() }]);
 
     await page.goto('/profile');
 

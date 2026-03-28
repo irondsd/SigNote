@@ -15,10 +15,10 @@ const STEPS = [
 
 const EXPLANATION = (
   <p className={s.explanationText}>
-    Your secrets and seals are encrypted using a key derived from your passphrase. Without the
-    correct passphrase, they <strong>cannot be decrypted</strong> — not by you, not by us. If you
-    have forgotten your passphrase, erasing the encryption profile lets you start fresh.{' '}
-    <strong>Your regular notes will not be affected.</strong> This cannot be undone.
+    Your secrets and seals are encrypted using a key derived from your passphrase. Without the correct passphrase, they{' '}
+    <strong>cannot be decrypted</strong> — not by you, not by us. If you have forgotten your passphrase, erasing the
+    encryption profile lets you start fresh. <strong>Your regular notes will not be affected.</strong> This cannot be
+    undone.
   </p>
 );
 

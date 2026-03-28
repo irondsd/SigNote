@@ -9,6 +9,7 @@ export type ProfileData = {
   secretsCount: number;
   sealsCount: number;
   hasEncryptionProfile: boolean;
+  encryptionProfileCreatedAt: string | null;
 };
 
 export const useProfile = () => {

@@ -87,11 +87,11 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
                 data-testid="sign-out-button"
                 variant="ghost"
                 size="icon-xs"
-                className="hover:bg-destructive hover:text-white"
+                className="h-8 hover:bg-destructive hover:text-white"
                 onClick={handleSignOut}
                 title="Sign out"
               >
-                <LogOut size={15} />
+                <LogOut size={24} />
               </Button>
             </div>
           ) : (

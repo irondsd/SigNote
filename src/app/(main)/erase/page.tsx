@@ -11,15 +11,19 @@ const STEPS = [
   { key: 'seals', label: 'Seals', endpoint: '/api/erase/seals', requiresEncryptionProfile: true },
   { key: 'secrets', label: 'Secrets', endpoint: '/api/erase/secrets', requiresEncryptionProfile: true },
   { key: 'notes', label: 'Notes', endpoint: '/api/erase/notes', requiresEncryptionProfile: false },
-  { key: 'encryption', label: 'Encryption Profile', endpoint: '/api/erase/encryption', requiresEncryptionProfile: true },
+  {
+    key: 'encryption',
+    label: 'Encryption Profile',
+    endpoint: '/api/erase/encryption',
+    requiresEncryptionProfile: true,
+  },
   { key: 'account', label: 'User Account', endpoint: '/api/erase/account', requiresEncryptionProfile: false },
 ];
 
 const EXPLANATION = (
   <p className={s.explanationText}>
-    This will permanently delete <strong>all data</strong> associated with your account — notes,
-    secrets, seals, your encryption profile, and your account itself.{' '}
-    <strong>This cannot be undone.</strong>
+    This will permanently delete <strong>all data</strong> associated with your account — notes, secrets, seals, your
+    encryption profile, and your account itself. <strong>This cannot be undone.</strong>
   </p>
 );
 
