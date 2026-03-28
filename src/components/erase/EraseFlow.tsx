@@ -4,13 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import { SiweMessage } from 'siwe';
 import { UserRejectedRequestError } from 'viem';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,7 +54,7 @@ export function EraseFlow({
 
   useEffect(() => {
     if (phase !== 'done') return;
-    const timer = setTimeout(onDone, 3000);
+    const timer = setTimeout(onDone, 10000);
     return () => clearTimeout(timer);
   }, [phase, onDone]);
 
@@ -96,12 +90,8 @@ export function EraseFlow({
       setEraseToken(token);
 
       if (!hasEncryptionProfile) {
-        const skipKeys = new Set(
-          stepConfigs.filter((c) => c.requiresEncryptionProfile).map((c) => c.key),
-        );
-        setSteps((prev) =>
-          prev.map((step) => (skipKeys.has(step.key) ? { ...step, status: 'skipped' } : step)),
-        );
+        const skipKeys = new Set(stepConfigs.filter((c) => c.requiresEncryptionProfile).map((c) => c.key));
+        setSteps((prev) => prev.map((step) => (skipKeys.has(step.key) ? { ...step, status: 'skipped' } : step)));
       }
 
       setPhase('ready');
@@ -189,9 +179,7 @@ export function EraseFlow({
 
                 {(phase === 'warning' || phase === 'signing') && (
                   <div className={s.signSection}>
-                    <p className={s.signLabel}>
-                      Sign the following message with your wallet to prove intent:
-                    </p>
+                    <p className={s.signLabel}>Sign the following message with your wallet to prove intent:</p>
                     <pre className={s.messagePreview}>{statement}</pre>
                     {signingError && <p className={s.errorText}>{signingError}</p>}
                     <Button
