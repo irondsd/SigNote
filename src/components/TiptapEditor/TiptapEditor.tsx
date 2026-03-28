@@ -32,7 +32,7 @@ export function TiptapEditor({ content, onChange, editable, placeholder, autoFoc
     immediatelyRender: false,
     autofocus: autoFocus ? 'end' : false,
     extensions: [
-      StarterKit.configure({ codeBlock: false }),
+      StarterKit.configure({ codeBlock: false, link: false }),
       CustomCodeBlock,
       Link.configure({ openOnClick: true, autolink: true }),
       TaskList,
