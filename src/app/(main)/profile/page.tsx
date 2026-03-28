@@ -140,15 +140,17 @@ export default function ProfilePage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={profile?.hasEncryptionProfile ? undefined : 0} className={s.tooltipWrapper}>
-                    <Button
-                      data-testid="erase-profile-btn"
-                      variant="destructive"
-                      size="sm"
-                      disabled={!profile?.hasEncryptionProfile}
-                    >
-                      <ShieldOff size={14} />
-                      Erase
-                    </Button>
+                    <Link href="/erase-encryption">
+                      <Button
+                        data-testid="erase-profile-btn"
+                        variant="destructive"
+                        size="sm"
+                        disabled={!profile?.hasEncryptionProfile}
+                      >
+                        <ShieldOff size={14} />
+                        Erase
+                      </Button>
+                    </Link>
                   </span>
                 </TooltipTrigger>
                 {!profile?.hasEncryptionProfile && (

@@ -8,6 +8,7 @@ import { getMongoClientFromMongoose } from '@/utils/mongoose';
 import { attachDatabasePool } from '@vercel/functions';
 
 export const ERASE_ALL_SCOPE = 'erase-all';
+export const ERASE_ENCRYPTION_SCOPE = 'erase-encryption';
 
 export interface EraseTokenPayload {
   address: string;
@@ -23,7 +24,7 @@ export function issueEraseToken(address: Address, scope: string): string {
 type EraseHandler = (req: NextRequest, address: Address) => Promise<NextResponse>;
 
 export function withEraseAuth(
-  expectedScope: string,
+  expectedScope: string | string[],
   handler: EraseHandler,
 ): (req: NextRequest) => Promise<NextResponse> {
   return async (req) => {
@@ -48,7 +49,8 @@ export function withEraseAuth(
       return NextResponse.json({ error: 'Invalid or expired erase token' }, { status: 401 });
     }
 
-    if (payload.scope !== expectedScope) {
+    const validScopes = Array.isArray(expectedScope) ? expectedScope : [expectedScope];
+    if (!validScopes.includes(payload.scope)) {
       return NextResponse.json({ error: 'Invalid token scope' }, { status: 403 });
     }
 
