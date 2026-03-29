@@ -141,8 +141,22 @@ test.describe('navigation', () => {
     await expect(page).toHaveURL('/profile');
   });
 
-  test('change passphrase button navigates to /change-passphrase', async ({ page }) => {
+  test('change passphrase button is disabled without encryption profile', async ({ page }) => {
     await setup(page);
+    await page.goto('/profile');
+
+    await expect(page.getByRole('button', { name: 'Change' })).toBeDisabled();
+  });
+
+  test('change passphrase button navigates to /change-passphrase when profile is set up', async ({ page }) => {
+    const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
+    const { privateKey, account } = makeAccount();
+    await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+
+    await mockProvider(page);
+    await page.goto('/');
+    await changeAccount(page, privateKey);
+    await signIn(page);
     await page.goto('/profile');
 
     await page.getByRole('button', { name: 'Change' }).click();
