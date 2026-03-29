@@ -7,6 +7,7 @@ import {
   Check,
   Copy,
   KeyRound,
+  Loader2,
   NotebookText,
   BookLock,
   SquareAsterisk,
@@ -27,17 +28,19 @@ function StatItem({
   label,
   value,
   testId,
+  isLoading,
 }: {
   icon: React.ElementType;
   label: string;
   value: number | undefined;
   testId: string;
+  isLoading?: boolean;
 }) {
   return (
     <div className={s.statItem}>
       <Icon size={20} strokeWidth={1.6} className={s.statIcon} />
       <span className={s.statValue} data-testid={testId}>
-        {value ?? '—'}
+        {isLoading && value === undefined ? <Loader2 size={20} className={s.spinner} /> : (value ?? '—')}
       </span>
       <span className={s.statLabel}>{label}</span>
     </div>
@@ -90,7 +93,7 @@ export default function ProfilePage() {
                 Member since <strong>{joinedDate}</strong>
               </p>
             )}
-            {isLoading && !joinedDate && <p className={s.joinedDate}>Loading…</p>}
+            {isLoading && !joinedDate && <div className={`${s.skeleton} ${s.skeletonJoinedDate}`} />}
           </CardContent>
         </Card>
 
@@ -101,9 +104,27 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <div className={s.statsGrid}>
-              <StatItem icon={NotebookText} label="Notes" value={profile?.notesCount} testId="notes-count" />
-              <StatItem icon={SquareAsterisk} label="Secrets" value={profile?.secretsCount} testId="secrets-count" />
-              <StatItem icon={BookLock} label="Seals" value={profile?.sealsCount} testId="seals-count" />
+              <StatItem
+                icon={NotebookText}
+                label="Notes"
+                value={profile?.notesCount}
+                testId="notes-count"
+                isLoading={isLoading}
+              />
+              <StatItem
+                icon={SquareAsterisk}
+                label="Secrets"
+                value={profile?.secretsCount}
+                testId="secrets-count"
+                isLoading={isLoading}
+              />
+              <StatItem
+                icon={BookLock}
+                label="Seals"
+                value={profile?.sealsCount}
+                testId="seals-count"
+                isLoading={isLoading}
+              />
             </div>
           </CardContent>
         </Card>
@@ -114,28 +135,38 @@ export default function ProfilePage() {
             <CardTitle>Encryption</CardTitle>
           </CardHeader>
           <CardContent className={s.securityBody}>
-            <div className={s.encryptionStatus}>
-              {encryptionSetupDate ? (
-                <ShieldCheck size={16} className={s.encryptionSetupIcon} />
-              ) : (
-                <ShieldOff size={16} className={s.encryptionOffIcon} />
-              )}
-              <div className={s.encryptionStatusInfo}>
-                <span className={s.actionLabel}>Encryption profile</span>
-                {encryptionSetupDate ? (
-                  <span className={s.actionDesc}>
-                    Set up on <strong>{encryptionSetupDate}</strong>
-                  </span>
-                ) : (
-                  <span className={s.actionDesc}>
-                    Not set up ·{' '}
-                    <Link href="/secrets" className={s.setupLink}>
-                      Set up →
-                    </Link>
-                  </span>
-                )}
+            {isLoading ? (
+              <div className={s.encryptionStatus}>
+                <div className={`${s.skeleton} ${s.skeletonIcon}`} />
+                <div className={s.encryptionStatusInfo}>
+                  <div className={`${s.skeleton} ${s.skeletonLabelSm}`} />
+                  <div className={`${s.skeleton} ${s.skeletonDescSm}`} />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className={s.encryptionStatus}>
+                {encryptionSetupDate ? (
+                  <ShieldCheck size={16} className={s.encryptionSetupIcon} />
+                ) : (
+                  <ShieldOff size={16} className={s.encryptionOffIcon} />
+                )}
+                <div className={s.encryptionStatusInfo}>
+                  <span className={s.actionLabel}>Encryption profile</span>
+                  {encryptionSetupDate ? (
+                    <span className={s.actionDesc}>
+                      Set up on <strong>{encryptionSetupDate}</strong>
+                    </span>
+                  ) : (
+                    <span className={s.actionDesc}>
+                      Not set up ·{' '}
+                      <Link href="/secrets" className={s.setupLink}>
+                        Set up →
+                      </Link>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className={s.divider} />
 
