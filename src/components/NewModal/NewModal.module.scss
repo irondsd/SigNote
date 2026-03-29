@@ -10,7 +10,7 @@
   font-size: 17px;
   font-weight: 700;
   margin: 0;
-  color: var(--popover-foreground);
+  color: var(--card-foreground);
 }
 
 .body {
@@ -30,7 +30,7 @@
   border: none;
   border-bottom: 1px solid var(--border);
   outline: none;
-  color: var(--popover-foreground);
+  color: var(--card-foreground);
   padding: 6px 0;
   font-family: inherit;
 
