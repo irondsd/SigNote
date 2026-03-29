@@ -1,11 +1,11 @@
 @keyframes cardIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    translate: 0 12px;
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    translate: 0 0;
   }
 }
 
@@ -24,36 +24,38 @@
   cursor: pointer;
   text-align: left;
   height: 100%;
+  transform: scale(1);
   animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s,
-    transform 0.15s;
+  transition: transform 0.2s ease;
 
   &:hover {
-    border-color: var(--ring);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    transform: scale(1.02);
   }
 }
 
 .colorYellow {
   --note-card-bg: var(--note-yellow);
+  border: none;
 }
 .colorRed {
   --note-card-bg: var(--note-red);
+  border: none;
 }
 .colorBlue {
   --note-card-bg: var(--note-blue);
+  border: none;
 }
 .colorGreen {
   --note-card-bg: var(--note-green);
+  border: none;
 }
 .colorClay {
   --note-card-bg: var(--note-clay);
+  border: none;
 }
 .colorGray {
   --note-card-bg: var(--note-gray);
+  border: none;
 }
 
 .title {
