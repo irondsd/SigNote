@@ -11,14 +11,7 @@ export const Logo: FC<LogoProps> = ({ className }) => {
   return (
     <Link href="/" className={className}>
       <div className={s.logo}>
-        <Image
-          className={s.logoIcon}
-          src="/images/logo.svg"
-          alt="SigNote"
-          width={32}
-          height={32}
-          style={{ width: 'auto' }}
-        />
+        <Image className={s.logoIcon} src="/images/logo.svg" alt="SigNote" width={'19'} height={'32'} />
         <span className={s.logoText}>SigNote</span>
       </div>
     </Link>
