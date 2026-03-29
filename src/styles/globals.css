@@ -54,7 +54,7 @@
   --note-blue: oklch(0.95 0.04 250);
   --note-green: oklch(0.95 0.05 148);
   --note-clay: oklch(0.94 0.04 55);
-  --note-gray: oklch(0.93 0 0);
+  --note-gray: oklch(0.97 0 0);
   --code-bg: oklch(80% 0.00008 270 / 0.2);
   --gradient-blob-1: oklch(0.67 0.16 58 / 0.09);
   --gradient-blob-2: oklch(0.67 0.16 58 / 0.05);
@@ -98,9 +98,9 @@
   --note-blue: oklch(0.26 0.06 250);
   --note-green: oklch(0.27 0.06 148);
   --note-clay: oklch(0.28 0.05 55);
-  --note-gray: oklch(34% 0 0);
-  --code-bg: oklch(50% 0.00006 270 / 0.2);
-  --background: oklch(0.145 0 0);
+  --note-gray: oklch(33% 0 0);
+  --code-bg: oklch(50% 0 270 / 0.2);
+  --background: oklch(0% 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -141,9 +141,9 @@
   }
   body {
     background-color: var(--color-background);
-    background-image:
+    /* background-image:
       radial-gradient(ellipse 90% 70% at 80% -5%, var(--gradient-blob-1) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 55% at 5% 105%, var(--gradient-blob-2) 0%, transparent 70%);
+      radial-gradient(ellipse 60% 55% at 5% 105%, var(--gradient-blob-2) 0%, transparent 70%); */
     background-attachment: fixed;
     color: var(--color-foreground);
   }
