@@ -48,8 +48,7 @@
   text-decoration: none;
   transition:
     background 0.15s,
-    color 0.15s,
-    box-shadow 0.5s;
+    color 0.15s;
 
   &:hover {
     background: var(--accent);
@@ -61,7 +60,6 @@
   background: var(--accent);
   color: var(--foreground);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .spacer {
