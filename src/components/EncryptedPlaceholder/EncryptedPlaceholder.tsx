@@ -38,9 +38,6 @@ function generateRandomLines(lineCount: number): LineData[] {
   });
 }
 
-function generateRandomSimpleBars(rows: number): string[] {
-  return Array.from({ length: rows }, () => `${50 + Math.floor(Math.random() * 45)}%`);
-}
 
 export function estimateLines(ciphertext: string): number {
   const estimatedBytes = Math.floor(ciphertext.length * 0.75) - 16;
@@ -52,11 +49,7 @@ const FRAMES = 10;
 const INTERVAL_MS = 50; // Total animation duration will be FRAMES * INTERVAL_MS (e.g. 450ms for 6 frames at 75ms each)
 
 export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlaceholderProps) {
-  const rowWidths = ['85%', '70%', '90%', '60%', '75%'];
-
-  const [shuffleData, setShuffleData] = useState<LineData[] | string[] | null>(() =>
-    ciphertext ? generateRandomLines(rows) : generateRandomSimpleBars(rows),
-  );
+  const [shuffleData, setShuffleData] = useState<LineData[] | null>(() => generateRandomLines(rows));
 
   useEffect(() => {
     let frame = 0;
@@ -66,7 +59,7 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlacehol
         clearInterval(id);
         setShuffleData(null);
       } else {
-        setShuffleData(ciphertext ? generateRandomLines(rows) : generateRandomSimpleBars(rows));
+        setShuffleData(generateRandomLines(rows));
       }
     }, INTERVAL_MS);
     return () => clearInterval(id);
@@ -80,36 +73,14 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlacehol
   };
 
   const renderBars = () => {
-    if (shuffleData !== null) {
-      if (ciphertext) {
-        const lines = shuffleData as LineData[];
-        return lines.map((line, i) => (
-          <div key={i} className={s.line} style={{ width: getLineWidth(i, line.fillFraction) }}>
-            {line.weights.map((w, j) => (
-              <div key={j} className={s.strip} style={{ flex: `${w} 0 0` }} />
-            ))}
-          </div>
-        ));
-      }
-      const widths = shuffleData as string[];
-      return widths.map((width, i) => <div key={i} className={s.bar} style={{ width }} />);
-    }
-
-    if (ciphertext) {
-      const lines = generateLines(ciphertext, rows);
-      return lines.map((line, i) => (
-        <div key={i} className={s.line} style={{ width: getLineWidth(i, line.fillFraction) }}>
-          {line.weights.map((w, j) => (
-            <div key={j} className={s.strip} style={{ flex: `${w} 0 0` }} />
-          ))}
-        </div>
-      ));
-    }
-    return Array.from({ length: rows }).map((_, i) => {
-      const baseWidth = rowWidths[i % rowWidths.length];
-      const width = i === 1 || i === 2 ? 'calc(100% - 28px)' : baseWidth;
-      return <div key={i} className={s.bar} style={{ width }} />;
-    });
+    const lines = shuffleData !== null ? shuffleData : ciphertext ? generateLines(ciphertext, rows) : generateRandomLines(rows);
+    return lines.map((line, i) => (
+      <div key={i} className={s.line} style={{ width: getLineWidth(i, line.fillFraction) }}>
+        {line.weights.map((w, j) => (
+          <div key={j} className={s.strip} style={{ flex: `${w} 0 0` }} />
+        ))}
+      </div>
+    ));
   };
 
   return (
