@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import type { Address } from 'viem';
 import { NoteModel, type NoteDocument } from '../../src/models/Note';
+import { getOrCreateUserId } from './getOrCreateUserId';
 import type { NoteColor } from '../../src/config/noteColors';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
@@ -20,8 +21,10 @@ export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<No
     await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
   }
 
-  // Determine starting position after existing notes for this address
-  const lastNote = await NoteModel.findOne({ address, deletedAt: null })
+  const userId = await getOrCreateUserId(address);
+
+  // Determine starting position after existing notes for this user
+  const lastNote = await NoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -33,7 +36,7 @@ export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<No
   for (const note of notes) {
     const now = new Date();
     const doc = await NoteModel.create({
-      address,
+      userId,
       title: note.title ?? '',
       content: note.content ?? '<p></p>',
       archived: note.archived ?? false,

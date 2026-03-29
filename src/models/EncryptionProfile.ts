@@ -2,7 +2,7 @@ import { EncryptedPayload, KdfParams } from '@/types/crypto';
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
 
 export type EncryptionProfile = {
-  walletAddress: string; // normalized lowercase, unique index
+  userId: string; // MongoDB ObjectId string, unique index
   version: number;
   serverShare: string; // base64, 32 bytes random
   salt: string; // base64
@@ -24,7 +24,7 @@ const encryptedPayloadSchema = new Schema<EncryptedPayload>(
 );
 
 const encryptionProfileSchema = new Schema<EncryptionProfile>({
-  walletAddress: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, unique: true },
   version: { type: Number, required: true },
   serverShare: { type: String, required: true },
   salt: { type: String, required: true },

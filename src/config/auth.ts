@@ -77,7 +77,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           return {
-            id: user.addressLower,
+            id: user._id.toString(),
             name: user.addressChecksum,
             address: user.addressChecksum,
           };

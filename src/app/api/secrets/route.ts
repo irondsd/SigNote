@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
 
-import { createSecret, getSecretsByAddress } from '@/controllers/secrets';
+import { createSecret, getSecretsByUserId } from '@/controllers/secrets';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
 
 export const runtime = 'nodejs';
 
-export const GET = withSession(async (req, { address }) => {
+export const GET = withSession(async (req, { userId }) => {
   const archivedParam = req.nextUrl.searchParams.get('archived');
   const archived = archivedParam === null ? undefined : archivedParam === 'true';
   const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30));
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
   const search = (req.nextUrl.searchParams.get('q') || '').trim();
 
-  const secrets = await getSecretsByAddress(address, archived, limit, offset, search);
+  const secrets = await getSecretsByUserId(userId, archived, limit, offset, search);
 
   return NextResponse.json(secrets);
 });
 
-export const POST = withSession(async (req, { address }) => {
+export const POST = withSession(async (req, { userId }) => {
   const body = await req.json();
   const { title, encryptedBody } = body as { title?: string; encryptedBody?: EncryptedPayload };
 
@@ -27,7 +27,7 @@ export const POST = withSession(async (req, { address }) => {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const secret = await createSecret(address, title ?? '', encryptedBody ?? null);
+  const secret = await createSecret(userId, title ?? '', encryptedBody ?? null);
 
   return NextResponse.json(secret, { status: 201 });
 });

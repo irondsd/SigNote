@@ -1,12 +1,10 @@
-import { Address } from 'viem';
-
 import { POSITION_STEP } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const getNextPosition = async (address: Address) => {
-  const lastNote = await NoteModel.findOne({ address, deletedAt: null })
+export const getNextPosition = async (userId: string) => {
+  const lastNote = await NoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -15,12 +13,12 @@ export const getNextPosition = async (address: Address) => {
   return (lastNote?.position ?? 0) + POSITION_STEP;
 };
 
-export const createNote = async (address: Address, title: string, content: string) => {
+export const createNote = async (userId: string, title: string, content: string) => {
   const now = new Date();
-  const position = await getNextPosition(address);
+  const position = await getNextPosition(userId);
 
   const note = await NoteModel.create({
-    address,
+    userId,
     title,
     content,
     position,
@@ -31,8 +29,8 @@ export const createNote = async (address: Address, title: string, content: strin
   return note;
 };
 
-export const getNotesByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
-  const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
+export const getNotesByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
+  const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalizedSearch = search.trim();
 
   if (!normalizedSearch) {

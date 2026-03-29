@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import type { Address } from 'viem';
 import { EncryptionProfileModel } from '../../src/models/EncryptionProfile';
+import { getOrCreateUserId } from './getOrCreateUserId';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
 const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
@@ -35,6 +36,8 @@ export const seedEncryptionProfile = async (
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
   }
+
+  const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
 
@@ -89,7 +92,7 @@ export const seedEncryptionProfile = async (
   };
 
   await EncryptionProfileModel.create({
-    walletAddress: address.toLowerCase(),
+    userId,
     version: ENC_VERSION,
     serverShare,
     salt,

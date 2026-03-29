@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import {
   createProfile,
-  getProfileByAddress,
+  getProfileByUserId,
   ProfileAlreadyExistsError,
   updateProfile,
 } from '@/controllers/encryptionProfiles';
@@ -16,16 +16,16 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
 
-  if (!address) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const profile = await getProfileByAddress(address);
+  const profile = await getProfileByUserId(userId);
 
   if (!profile) {
     return NextResponse.json({ exists: false });
@@ -42,9 +42,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
 
-  if (!address) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    const profile = await createProfile(address, { version, serverShare, salt, kdf, keyCheck });
+    const profile = await createProfile(userId, { version, serverShare, salt, kdf, keyCheck });
     return NextResponse.json({ success: true, version: profile.version }, { status: 201 });
   } catch (err) {
     if (err instanceof ProfileAlreadyExistsError) {
@@ -73,9 +73,9 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
 
-  if (!address) {
+  if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -89,6 +89,6 @@ export async function PATCH(req: NextRequest) {
     keyCheck: EncryptedPayload;
   };
 
-  await updateProfile(address, { serverShare, salt, keyCheck });
+  await updateProfile(userId, { serverShare, salt, keyCheck });
   return NextResponse.json({ success: true });
 }

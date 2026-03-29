@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import type { Address } from 'viem';
 import { SealNoteModel, type SealNoteDocument } from '../../src/models/SealNote';
+import { getOrCreateUserId } from './getOrCreateUserId';
 import type { NoteColor } from '../../src/config/noteColors';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
@@ -50,13 +51,15 @@ export const seedSeals = async (
     await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
   }
 
+  const userId = await getOrCreateUserId(address);
+
   const subtle = globalThis.crypto.subtle;
 
   // Import MEK as HKDF base key
   const mek = await subtle.importKey('raw', new Uint8Array(mekBytes), 'HKDF', false, ['deriveKey']);
 
   // Determine starting position
-  const lastSeal = await SealNoteModel.findOne({ address, deletedAt: null })
+  const lastSeal = await SealNoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -106,7 +109,7 @@ export const seedSeals = async (
 
     const doc = await SealNoteModel.create({
       _id: sealObjectId,
-      address,
+      userId,
       title: seal.title ?? '',
       encryptedBody,
       wrappedNoteKey,

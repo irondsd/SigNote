@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import type { Address } from 'viem';
 import { SecretNoteModel, type SecretNoteDocument } from '../../src/models/SecretNote';
+import { getOrCreateUserId } from './getOrCreateUserId';
 import type { NoteColor } from '../../src/config/noteColors';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
@@ -35,6 +36,8 @@ export const seedSecrets = async (
     await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
   }
 
+  const userId = await getOrCreateUserId(address);
+
   const subtle = globalThis.crypto.subtle;
 
   // Import MEK as HKDF base key
@@ -55,7 +58,7 @@ export const seedSecrets = async (
   );
 
   // Determine starting position
-  const lastSecret = await SecretNoteModel.findOne({ address, deletedAt: null })
+  const lastSecret = await SecretNoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -69,7 +72,7 @@ export const seedSecrets = async (
     const encryptedBody = secret.content?.trim() ? await encryptContent(secretBodyKey, secret.content.trim()) : null;
 
     const doc = await SecretNoteModel.create({
-      address,
+      userId,
       title: secret.title ?? '',
       encryptedBody,
       archived: secret.archived ?? false,

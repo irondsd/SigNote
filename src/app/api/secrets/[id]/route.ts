@@ -18,18 +18,18 @@ import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
 
 export const runtime = 'nodejs';
 
-export const DELETE = withSession(async (_req, { address, params: { id } }) => {
+export const DELETE = withSession(async (_req, { userId, params: { id } }) => {
   if (!isValidObjectId(id)) throw new RouteAuthError(404, 'Not found');
-  assertOwner(await getSecretById(id), address);
+  assertOwner(await getSecretById(id), userId);
 
   await deleteSecret(id);
 
   return NextResponse.json({ success: true });
 });
 
-export const PATCH = withSession(async (req, { address, params: { id } }) => {
+export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   if (!isValidObjectId(id)) throw new RouteAuthError(404, 'Not found');
-  const secret = assertOwner(await getSecretById(id), address);
+  const secret = assertOwner(await getSecretById(id), userId);
 
   const body = await req.json();
   const { title, encryptedBody, archived, deleted, color, position } = body as {

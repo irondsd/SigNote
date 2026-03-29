@@ -1,9 +1,8 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
-import { Address } from 'viem';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 
 export type Note = {
-  address: Address;
+  userId: string;
   title: string;
   content: string;
   position: number;
@@ -17,7 +16,7 @@ export type Note = {
 export type NoteDocument = HydratedDocument<Note>;
 
 const noteSchema = new Schema<Note>({
-  address: { type: String, required: true },
+  userId: { type: String, required: true },
   title: { type: String, index: true },
   content: { type: String },
   position: { type: Number, required: true },
@@ -28,8 +27,8 @@ const noteSchema = new Schema<Note>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
-// Compound index for address-filtered queries (the most common access pattern)
-noteSchema.index({ address: 1, deletedAt: 1 });
+// Compound index for userId-filtered queries (the most common access pattern)
+noteSchema.index({ userId: 1, deletedAt: 1 });
 
 // TTL index to automatically delete soft-deleted notes after 1 hour
 noteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });

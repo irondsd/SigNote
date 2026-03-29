@@ -1,12 +1,11 @@
-import { type Address } from 'viem';
 import { POSITION_STEP } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const getNextPosition = async (address: Address) => {
-  const last = await SealNoteModel.findOne({ address, deletedAt: null })
+export const getNextPosition = async (userId: string) => {
+  const last = await SealNoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -16,16 +15,16 @@ export const getNextPosition = async (address: Address) => {
 };
 
 export const createSeal = async (
-  address: Address,
+  userId: string,
   title: string,
   encryptedBody: EncryptedPayload | null = null,
   wrappedNoteKey: EncryptedPayload | null = null,
 ) => {
   const now = new Date();
-  const position = await getNextPosition(address);
+  const position = await getNextPosition(userId);
 
   return SealNoteModel.create({
-    address,
+    userId,
     title,
     encryptedBody,
     wrappedNoteKey,
@@ -35,8 +34,8 @@ export const createSeal = async (
   });
 };
 
-export const getSealsByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
-  const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
+export const getSealsByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
+  const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalized = search.trim();
 
   if (!normalized) {

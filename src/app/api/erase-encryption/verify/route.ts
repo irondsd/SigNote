@@ -2,7 +2,6 @@ import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { SiweMessage } from 'siwe';
-import { type Address } from 'viem';
 
 import { authOptions } from '@/config/auth';
 import { consumeNonceRecord } from '@/controllers/nonces';
@@ -13,9 +12,10 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  const sessionAddress = session?.user?.address as Address | undefined;
+  const userId = session?.user?.id;
+  const sessionAddress = session?.user?.address;
 
-  if (!sessionAddress) {
+  if (!userId || !sessionAddress) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid statement scope' }, { status: 400 });
     }
 
-    const token = issueEraseToken(sessionAddress, ERASE_ENCRYPTION_SCOPE);
+    const token = issueEraseToken(userId, ERASE_ENCRYPTION_SCOPE);
     return NextResponse.json({ token });
   } catch {
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 400 });

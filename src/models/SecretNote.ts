@@ -1,10 +1,9 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
-import { type Address } from 'viem';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { type EncryptedPayload } from '@/types/crypto';
 
 export type SecretNote = {
-  address: Address;
+  userId: string;
   title: string; // plaintext
   encryptedBody: EncryptedPayload | null;
   position: number;
@@ -27,7 +26,7 @@ const encryptedPayloadSchema = new Schema<EncryptedPayload>(
 );
 
 const secretNoteSchema = new Schema<SecretNote>({
-  address: { type: String, required: true },
+  userId: { type: String, required: true },
   title: { type: String, index: true },
   encryptedBody: { type: encryptedPayloadSchema, default: null },
   position: { type: Number, required: true },
@@ -38,8 +37,8 @@ const secretNoteSchema = new Schema<SecretNote>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
-// Compound index for address-filtered queries
-secretNoteSchema.index({ address: 1, deletedAt: 1 });
+// Compound index for userId-filtered queries
+secretNoteSchema.index({ userId: 1, deletedAt: 1 });
 
 // TTL index — auto-delete soft-deleted notes after 1 hour
 secretNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });

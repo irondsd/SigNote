@@ -1,12 +1,11 @@
-import { type Address } from 'viem';
 import { POSITION_STEP } from '@/config/constants';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const getNextPosition = async (address: Address) => {
-  const last = await SecretNoteModel.findOne({ address, deletedAt: null })
+export const getNextPosition = async (userId: string) => {
+  const last = await SecretNoteModel.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })
     .lean()
@@ -15,12 +14,12 @@ export const getNextPosition = async (address: Address) => {
   return (last?.position ?? 0) + POSITION_STEP;
 };
 
-export const createSecret = async (address: Address, title: string, encryptedBody: EncryptedPayload | null) => {
+export const createSecret = async (userId: string, title: string, encryptedBody: EncryptedPayload | null) => {
   const now = new Date();
-  const position = await getNextPosition(address);
+  const position = await getNextPosition(userId);
 
   return SecretNoteModel.create({
-    address,
+    userId,
     title,
     encryptedBody,
     position,
@@ -29,8 +28,8 @@ export const createSecret = async (address: Address, title: string, encryptedBod
   });
 };
 
-export const getSecretsByAddress = async (address: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
-  const baseQuery = { address, ...(archived !== undefined && { archived }), deletedAt: null };
+export const getSecretsByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
+  const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
   const normalized = search.trim();
 
   if (!normalized) {

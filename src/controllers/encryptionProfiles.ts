@@ -16,17 +16,17 @@ export class ProfileAlreadyExistsError extends Error {
   }
 }
 
-export const getProfileByAddress = async (address: string) => {
-  const profile = await EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() })
-    .select({ walletAddress: 1, version: 1, salt: 1, kdf: 1, keyCheck: 1 })
+export const getProfileByUserId = async (userId: string) => {
+  const profile = await EncryptionProfileModel.findOne({ userId })
+    .select({ userId: 1, version: 1, salt: 1, kdf: 1, keyCheck: 1 })
     .lean()
     .exec();
 
   return profile;
 };
 
-export const getMaterialByAddress = async (address: string) => {
-  const profile = await EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() })
+export const getMaterialByUserId = async (userId: string) => {
+  const profile = await EncryptionProfileModel.findOne({ userId })
     .select({ version: 1, serverShare: 1, salt: 1, kdf: 1, keyCheck: 1 })
     .lean()
     .exec();
@@ -40,9 +40,9 @@ type UpdateProfileInput = {
   keyCheck: EncryptedPayload;
 };
 
-export const updateProfile = async (address: string, data: UpdateProfileInput) => {
+export const updateProfile = async (userId: string, data: UpdateProfileInput) => {
   const result = await EncryptionProfileModel.findOneAndUpdate(
-    { walletAddress: address.toLowerCase() },
+    { userId },
     { $set: { ...data, updatedAt: new Date() } },
     { returnDocument: 'after' },
   )
@@ -53,8 +53,8 @@ export const updateProfile = async (address: string, data: UpdateProfileInput) =
   return result;
 };
 
-export const createProfile = async (address: string, data: CreateProfileInput) => {
-  const existing = await EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() }).lean().exec();
+export const createProfile = async (userId: string, data: CreateProfileInput) => {
+  const existing = await EncryptionProfileModel.findOne({ userId }).lean().exec();
 
   if (existing) {
     throw new ProfileAlreadyExistsError();
@@ -62,7 +62,7 @@ export const createProfile = async (address: string, data: CreateProfileInput) =
 
   const now = new Date();
   const profile = await EncryptionProfileModel.create({
-    walletAddress: address.toLowerCase(),
+    userId,
     ...data,
     createdAt: now,
     updatedAt: now,

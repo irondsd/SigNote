@@ -1,10 +1,9 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
-import { type Address } from 'viem';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { type EncryptedPayload } from '@/types/crypto';
 
 export type SealNote = {
-  address: Address;
+  userId: string;
   title: string; // plaintext
   encryptedBody: EncryptedPayload | null;
   wrappedNoteKey: EncryptedPayload | null; // per-note NEK wrapped with sealWrapKey
@@ -28,7 +27,7 @@ const encryptedPayloadSchema = new Schema<EncryptedPayload>(
 );
 
 const sealNoteSchema = new Schema<SealNote>({
-  address: { type: String, required: true },
+  userId: { type: String, required: true },
   title: { type: String, index: true },
   encryptedBody: { type: encryptedPayloadSchema, default: null },
   wrappedNoteKey: { type: encryptedPayloadSchema, default: null },
@@ -40,8 +39,8 @@ const sealNoteSchema = new Schema<SealNote>({
   color: { type: String, enum: NOTE_COLORS, default: null },
 });
 
-// Compound index for address-filtered queries
-sealNoteSchema.index({ address: 1, deletedAt: 1 });
+// Compound index for userId-filtered queries
+sealNoteSchema.index({ userId: 1, deletedAt: 1 });
 
 // TTL index — auto-delete soft-deleted notes after 1 hour
 sealNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });

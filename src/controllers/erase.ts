@@ -1,18 +1,15 @@
-import { type Address } from 'viem';
-
 import { NoteModel } from '@/models/Note';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { SealNoteModel } from '@/models/SealNote';
 import { EncryptionProfileModel } from '@/models/EncryptionProfile';
 import { UserModel } from '@/models/User';
 
-export const eraseSeals = (address: Address) => SealNoteModel.deleteMany({ address });
+export const eraseSeals = (userId: string) => SealNoteModel.deleteMany({ userId });
 
-export const eraseSecrets = (address: Address) => SecretNoteModel.deleteMany({ address });
+export const eraseSecrets = (userId: string) => SecretNoteModel.deleteMany({ userId });
 
-export const eraseNotes = (address: Address) => NoteModel.deleteMany({ address });
+export const eraseNotes = (userId: string) => NoteModel.deleteMany({ userId });
 
-export const eraseEncryptionProfile = (address: Address) =>
-  EncryptionProfileModel.deleteOne({ walletAddress: address.toLowerCase() });
+export const eraseEncryptionProfile = (userId: string) => EncryptionProfileModel.deleteOne({ userId });
 
-export const eraseAccount = (address: Address) => UserModel.deleteOne({ addressLower: address.toLowerCase() });
+export const eraseAccount = (userId: string) => UserModel.deleteOne({ _id: userId });

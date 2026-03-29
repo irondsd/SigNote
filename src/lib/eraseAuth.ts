@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { type Address } from 'viem';
 
 import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
@@ -11,17 +10,17 @@ export const ERASE_ALL_SCOPE = 'erase-all';
 export const ERASE_ENCRYPTION_SCOPE = 'erase-encryption';
 
 export interface EraseTokenPayload {
-  address: string;
+  userId: string;
   scope: string;
 }
 
-export function issueEraseToken(address: Address, scope: string): string {
-  return jwt.sign({ address: address.toLowerCase(), scope }, process.env.NEXTAUTH_SECRET!, {
+export function issueEraseToken(userId: string, scope: string): string {
+  return jwt.sign({ userId, scope }, process.env.NEXTAUTH_SECRET!, {
     expiresIn: '15m',
   });
 }
 
-type EraseHandler = (req: NextRequest, address: Address) => Promise<NextResponse>;
+type EraseHandler = (req: NextRequest, userId: string) => Promise<NextResponse>;
 
 export function withEraseAuth(
   expectedScope: string | string[],
@@ -29,9 +28,9 @@ export function withEraseAuth(
 ): (req: NextRequest) => Promise<NextResponse> {
   return async (req) => {
     const session = await getServerSession(authOptions);
-    const sessionAddress = session?.user?.address as Address | undefined;
+    const userId = session?.user?.id;
 
-    if (!sessionAddress) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,13 +53,13 @@ export function withEraseAuth(
       return NextResponse.json({ error: 'Invalid token scope' }, { status: 403 });
     }
 
-    if (payload.address !== sessionAddress.toLowerCase()) {
-      return NextResponse.json({ error: 'Token address mismatch' }, { status: 403 });
+    if (payload.userId !== userId) {
+      return NextResponse.json({ error: 'Token user mismatch' }, { status: 403 });
     }
 
     const client = await getMongoClientFromMongoose();
     attachDatabasePool(client);
 
-    return handler(req, sessionAddress);
+    return handler(req, userId);
   };
 }

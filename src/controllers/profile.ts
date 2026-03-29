@@ -1,21 +1,16 @@
-import { Address } from 'viem';
-
 import { NoteModel } from '@/models/Note';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { SealNoteModel } from '@/models/SealNote';
 import { UserModel } from '@/models/User';
 import { EncryptionProfileModel } from '@/models/EncryptionProfile';
 
-export const getProfileData = async (address: Address) => {
+export const getProfileData = async (userId: string) => {
   const [user, notesCount, secretsCount, sealsCount, encryptionProfileExists] = await Promise.all([
-    UserModel.findOne({ addressLower: address.toLowerCase() })
-      .select({ addressChecksum: 1, createdAt: 1 })
-      .lean()
-      .exec(),
-    NoteModel.countDocuments({ address, deletedAt: null }),
-    SecretNoteModel.countDocuments({ address, deletedAt: null }),
-    SealNoteModel.countDocuments({ address, deletedAt: null }),
-    EncryptionProfileModel.findOne({ walletAddress: address.toLowerCase() }).select({ createdAt: 1 }).lean().exec(),
+    UserModel.findById(userId).select({ addressChecksum: 1, createdAt: 1 }).lean().exec(),
+    NoteModel.countDocuments({ userId, deletedAt: null }),
+    SecretNoteModel.countDocuments({ userId, deletedAt: null }),
+    SealNoteModel.countDocuments({ userId, deletedAt: null }),
+    EncryptionProfileModel.findOne({ userId }).select({ createdAt: 1 }).lean().exec(),
   ]);
 
   if (!user) return null;
