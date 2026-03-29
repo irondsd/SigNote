@@ -141,9 +141,7 @@
   }
   body {
     background-color: var(--color-background);
-    /* background-image:
-      radial-gradient(ellipse 90% 70% at 80% -5%, var(--gradient-blob-1) 0%, transparent 70%),
-      radial-gradient(ellipse 60% 55% at 5% 105%, var(--gradient-blob-2) 0%, transparent 70%); */
+
     background-attachment: fixed;
     color: var(--color-foreground);
   }
