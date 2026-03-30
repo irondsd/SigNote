@@ -10,6 +10,11 @@ export const mobileSignIn = async (page: Page): Promise<void> => {
   await page.getByTestId('mobile-menu-btn').click();
   await drawer.getByTestId('sign-in-button').click();
 
+  // Wait for SignInModal and click "Sign in with Ethereum"
+  const siweBtn = page.getByTestId('siwe-sign-in-btn');
+  await siweBtn.waitFor({ state: 'visible' });
+  await siweBtn.click();
+
   // Race: RainbowKit modal appears (click Browser Wallet) vs auto-connect completes
   await Promise.any([
     page.waitForFunction(() => {

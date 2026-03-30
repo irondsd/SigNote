@@ -20,8 +20,13 @@ test.describe('connect wallet', () => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await expect(signInButton).toBeVisible();
 
-      // Click sign-in and complete the SIWE flow (RainbowKit may auto-connect via accountsChanged)
+      // Click sign-in — opens SignInModal
       await signInButton.click();
+
+      // Click "Sign in with Ethereum" in the modal
+      const siweBtn = page.getByTestId('siwe-sign-in-btn');
+      await siweBtn.waitFor({ state: 'visible' });
+      await siweBtn.click();
 
       // Race: modal appears → click Browser Wallet, OR auto-connect completes without modal
       const walletAddress = page.getByTestId('wallet-address').first();
@@ -63,7 +68,12 @@ test.describe('connect wallet', () => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await signInButton.click();
 
-      // Non-blocking: if the modal appears click Browser Wallet to trigger the SIWE flow.
+      // Click "Sign in with Ethereum" in SignInModal to trigger the SIWE flow
+      const siweBtn = page.getByTestId('siwe-sign-in-btn');
+      await siweBtn.waitFor({ state: 'visible' });
+      await siweBtn.click();
+
+      // Non-blocking: if the RainbowKit modal appears click Browser Wallet to trigger the SIWE flow.
       // In the auto-connect path the modal never appears and personal_sign is rejected automatically.
       page
         .waitForSelector('[aria-labelledby="rk_connect_title"]', { timeout: 8000 })
@@ -85,9 +95,9 @@ test.describe('connect wallet', () => {
           // Auto-connect path — modal never appeared; rejection fires automatically.
         });
 
-      // After rejection the button must return to idle (enabled, original label)
-      await expect(signInButton).toBeEnabled({ timeout: 15000 });
-      await expect(signInButton).toContainText('Sign in with Ethereum');
+      // After rejection the SIWE button must return to idle (enabled, original label)
+      await expect(siweBtn).toBeEnabled({ timeout: 15000 });
+      await expect(siweBtn).toContainText('Sign in with Ethereum');
       // User should not be signed in
       await expect(page.getByTestId('wallet-address').first()).not.toBeVisible();
     });
@@ -95,6 +105,11 @@ test.describe('connect wallet', () => {
     test('should sign out and return to unauthenticated state', async ({ page }) => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await signInButton.click();
+
+      // Click "Sign in with Ethereum" in SignInModal
+      const siweBtn = page.getByTestId('siwe-sign-in-btn');
+      await siweBtn.waitFor({ state: 'visible' });
+      await siweBtn.click();
 
       const walletAddress = page.getByTestId('wallet-address').first();
       await Promise.any([
@@ -141,7 +156,12 @@ test.describe('connect wallet', () => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await signInButton.click();
 
-      // Wait for the RainbowKit connect modal to appear (full page timeout, not assertion timeout)
+      // Click "Sign in with Ethereum" in SignInModal to trigger RainbowKit
+      const siweBtn = page.getByTestId('siwe-sign-in-btn');
+      await siweBtn.waitFor({ state: 'visible' });
+      await siweBtn.click();
+
+      // Wait for the RainbowKit connect modal to appear
       const modal = page.locator('[aria-labelledby="rk_connect_title"]');
       await modal.waitFor({ state: 'visible' });
 
@@ -152,9 +172,9 @@ test.describe('connect wallet', () => {
       // Modal must disappear
       await expect(modal).not.toBeVisible();
 
-      // Button must return to idle (enabled, original label)
-      await expect(signInButton).toBeEnabled();
-      await expect(signInButton).toContainText('Sign in with Ethereum');
+      // SIWE button must return to idle (enabled, original label)
+      await expect(siweBtn).toBeEnabled();
+      await expect(siweBtn).toContainText('Sign in with Ethereum');
     });
   });
 });

@@ -94,6 +94,6 @@ test.describe('unauthenticated state', () => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Welcome to SigNote' })).toBeVisible();
-    await expect(page.getByText('Sign in with your Ethereum wallet')).toBeVisible();
+    await expect(page.getByText('Sign in to access your notes securely.')).toBeVisible();
   });
 });

@@ -1,47 +1,18 @@
-import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
+import { SecretsPage } from '../pages/SecretsPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
-
-// Helper: locate a secret card by its visible title text
-const secretCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
-
-// Sign in with a fresh account that already has an encryption profile
-const setup = async (page: Page, startUrl = '/secrets') => {
-  const { privateKey, account } = makeAccount();
-  const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
-
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-
-  return { privateKey, account, mekBytes };
-};
-
-// Unlock the session via PassphraseModal
-const unlock = async (page: Page) => {
-  await page.getByRole('button', { name: 'Unlock', exact: true }).click();
-  await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
-  await page.getByRole('button', { name: 'Unlock' }).last().click();
-  // PBKDF2 at 600k iterations can be slow; allow enough time
-  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
-};
 
 // ─── Group 1: Create Secret ───────────────────────────────────────────────────
 
 test.describe('create secret', () => {
   test('create secret with title and content', async ({ page }) => {
-    await setup(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     const title = `Secret ${Date.now()}`;
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -57,12 +28,13 @@ test.describe('create secret', () => {
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
-    await expect(secretCard(page, title)).toBeVisible();
+    await expect(secretsPage.secretCard(title)).toBeVisible();
   });
 
   test('create secret with title only', async ({ page }) => {
-    await setup(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     const title = `Title Only Secret ${Date.now()}`;
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -74,12 +46,13 @@ test.describe('create secret', () => {
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
-    await expect(secretCard(page, title)).toBeVisible();
+    await expect(secretsPage.secretCard(title)).toBeVisible();
   });
 
   test('save button disabled when both fields empty, enabled after typing title', async ({ page }) => {
-    await setup(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -92,19 +65,17 @@ test.describe('create secret', () => {
 
   test('clicking New Secret while locked opens passphrase modal then new secret modal', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     // Locked state: New Secret should prompt for passphrase
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
 
     // Enter correct passphrase
-    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     // After unlocking, the new secret modal should open automatically
@@ -117,36 +88,31 @@ test.describe('create secret', () => {
 test.describe('view secret', () => {
   test('card shows encrypted placeholder when locked', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Locked Preview ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, content: 'Secret body' }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     // Encrypted placeholder should be present instead of content
-    const card = secretCard(page, title);
+    const card = secretsPage.secretCard(title);
     await expect(card).toBeVisible();
     await expect(card.getByTestId('encrypted-placeholder')).toBeVisible();
   });
 
   test('card shows decrypted preview text when unlocked', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
-
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Unlocked Preview ${Date.now()}`;
     const contentText = 'My decrypted secret preview';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    const card = secretCard(page, title);
+    const card = secretsPage.secretCard(title);
     await expect(card).toBeVisible();
     await expect(card.getByTestId('encrypted-placeholder')).not.toBeVisible();
     await expect(card).toContainText(contentText);
@@ -154,18 +120,16 @@ test.describe('view secret', () => {
 
   test('clicking card when unlocked opens modal with decrypted content', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Open Unlocked ${Date.now()}`;
     const contentText = 'Decrypted modal content';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
 
     await expect(page.getByTestId('note-title')).toBeVisible();
     await expect(page.getByTestId('tiptap-editor')).toContainText(contentText);
@@ -173,21 +137,19 @@ test.describe('view secret', () => {
 
   test('clicking card when locked opens passphrase modal then secret modal', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Open Locked ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, content: 'Content after unlock' }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     // Click card while locked → triggers passphrase modal
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
 
     // Unlock via modal
-    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     // Secret modal should open after unlock
@@ -196,22 +158,20 @@ test.describe('view secret', () => {
 
   test('clicking card when locked shows decrypted content in modal immediately after unlock', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `First Unlock Content ${Date.now()}`;
     const contentText = 'Secret content visible after unlock';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     // Click card while locked
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
 
     // Unlock
-    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     // Modal should show content immediately — without close/reopen
@@ -225,19 +185,17 @@ test.describe('view secret', () => {
 test.describe('edit secret', () => {
   test('edit title updates title and bumps updatedAt', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const originalTitle = `Original Secret ${Date.now()}`;
     const updatedTitle = `Updated Secret ${Date.now() + 1}`;
     const [seededSecret] = await seedSecrets(account.address, mekBytes, [{ title: originalTitle }]);
     const originalUpdatedAt = new Date(seededSecret.updatedAt).getTime();
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, originalTitle).click();
+    await secretsPage.secretCard(originalTitle).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
     await page.getByTestId('edit-btn').click();
 
@@ -249,7 +207,7 @@ test.describe('edit secret', () => {
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
-    await expect(secretCard(page, updatedTitle)).toBeVisible();
+    await expect(secretsPage.secretCard(updatedTitle)).toBeVisible();
 
     const secretsRes = await page.request.get('/api/secrets');
     const secrets = await secretsRes.json();
@@ -259,18 +217,16 @@ test.describe('edit secret', () => {
 
   test('edit content re-encrypts and saves', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Edit Content ${Date.now()}`;
     const originalContent = 'Original content';
     const [seededSecret] = await seedSecrets(account.address, mekBytes, [{ title, content: originalContent }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
     await page.getByTestId('edit-btn').click();
 
@@ -301,63 +257,57 @@ test.describe('edit secret', () => {
 test.describe('delete secret', () => {
   test('deleted secret disappears from grid immediately', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `To Delete ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
     await page.getByTestId('delete-btn').click();
 
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
   });
 
   test('deleted secret absent after page reload', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Delete Reload ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await page.getByTestId('delete-btn').click();
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
     await page.reload();
     await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
   });
 
   test('undo delete restores secret', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Undo Delete ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await page.getByTestId('delete-btn').click();
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
     await page.getByRole('button', { name: 'Undo' }).click();
 
-    await expect(secretCard(page, title)).toBeVisible();
+    await expect(secretsPage.secretCard(title)).toBeVisible();
   });
 });
 
@@ -366,17 +316,15 @@ test.describe('delete secret', () => {
 test.describe('archive and unarchive secret', () => {
   test('archive secret moves it to secrets archive page', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Archivable Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
     const patchPromise = page.waitForResponse(
@@ -385,27 +333,25 @@ test.describe('archive and unarchive secret', () => {
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
     await page.goto('/secrets/archive');
-    await expect(secretCard(page, title)).toBeVisible();
+    await expect(secretsPage.secretCard(title)).toBeVisible();
   });
 
   test('unarchive secret moves it back to main secrets grid', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `To Unarchive Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, archived: true }]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
     // Navigate to archive after unlocking (Unlock button only exists on /secrets)
     await page.goto('/secrets/archive');
 
-    await secretCard(page, title).click();
+    await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
     const patchPromise = page.waitForResponse(
@@ -414,10 +360,10 @@ test.describe('archive and unarchive secret', () => {
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
-    await expect(secretCard(page, title)).not.toBeVisible();
+    await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
     await page.goto('/secrets');
-    await expect(secretCard(page, title)).toBeVisible();
+    await expect(secretsPage.secretCard(title)).toBeVisible();
   });
 });
 
@@ -426,7 +372,7 @@ test.describe('archive and unarchive secret', () => {
 test.describe('search secrets', () => {
   test('search returns both archived and non-archived results by title', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const tag = `srch${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [
       { title: `${tag} secret 1` },
@@ -434,26 +380,24 @@ test.describe('search secrets', () => {
       { title: `${tag} secret 3`, archived: true },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search secrets' }).fill(tag);
 
-    await expect(secretCard(page, `${tag} secret 1`)).toBeVisible();
-    await expect(secretCard(page, `${tag} secret 2`)).toBeVisible();
-    await expect(secretCard(page, `${tag} secret 3`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} secret 1`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} secret 2`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} secret 3`)).toBeVisible();
 
     // Archived card shows badge; active cards do not
-    await expect(secretCard(page, `${tag} secret 3`).getByTestId('archived-badge')).toBeVisible();
-    await expect(secretCard(page, `${tag} secret 1`).getByTestId('archived-badge')).not.toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} secret 3`).getByTestId('archived-badge')).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} secret 1`).getByTestId('archived-badge')).not.toBeVisible();
   });
 
   test('search filters out non-matching secrets', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const catsTag = `cats${Date.now()}`;
     const dogsTag = `dogs${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [
@@ -462,18 +406,16 @@ test.describe('search secrets', () => {
       { title: `${dogsTag} archived`, archived: true },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
 
     await searchInput.fill(dogsTag);
-    await expect(secretCard(page, `${dogsTag} secret`)).toBeVisible();
-    await expect(secretCard(page, `${dogsTag} archived`)).toBeVisible();
-    await expect(secretCard(page, `${catsTag} secret`)).not.toBeVisible();
+    await expect(secretsPage.secretCard(`${dogsTag} secret`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${dogsTag} archived`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${catsTag} secret`)).not.toBeVisible();
 
     await searchInput.fill('nomatch_xyz_99999');
     await expect(page.getByTestId('secret-card')).toHaveCount(0);
@@ -481,29 +423,27 @@ test.describe('search secrets', () => {
 
   test('clearing search hides archived secrets', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const tag = `clr${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [
       { title: `${tag} active` },
       { title: `${tag} archived`, archived: true },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
     await searchInput.fill(tag);
 
-    await expect(secretCard(page, `${tag} active`)).toBeVisible();
-    await expect(secretCard(page, `${tag} archived`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} active`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} archived`)).toBeVisible();
 
     await page.getByRole('button', { name: 'Clear search' }).click();
 
-    await expect(secretCard(page, `${tag} active`)).toBeVisible();
-    await expect(secretCard(page, `${tag} archived`)).not.toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} active`)).toBeVisible();
+    await expect(secretsPage.secretCard(`${tag} archived`)).not.toBeVisible();
   });
 });
 
@@ -512,7 +452,7 @@ test.describe('search secrets', () => {
 test.describe('infinite scroll decryption', () => {
   test('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
     // Seed 50 secrets: 'Secret 01' gets lowest position → appears last in desc sort
     await seedSecrets(
@@ -524,20 +464,18 @@ test.describe('infinite scroll decryption', () => {
       }),
     );
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.unlock();
 
     // Page 1 (30 items): Secret 50 → Secret 21
-    await expect(secretCard(page, 'Secret 50')).toBeVisible();
+    await expect(secretsPage.secretCard('Secret 50')).toBeVisible();
 
     // Scroll 1 — load page 2: Secret 20 → Secret 11
     const scroll1 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll1;
-    await expect(secretCard(page, 'Secret 11')).toBeVisible(); // wait for page-2 render to settle before registering next listener
+    await expect(secretsPage.secretCard('Secret 11')).toBeVisible();
 
     // Scroll 2 — load page 3: Secret 10 → Secret 01
     const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
@@ -545,10 +483,10 @@ test.describe('infinite scroll decryption', () => {
     await scroll2;
 
     // Secret 01 should now be visible on screen
-    await expect(secretCard(page, 'Secret 01')).toBeVisible();
+    await expect(secretsPage.secretCard('Secret 01')).toBeVisible();
 
     // And it should be auto-decrypted: no encrypted placeholder, content visible
-    await expect(secretCard(page, 'Secret 01').getByTestId('encrypted-placeholder')).not.toBeVisible();
-    await expect(secretCard(page, 'Secret 01')).toContainText('Content of Secret 01');
+    await expect(secretsPage.secretCard('Secret 01').getByTestId('encrypted-placeholder')).not.toBeVisible();
+    await expect(secretsPage.secretCard('Secret 01')).toContainText('Content of Secret 01');
   });
 });

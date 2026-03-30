@@ -3,12 +3,17 @@ import { expect, type Page } from '@playwright/test';
 export const signIn = async (page: Page): Promise<void> => {
   const walletAddress = page.getByTestId('wallet-address').first();
 
-  // If RainbowKit already auto-connected (accountsChanged triggered SIWE), skip modal
+  // If already authenticated, skip
   if (await walletAddress.isVisible().catch(() => false)) return;
 
   const connectButton = page.getByTestId('sign-in-button').first();
   await expect(connectButton).toBeVisible();
   await connectButton.click();
+
+  // Wait for SignInModal and click "Sign in with Ethereum"
+  const siweBtn = page.getByTestId('siwe-sign-in-btn');
+  await siweBtn.waitFor({ state: 'visible' });
+  await siweBtn.click();
 
   // Race: RainbowKit modal appears (click Browser Wallet) vs auto-connect completes without modal
   // Promise.any: resolves when either succeeds; rejects only when both fail
