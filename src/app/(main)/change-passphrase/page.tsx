@@ -213,7 +213,7 @@ export default function ChangePassphrasePage() {
           <input
             type="text"
             autoComplete="username"
-            value={session?.user?.address ?? ''}
+            value={session?.user?.name ?? ''}
             readOnly
             aria-hidden="true"
             style={{ display: 'none' }}

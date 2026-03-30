@@ -16,7 +16,7 @@ const SEARCH_DEBOUNCE_MS = 100;
 
 export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
   const { data: session } = useSession();
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
   const [debouncedSearch, setDebouncedSearch] = useState(search);
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
   return useInfiniteQuery({
     queryKey: [
       'notes',
-      address,
+      userId,
       archived === undefined ? 'all' : archived ? 'archived' : 'active',
       debouncedSearch.trim(),
     ],
@@ -64,6 +64,6 @@ export const useNotes = ({ archived, search = '' }: UseNotesProps) => {
       return allPages.length; // Return page number for infinite query
     },
     initialPageParam: 0,
-    enabled: address !== undefined,
+    enabled: userId !== undefined,
   });
 };

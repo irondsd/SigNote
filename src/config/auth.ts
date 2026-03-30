@@ -78,8 +78,7 @@ export const authOptions: NextAuthOptions = {
 
           return {
             id: user._id.toString(),
-            name: user.addressChecksum,
-            address: user.addressChecksum,
+            name: user.displayName,
           };
         } catch {
           return null;
@@ -88,20 +87,12 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.address = user.address;
-      }
-
+    async jwt({ token }) {
       return token;
     },
     async session({ session, token }) {
       if (session.user && typeof token.sub === 'string') {
         session.user.id = token.sub;
-      }
-
-      if (session.user && typeof token.address === 'string') {
-        session.user.address = token.address;
       }
 
       return session;

@@ -35,7 +35,7 @@ function NotesPage() {
     }
   }, [draftRestore, setDraftRestore]);
 
-  const isAuthenticated = !!session?.user?.address;
+  const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState = isLoading || status === 'loading';
 

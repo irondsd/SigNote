@@ -4,8 +4,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  Check,
-  Copy,
   KeyRound,
   Loader2,
   NotebookText,
@@ -19,7 +17,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useProfile } from '@/hooks/useProfile';
-import useCopy from '@/hooks/useCopy';
 import s from './page.module.scss';
 import Link from 'next/link';
 
@@ -48,10 +45,9 @@ function StatItem({
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { data: profile, isLoading } = useProfile();
-  const { isCopied, copy } = useCopy(profile?.address ?? '');
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -82,11 +78,8 @@ export default function ProfilePage() {
           <CardContent className={s.overviewBody}>
             <div className={s.addressRow}>
               <span data-testid="profile-address" className={s.address}>
-                {profile?.address ?? session.user.address}
+                {profile?.displayName}
               </span>
-              <Button variant="ghost" size="icon-xs" onClick={copy} title="Copy address" disabled={!profile?.address}>
-                {isCopied ? <Check size={14} /> : <Copy size={14} />}
-              </Button>
             </div>
             {joinedDate && (
               <p className={s.joinedDate}>

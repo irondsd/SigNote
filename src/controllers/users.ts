@@ -1,32 +1,32 @@
-import type { Address } from 'viem';
-
+import { AuthIdentityModel } from '@/models/AuthIdentity';
 import { UserModel } from '@/models/User';
 import connectToDatabase from '@/utils/mongoose';
 
 export const upsertSiweUser = async (address: string) => {
   const now = new Date();
-  const normalizedAddress = address.toLowerCase();
+  const addressLower = address.toLowerCase();
   await connectToDatabase();
 
-  const user = await UserModel.findOneAndUpdate(
-    {
-      addressLower: normalizedAddress as Address,
-    },
-    {
-      $set: {
-        addressChecksum: address as Address,
-        lastLoginAt: now,
-      },
-      $setOnInsert: {
-        addressLower: normalizedAddress as Address,
-        createdAt: now,
-      },
-    },
-    {
-      upsert: true,
-      returnDocument: 'after',
-    },
-  );
+  const existingIdentity = await AuthIdentityModel.findOne({
+    provider: 'siwe',
+    providerSubject: addressLower,
+  });
+
+  if (existingIdentity) {
+    existingIdentity.lastLoginAt = now;
+    await existingIdentity.save();
+    return UserModel.findById(existingIdentity.userId).lean().exec();
+  }
+
+  const user = await UserModel.create({ displayName: address });
+
+  await AuthIdentityModel.create({
+    userId: user._id.toString(),
+    provider: 'siwe',
+    providerSubject: addressLower,
+    lastLoginAt: now,
+    rawProfileJson: { addressLower, addressChecksum: address },
+  });
 
   return user;
 };

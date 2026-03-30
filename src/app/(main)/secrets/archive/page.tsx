@@ -16,7 +16,7 @@ export default function SecretsArchivePage() {
   const { phase } = useEncryption();
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({ archived: true });
 
-  const isAuthenticated = !!session?.user?.address;
+  const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 

@@ -3,7 +3,7 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 
 export type ProfileData = {
-  address: string;
+  displayName: string;
   createdAt: string;
   notesCount: number;
   secretsCount: number;
@@ -14,11 +14,11 @@ export type ProfileData = {
 
 export const useProfile = () => {
   const { data: session } = useSession();
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
 
   return useQuery({
-    queryKey: ['profile', address],
+    queryKey: ['profile', userId],
     queryFn: () => api.get('/api/profile').json<ProfileData>(),
-    enabled: address !== undefined,
+    enabled: userId !== undefined,
   });
 };

@@ -33,7 +33,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
 
-  const address = session?.user?.address as Address | undefined;
+  const address = session?.user?.name as Address | undefined;
   const { data: ensName } = useEnsName({ address, chainId: mainnet.id });
 
   const handleSignOut = async () => {

@@ -38,14 +38,13 @@ test.describe('access control', () => {
 // ─── Overview ────────────────────────────────────────────────────────────────
 
 test.describe('overview', () => {
-  test('displays the full wallet address', async ({ page }) => {
+  test('displays the display name', async ({ page }) => {
     const { account } = await setup(page);
     await page.goto('/profile');
 
-    const addressEl = page.getByTestId('profile-address');
-    await expect(addressEl).toBeVisible();
-    await expect(addressEl).toContainText(account.address.slice(0, 6));
-    await expect(addressEl).toContainText(account.address.slice(-4));
+    const displayNameEl = page.getByTestId('profile-address');
+    await expect(displayNameEl).toBeVisible();
+    await expect(displayNameEl).toContainText(account.address);
   });
 
   test('displays member since date', async ({ page }) => {

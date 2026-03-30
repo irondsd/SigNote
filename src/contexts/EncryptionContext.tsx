@@ -122,13 +122,13 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const { status: sessionStatus, data: sessionData } = useSession();
   const qc = useQueryClient();
 
-  const address = sessionData?.user?.address;
+  const userId = sessionData?.user?.id;
 
   // Fetch the encryption profile (non-sensitive metadata)
   const { data: profileResponse, isLoading: profileLoading } = useQuery<ProfileResponse>({
-    queryKey: ['encryption-profile', address],
+    queryKey: ['encryption-profile', userId],
     queryFn: () => api.get('/api/encryption/profile').json<ProfileResponse>(),
-    enabled: sessionStatus === 'authenticated' && !!address,
+    enabled: sessionStatus === 'authenticated' && !!userId,
     staleTime: Infinity, // profile rarely changes
   });
 

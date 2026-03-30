@@ -42,7 +42,7 @@ function SecretsPageContent() {
     }
   }, [draftRestore, setDraftRestore]);
 
-  const isAuthenticated = !!session?.user?.address;
+  const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
@@ -127,7 +127,7 @@ function SecretsPageContent() {
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
-        <EncryptionSetup address={session?.user?.address} />
+        <EncryptionSetup address={session?.user?.name ?? undefined} />
       ) : notes.length === 0 ? (
         search ? (
           <EmptyResults onClear={() => setSearch('')} />
@@ -152,7 +152,7 @@ function SecretsPageContent() {
             setShowPassphrase(false);
             setOpenNewAfterUnlock(false);
           }}
-          address={session?.user?.address}
+          address={session?.user?.name ?? undefined}
         />
       )}
 

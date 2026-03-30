@@ -15,7 +15,7 @@ const SEARCH_DEBOUNCE_MS = 100;
 
 export const useSecrets = ({ archived, search = '' }: UseSecretsProps) => {
   const { data: session } = useSession();
-  const address = session?.user?.address;
+  const userId = session?.user?.id;
   const [debouncedSearch, setDebouncedSearch] = useState(search);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export const useSecrets = ({ archived, search = '' }: UseSecretsProps) => {
   return useInfiniteQuery({
     queryKey: [
       'secrets',
-      address,
+      userId,
       archived === undefined ? 'all' : archived ? 'archived' : 'active',
       debouncedSearch.trim(),
     ],
@@ -52,6 +52,6 @@ export const useSecrets = ({ archived, search = '' }: UseSecretsProps) => {
       return allPages.length;
     },
     initialPageParam: 0,
-    enabled: address !== undefined,
+    enabled: userId !== undefined,
   });
 };
