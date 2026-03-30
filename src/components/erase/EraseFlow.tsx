@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
-import { SiweMessage } from 'siwe';
-import { UserRejectedRequestError } from 'viem';
-import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +17,6 @@ type StepConfig = Pick<EraseStep, 'key' | 'label' | 'endpoint'> & {
 type EraseFlowProps = {
   title: string;
   explanation: React.ReactNode;
-  statement: string;
   verifyEndpoint: string;
   steps: StepConfig[];
   hasEncryptionProfile?: boolean;
@@ -36,7 +32,6 @@ function initSteps(configs: StepConfig[]): EraseStep[] {
 export function EraseFlow({
   title,
   explanation,
-  statement,
   verifyEndpoint,
   steps: stepConfigs,
   hasEncryptionProfile = true,
@@ -44,13 +39,10 @@ export function EraseFlow({
   doneDesc,
   onDone,
 }: EraseFlowProps) {
-  const { address: walletAddress, chain } = useAccount();
-  const { signMessageAsync } = useSignMessage();
-
   const [phase, setPhase] = useState<Phase>('warning');
   const [eraseToken, setEraseToken] = useState<string | null>(null);
   const [steps, setSteps] = useState<EraseStep[]>(() => initSteps(stepConfigs));
-  const [signingError, setSigningError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   useEffect(() => {
     if (phase !== 'done') return;
@@ -58,34 +50,12 @@ export function EraseFlow({
     return () => clearTimeout(timer);
   }, [phase, onDone]);
 
-  const handleSign = async () => {
-    if (!walletAddress) {
-      setSigningError('Wallet not connected. Please reconnect your wallet and try again.');
-      return;
-    }
-
-    setSigningError(null);
-    setPhase('signing');
+  const handleConfirm = async () => {
+    setConfirmError(null);
+    setPhase('confirming');
 
     try {
-      const { nonce } = await api.get('/api/auth/nonce').json<{ nonce: string }>();
-
-      const message = new SiweMessage({
-        domain: window.location.host,
-        address: walletAddress,
-        statement,
-        uri: window.location.origin,
-        version: '1',
-        chainId: chain?.id ?? 1,
-        nonce,
-      });
-
-      const messageStr = message.prepareMessage();
-      const signature = await signMessageAsync({ message: messageStr });
-
-      const { token } = await api
-        .post(verifyEndpoint, { json: { message: messageStr, signature } })
-        .json<{ token: string }>();
+      const { token } = await api.post(verifyEndpoint).json<{ token: string }>();
 
       setEraseToken(token);
 
@@ -96,13 +66,8 @@ export function EraseFlow({
 
       setPhase('ready');
     } catch (err) {
-      if (err instanceof UserRejectedRequestError) {
-        setSigningError('Signature rejected. Please try again.');
-        setPhase('warning');
-        return;
-      }
-      console.error('Erase sign error:', err);
-      setSigningError('Signature verification failed. Please try again.');
+      console.error('Erase confirm error:', err);
+      setConfirmError('Failed to confirm. Please try again.');
       setPhase('warning');
     }
   };
@@ -177,26 +142,24 @@ export function EraseFlow({
 
                 <div className={s.divider} />
 
-                {(phase === 'warning' || phase === 'signing') && (
+                {(phase === 'warning' || phase === 'confirming') && (
                   <div className={s.signSection}>
-                    <p className={s.signLabel}>Sign the following message with your wallet to prove intent:</p>
-                    <pre className={s.messagePreview}>{statement}</pre>
-                    {signingError && <p className={s.errorText}>{signingError}</p>}
+                    {confirmError && <p className={s.errorText}>{confirmError}</p>}
                     <Button
                       variant="destructive"
-                      onClick={handleSign}
-                      disabled={phase === 'signing'}
+                      onClick={handleConfirm}
+                      disabled={phase === 'confirming'}
                       className={s.signButton}
                     >
-                      {phase === 'signing' ? (
+                      {phase === 'confirming' ? (
                         <>
                           <Loader2 size={14} className={s.spinnerIcon} />
-                          Waiting for signature…
+                          Confirming…
                         </>
                       ) : (
                         <>
-                          <ShieldCheck size={14} />
-                          Sign to prove intent
+                          <Trash2 size={14} />
+                          I confirm, delete my data
                         </>
                       )}
                     </Button>
@@ -206,8 +169,8 @@ export function EraseFlow({
                 {(phase === 'ready' || phase === 'erasing') && (
                   <div className={s.eraseSection}>
                     <div className={s.verifiedBadge}>
-                      <ShieldCheck size={14} />
-                      Signature verified
+                      <CheckCircle2 size={14} />
+                      Confirmed
                     </div>
 
                     <div className={s.stepList}>

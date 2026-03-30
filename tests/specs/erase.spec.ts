@@ -28,10 +28,10 @@ const setup = async (page: Page) => {
   return { privateKey, account };
 };
 
-// Click "Sign to prove intent", wait for SIWE completion, then click "Start Erasure"
+// Click "I confirm, delete my data", wait for confirmation, then click "Start Erasure"
 const performErase = async (page: Page) => {
-  await page.getByRole('button', { name: 'Sign to prove intent' }).click();
-  await expect(page.getByText('Signature verified')).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: 'I confirm, delete my data' }).click();
+  await expect(page.getByText('Confirmed')).toBeVisible({ timeout: 15000 });
   await page.getByRole('button', { name: 'Start Erasure' }).click();
 };
 
@@ -126,8 +126,8 @@ test.describe('erase account', () => {
     await page.goto('/erase');
     await profileLoaded;
 
-    await page.getByRole('button', { name: 'Sign to prove intent' }).click();
-    await expect(page.getByText('Signature verified')).toBeVisible({ timeout: 15000 });
+    await page.getByRole('button', { name: 'I confirm, delete my data' }).click();
+    await expect(page.getByText('Confirmed')).toBeVisible({ timeout: 15000 });
 
     // Seals, Secrets, and Encryption Profile should be skipped (require enc profile)
     await expect(page.locator('span[data-status="skipped"]').filter({ hasText: 'Seals' })).toBeVisible();

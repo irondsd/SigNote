@@ -28,7 +28,7 @@ const EXPLANATION = (
 );
 
 export default function ErasePage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const { data: profile } = useProfile();
 
@@ -38,14 +38,10 @@ export default function ErasePage() {
 
   if (status !== 'authenticated') return null;
 
-  const address = session.user.address;
-  const statement = `By signing this message I agree to erase all data associated with account ${address}`;
-
   return (
     <EraseFlow
       title="Erase Account"
       explanation={EXPLANATION}
-      statement={statement}
       verifyEndpoint="/api/erase/verify"
       steps={STEPS}
       hasEncryptionProfile={profile?.hasEncryptionProfile}

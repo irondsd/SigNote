@@ -7,4 +7,4 @@ export type EraseStep = {
   status: StepStatus;
 };
 
-export type Phase = 'warning' | 'signing' | 'ready' | 'erasing' | 'done';
+export type Phase = 'warning' | 'confirming' | 'ready' | 'erasing' | 'done';

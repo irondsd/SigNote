@@ -23,7 +23,7 @@ const EXPLANATION = (
 );
 
 export default function EraseEncryptionPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -33,14 +33,10 @@ export default function EraseEncryptionPage() {
 
   if (status !== 'authenticated') return null;
 
-  const address = session.user.address;
-  const statement = `By signing this message I agree to erase my encryption profile and all secrets and seals associated with account ${address}`;
-
   return (
     <EraseFlow
       title="Erase Encryption Profile"
       explanation={EXPLANATION}
-      statement={statement}
       verifyEndpoint="/api/erase-encryption/verify"
       steps={STEPS}
       doneTitle="Encryption profile erased"
