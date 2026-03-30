@@ -1,9 +1,10 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
 import type { NextAuthOptions } from 'next-auth';
 import { SiweMessage } from 'siwe';
 
 import { consumeNonceRecord } from '@/controllers/nonces';
-import { upsertSiweUser } from '@/controllers/users';
+import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
 
 const vercelUrl = process.env.VERCEL_URL;
 const nextAuthUrl = process.env.NEXTAUTH_URL;
@@ -28,6 +29,10 @@ export const authOptions: NextAuthOptions = {
     updateAge: 5 * 24 * 60 * 60,
   },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    }),
     CredentialsProvider({
       name: 'Ethereum',
       credentials: {
@@ -87,7 +92,22 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token }) {
+    async signIn({ account, profile }) {
+      console.log('signIn callback', { account, profile });
+      if (account?.provider === 'google' && profile?.sub) {
+        const displayName = profile.name ?? profile.email ?? profile.sub;
+        const picture = (profile as { picture?: string }).picture;
+        const user = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
+        if (!user) return false;
+        // Store MongoDB _id on the account so jwt callback can use it
+        account.userId = user._id.toString();
+      }
+      return true;
+    },
+    async jwt({ token, account }) {
+      if (account?.provider === 'google' && account.userId) {
+        token.sub = account.userId as string;
+      }
       return token;
     },
     async session({ session, token }) {

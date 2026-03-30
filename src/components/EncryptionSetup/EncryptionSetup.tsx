@@ -9,10 +9,10 @@ import s from './EncryptionSetup.module.scss';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 
 type EncryptionSetupProps = {
-  address?: string;
+  displayName?: string;
 };
 
-export function EncryptionSetup({ address }: EncryptionSetupProps) {
+export function EncryptionSetup({ displayName }: EncryptionSetupProps) {
   const { setupProfile } = useEncryption();
   const [passphrase, setPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -70,7 +70,7 @@ export function EncryptionSetup({ address }: EncryptionSetupProps) {
           <input
             type="text"
             autoComplete="username"
-            value={address ?? ''}
+            value={displayName ?? ''}
             readOnly
             aria-hidden="true"
             style={{ display: 'none' }}

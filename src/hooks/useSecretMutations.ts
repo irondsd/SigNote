@@ -19,7 +19,6 @@ export type CachedSecretNote = {
   encryptedBody: EncryptedPayload | null;
   archived: boolean;
   deletedAt: string | null;
-  address: string;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -66,7 +65,6 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
         encryptedBody: input.encryptedBody,
         archived: false,
         deletedAt: null,
-        address: '',
         position: -1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

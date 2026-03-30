@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { shortenAddress } from '@/utils/shortenAddress';
 import s from './SidebarNav.module.scss';
 import { Logo } from '../Logo/Logo';
-import { Address } from 'viem';
+import { isAddress, type Address } from 'viem';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -33,8 +33,9 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
 
-  const address = session?.user?.name as Address | undefined;
-  const { data: ensName } = useEnsName({ address, chainId: mainnet.id });
+  const displayName = session?.user?.name ?? undefined;
+  const ethAddress = displayName && isAddress(displayName) ? (displayName as Address) : undefined;
+  const { data: ensName } = useEnsName({ address: ethAddress, chainId: mainnet.id });
 
   const handleSignOut = async () => {
     disconnect();
@@ -75,12 +76,12 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         </div>
 
         <div className={s.authSection}>
-          {address ? (
+          {session?.user?.id ? (
             <div className={s.walletRow}>
               <Link href="/profile" className={s.walletLink} onClick={onNavClick}>
                 <div className={s.walletDot} />
                 <span data-testid="wallet-address" className={s.walletAddress}>
-                  {ensName ?? shortenAddress(address)}
+                  {ensName ?? (ethAddress ? shortenAddress(ethAddress) : displayName)}
                 </span>
               </Link>
               <Button
