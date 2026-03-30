@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +10,8 @@ import { useIdentities, useUnlinkIdentity } from '@/hooks/useIdentities';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { shortenAddress } from '@/utils/shortenAddress';
 import { api } from '@/lib/api';
+import { EthereumIcon, GoogleIcon } from '@/components/icons/SignInIcons';
 import s from './SignInMethods.module.scss';
-
-const GoogleIcon = () => <Image src="/icons/google.svg" alt="Google" width={18} height={18} />;
-const EthereumIcon = () => <Image src="/icons/ethereum.svg" alt="Ethereum" width={18} height={18} />;
 
 export function SignInMethods() {
   const { data: identities, isLoading } = useIdentities();
@@ -83,7 +80,9 @@ export function SignInMethods() {
           <React.Fragment key={identity.provider}>
             {i > 0 && <div className={s.divider} />}
             <div className={s.identityRow}>
-              <div className={s.identityIcon}>{identity.provider === 'google' ? <GoogleIcon /> : <EthereumIcon />}</div>
+              <div className={s.identityIcon}>
+                {identity.provider === 'google' ? <GoogleIcon /> : <EthereumIcon className="p-px" />}
+              </div>
               <div className={s.identityInfo}>
                 <span className={s.identityLabel}>{identity.provider === 'google' ? 'Google' : 'Ethereum'}</span>
                 <span className={s.identitySubject}>
@@ -132,7 +131,7 @@ export function SignInMethods() {
                     disabled={siweStep !== 'idle'}
                     className="justify-start gap-3"
                   >
-                    <EthereumIcon />
+                    <EthereumIcon className="p-px" />
                     {siweStep === 'connecting'
                       ? 'Connecting wallet…'
                       : siweStep === 'signing'
