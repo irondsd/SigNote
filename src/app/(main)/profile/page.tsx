@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 import {
   KeyRound,
   Loader2,
@@ -17,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useProfile } from '@/hooks/useProfile';
+import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
 
@@ -47,11 +49,42 @@ function StatItem({
 export default function ProfilePage() {
   const { status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: profile, isLoading } = useProfile();
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
   }, [status, router]);
+
+  useEffect(() => {
+    const linked = searchParams.get('linked');
+    const linkError = searchParams.get('link_error');
+
+    if (linked === 'google') {
+      toast.success('Google account linked successfully.');
+    } else if (linked === 'siwe') {
+      toast.success('Ethereum wallet linked successfully.');
+    } else if (linkError === 'encrypted_data') {
+      toast.error(
+        'This account has encrypted data (secrets or seals). Sign in to that account, erase its encryption profile under Danger Zone, then try again.',
+        { duration: 8000 },
+      );
+    } else if (linkError === 'already_linked') {
+      toast.error('This sign-in method is already connected to a different account.');
+    } else if (linkError === 'cancelled') {
+      // User cancelled — no toast
+    } else if (linkError) {
+      toast.error('Something went wrong while linking. Please try again.');
+    }
+
+    if (linked || linkError) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('linked');
+      url.searchParams.delete('link_error');
+      router.replace(url.pathname + (url.search || ''), { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (status !== 'authenticated') return null;
 
@@ -121,6 +154,9 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Sign-in Methods */}
+        <SignInMethods />
 
         {/* Security */}
         <Card>

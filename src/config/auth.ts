@@ -1,25 +1,9 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import type { NextAuthOptions } from 'next-auth';
-import { SiweMessage } from 'siwe';
 
-import { consumeNonceRecord } from '@/controllers/nonces';
 import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
-
-const vercelUrl = process.env.VERCEL_URL;
-const nextAuthUrl = process.env.NEXTAUTH_URL;
-
-const getExpectedDomain = () => {
-  if (nextAuthUrl) return new URL(nextAuthUrl).host;
-  if (vercelUrl) return vercelUrl;
-  return null;
-};
-
-const getExpectedOrigin = () => {
-  if (nextAuthUrl) return new URL(nextAuthUrl).origin;
-  if (vercelUrl) return `https://${vercelUrl}`;
-  return null;
-};
+import { validateSiweCredentials } from '@/lib/siwe';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -46,54 +30,20 @@ export const authOptions: NextAuthOptions = {
         },
       },
       async authorize(credentials) {
-        try {
-          if (!credentials?.message || !credentials?.signature) {
-            return null;
-          }
+        if (!credentials?.message || !credentials?.signature) return null;
 
-          const siwe = new SiweMessage(credentials.message);
-          const expectedDomain = getExpectedDomain();
-          const expectedOrigin = getExpectedOrigin();
+        const valid = await validateSiweCredentials(credentials.message, credentials.signature);
+        if (!valid) return null;
 
-          if (expectedDomain && siwe.domain !== expectedDomain) {
-            return null;
-          }
+        const user = await upsertSiweUser(valid.address);
+        if (!user) return null;
 
-          if (expectedOrigin && siwe.uri !== expectedOrigin) {
-            return null;
-          }
-
-          const result = await siwe.verify({
-            signature: credentials.signature,
-          });
-
-          if (!result.success || !result.data?.nonce) {
-            return null;
-          }
-
-          const consumedNonce = await consumeNonceRecord(result.data.nonce);
-          if (!consumedNonce) {
-            return null;
-          }
-
-          const user = await upsertSiweUser(result.data.address);
-          if (!user) {
-            return null;
-          }
-
-          return {
-            id: user._id.toString(),
-            name: user.displayName,
-          };
-        } catch {
-          return null;
-        }
+        return { id: user._id.toString(), name: user.displayName };
       },
     }),
   ],
   callbacks: {
     async signIn({ account, profile }) {
-      console.log('signIn callback', { account, profile });
       if (account?.provider === 'google' && profile?.sub) {
         const displayName = profile.name ?? profile.email ?? profile.sub;
         const picture = (profile as { picture?: string }).picture;

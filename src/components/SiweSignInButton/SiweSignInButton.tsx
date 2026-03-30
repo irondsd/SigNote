@@ -1,101 +1,27 @@
 'use client';
 
-import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { signIn } from 'next-auth/react';
-import { useEffect, useRef, useState } from 'react';
-import { useAccount, useAccountEffect, useDisconnect, useSignMessage } from 'wagmi';
-import { SiweMessage } from 'siwe';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
-import { api } from '@/lib/api';
-import { Address, UserRejectedRequestError } from 'viem';
-
-type Step = 'idle' | 'connecting' | 'signing';
+import { useSiweSign } from '@/hooks/useSiweSign';
 
 export function SiweSignInButton() {
-  const { address, isConnected, chain } = useAccount();
-  const { openConnectModal, connectModalOpen } = useConnectModal();
-  const { signMessageAsync } = useSignMessage();
-  const { disconnect } = useDisconnect();
+  const { sign, step } = useSiweSign();
 
-  const [step, setStep] = useState<Step>('idle');
-  const pendingSign = useRef(false);
-  const modalWasOpen = useRef(false);
+  const handleSignIn = async () => {
+    const result = await sign();
+    if (!result) return;
 
-  useEffect(() => {
-    if (connectModalOpen) {
-      modalWasOpen.current = true;
-      return;
+    const res = await signIn('credentials', {
+      message: result.message,
+      signature: result.signature,
+      redirect: false,
+    });
+
+    if (res?.error) {
+      toast.error('Sign in failed. Please try again.');
     }
-    if (modalWasOpen.current && !isConnected) {
-      modalWasOpen.current = false;
-      pendingSign.current = false;
-      queueMicrotask(() => {
-        setStep((currentStep) => (currentStep === 'connecting' ? 'idle' : currentStep));
-      });
-    }
-  }, [connectModalOpen, isConnected]);
-
-  useAccountEffect({
-    onConnect({ address: connectedAddress }) {
-      if (connectedAddress && pendingSign.current) {
-        pendingSign.current = false;
-        void doSign(connectedAddress);
-      }
-    },
-  });
-
-  const doSign = async (address: Address) => {
-    setStep('signing');
-    try {
-      const { nonce } = await api.get('/api/auth/nonce').json<{ nonce: string }>();
-
-      const message = new SiweMessage({
-        domain: window.location.host,
-        address,
-        statement: 'Sign in with Ethereum to SigNote.',
-        uri: window.location.origin,
-        version: '1',
-        chainId: chain?.id ?? 1,
-        nonce,
-      });
-
-      const messageStr = message.prepareMessage();
-      const signature = await signMessageAsync({ message: messageStr });
-
-      const result = await signIn('credentials', {
-        message: messageStr,
-        signature,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        toast.error('Sign in failed. Please try again.');
-      }
-      setStep('idle');
-    } catch (err) {
-      console.error('SIWE error:', err);
-      if (err instanceof UserRejectedRequestError) {
-        toast.error('Signature rejected. Please try again.');
-        setStep('idle');
-        return;
-      }
-      disconnect();
-      pendingSign.current = true;
-      setStep('connecting');
-      openConnectModal?.();
-    }
-  };
-
-  const handleSignIn = () => {
-    if (!isConnected || !address) {
-      pendingSign.current = true;
-      setStep('connecting');
-      openConnectModal?.();
-      return;
-    }
-    doSign(address);
   };
 
   const label =
@@ -105,12 +31,10 @@ export function SiweSignInButton() {
         ? 'Sign in your wallet…'
         : 'Sign in with Ethereum';
 
-  const busy = step !== 'idle';
-
   return (
     <Button
       onClick={handleSignIn}
-      disabled={busy}
+      disabled={step !== 'idle'}
       className="w-full bg-black text-white hover:bg-zinc-800 border-0 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
     >
       {/* Ethereum diamond logo */}
