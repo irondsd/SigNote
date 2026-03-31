@@ -19,7 +19,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
       <Modal className={s.modal}>
         <div className={s.header}>
           <h2 className={s.heading}>Sign in to SigNote</h2>
-          <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close">
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close" aria-label="Close">
             <X size={18} />
           </Button>
         </div>
