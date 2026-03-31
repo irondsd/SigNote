@@ -33,6 +33,7 @@ const authIdentitySchema = new Schema<AuthIdentity>(
     provider: { type: String, required: true, enum: ['siwe', 'google'] },
     providerSubject: { type: String, required: true },
     email: { type: String },
+    emailVerified: { type: Boolean },
     lastLoginAt: { type: Date, required: true, default: () => new Date() },
     rawProfileJson: { type: Schema.Types.Mixed },
   },
