@@ -1,48 +1,43 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
 import { mobileSignIn } from '../utils/mobileSignIn';
+import { NotesPage } from '../pages/NotesPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-// Helper: sign in with a fresh account
-const setup = async (page: Page, startUrl = '/') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
-};
 
 // ─── Desktop Sidebar Navigation ─────────────────────────────────────────────
 
 test.describe('desktop sidebar navigation', () => {
   test('clicking Notes link navigates to /', async ({ page }) => {
-    await setup(page, '/secrets');
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
+    await page.goto('/secrets');
 
     await page.getByRole('link', { name: 'Notes' }).click();
     await expect(page).toHaveURL('/');
   });
 
   test('clicking Secrets link navigates to /secrets', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByRole('link', { name: 'Secrets' }).click();
     await expect(page).toHaveURL('/secrets');
   });
 
   test('clicking Seals link navigates to /seals', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByRole('link', { name: 'Seals' }).click();
     await expect(page).toHaveURL('/seals');
   });
 
   test('active link is visually highlighted', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     // On the notes page, the Notes link should have the active class
     const notesLink = page.getByRole('link', { name: 'Notes' });

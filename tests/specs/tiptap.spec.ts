@@ -1,28 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
 import { seedNotes } from '../fixtures/seedNotes';
+import { NotesPage } from '../pages/NotesPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
-
-const openInEditMode = async (page: Page, title: string) => {
-  await noteCard(page, title).click();
-  await page.getByTestId('edit-btn').click();
-  await page.getByTestId('tiptap-editor').click();
-};
-
-const saveAndGetContent = async (page: Page, noteId: string): Promise<string> => {
-  const patchPromise = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
-  await page.getByTestId('save-btn').click();
-  await patchPromise;
-  const res = await page.request.get('/api/notes');
-  const notes = await res.json();
-  return notes.find((n: { _id: string }) => n._id === noteId).content as string;
-};
 
 // ─── Group 1: Keyboard Formatting ───────────────────────────────────────────
 
@@ -32,16 +13,13 @@ test.describe('keyboard formatting', () => {
     const title = `Bold Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+b');
     await page.keyboard.type('bold text');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<strong>');
   });
 
@@ -50,16 +28,13 @@ test.describe('keyboard formatting', () => {
     const title = `Italic Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+i');
     await page.keyboard.type('italic text');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<em>');
   });
 
@@ -68,16 +43,13 @@ test.describe('keyboard formatting', () => {
     const title = `Underline Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+u');
     await page.keyboard.type('underlined text');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<u>');
   });
 
@@ -86,16 +58,13 @@ test.describe('keyboard formatting', () => {
     const title = `Strike Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+Shift+s');
     await page.keyboard.type('struck text');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<s>');
   });
 });
@@ -108,15 +77,12 @@ test.describe('url auto-detection', () => {
     const title = `URL Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('https://example.com ');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('href="https://example.com"');
     expect(content).toContain('target="_blank"');
   });
@@ -130,16 +96,13 @@ test.describe('checkboxes', () => {
     const title = `Checkbox Create ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('[ ] ');
     await page.keyboard.type('my task');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('data-type="taskItem"');
   });
 
@@ -153,13 +116,11 @@ test.describe('checkboxes', () => {
       },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
 
     // Open modal in view mode (no edit-btn click)
-    await noteCard(page, title).click();
+    await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
     const patchPromise = page.waitForResponse(
@@ -183,16 +144,13 @@ test.describe('horizontal rule', () => {
     const title = `Divider Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('---');
     await page.keyboard.press('Enter');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<hr');
   });
 });
@@ -205,15 +163,12 @@ test.describe('code blocks', () => {
     const title = `Inline Code ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('`hello`');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<code>');
     expect(content).toContain('hello');
   });
@@ -223,17 +178,14 @@ test.describe('code blocks', () => {
     const title = `Code Block ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('```');
     await page.keyboard.press('Enter');
     await page.keyboard.type('const x = 1;');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<pre>');
     expect(content).toContain('<code');
     expect(content).toContain('const x = 1;');
@@ -244,13 +196,11 @@ test.describe('code blocks', () => {
     const title = `Copy Inline ${Date.now()}`;
     await seedNotes(account.address, [{ title, content: '<p><code>hello world</code></p>' }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    await noteCard(page, title).click();
+    await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
     await page.getByTestId('tiptap-editor').locator('code').first().click();
@@ -265,13 +215,11 @@ test.describe('code blocks', () => {
       { title, content: '<pre><code class="language-undefined">const x = 1</code></pre>' },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    await noteCard(page, title).click();
+    await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
     // Hover to reveal the copy button, then click it
@@ -288,12 +236,10 @@ test.describe('code blocks', () => {
       { title, content: '<pre><code class="language-typescript">echo hello</code></pre>' },
     ]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
 
-    await noteCard(page, title).click();
+    await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
     await expect(page.getByTestId('tiptap-editor').getByText('typescript')).toBeVisible();
@@ -308,16 +254,13 @@ test.describe('lists', () => {
     const title = `Bullet List ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('- ');
     await page.keyboard.type('list item');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<ul>');
     expect(content).toContain('<li>');
   });
@@ -327,16 +270,13 @@ test.describe('lists', () => {
     const title = `Ordered List ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
-    await openInEditMode(page, title);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(privateKey);
+    await notesPage.openInEditMode(title);
     await page.keyboard.type('1. ');
     await page.keyboard.type('first item');
 
-    const content = await saveAndGetContent(page, note._id.toString());
+    const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<ol>');
     expect(content).toContain('<li>');
   });

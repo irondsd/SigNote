@@ -1,27 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
+import { NotesPage } from '../pages/NotesPage';
+import { SecretsPage } from '../pages/SecretsPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
-const secretCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
-
-const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
-
-// Unlock the session via PassphraseModal
-const unlock = async (page: Page) => {
-  await page.getByRole('button', { name: 'Unlock', exact: true }).click();
-  await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
-  await page.getByRole('button', { name: 'Unlock' }).last().click();
-  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
-};
 
 // ─── Account Isolation: Notes ───────────────────────────────────────────────
 
@@ -36,25 +21,21 @@ test.describe('account isolation - notes', () => {
     await seedNotes(accountA.account.address, [{ title: tagA, content: '<p>A content</p>' }]);
     await seedNotes(accountB.account.address, [{ title: tagB, content: '<p>B content</p>' }]);
 
-    // Sign in as account A
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, accountA.privateKey);
-    await signIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet(accountA.privateKey);
 
-    await expect(noteCard(page, tagA)).toBeVisible();
-    await expect(noteCard(page, tagB)).toHaveCount(0);
+    await expect(notesPage.noteCard(tagA)).toBeVisible();
+    await expect(notesPage.noteCard(tagB)).toHaveCount(0);
 
     // Sign out
     await page.getByTestId('sign-out-button').first().click();
     await expect(page.getByTestId('sign-in-button').first()).toBeVisible();
 
     // Sign in as account B
-    await changeAccount(page, accountB.privateKey);
-    await signIn(page);
+    await notesPage.signInWithWallet(accountB.privateKey);
 
-    await expect(noteCard(page, tagB)).toBeVisible();
-    await expect(noteCard(page, tagA)).toHaveCount(0);
+    await expect(notesPage.noteCard(tagB)).toBeVisible();
+    await expect(notesPage.noteCard(tagA)).toHaveCount(0);
   });
 });
 
@@ -68,33 +49,29 @@ test.describe('account isolation - secrets', () => {
     const tagA = `secretA_${Date.now()}`;
     const tagB = `secretB_${Date.now()}`;
 
-    const { mekBytes: mekA } = await seedEncryptionProfile(accountA.account.address, TEST_PASSPHRASE);
-    const { mekBytes: mekB } = await seedEncryptionProfile(accountB.account.address, TEST_PASSPHRASE);
+    const { mekBytes: mekA } = await seedEncryptionProfile(accountA.account.address, SecretsPage.PASSPHRASE);
+    const { mekBytes: mekB } = await seedEncryptionProfile(accountB.account.address, SecretsPage.PASSPHRASE);
 
     await seedSecrets(accountA.account.address, mekA, [{ title: tagA, content: 'A secret' }]);
     await seedSecrets(accountB.account.address, mekB, [{ title: tagB, content: 'B secret' }]);
 
-    // Sign in as account A and unlock
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, accountA.privateKey);
-    await signIn(page);
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(accountA.privateKey);
+    await secretsPage.unlock();
 
-    await expect(secretCard(page, tagA)).toBeVisible();
-    await expect(secretCard(page, tagB)).toHaveCount(0);
+    await expect(secretsPage.secretCard(tagA)).toBeVisible();
+    await expect(secretsPage.secretCard(tagB)).toHaveCount(0);
 
     // Sign out
     await page.getByTestId('sign-out-button').first().click();
     await expect(page.getByTestId('sign-in-button').first()).toBeVisible();
 
     // Sign in as account B and unlock
-    await changeAccount(page, accountB.privateKey);
-    await signIn(page);
-    await unlock(page);
+    await secretsPage.signInWithWallet(accountB.privateKey);
+    await secretsPage.unlock();
 
-    await expect(secretCard(page, tagB)).toBeVisible();
-    await expect(secretCard(page, tagA)).toHaveCount(0);
+    await expect(secretsPage.secretCard(tagB)).toBeVisible();
+    await expect(secretsPage.secretCard(tagA)).toHaveCount(0);
   });
 });
 

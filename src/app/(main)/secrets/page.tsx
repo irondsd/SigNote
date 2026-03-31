@@ -127,7 +127,7 @@ function SecretsPageContent() {
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
-        <EncryptionSetup address={session?.user?.name ?? undefined} />
+        <EncryptionSetup displayName={session?.user?.name ?? undefined} />
       ) : notes.length === 0 ? (
         search ? (
           <EmptyResults onClear={() => setSearch('')} />
@@ -152,7 +152,7 @@ function SecretsPageContent() {
             setShowPassphrase(false);
             setOpenNewAfterUnlock(false);
           }}
-          address={session?.user?.name ?? undefined}
+          displayName={session?.user?.name ?? undefined}
         />
       )}
 

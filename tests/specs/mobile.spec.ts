@@ -27,7 +27,7 @@ test('shows signed-out state and opens sidebar drawer', async ({ page }) => {
   await expect(page.getByTestId('mobile-menu-btn')).toBeVisible();
 
   // Signed-out: no wallet address element exists anywhere in the DOM
-  await expect(page.getByTestId('wallet-address')).toHaveCount(0);
+  await expect(page.getByTestId('display-name')).toHaveCount(0);
 
   // Open the drawer
   await page.getByTestId('mobile-menu-btn').click();
@@ -44,7 +44,7 @@ test('sign in works on mobile', async ({ page }) => {
   await mobileSignIn(page);
 
   // Wallet address visible in the open drawer confirms successful sign-in
-  await expect(page.getByTestId('mobile-drawer').getByTestId('wallet-address')).toBeVisible();
+  await expect(page.getByTestId('mobile-drawer').getByTestId('display-name')).toBeVisible();
 });
 
 // ─── Test 3: Notes shown in 1-column layout ──────────────────────────────────

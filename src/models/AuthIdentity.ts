@@ -29,28 +29,13 @@ export type AuthIdentityDocument = HydratedDocument<AuthIdentity>;
 
 const authIdentitySchema = new Schema<AuthIdentity>(
   {
-    userId: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    provider: {
-      type: String,
-      required: true,
-      enum: ['siwe', 'google'],
-    },
-    providerSubject: {
-      type: String,
-      required: true,
-    },
-    lastLoginAt: {
-      type: Date,
-      required: true,
-      default: () => new Date(),
-    },
-    rawProfileJson: {
-      type: Schema.Types.Mixed,
-    },
+    userId: { type: String, required: true, index: true },
+    provider: { type: String, required: true, enum: ['siwe', 'google'] },
+    providerSubject: { type: String, required: true },
+    email: { type: String },
+    emailVerified: { type: Boolean },
+    lastLoginAt: { type: Date, required: true, default: () => new Date() },
+    rawProfileJson: { type: Schema.Types.Mixed },
   },
   {
     collection: 'auth_identities',
@@ -61,5 +46,4 @@ const authIdentitySchema = new Schema<AuthIdentity>(
 // Prevents two accounts from claiming the same provider identity
 authIdentitySchema.index({ provider: 1, providerSubject: 1 }, { unique: true });
 
-export const AuthIdentityModel =
-  models.AuthIdentity || model<AuthIdentity>('AuthIdentity', authIdentitySchema);
+export const AuthIdentityModel = models.AuthIdentity || model<AuthIdentity>('AuthIdentity', authIdentitySchema);

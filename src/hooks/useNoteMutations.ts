@@ -18,7 +18,6 @@ export type CachedNote = {
   content: string;
   archived: boolean;
   deletedAt: string | null;
-  address: string;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -65,7 +64,6 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
         content: input.content,
         archived: false,
         deletedAt: null,
-        address: '',
         position: -1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

@@ -1,15 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
-import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
-import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
+import { NotesPage } from '../pages/NotesPage';
+import { SecretsPage } from '../pages/SecretsPage';
+import { SealsPage } from '../pages/SealsPage';
 
 test.describe.configure({ mode: 'parallel' });
 
-const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
 const DRAFT_KEY = 'sn_draft';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -29,41 +26,12 @@ const seedDraft = (
     draft: data,
   });
 
-// Sign in with a fresh account (no encryption profile)
-const setup = async (page: Page, startUrl = '/') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
-};
-
-// Sign in with a fresh account that has an encryption profile
-const setupEncrypted = async (page: Page, startUrl = '/secrets') => {
-  const { privateKey, account } = makeAccount();
-  const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account, mekBytes };
-};
-
-// Unlock via the PassphraseModal (PBKDF2 at 600k iterations is slow — 20s timeout)
-const unlock = async (page: Page) => {
-  await page.getByRole('button', { name: 'Unlock', exact: true }).click();
-  await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
-  await page.getByRole('button', { name: 'Unlock' }).last().click();
-  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
-};
-
 // ─── Group 1: Draft saving ────────────────────────────────────────────────────
 
 test.describe('draft saving', () => {
   test('saves note draft to localStorage after typing content', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -84,7 +52,8 @@ test.describe('draft saving', () => {
   });
 
   test('does not save draft when content is empty', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -97,7 +66,8 @@ test.describe('draft saving', () => {
   });
 
   test('new draft overwrites old draft', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     // First modal session — type content A
     await page.getByTestId('new-note-btn').click();
@@ -105,32 +75,39 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('First draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content A');
-    await page.waitForTimeout(700);
-
-    let draft = await getDraft(page);
-    expect(draft?.title).toBe('First draft');
+    await expect
+      .poll(() => getDraft(page), { timeout: 5000 })
+      .toMatchObject({
+        title: 'First draft',
+        type: 'note',
+      });
 
     // Close modal (without saving) — confirm discard, then open a new one
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(page.getByTestId('note-title-input')).toHaveCount(0); // wait for modal to fully close
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
 
     await page.getByTestId('note-title-input').fill('Second draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content B');
-    await page.waitForTimeout(700);
+    await expect
+      .poll(() => getDraft(page), { timeout: 5000 })
+      .toMatchObject({
+        title: 'Second draft',
+        type: 'note',
+      });
 
-    draft = await getDraft(page);
-    expect(draft?.type).toBe('note');
-    expect(draft?.title).toBe('Second draft');
+    const draft = await getDraft(page);
     expect(draft?.content).toContain('Content B');
     expect(draft?.content).not.toContain('Content A');
   });
 
   test('saves encrypted draft for secrets with encrypted content', async ({ page }) => {
-    await setupEncrypted(page, '/secrets');
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -153,8 +130,9 @@ test.describe('draft saving', () => {
   });
 
   test('saves encrypted draft for seals with encrypted content', async ({ page }) => {
-    await setupEncrypted(page, '/seals');
-    await unlock(page);
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInWithWallet();
+    await sealsPage.unlock();
 
     await page.getByRole('button', { name: 'New Seal' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -179,43 +157,47 @@ test.describe('draft saving', () => {
 
 test.describe('draft toast', () => {
   test('shows toast on app load when a note draft exists', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
     await seedDraft(page, { type: 'note', title: 'My Saved Draft', content: '<p>Body</p>', encrypted: false });
 
     // Hard reload so DraftToast remounts and detects the draft in localStorage
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
     await expect(page.getByText('"My Saved Draft"')).toBeVisible();
   });
 
   test('shows Untitled when draft title is empty', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
     await seedDraft(page, { type: 'note', title: '', content: '<p>Some body</p>', encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
     await expect(page.getByText('"Untitled"')).toBeVisible();
   });
 
   test('does not show toast when no draft in localStorage', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved')).not.toBeVisible();
   });
 
   test('Dismiss clears localStorage and removes the toast', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
     await seedDraft(page, { type: 'note', title: 'Draft to dismiss', content: '<p>Body</p>', encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Dismiss' }).click();
@@ -227,7 +209,9 @@ test.describe('draft toast', () => {
   });
 
   test('toast shows correct type label for secrets', async ({ page }) => {
-    await setupEncrypted(page, '/');
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await page.goto('/');
     await seedDraft(page, {
       type: 'secret',
       title: 'My Secret',
@@ -236,7 +220,7 @@ test.describe('draft toast', () => {
     });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
     await expect(page.getByText('"My Secret"')).toBeVisible();
@@ -248,7 +232,9 @@ test.describe('draft toast', () => {
 test.describe('note draft restore', () => {
   test('Continue navigates to notes page and opens modal with draft content', async ({ page }) => {
     // Start on /archive so clicking Continue causes a navigation to /
-    await setup(page, '/archive');
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
+    await page.goto('/archive');
 
     const title = 'Restored Title';
     const content = 'Restored body content';
@@ -256,7 +242,7 @@ test.describe('note draft restore', () => {
 
     // Hard reload — DraftToast remounts on /archive and shows toast
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     // Continue soft-navigates to / and opens modal with draft content
@@ -269,14 +255,16 @@ test.describe('note draft restore', () => {
   });
 
   test('draft is cleared from localStorage after saving the restored note', async ({ page }) => {
-    await setup(page, '/archive');
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
+    await page.goto('/archive');
 
     const title = 'Draft to save';
     const content = 'Content that should be saved';
     await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>`, encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -296,8 +284,9 @@ test.describe('note draft restore', () => {
 
 test.describe('encrypted draft restore', () => {
   test('Continue for a locked secret draft shows passphrase modal', async ({ page }) => {
-    await setupEncrypted(page, '/secrets');
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     // Type in New Secret modal to create a draft
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -316,7 +305,7 @@ test.describe('encrypted draft restore', () => {
 
     // Hard reload on /secrets — DraftToast remounts; phase transitions to 'locked'
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     // Wait for Unlock button so phaseRef is settled before clicking Continue
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
@@ -327,8 +316,9 @@ test.describe('encrypted draft restore', () => {
   });
 
   test('unlocking via Continue opens the secret modal with decrypted content', async ({ page }) => {
-    await setupEncrypted(page, '/secrets');
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     const title = 'Restored Secret';
     const content = 'Decrypted draft content';
@@ -346,14 +336,14 @@ test.describe('encrypted draft restore', () => {
 
     // Hard reload — DraftToast shows; phase = 'locked'
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
     // Continue → PassphraseModal → unlock → soft nav to /secrets?draft=true
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     // Modal opens with decrypted content
@@ -363,8 +353,9 @@ test.describe('encrypted draft restore', () => {
   });
 
   test('unlocking via Continue opens the seal modal with decrypted content', async ({ page }) => {
-    await setupEncrypted(page, '/seals');
-    await unlock(page);
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInWithWallet();
+    await sealsPage.unlock();
 
     const title = 'Restored Seal';
     const content = 'Decrypted seal content';
@@ -381,13 +372,13 @@ test.describe('encrypted draft restore', () => {
     await page.evaluate(() => sessionStorage.clear());
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved seal draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-    await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').fill(SealsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
     // Modal opens with decrypted content
@@ -397,8 +388,9 @@ test.describe('encrypted draft restore', () => {
   });
 
   test('Continue for already-unlocked session navigates directly without passphrase modal', async ({ page }) => {
-    await setupEncrypted(page, '/secrets');
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -411,7 +403,7 @@ test.describe('encrypted draft restore', () => {
 
     // Do NOT clear sessionStorage — MEK is still rehydratable on next load
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     // Wait for Lock button to confirm MEK reconstructed before clicking Continue
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
@@ -431,12 +423,13 @@ test.describe('encrypted draft restore', () => {
 
 test.describe('unsaved changes confirmation', () => {
   test('closing note modal with unsaved edits shows confirmation', async ({ page }) => {
-    const { account } = await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'Unsaved Test', content: 'original' }]);
     await page.reload();
 
     // Open note modal and edit
-    await page.getByTestId('note-card').filter({ hasText: 'Unsaved Test' }).click();
+    await notesPage.noteCard('Unsaved Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('tiptap-editor').click();
@@ -452,12 +445,13 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('discard button closes modal and discards changes', async ({ page }) => {
-    const { account } = await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'Discard Test', content: 'original content' }]);
     await page.reload();
 
     // Open, edit, close, discard
-    await page.getByTestId('note-card').filter({ hasText: 'Discard Test' }).click();
+    await notesPage.noteCard('Discard Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('tiptap-editor').click();
@@ -472,12 +466,13 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('closing note modal without changes does NOT show confirmation', async ({ page }) => {
-    const { account } = await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'NoConfirm Test' }]);
     await page.reload();
 
     // Open note modal in view mode (no edits)
-    await page.getByTestId('note-card').filter({ hasText: 'NoConfirm Test' }).click();
+    await notesPage.noteCard('NoConfirm Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
     // Close — should NOT show confirmation dialog
@@ -487,7 +482,8 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('new note modal with content shows confirmation on cancel', async ({ page }) => {
-    await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -503,7 +499,8 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('new note modal with empty content does NOT show confirmation', async ({ page }) => {
-    await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -515,8 +512,9 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('new secret modal with content shows confirmation on cancel', async ({ page }) => {
-    await setupEncrypted(page, '/secrets');
-    await unlock(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet();
+    await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -528,14 +526,15 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('clicking checkbox in view mode in a secret does NOT trigger discard dialog on close', async ({ page }) => {
-    const { account, mekBytes } = await setupEncrypted(page, '/secrets');
+    const secretsPage = new SecretsPage(page);
+    const { account, mekBytes } = await secretsPage.signInWithWallet();
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Secret task</p></li></ul>';
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret Checkbox Test', content: checkboxContent }]);
     await page.reload();
-    await unlock(page);
+    await secretsPage.unlock();
 
-    await page.getByTestId('secret-card').filter({ hasText: 'Secret Checkbox Test' }).click();
+    await secretsPage.secretCard('Secret Checkbox Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
     // Click the checkbox in view mode (not editing)
@@ -548,13 +547,14 @@ test.describe('unsaved changes confirmation', () => {
   });
 
   test('clicking checkbox in view mode does NOT trigger discard dialog on close', async ({ page }) => {
-    const { account } = await setup(page, '/');
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task item</p></li></ul>';
     await seedNotes(account.address, [{ title: 'Checkbox Test', content: checkboxContent }]);
     await page.reload();
 
-    await page.getByTestId('note-card').filter({ hasText: 'Checkbox Test' }).click();
+    await notesPage.noteCard('Checkbox Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
     // Click the checkbox in view mode (not editing)

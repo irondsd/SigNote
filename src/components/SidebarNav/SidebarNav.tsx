@@ -4,15 +4,13 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { useDisconnect, useEnsName } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
+import { useDisconnect } from 'wagmi';
 import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
-import { shortenAddress } from '@/utils/shortenAddress';
+import { useProfile } from '@/hooks/useProfile';
 import s from './SidebarNav.module.scss';
 import { Logo } from '../Logo/Logo';
-import { Address } from 'viem';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -32,9 +30,9 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { disconnect } = useDisconnect();
+  const { data: profile } = useProfile();
 
-  const address = session?.user?.name as Address | undefined;
-  const { data: ensName } = useEnsName({ address, chainId: mainnet.id });
+  const displayName = profile?.displayName ?? session?.user?.name ?? undefined;
 
   const handleSignOut = async () => {
     disconnect();
@@ -75,12 +73,12 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         </div>
 
         <div className={s.authSection}>
-          {address ? (
+          {session?.user?.id ? (
             <div className={s.walletRow}>
               <Link href="/profile" className={s.walletLink} onClick={onNavClick}>
                 <div className={s.walletDot} />
-                <span data-testid="wallet-address" className={s.walletAddress}>
-                  {ensName ?? shortenAddress(address)}
+                <span data-testid="display-name" className={s.walletAddress}>
+                  {displayName}
                 </span>
               </Link>
               <Button

@@ -136,7 +136,7 @@ test.describe('navigation', () => {
   test('sidebar wallet address navigates to /profile', async ({ page }) => {
     await setup(page);
 
-    await page.getByTestId('wallet-address').first().click();
+    await page.getByTestId('display-name').first().click();
     await expect(page).toHaveURL('/profile');
   });
 

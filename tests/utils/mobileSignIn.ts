@@ -5,10 +5,15 @@ import { expect, type Page } from '@playwright/test';
 // to the hidden desktop sidebar element at 400px, so we handle it here explicitly.
 export const mobileSignIn = async (page: Page): Promise<void> => {
   const drawer = page.getByTestId('mobile-drawer');
-  const drawerWalletAddress = drawer.getByTestId('wallet-address');
+  const drawerWalletAddress = drawer.getByTestId('display-name');
 
   await page.getByTestId('mobile-menu-btn').click();
   await drawer.getByTestId('sign-in-button').click();
+
+  // Wait for SignInModal and click "Sign in with Ethereum"
+  const siweBtn = page.getByTestId('siwe-sign-in-btn');
+  await siweBtn.waitFor({ state: 'visible' });
+  await siweBtn.click();
 
   // Race: RainbowKit modal appears (click Browser Wallet) vs auto-connect completes
   await Promise.any([

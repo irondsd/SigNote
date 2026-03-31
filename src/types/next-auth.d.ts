@@ -7,3 +7,13 @@ declare module 'next-auth' {
     } & DefaultSession['user'];
   }
 }
+
+declare module 'next-auth/adapters' {
+  // intentionally empty — keeps module augmentation scoped
+}
+
+declare module 'next-auth' {
+  interface Account {
+    userId?: string;
+  }
+}
