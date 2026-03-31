@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 
@@ -20,5 +20,17 @@ export const useProfile = () => {
     queryKey: ['profile', userId],
     queryFn: () => api.get('/api/profile').json<ProfileData>(),
     enabled: userId !== undefined,
+  });
+};
+
+export const useUpdateDisplayName = () => {
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+
+  return useMutation({
+    mutationFn: (displayName: string) =>
+      api.patch('/api/profile', { json: { displayName } }).json(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile', userId] }),
   });
 };

@@ -40,7 +40,7 @@
 }
 
 :root {
-  --note-yellow: oklch(0.96 0.08 95);
+  --note-yellow: oklch(95.884% 0.0809 98.627 / 0.744);
   --note-red: oklch(0.96 0.04 15);
   --note-blue: oklch(0.95 0.04 250);
   --note-green: oklch(0.95 0.05 148);

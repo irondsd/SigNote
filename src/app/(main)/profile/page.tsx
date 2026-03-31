@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import {
+  Save,
   KeyRound,
   Loader2,
   NotebookText,
   BookLock,
+  Pencil,
   SquareAsterisk,
   Trash2,
   ShieldOff,
@@ -16,8 +18,9 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
@@ -51,6 +54,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile, isLoading } = useProfile();
+  const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -110,9 +116,64 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className={s.overviewBody}>
             <div className={s.addressRow}>
-              <span data-testid="profile-address" className={s.address}>
-                {profile?.displayName}
-              </span>
+              {isEditing ? (
+                <div className={s.inputWrapper}>
+                  <Input
+                    className={s.inputWithIcon}
+                    value={editValue}
+                    maxLength={50}
+                    autoFocus
+                    disabled={isSaving}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setIsEditing(false);
+                      if (e.key === 'Enter') {
+                        const trimmed = editValue.trim();
+                        if (trimmed && trimmed !== profile?.displayName) {
+                          updateDisplayName(trimmed, {
+                            onSuccess: () => setIsEditing(false),
+                            onError: () => toast.error('Failed to update display name.'),
+                          });
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
+                    disabled={isSaving || !editValue.trim() || editValue.trim() === profile?.displayName}
+                    onClick={() => {
+                      updateDisplayName(editValue.trim(), {
+                        onSuccess: () => setIsEditing(false),
+                        onError: () => toast.error('Failed to update display name.'),
+                      });
+                    }}
+                    aria-label="Save display name"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <span data-testid="profile-address" className={s.address}>
+                    {profile?.displayName}
+                  </span>
+                  {profile && (
+                    <button
+                      className={s.editBtn}
+                      onClick={() => {
+                        setEditValue(profile.displayName);
+                        setIsEditing(true);
+                      }}
+                      aria-label="Edit display name"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                </>
+              )}
             </div>
             {joinedDate && (
               <p className={s.joinedDate}>

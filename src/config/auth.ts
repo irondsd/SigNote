@@ -49,14 +49,16 @@ export const authOptions: NextAuthOptions = {
         const picture = (profile as { picture?: string }).picture;
         const user = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
         if (!user) return false;
-        // Store MongoDB _id on the account so jwt callback can use it
+        // Store MongoDB _id and displayName on the account so jwt callback can use them
         account.userId = user._id.toString();
+        account.displayName = user.displayName;
       }
       return true;
     },
     async jwt({ token, account }) {
       if (account?.provider === 'google' && account.userId) {
         token.sub = account.userId as string;
+        token.name = account.displayName as string;
       }
       return token;
     },

@@ -31,6 +31,11 @@ export const upsertGoogleUser = async (googleId: string, displayName: string, em
   return user;
 };
 
+export const updateDisplayName = async (userId: string, displayName: string) => {
+  await connectToDatabase();
+  return UserModel.findByIdAndUpdate(userId, { displayName }, { new: true }).lean().exec();
+};
+
 export const upsertSiweUser = async (address: string) => {
   const now = new Date();
   const addressLower = address.toLowerCase();
