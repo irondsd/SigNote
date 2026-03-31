@@ -167,7 +167,9 @@ test.describe('connect wallet', () => {
 
       // Click the modal's close button (the X)
       const closeBtn = modal.locator('[aria-label="Close"]');
-      await closeBtn.click({ force: true }); // force in case the button is not stable. Fails without it
+      await closeBtn.waitFor({ state: 'visible' });
+      await expect(closeBtn).toBeEnabled();
+      await closeBtn.click();
 
       // Modal must disappear
       await expect(modal).not.toBeVisible();

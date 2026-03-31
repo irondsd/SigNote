@@ -75,25 +75,27 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('First draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content A');
-    await page.waitForTimeout(700);
-
-    let draft = await getDraft(page);
-    expect(draft?.title).toBe('First draft');
+    await expect.poll(() => getDraft(page), { timeout: 5000 }).toMatchObject({
+      title: 'First draft',
+      type: 'note',
+    });
 
     // Close modal (without saving) — confirm discard, then open a new one
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: 'Discard' }).click();
+    await expect(page.getByTestId('note-title-input')).toHaveCount(0); // wait for modal to fully close
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
 
     await page.getByTestId('note-title-input').fill('Second draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content B');
-    await page.waitForTimeout(700);
+    await expect.poll(() => getDraft(page), { timeout: 5000 }).toMatchObject({
+      title: 'Second draft',
+      type: 'note',
+    });
 
-    draft = await getDraft(page);
-    expect(draft?.type).toBe('note');
-    expect(draft?.title).toBe('Second draft');
+    const draft = await getDraft(page);
     expect(draft?.content).toContain('Content B');
     expect(draft?.content).not.toContain('Content A');
   });
