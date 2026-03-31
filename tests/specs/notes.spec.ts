@@ -216,7 +216,7 @@ test.describe('delete note', () => {
     await expect(notesPage.noteCard(title)).not.toBeVisible();
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(notesPage.noteCard(title)).not.toBeVisible();
   });
 

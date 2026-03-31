@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 export const signIn = async (page: Page): Promise<void> => {
-  const walletAddress = page.getByTestId('wallet-address').first();
+  const walletAddress = page.getByTestId('display-name').first();
 
   // If already authenticated, skip
   if (await walletAddress.isVisible().catch(() => false)) return;

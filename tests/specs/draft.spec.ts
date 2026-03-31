@@ -75,10 +75,12 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('First draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content A');
-    await expect.poll(() => getDraft(page), { timeout: 5000 }).toMatchObject({
-      title: 'First draft',
-      type: 'note',
-    });
+    await expect
+      .poll(() => getDraft(page), { timeout: 5000 })
+      .toMatchObject({
+        title: 'First draft',
+        type: 'note',
+      });
 
     // Close modal (without saving) — confirm discard, then open a new one
     await page.getByRole('button', { name: 'Cancel' }).click();
@@ -90,10 +92,12 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('Second draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('Content B');
-    await expect.poll(() => getDraft(page), { timeout: 5000 }).toMatchObject({
-      title: 'Second draft',
-      type: 'note',
-    });
+    await expect
+      .poll(() => getDraft(page), { timeout: 5000 })
+      .toMatchObject({
+        title: 'Second draft',
+        type: 'note',
+      });
 
     const draft = await getDraft(page);
     expect(draft?.content).toContain('Content B');
@@ -159,7 +163,7 @@ test.describe('draft toast', () => {
 
     // Hard reload so DraftToast remounts and detects the draft in localStorage
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
     await expect(page.getByText('"My Saved Draft"')).toBeVisible();
@@ -171,7 +175,7 @@ test.describe('draft toast', () => {
     await seedDraft(page, { type: 'note', title: '', content: '<p>Some body</p>', encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
     await expect(page.getByText('"Untitled"')).toBeVisible();
@@ -182,7 +186,7 @@ test.describe('draft toast', () => {
     await notesPage.signInWithWallet();
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved')).not.toBeVisible();
   });
@@ -193,7 +197,7 @@ test.describe('draft toast', () => {
     await seedDraft(page, { type: 'note', title: 'Draft to dismiss', content: '<p>Body</p>', encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Dismiss' }).click();
@@ -216,7 +220,7 @@ test.describe('draft toast', () => {
     });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
     await expect(page.getByText('"My Secret"')).toBeVisible();
@@ -238,7 +242,7 @@ test.describe('note draft restore', () => {
 
     // Hard reload — DraftToast remounts on /archive and shows toast
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     // Continue soft-navigates to / and opens modal with draft content
@@ -260,7 +264,7 @@ test.describe('note draft restore', () => {
     await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>`, encrypted: false });
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved note draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -301,7 +305,7 @@ test.describe('encrypted draft restore', () => {
 
     // Hard reload on /secrets — DraftToast remounts; phase transitions to 'locked'
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     // Wait for Unlock button so phaseRef is settled before clicking Continue
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
@@ -332,7 +336,7 @@ test.describe('encrypted draft restore', () => {
 
     // Hard reload — DraftToast shows; phase = 'locked'
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
@@ -368,7 +372,7 @@ test.describe('encrypted draft restore', () => {
     await page.evaluate(() => sessionStorage.clear());
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved seal draft')).toBeVisible();
 
@@ -399,7 +403,7 @@ test.describe('encrypted draft restore', () => {
 
     // Do NOT clear sessionStorage — MEK is still rehydratable on next load
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     // Wait for Lock button to confirm MEK reconstructed before clicking Continue
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();

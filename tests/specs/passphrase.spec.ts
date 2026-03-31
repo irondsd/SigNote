@@ -65,7 +65,7 @@ test.describe('lock / unlock state', () => {
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
     await page.reload();
-    await expect(page.getByTestId('wallet-address').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     // Should still be unlocked (sessionStorage rehydration)
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();

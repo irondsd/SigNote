@@ -29,7 +29,7 @@ test.describe('connect wallet', () => {
       await siweBtn.click();
 
       // Race: modal appears → click Browser Wallet, OR auto-connect completes without modal
-      const walletAddress = page.getByTestId('wallet-address').first();
+      const walletAddress = page.getByTestId('display-name').first();
       await Promise.any([
         page.waitForFunction(() => {
           const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
@@ -99,7 +99,7 @@ test.describe('connect wallet', () => {
       await expect(siweBtn).toBeEnabled({ timeout: 15000 });
       await expect(siweBtn).toContainText('Sign in with Ethereum');
       // User should not be signed in
-      await expect(page.getByTestId('wallet-address').first()).not.toBeVisible();
+      await expect(page.getByTestId('display-name').first()).not.toBeVisible();
     });
 
     test('should sign out and return to unauthenticated state', async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe('connect wallet', () => {
       await siweBtn.waitFor({ state: 'visible' });
       await siweBtn.click();
 
-      const walletAddress = page.getByTestId('wallet-address').first();
+      const walletAddress = page.getByTestId('display-name').first();
       await Promise.any([
         page.waitForFunction(() => {
           const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');

@@ -77,7 +77,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
             <div className={s.walletRow}>
               <Link href="/profile" className={s.walletLink} onClick={onNavClick}>
                 <div className={s.walletDot} />
-                <span data-testid="wallet-address" className={s.walletAddress}>
+                <span data-testid="display-name" className={s.walletAddress}>
                   {displayName}
                 </span>
               </Link>
