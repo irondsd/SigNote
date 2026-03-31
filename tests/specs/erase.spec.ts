@@ -7,6 +7,7 @@ import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
+import { ProfilePage } from '../pages/ProfilePage';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -108,11 +109,12 @@ test.describe('erase account', () => {
 
     await reSignIn(page, privateKey);
 
-    await page.goto('/profile');
-    await expect(page.getByTestId('notes-count')).toHaveText('0');
-    await expect(page.getByTestId('secrets-count')).toHaveText('0');
-    await expect(page.getByTestId('seals-count')).toHaveText('0');
-    await expect(page.getByTestId('erase-profile-btn')).toBeDisabled();
+    const profilePage = new ProfilePage(page);
+    await profilePage.goto();
+    await expect(profilePage.notesCount()).toHaveText('0');
+    await expect(profilePage.secretsCount()).toHaveText('0');
+    await expect(profilePage.sealsCount()).toHaveText('0');
+    await expect(profilePage.eraseProfileBtn()).toBeDisabled();
 
     await page.goto('/secrets');
     await expect(page.locator('#enc-passphrase')).toBeVisible();
@@ -167,8 +169,9 @@ test.describe('erase encryption profile', () => {
     // onDone fires after 10s timer → router.push('/profile')
     await expect(page).toHaveURL('/profile', { timeout: 15000 });
 
-    await expect(page.getByTestId('notes-count')).toHaveText('2');
-    await expect(page.getByTestId('erase-profile-btn')).toBeDisabled();
+    const profilePage = new ProfilePage(page);
+    await expect(profilePage.notesCount()).toHaveText('2');
+    await expect(profilePage.eraseProfileBtn()).toBeDisabled();
 
     await page.goto('/secrets');
     await expect(page.locator('#enc-passphrase')).toBeVisible();
@@ -226,6 +229,8 @@ test.describe('erase encryption profile', () => {
     const profile = await profileRes.json();
     expect(profile.hasEncryptionProfile).toBe(false);
     expect(profile.encryptionProfileCreatedAt).toBeNull();
-    await expect(page.getByTestId('erase-profile-btn')).toBeDisabled();
+
+    const profilePage = new ProfilePage(page);
+    await expect(profilePage.eraseProfileBtn()).toBeDisabled();
   });
 });

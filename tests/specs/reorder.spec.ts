@@ -3,18 +3,17 @@ import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mobileSignIn } from '../utils/mobileSignIn';
 import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
 import { seedNotes } from '../fixtures/seedNotes';
+import { NotesPage } from '../pages/NotesPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
 
 // Perform a desktop drag: mousedown → 8px activation move → move to target → mouseup.
 // Set up patchDone BEFORE calling this so the waitForResponse is already listening.
 const startDrag = async (page: Page, sourceTitle: string, targetTitle: string) => {
-  const sourceBox = await noteCard(page, sourceTitle).boundingBox();
-  const targetBox = await noteCard(page, targetTitle).boundingBox();
+  const notesPage = new NotesPage(page);
+  const sourceBox = await notesPage.noteCard(sourceTitle).boundingBox();
+  const targetBox = await notesPage.noteCard(targetTitle).boundingBox();
   if (!sourceBox || !targetBox) throw new Error('Card bounding box not found');
   const sx = sourceBox.x + sourceBox.width / 2;
   const sy = sourceBox.y + sourceBox.height / 2;
@@ -39,19 +38,11 @@ const dragCard = async (page: Page, sourceTitle: string, targetTitle: string) =>
 test.describe('desktop reorder', () => {
   test.use({ viewport: { width: 1200, height: 800 } });
 
-  const setup = async (page: Page) => {
-    const { privateKey, account } = makeAccount();
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-    return { account };
-  };
-
   // ─── Test 1: Cross-row drag (mixed card heights) ──────────────────────────
 
   test('cross-row drag: note 5 to note 2 position (short row 1, tall row 2)', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     const tag = `cr${Date.now()}`;
     const longContent = Array.from({ length: 10 }, (_, i) => `<p>paragraph ${i + 1}</p>`).join('');
 
@@ -67,7 +58,7 @@ test.describe('desktop reorder', () => {
     ]);
 
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     // Confirm 3-column layout
     const cols = await page.locator('main').evaluate((el) => {
@@ -105,7 +96,8 @@ test.describe('desktop reorder', () => {
   // ─── Test 2: Drag last card to first (9 equal notes) ─────────────────────
 
   test('drag last card to first position (9 equal notes)', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     const tag = `last${Date.now()}`;
 
     // Seed reversed: i=0 → Note 9 (position 1000), i=8 → Note 1 (position 9000)
@@ -116,7 +108,7 @@ test.describe('desktop reorder', () => {
     );
 
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     await dragCard(page, `${tag} Note 9`, `${tag} Note 1`);
 
@@ -136,7 +128,8 @@ test.describe('desktop reorder', () => {
   // ─── Test 3: Preview switches before drop (no drop, desktop) ─────────────
 
   test('drag preview: cards switch places before drop', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     const tag = `prev${Date.now()}`;
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
@@ -148,7 +141,7 @@ test.describe('desktop reorder', () => {
     ]);
 
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     // Start dragging Note 2 toward Note 1 — do NOT release mouse
     await startDrag(page, `${tag} Note 2`, `${tag} Note 1`);
@@ -191,7 +184,8 @@ test.describe('desktop reorder', () => {
   // ─── Test 4: Two sequential reorders ─────────────────────────────────────
 
   test('two sequential reorders: 1,2,3,4,5,6 → 1,3,2,4,5,6 → 3,1,2,4,5,6', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     const tag = `seq${Date.now()}`;
 
     // Seed reversed: Note 6=1000 … Note 1=6000
@@ -202,7 +196,7 @@ test.describe('desktop reorder', () => {
     );
 
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     // First reorder: drag Note 3 → Note 2 position → order 1,3,2,4,5,6
     await dragCard(page, `${tag} Note 3`, `${tag} Note 2`);
@@ -233,6 +227,8 @@ test.describe('desktop reorder', () => {
 test.describe('mobile reorder', () => {
   test.use({ viewport: { width: 400, height: 812 } });
 
+  // Mobile setup intentionally skips signIn() — each test calls mobileSignIn() directly.
+  // This cannot use BasePage.signInWithWallet() which always calls signIn().
   const setup = async (page: Page) => {
     const { privateKey, account } = makeAccount();
     await mockProvider(page);
@@ -255,14 +251,16 @@ test.describe('mobile reorder', () => {
 
     await mobileSignIn(page);
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+
+    const notesPage = new NotesPage(page);
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     let patchFired = false;
     page.on('request', (req) => {
       if (req.url().includes('/api/notes/') && req.method() === 'PATCH') patchFired = true;
     });
 
-    const box = await noteCard(page, `${tag} Note 1`).boundingBox();
+    const box = await notesPage.noteCard(`${tag} Note 1`).boundingBox();
     if (!box) throw new Error('Card not found');
     const sx = box.x + box.width / 2;
     const sy = box.y + box.height / 2;
@@ -333,7 +331,9 @@ test.describe('mobile reorder', () => {
 
     await mobileSignIn(page);
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+
+    const notesPage = new NotesPage(page);
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     await dragCard(page, `${tag} Note 1`, `${tag} Note 2`);
 
@@ -360,7 +360,9 @@ test.describe('mobile reorder', () => {
 
     await mobileSignIn(page);
     await page.reload();
-    await expect(noteCard(page, `${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+
+    const notesPage = new NotesPage(page);
+    await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
     // Start dragging Note 1 toward Note 2 — do NOT release
     await startDrag(page, `${tag} Note 1`, `${tag} Note 2`);

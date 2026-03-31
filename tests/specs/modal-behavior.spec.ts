@@ -1,44 +1,22 @@
-import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
-import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
+import { test, expect } from '@playwright/test';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
+import { NotesPage } from '../pages/NotesPage';
+import { SecretsPage } from '../pages/SecretsPage';
 
 test.describe.configure({ mode: 'parallel' });
-
-const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
-
-const noteCard = (page: Page, title: string) => page.getByTestId('note-card').filter({ hasText: title });
-
-const setup = async (page: Page, startUrl = '/') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
-};
-
-const unlock = async (page: Page) => {
-  await page.getByRole('button', { name: 'Unlock', exact: true }).click();
-  await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
-  await page.getByRole('button', { name: 'Unlock' }).last().click();
-  await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
-};
 
 // ─── Close via X Button ─────────────────────────────────────────────────────
 
 test.describe('modal close - X button', () => {
   test('note modal closes via X button', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'XClose Test' }]);
     await page.reload();
 
-    await noteCard(page, 'XClose Test').click();
+    await notesPage.noteCard('XClose Test').click();
     const modal = page.getByTestId('note-modal');
     await expect(modal).toBeVisible();
 
@@ -47,7 +25,8 @@ test.describe('modal close - X button', () => {
   });
 
   test('new note modal closes via X button', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -61,11 +40,12 @@ test.describe('modal close - X button', () => {
 
 test.describe('modal close - backdrop click', () => {
   test('note modal closes when clicking backdrop in view mode', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'Backdrop Test' }]);
     await page.reload();
 
-    await noteCard(page, 'Backdrop Test').click();
+    await notesPage.noteCard('Backdrop Test').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
     // Click outside the modal (top-left corner of the backdrop)
@@ -74,11 +54,12 @@ test.describe('modal close - backdrop click', () => {
   });
 
   test('note modal does NOT close via backdrop click while editing', async ({ page }) => {
-    const { account } = await setup(page);
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
     await seedNotes(account.address, [{ title: 'NoClose Edit' }]);
     await page.reload();
 
-    await noteCard(page, 'NoClose Edit').click();
+    await notesPage.noteCard('NoClose Edit').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
     // Enter edit mode
@@ -90,7 +71,8 @@ test.describe('modal close - backdrop click', () => {
   });
 
   test('new note modal does NOT close via backdrop click when content exists', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -109,7 +91,8 @@ test.describe('modal close - backdrop click', () => {
 
 test.describe('modal close - discard', () => {
   test('closing new note modal via X does not create note', async ({ page }) => {
-    await setup(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInWithWallet();
 
     await page.getByTestId('new-note-btn').click();
     const title = `Discard_${Date.now()}`;
@@ -120,7 +103,7 @@ test.describe('modal close - discard', () => {
     await page.getByRole('button', { name: 'Discard' }).click();
 
     // Note should NOT appear in the grid
-    await expect(noteCard(page, title)).toHaveCount(0);
+    await expect(notesPage.noteCard(title)).toHaveCount(0);
   });
 });
 
@@ -128,13 +111,18 @@ test.describe('modal close - discard', () => {
 
 test.describe('modal close - secrets', () => {
   test('secret modal closes via X button when viewing decrypted content', async ({ page }) => {
-    const { account } = await setup(page, '/secrets');
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    // Sign in first (no enc profile yet), then seed enc profile + secrets post-sign-in
+    const notesPage = new NotesPage(page);
+    const { account } = await notesPage.signInWithWallet();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title: 'SecretClose Test', content: 'secret body' }]);
+    await page.goto('/secrets');
     await page.reload();
-    await unlock(page);
 
-    await page.getByTestId('secret-card').filter({ hasText: 'SecretClose Test' }).click();
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.unlock();
+
+    await secretsPage.secretCard('SecretClose Test').click();
     const modal = page.getByTestId('note-modal');
     await expect(modal).toBeVisible();
 

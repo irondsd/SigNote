@@ -1,26 +1,15 @@
-import { test, expect, type Page } from '@playwright/test';
-import { mockProvider } from '../utils/mockProvider';
-import { changeAccount } from '../utils/changeAccount';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
-import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
+import { SecretsPage } from '../pages/SecretsPage';
 
-const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
 const TEST_NEW_PASSPHRASE = 'different-horse-new-staple-1337';
-
-// Helper: full sign-in setup for a fresh test account
-const setup = async (page: Page, startUrl = '/secrets') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
-};
 
 test.describe('encryption profile', () => {
   test('should see encryption profile setup', async ({ page }) => {
-    await setup(page);
+    const { privateKey } = makeAccount();
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await expect(page.locator('#enc-passphrase')).toBeVisible();
     await expect(page.getByText('Set up encrypted notes')).toBeVisible();
@@ -28,24 +17,24 @@ test.describe('encryption profile', () => {
 
   test('should not see encryption profile setup if already setup', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await expect(page.locator('#enc-passphrase')).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
   });
 
   test('should setup encryption profile', async ({ page }) => {
-    await setup(page);
+    const { privateKey } = makeAccount();
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
 
     await expect(page.locator('#enc-passphrase')).toBeVisible();
 
-    await page.locator('#enc-passphrase').fill(TEST_PASSPHRASE);
-    await page.locator('#enc-confirm').fill(TEST_PASSPHRASE);
+    await page.locator('#enc-passphrase').fill(SecretsPage.PASSPHRASE);
+    await page.locator('#enc-confirm').fill(SecretsPage.PASSPHRASE);
 
     const postPromise = page.waitForResponse(
       (r) => r.url().includes('/api/encryption/profile') && r.request().method() === 'POST',
@@ -63,17 +52,15 @@ test.describe('encryption profile', () => {
 
   test('should change passphrase', async ({ page }) => {
     const { privateKey, account } = makeAccount();
-    const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
-    await mockProvider(page);
-    await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInWithWallet(privateKey);
     await page.goto('/change-passphrase');
 
     await expect(page.locator('#cp-old')).toBeVisible();
 
-    await page.locator('#cp-old').fill(TEST_PASSPHRASE);
+    await page.locator('#cp-old').fill(SecretsPage.PASSPHRASE);
     await page.locator('#cp-new').fill(TEST_NEW_PASSPHRASE);
     await page.locator('#cp-confirm').fill(TEST_NEW_PASSPHRASE);
     await page.locator('#cp-old').blur();
