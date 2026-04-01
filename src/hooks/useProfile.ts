@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
+import { toast } from 'sonner';
 
 export type ProfileData = {
   displayName: string;
@@ -29,8 +30,16 @@ export const useUpdateDisplayName = () => {
   const userId = session?.user?.id;
 
   return useMutation({
-    mutationFn: (displayName: string) =>
-      api.patch('/api/profile', { json: { displayName } }).json(),
+    mutationFn: (displayName: string) => {
+      if (displayName.trim() === '') return Promise.reject(new Error('Display name cannot be empty'));
+      if (displayName.length > 50) return Promise.reject(new Error('Display name must be 50 characters or fewer'));
+
+      return api.patch('/api/profile', { json: { displayName } }).json();
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile', userId] }),
+    onError: (error) => {
+      toast.error('Failed to update display name. Please try again.');
+      console.error('Failed to update display name:', error);
+    },
   });
 };

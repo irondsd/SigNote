@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
 import s from './SidebarNav.module.scss';
 import { Logo } from '../Logo/Logo';
+import { useMemo } from 'react';
+import { isAddress } from 'viem';
+import { shortenAddress } from '@/utils/shortenAddress';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -32,7 +35,13 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const { disconnect } = useDisconnect();
   const { data: profile } = useProfile();
 
-  const displayName = profile?.displayName ?? session?.user?.name ?? undefined;
+  const displayName = useMemo(() => {
+    const name = profile?.displayName ?? session?.user?.name ?? undefined;
+
+    if (name && isAddress(name)) return shortenAddress(name);
+
+    return name;
+  }, [profile, session]);
 
   const handleSignOut = async () => {
     disconnect();
