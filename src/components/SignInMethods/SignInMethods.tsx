@@ -86,7 +86,7 @@ export function SignInMethods() {
         {identities?.map((identity, i) => (
           <React.Fragment key={identity.provider}>
             {i > 0 && <div className={s.divider} />}
-            <div className={s.identityRow}>
+            <div className={s.identityRow} data-testid={`identity-${identity.provider}`}>
               <div className={s.identityIcon}>
                 {identity.provider === 'google' ? <GoogleIcon /> : <EthereumIcon className="p-px" />}
               </div>
@@ -106,6 +106,7 @@ export function SignInMethods() {
                       size="sm"
                       disabled={isOnlyOne || isUnlinking}
                       onClick={() => handleUnlink(identity.provider)}
+                      data-testid={`unlink-${identity.provider}`}
                     >
                       {isUnlinking ? <Loader2 size={14} className="animate-spin" /> : null}
                       Unlink
@@ -125,7 +126,13 @@ export function SignInMethods() {
               <span className={s.linkSectionLabel}>Add another sign-in method</span>
               <div className={s.linkButtons}>
                 {!hasGoogle && (
-                  <Button variant="outline" size="sm" onClick={handleLinkGoogle} className="justify-start gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLinkGoogle}
+                    className="justify-start gap-3"
+                    data-testid="link-google-button"
+                  >
                     <GoogleIcon />
                     Link Google account
                   </Button>
@@ -137,6 +144,7 @@ export function SignInMethods() {
                     onClick={handleLinkSiwe}
                     disabled={siweStep !== 'idle'}
                     className="justify-start gap-3"
+                    data-testid="link-siwe-button"
                   >
                     <EthereumIcon className="p-px" />
                     {siweStep === 'connecting'
