@@ -1,9 +1,11 @@
 import type { MongoMemoryServer } from 'mongodb-memory-server';
 import type { ChildProcess } from 'child_process';
+import type { MockOAuthServer } from '../oauth/mockOAuthServer';
 
 type GlobalWithMongo = typeof globalThis & {
   __MONGOD__?: MongoMemoryServer;
   __SERVER__?: ChildProcess;
+  __MOCK_OAUTH__?: MockOAuthServer;
 };
 
 export default async function globalTeardown() {
@@ -17,5 +19,11 @@ export default async function globalTeardown() {
   if (mongod) {
     await mongod.stop();
     console.log('MongoMemoryServer stopped');
+  }
+
+  const mockOAuth = (globalThis as GlobalWithMongo).__MOCK_OAUTH__;
+  if (mockOAuth) {
+    await mockOAuth.close();
+    console.log('Mock OAuth server stopped');
   }
 }

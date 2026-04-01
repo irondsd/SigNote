@@ -16,6 +16,10 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      // In tests, GOOGLE_OAUTH_WELL_KNOWN points to a local mock OIDC server so
+      // NextAuth discovers all endpoints from there instead of real Google.
+      // Omitting the spread (undefined value) preserves the built-in default.
+      ...(process.env.GOOGLE_OAUTH_WELL_KNOWN ? { wellKnown: process.env.GOOGLE_OAUTH_WELL_KNOWN } : {}),
     }),
     CredentialsProvider({
       name: 'Ethereum',

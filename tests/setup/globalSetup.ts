@@ -3,6 +3,8 @@ import { execSync, spawn } from 'child_process';
 import path from 'path';
 import { config } from 'dotenv';
 import type { ChildProcess } from 'child_process';
+import { startMockOAuthServer } from '../oauth/mockOAuthServer';
+import type { MockOAuthServer } from '../oauth/mockOAuthServer';
 
 // Load .env.test so test workers (spawned after globalSetup) inherit these vars
 config({ path: path.resolve(__dirname, '../../.env.test') });
@@ -10,6 +12,7 @@ config({ path: path.resolve(__dirname, '../../.env.test') });
 type GlobalWithMongo = typeof globalThis & {
   __MONGOD__?: MongoMemoryServer;
   __SERVER__?: ChildProcess;
+  __MOCK_OAUTH__?: MockOAuthServer;
 };
 
 async function waitForServer(url: string, timeoutMs = 50000): Promise<void> {
@@ -32,6 +35,16 @@ export default async function globalSetup() {
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'inherit',
   });
+
+  // Start mock OAuth server so its port is known before spawning Next.js.
+  const mockOAuth = await startMockOAuthServer();
+  process.env.MOCK_OAUTH_PORT = String(mockOAuth.port);
+  process.env.GOOGLE_OAUTH_WELL_KNOWN = `http://localhost:${mockOAuth.port}/.well-known/openid-configuration`;
+  // Use a stable fake client ID/secret — the mock server accepts any values.
+  process.env.GOOGLE_CLIENT_ID = 'mock-google-client-id';
+  process.env.GOOGLE_CLIENT_SECRET = 'mock-google-client-secret';
+  (globalThis as GlobalWithMongo).__MOCK_OAUTH__ = mockOAuth;
+  console.log(`Mock OAuth server started on port ${mockOAuth.port}`);
 
   // Start on a random port and propagate the URI via process.env before
   // spawning the web server, so it inherits the correct MONGODB_URI.
