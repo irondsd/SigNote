@@ -11,7 +11,7 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('create secret', () => {
   test('create secret with title and content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     const title = `Secret ${Date.now()}`;
@@ -33,7 +33,7 @@ test.describe('create secret', () => {
 
   test('create secret with title only', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     const title = `Title Only Secret ${Date.now()}`;
@@ -51,7 +51,7 @@ test.describe('create secret', () => {
 
   test('save button disabled when both fields empty, enabled after typing title', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -64,11 +64,11 @@ test.describe('create secret', () => {
   });
 
   test('clicking New Secret while locked opens passphrase modal then new secret modal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     // Locked state: New Secret should prompt for passphrase
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -87,13 +87,13 @@ test.describe('create secret', () => {
 
 test.describe('view secret', () => {
   test('card shows encrypted placeholder when locked', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Locked Preview ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, content: 'Secret body' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     // Encrypted placeholder should be present instead of content
     const card = secretsPage.secretCard(title);
@@ -102,14 +102,14 @@ test.describe('view secret', () => {
   });
 
   test('card shows decrypted preview text when unlocked', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Unlocked Preview ${Date.now()}`;
     const contentText = 'My decrypted secret preview';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     const card = secretsPage.secretCard(title);
@@ -119,14 +119,14 @@ test.describe('view secret', () => {
   });
 
   test('clicking card when unlocked opens modal with decrypted content', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Open Unlocked ${Date.now()}`;
     const contentText = 'Decrypted modal content';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -136,13 +136,13 @@ test.describe('view secret', () => {
   });
 
   test('clicking card when locked opens passphrase modal then secret modal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Open Locked ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, content: 'Content after unlock' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     // Click card while locked → triggers passphrase modal
     await secretsPage.secretCard(title).click();
@@ -157,14 +157,14 @@ test.describe('view secret', () => {
   });
 
   test('clicking card when locked shows decrypted content in modal immediately after unlock', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `First Unlock Content ${Date.now()}`;
     const contentText = 'Secret content visible after unlock';
     await seedSecrets(account.address, mekBytes, [{ title, content: contentText }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     // Click card while locked
     await secretsPage.secretCard(title).click();
@@ -184,7 +184,7 @@ test.describe('view secret', () => {
 
 test.describe('edit secret', () => {
   test('edit title updates title and bumps updatedAt', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const originalTitle = `Original Secret ${Date.now()}`;
     const updatedTitle = `Updated Secret ${Date.now() + 1}`;
@@ -192,7 +192,7 @@ test.describe('edit secret', () => {
     const originalUpdatedAt = new Date(seededSecret.updatedAt).getTime();
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(originalTitle).click();
@@ -216,14 +216,14 @@ test.describe('edit secret', () => {
   });
 
   test('edit content re-encrypts and saves', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Edit Content ${Date.now()}`;
     const originalContent = 'Original content';
     const [seededSecret] = await seedSecrets(account.address, mekBytes, [{ title, content: originalContent }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -256,13 +256,13 @@ test.describe('edit secret', () => {
 
 test.describe('delete secret', () => {
   test('deleted secret disappears from grid immediately', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `To Delete ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -273,13 +273,13 @@ test.describe('delete secret', () => {
   });
 
   test('deleted secret absent after page reload', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Delete Reload ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -292,13 +292,13 @@ test.describe('delete secret', () => {
   });
 
   test('undo delete restores secret', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Undo Delete ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -315,13 +315,13 @@ test.describe('delete secret', () => {
 
 test.describe('archive and unarchive secret', () => {
   test('archive secret moves it to secrets archive page', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Archivable Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -340,13 +340,13 @@ test.describe('archive and unarchive secret', () => {
   });
 
   test('unarchive secret moves it back to main secrets grid', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `To Unarchive Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, archived: true }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
     // Navigate to archive after unlocking (Unlock button only exists on /secrets)
     await page.goto('/secrets/archive');
@@ -371,7 +371,7 @@ test.describe('archive and unarchive secret', () => {
 
 test.describe('search secrets', () => {
   test('search returns both archived and non-archived results by title', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const tag = `srch${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [
@@ -381,7 +381,7 @@ test.describe('search secrets', () => {
     ]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search secrets' }).fill(tag);
@@ -396,7 +396,7 @@ test.describe('search secrets', () => {
   });
 
   test('search filters out non-matching secrets', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const catsTag = `cats${Date.now()}`;
     const dogsTag = `dogs${Date.now()}`;
@@ -407,7 +407,7 @@ test.describe('search secrets', () => {
     ]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
@@ -422,7 +422,7 @@ test.describe('search secrets', () => {
   });
 
   test('clearing search hides archived secrets', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const tag = `clr${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [
@@ -431,7 +431,7 @@ test.describe('search secrets', () => {
     ]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search secrets' });
@@ -451,7 +451,7 @@ test.describe('search secrets', () => {
 
 test.describe('infinite scroll decryption', () => {
   test('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
     // Seed 50 secrets: 'Secret 01' gets lowest position → appears last in desc sort
@@ -465,7 +465,7 @@ test.describe('infinite scroll decryption', () => {
     );
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     // Page 1 (30 items): Secret 50 → Secret 21

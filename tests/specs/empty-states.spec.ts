@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { mockProvider } from '../utils/mockProvider';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 
@@ -10,7 +9,7 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('empty state - notes', () => {
   test('shows empty state when no notes exist', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await expect(page.getByRole('heading', { name: 'No notes yet' })).toBeVisible();
     await expect(page.getByText('Create your first note to get started.')).toBeVisible();
@@ -19,7 +18,7 @@ test.describe('empty state - notes', () => {
 
   test('create button in empty state opens new note modal', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByRole('button', { name: 'Create a note' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -31,8 +30,8 @@ test.describe('empty state - notes', () => {
 test.describe('empty results - search', () => {
   test('shows empty results for no-match search', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'Existing Note' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'Existing Note' }]);
     await page.reload();
     await expect(page.getByText('Existing Note')).toBeVisible();
 
@@ -45,8 +44,8 @@ test.describe('empty results - search', () => {
 
   test('clear search button restores notes', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'Visible Note' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'Visible Note' }]);
     await page.reload();
     await expect(page.getByText('Visible Note')).toBeVisible();
 
@@ -65,7 +64,7 @@ test.describe('empty results - search', () => {
 test.describe('empty archive', () => {
   test('shows empty archive state when no archived notes', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await page.goto('/archive');
 
     await expect(page.getByRole('heading', { name: 'Your archive is empty' })).toBeVisible();
@@ -75,7 +74,7 @@ test.describe('empty archive', () => {
 
   test('go back link navigates to main page', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await page.goto('/archive');
 
     await page.getByRole('link', { name: 'Go back' }).click();
@@ -87,7 +86,6 @@ test.describe('empty archive', () => {
 
 test.describe('unauthenticated state', () => {
   test('shows welcome message when not signed in', async ({ page }) => {
-    await mockProvider(page);
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Welcome to SigNote' })).toBeVisible();

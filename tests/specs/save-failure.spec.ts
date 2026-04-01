@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
@@ -19,22 +18,20 @@ const secretCard = (page: Page, title: string) => page.getByTestId('secret-card'
 const sealCard = (page: Page, title: string) => page.getByTestId('secret-card').filter({ hasText: title });
 
 const setup = async (page: Page, startUrl = '/') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
+  return { account };
 };
 
 const setupEncrypted = async (page: Page, startUrl: string) => {
-  const { privateKey, account } = makeAccount();
+  const { account } = makeAccount();
   const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
-  await mockProvider(page);
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account, mekBytes };
+  return { account, mekBytes };
 };
 
 // PBKDF2 at 600k iterations is slow — 20s timeout on the lock button assertion
@@ -187,14 +184,13 @@ test.describe('create failure recovery', () => {
 
 test.describe('edit failure recovery', () => {
   test('note: failed PATCH keeps NoteModal in edit mode with content intact', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const originalTitle = `Edit Recovery Note ${Date.now()}`;
     await seedNotes(account.address, [{ title: originalTitle, content: '<p>Original content</p>' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await noteCard(page, originalTitle).click();
     await page.getByTestId('edit-btn').click();
@@ -226,15 +222,14 @@ test.describe('edit failure recovery', () => {
   });
 
   test('secret: failed PATCH keeps SecretNoteModal in edit mode with content intact', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     const originalTitle = `Edit Recovery Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title: originalTitle, content: 'Original secret content' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
     await unlock(page);
 
     await secretCard(page, originalTitle).click();
@@ -266,15 +261,14 @@ test.describe('edit failure recovery', () => {
   });
 
   test('seal: failed PATCH keeps SealNoteModal in edit mode with content intact', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     const originalTitle = `Edit Recovery Seal ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title: originalTitle, content: 'Original seal content' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/seals');
-    await changeAccount(page, privateKey);
-    await signIn(page);
     await unlock(page);
 
     await sealCard(page, originalTitle).click();

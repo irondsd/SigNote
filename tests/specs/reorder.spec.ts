@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
-import { mobileSignIn } from '../utils/mobileSignIn';
-import { mockProvider } from '../utils/mockProvider';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 
@@ -42,13 +41,13 @@ test.describe('desktop reorder', () => {
 
   test('cross-row drag: note 5 to note 2 position (short row 1, tall row 2)', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
+    const { address } = await notesPage.signInDirectly();
     const tag = `cr${Date.now()}`;
     const longContent = Array.from({ length: 10 }, (_, i) => `<p>paragraph ${i + 1}</p>`).join('');
 
     // Seed reversed so UI visual order is Note 1 … Note 6.
     // Positions: Note 6=1000, Note 5=2000, Note 4=3000, Note 3=4000, Note 2=5000, Note 1=6000
-    await seedNotes(account.address, [
+    await seedNotes(address, [
       { title: `${tag} Note 6`, content: longContent },
       { title: `${tag} Note 5`, content: longContent },
       { title: `${tag} Note 4`, content: longContent },
@@ -97,13 +96,13 @@ test.describe('desktop reorder', () => {
 
   test('drag last card to first position (9 equal notes)', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
+    const { address } = await notesPage.signInDirectly();
     const tag = `last${Date.now()}`;
 
     // Seed reversed: i=0 → Note 9 (position 1000), i=8 → Note 1 (position 9000)
     // UI order (descending position): Note 1, Note 2, …, Note 9
     await seedNotes(
-      account.address,
+      address,
       Array.from({ length: 9 }, (_, i) => ({ title: `${tag} Note ${9 - i}` })),
     );
 
@@ -129,12 +128,12 @@ test.describe('desktop reorder', () => {
 
   test('drag preview: cards switch places before drop', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
+    const { address } = await notesPage.signInDirectly();
     const tag = `prev${Date.now()}`;
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1 (col 1), Note 2 (col 2), Note 3 (col 3)
-    await seedNotes(account.address, [
+    await seedNotes(address, [
       { title: `${tag} Note 3` },
       { title: `${tag} Note 2` },
       { title: `${tag} Note 1` },
@@ -185,13 +184,13 @@ test.describe('desktop reorder', () => {
 
   test('two sequential reorders: 1,2,3,4,5,6 → 1,3,2,4,5,6 → 3,1,2,4,5,6', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
+    const { address } = await notesPage.signInDirectly();
     const tag = `seq${Date.now()}`;
 
     // Seed reversed: Note 6=1000 … Note 1=6000
     // UI order: Note 1, Note 2, Note 3, Note 4, Note 5, Note 6
     await seedNotes(
-      account.address,
+      address,
       Array.from({ length: 6 }, (_, i) => ({ title: `${tag} Note ${6 - i}` })),
     );
 
@@ -227,29 +226,26 @@ test.describe('desktop reorder', () => {
 test.describe('mobile reorder', () => {
   test.use({ viewport: { width: 400, height: 812 } });
 
-  // Mobile setup intentionally skips signIn() — each test calls mobileSignIn() directly.
-  // This cannot use BasePage.signInWithWallet() which always calls signIn().
   const setup = async (page: Page) => {
-    const { privateKey, account } = makeAccount();
-    await mockProvider(page);
+    const { account } = makeAccount();
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    return { account };
+    return { address: account.address };
   };
 
   // ─── Test 5: Tap + immediate drag scrolls window, does not reorder ────────
 
   test('tap + immediate drag does not activate reorder (no 200ms hold)', async ({ page }) => {
-    const { account } = await setup(page);
+    const { address } = await setup(page);
     const tag = `mob5${Date.now()}`;
 
     // Seed reversed: Note 6=1000 … Note 1=6000 (enough notes to scroll)
     await seedNotes(
-      account.address,
+      address,
       Array.from({ length: 6 }, (_, i) => ({ title: `${tag} Note ${6 - i}` })),
     );
 
-    await mobileSignIn(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);
@@ -318,18 +314,17 @@ test.describe('mobile reorder', () => {
   // Touch-specific activation delay is covered by test 5.
 
   test('drag reorders cards on mobile viewport', async ({ page }) => {
-    const { account } = await setup(page);
+    const { address } = await setup(page);
     const tag = `mob6${Date.now()}`;
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1, Note 2, Note 3
-    await seedNotes(account.address, [
+    await seedNotes(address, [
       { title: `${tag} Note 3` },
       { title: `${tag} Note 2` },
       { title: `${tag} Note 1` },
     ]);
 
-    await mobileSignIn(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);
@@ -347,18 +342,17 @@ test.describe('mobile reorder', () => {
   // ─── Test 7: Drag preview switches (no drop, mobile) ─────────────────────
 
   test('drag preview: cards switch places before drop on mobile', async ({ page }) => {
-    const { account } = await setup(page);
+    const { address } = await setup(page);
     const tag = `mob7${Date.now()}`;
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1, Note 2, Note 3
-    await seedNotes(account.address, [
+    await seedNotes(address, [
       { title: `${tag} Note 3` },
       { title: `${tag} Note 2` },
       { title: `${tag} Note 1` },
     ]);
 
-    await mobileSignIn(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);

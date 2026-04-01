@@ -18,12 +18,12 @@ test.describe.configure({ mode: 'parallel' });
 
 test.describe('soft lock', () => {
   test('hiding tab triggers soft lock — grid shows placeholders', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title: 'SoftLock Secret', content: 'classified info' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     // Verify decrypted preview is visible
@@ -39,12 +39,12 @@ test.describe('soft lock', () => {
   });
 
   test('clicking secret card after soft lock does not require passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title: 'CardClick Secret', content: 'card click test' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     // Soft lock
@@ -58,12 +58,12 @@ test.describe('soft lock', () => {
   });
 
   test('soft unlock does not require passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title: 'ReUnlock Secret', content: 'soft unlock test' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     // Soft lock
@@ -79,12 +79,12 @@ test.describe('soft lock', () => {
   });
 
   test('save secret after soft lock does not require passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title: 'SaveSoftLock Secret', content: 'save after soft lock' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     // Open the secret modal and enter editing mode
@@ -107,12 +107,12 @@ test.describe('soft lock', () => {
 
 test.describe('soft lock — seals', () => {
   test('soft lock re-encrypts an open decrypted seal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     await seedSeals(account.address, mekBytes, [{ title: 'SoftLock Seal', content: 'sealed secret' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     // Open the seal and decrypt it
@@ -129,12 +129,12 @@ test.describe('soft lock — seals', () => {
   });
 
   test('decrypt after soft lock does not require passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     await seedSeals(account.address, mekBytes, [{ title: 'ReDecrypt Seal', content: 'soft decrypt test' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     // Open the seal and decrypt it
@@ -153,12 +153,12 @@ test.describe('soft lock — seals', () => {
   });
 
   test('save seal after soft lock does not require passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     await seedSeals(account.address, mekBytes, [{ title: 'SaveSoftLock Seal', content: 'save seal after soft lock' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     // Open the seal, decrypt, and enter editing mode
@@ -183,7 +183,7 @@ test.describe('soft lock — seals', () => {
 test.describe('hard lock', () => {
   test('manual lock (hard lock) clears deviceShare and requires passphrase', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     // Lock via button (this is effectively a hard lock)
@@ -197,7 +197,7 @@ test.describe('hard lock', () => {
 
   test('after hard lock (Lock button), unlock requires passphrase', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     // Lock via button

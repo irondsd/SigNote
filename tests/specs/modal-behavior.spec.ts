@@ -12,8 +12,8 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('modal close - X button', () => {
   test('note modal closes via X button', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'XClose Test' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'XClose Test' }]);
     await page.reload();
 
     await notesPage.noteCard('XClose Test').click();
@@ -26,7 +26,7 @@ test.describe('modal close - X button', () => {
 
   test('new note modal closes via X button', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -41,8 +41,8 @@ test.describe('modal close - X button', () => {
 test.describe('modal close - backdrop click', () => {
   test('note modal closes when clicking backdrop in view mode', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'Backdrop Test' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'Backdrop Test' }]);
     await page.reload();
 
     await notesPage.noteCard('Backdrop Test').click();
@@ -55,8 +55,8 @@ test.describe('modal close - backdrop click', () => {
 
   test('note modal does NOT close via backdrop click while editing', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'NoClose Edit' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'NoClose Edit' }]);
     await page.reload();
 
     await notesPage.noteCard('NoClose Edit').click();
@@ -72,7 +72,7 @@ test.describe('modal close - backdrop click', () => {
 
   test('new note modal does NOT close via backdrop click when content exists', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -92,7 +92,7 @@ test.describe('modal close - backdrop click', () => {
 test.describe('modal close - discard', () => {
   test('closing new note modal via X does not create note', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     const title = `Discard_${Date.now()}`;
@@ -113,9 +113,9 @@ test.describe('modal close - secrets', () => {
   test('secret modal closes via X button when viewing decrypted content', async ({ page }) => {
     // Sign in first (no enc profile yet), then seed enc profile + secrets post-sign-in
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
-    await seedSecrets(account.address, mekBytes, [{ title: 'SecretClose Test', content: 'secret body' }]);
+    const { address } = await notesPage.signInDirectly();
+    const { mekBytes } = await seedEncryptionProfile(address, SecretsPage.PASSPHRASE);
+    await seedSecrets(address, mekBytes, [{ title: 'SecretClose Test', content: 'secret body' }]);
     await page.goto('/secrets');
     await page.reload();
 

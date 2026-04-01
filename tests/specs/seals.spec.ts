@@ -11,7 +11,7 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('create seal', () => {
   test('create seal with title and content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     const title = `Seal ${Date.now()}`;
@@ -31,7 +31,7 @@ test.describe('create seal', () => {
 
   test('create seal with title only', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     const title = `Title Only Seal ${Date.now()}`;
@@ -47,7 +47,7 @@ test.describe('create seal', () => {
 
   test('save button disabled when both fields empty, enabled after typing title', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     await page.getByRole('button', { name: 'New Seal' }).click();
@@ -60,11 +60,11 @@ test.describe('create seal', () => {
   });
 
   test('clicking New Seal while locked opens passphrase modal then new seal modal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     // Locked state: New Seal should prompt for passphrase
     await page.getByRole('button', { name: 'New Seal' }).click();
@@ -83,13 +83,13 @@ test.describe('create seal', () => {
 
 test.describe('view seal', () => {
   test('card always shows encrypted placeholder even when unlocked', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Locked Grid ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title, content: 'Secret seal body' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     // Even after unlocking, card should show encrypted placeholder (unlike secrets)
@@ -99,14 +99,14 @@ test.describe('view seal', () => {
   });
 
   test('clicking card when unlocked opens modal with encrypted placeholder', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Modal Placeholder ${Date.now()}`;
     const contentText = 'This should not appear until decrypted';
     await seedSeals(account.address, mekBytes, [{ title, content: contentText }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -120,14 +120,14 @@ test.describe('view seal', () => {
   });
 
   test('"Decrypt" button in modal decrypts content', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Decrypt Button ${Date.now()}`;
     const contentText = 'Revealed after decrypt';
     await seedSeals(account.address, mekBytes, [{ title, content: contentText }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -141,13 +141,13 @@ test.describe('view seal', () => {
   });
 
   test('"Encrypt" button re-hides content in modal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Encrypt Button ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title, content: 'Some content' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -165,13 +165,13 @@ test.describe('view seal', () => {
   });
 
   test('edit button hidden before decrypt, visible after decrypt', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Edit Visibility ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title, content: 'Some content' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -188,14 +188,14 @@ test.describe('view seal', () => {
   });
 
   test('clicking Decrypt while locked triggers passphrase modal then auto-decrypts', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Locked Decrypt Click ${Date.now()}`;
     const contentText = 'Decrypted after passphrase';
     await seedSeals(account.address, mekBytes, [{ title, content: contentText }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     // Click card while locked → seal modal opens (no passphrase prompt yet)
     await sealsPage.sealCard(title).click();
@@ -220,7 +220,7 @@ test.describe('view seal', () => {
 
 test.describe('edit seal', () => {
   test('edit title updates title on card', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const originalTitle = `Original Seal ${Date.now()}`;
     const updatedTitle = `Updated Seal ${Date.now() + 1}`;
@@ -228,7 +228,7 @@ test.describe('edit seal', () => {
     const originalUpdatedAt = new Date(seededSeal.updatedAt).getTime();
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(originalTitle).click();
@@ -256,13 +256,13 @@ test.describe('edit seal', () => {
   });
 
   test('edit content re-encrypts and saves', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Edit Content ${Date.now()}`;
     const [seededSeal] = await seedSeals(account.address, mekBytes, [{ title, content: 'Original content' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -299,13 +299,13 @@ test.describe('edit seal', () => {
 
 test.describe('delete seal', () => {
   test('deleted seal disappears from grid immediately', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `To Delete ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -316,13 +316,13 @@ test.describe('delete seal', () => {
   });
 
   test('deleted seal absent after page reload', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Delete Reload ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -339,13 +339,13 @@ test.describe('delete seal', () => {
   });
 
   test('undo delete restores seal', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Undo Delete ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -362,13 +362,13 @@ test.describe('delete seal', () => {
 
 test.describe('archive and unarchive seal', () => {
   test('archive seal moves it to seals archive page', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Archivable Seal ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -387,13 +387,13 @@ test.describe('archive and unarchive seal', () => {
   });
 
   test('unarchive seal moves it back to main seals grid', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `To Unarchive Seal ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title, archived: true }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
     // Navigate to archive after unlocking (Unlock button only exists on /seals)
     await page.goto('/seals/archive');
@@ -418,7 +418,7 @@ test.describe('archive and unarchive seal', () => {
 
 test.describe('auto-encrypt timer', () => {
   test('decrypted seal auto-encrypts after 60 seconds', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Auto Encrypt ${Date.now()}`;
     const contentText = 'Timer should hide this';
@@ -432,7 +432,7 @@ test.describe('auto-encrypt timer', () => {
     });
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -447,7 +447,7 @@ test.describe('auto-encrypt timer', () => {
   });
 
   test('clicking timer extends time and prevents auto-encrypt', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Extend Timer ${Date.now()}`;
     const contentText = 'Should stay visible';
@@ -461,7 +461,7 @@ test.describe('auto-encrypt timer', () => {
     });
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -484,7 +484,7 @@ test.describe('auto-encrypt timer', () => {
 
 test.describe('search seals', () => {
   test('search returns both archived and non-archived results by title', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const tag = `srch${Date.now()}`;
     await seedSeals(account.address, mekBytes, [
@@ -494,7 +494,7 @@ test.describe('search seals', () => {
     ]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search seals' }).fill(tag);
@@ -509,7 +509,7 @@ test.describe('search seals', () => {
   });
 
   test('search filters out non-matching seals', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const catsTag = `cats${Date.now()}`;
     const dogsTag = `dogs${Date.now()}`;
@@ -520,7 +520,7 @@ test.describe('search seals', () => {
     ]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search seals' });
@@ -535,7 +535,7 @@ test.describe('search seals', () => {
   });
 
   test('clearing search hides archived seals', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const tag = `clr${Date.now()}`;
     await seedSeals(account.address, mekBytes, [
@@ -544,7 +544,7 @@ test.describe('search seals', () => {
     ]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search seals' });

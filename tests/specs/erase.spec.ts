@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { mockProvider } from '../utils/mockProvider';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
-import { signIn } from '../utils/signIn';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
@@ -13,20 +12,14 @@ test.describe.configure({ mode: 'parallel' });
 
 const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
 const NEW_PASSPHRASE = 'different-horse-new-staple-1337';
-type EthereumWindow = Window & { ethereum?: { setPrivateKey?: (key: `0x${string}`) => void } };
 
-// Sign in with a fresh account. Registers an addInitScript so the private key
-// is re-injected on every full page navigation (keeping wagmi connected).
+// Sign in with a fresh account via cookie injection.
 const setup = async (page: Page) => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.addInitScript((pk: `0x${string}`) => {
-    (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-  }, privateKey);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto('/');
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
+  return { account };
 };
 
 // Click "I confirm, delete my data", wait for confirmation, then click "Start Erasure"
@@ -36,14 +29,13 @@ const performErase = async (page: Page) => {
   await page.getByRole('button', { name: 'Start Erasure' }).click();
 };
 
-// After account deletion, clear session and re-sign in with the same wallet key.
-// The addInitScript registered during setup re-sets the key on every page load,
-// so no additional key setup is needed here.
-const reSignIn = async (page: Page, privateKey: `0x${string}`) => {
+// After account deletion, clear session cookies and re-sign in with the same address.
+// getOrCreateUserId will create a brand-new User + AuthIdentity since the old one was deleted.
+const reSignIn = async (page: Page, address: `0x${string}`) => {
   await page.context().clearCookies();
+  const token = await createTestSession(address);
+  await injectSession(page, token);
   await page.goto('/');
-  await changeAccount(page, privateKey);
-  await signIn(page);
 };
 
 // ─── Access control ───────────────────────────────────────────────────────────
@@ -64,16 +56,12 @@ test.describe('access control', () => {
 
 test.describe('erase account', () => {
   test('deletes notes and account; re-signin creates a fresh account', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedNotes(account.address, [{ title: 'Note 1' }, { title: 'Note 2' }, { title: 'Note 3' }]);
 
-    await mockProvider(page);
-    await page.addInitScript((pk: `0x${string}`) => {
-      (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-    }, privateKey);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const { createdAt: oldCreatedAt } = await (await page.request.get('/api/profile')).json();
 
@@ -81,7 +69,7 @@ test.describe('erase account', () => {
     await performErase(page);
     await expect(page.getByText('Account permanently erased')).toBeVisible({ timeout: 30000 });
 
-    await reSignIn(page, privateKey);
+    await reSignIn(page, account.address);
 
     const newProfile = await (await page.request.get('/api/profile')).json();
     expect(newProfile.notesCount).toBe(0);
@@ -89,25 +77,21 @@ test.describe('erase account', () => {
   });
 
   test('deletes all data including encryption profile, secrets, and seals', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     await seedNotes(account.address, [{ title: 'Note A' }, { title: 'Note B' }]);
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret A' }]);
     await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }]);
 
-    await mockProvider(page);
-    await page.addInitScript((pk: `0x${string}`) => {
-      (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-    }, privateKey);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await page.goto('/erase');
     await performErase(page);
     await expect(page.getByText('Account permanently erased')).toBeVisible({ timeout: 30000 });
 
-    await reSignIn(page, privateKey);
+    await reSignIn(page, account.address);
 
     const profilePage = new ProfilePage(page);
     await profilePage.goto();
@@ -149,19 +133,15 @@ test.describe('erase account', () => {
 
 test.describe('erase encryption profile', () => {
   test('erases encrypted data while regular notes survive', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     await seedNotes(account.address, [{ title: 'Note A' }, { title: 'Note B' }]);
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret A' }]);
     await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }]);
 
-    await mockProvider(page);
-    await page.addInitScript((pk: `0x${string}`) => {
-      (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-    }, privateKey);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await page.goto('/erase-encryption');
     await performErase(page);
@@ -178,16 +158,12 @@ test.describe('erase encryption profile', () => {
   });
 
   test('can set up a fresh encryption profile after erasure', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
 
-    await mockProvider(page);
-    await page.addInitScript((pk: `0x${string}`) => {
-      (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-    }, privateKey);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await page.goto('/erase-encryption');
     await performErase(page);
@@ -210,16 +186,12 @@ test.describe('erase encryption profile', () => {
   });
 
   test('profile API reflects hasEncryptionProfile: false after erasure', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
 
-    await mockProvider(page);
-    await page.addInitScript((pk: `0x${string}`) => {
-      (window as EthereumWindow).ethereum?.setPrivateKey?.(pk);
-    }, privateKey);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await page.goto('/erase-encryption');
     await performErase(page);

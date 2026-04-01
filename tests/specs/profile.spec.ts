@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
@@ -11,12 +10,11 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 test.describe.configure({ mode: 'parallel' });
 
 const setup = async (page: Page, startUrl = '/') => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto(startUrl);
-  await changeAccount(page, privateKey);
-  await signIn(page);
-  return { privateKey, account };
+  return { account };
 };
 
 // ─── Access control ──────────────────────────────────────────────────────────
@@ -116,14 +114,11 @@ test.describe('encryption profile', () => {
   });
 
   test('erase button is enabled when encryption profile exists', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, 'test-passphrase-abc-123');
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
-
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/profile');
 
     await expect(page.getByTestId('erase-profile-btn')).toBeEnabled();
@@ -149,13 +144,11 @@ test.describe('navigation', () => {
 
   test('change passphrase button navigates to /change-passphrase when profile is set up', async ({ page }) => {
     const TEST_PASSPHRASE = 'correct-horse-battery-staple-42';
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
 
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/profile');
 
     await page.getByRole('button', { name: 'Change' }).click();

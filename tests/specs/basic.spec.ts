@@ -1,17 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { mockProvider } from '../utils/mockProvider';
-import { changeAccount } from '../utils/changeAccount';
-import { makeAccount } from '../utils/makeAccount';
-
-const { privateKey } = makeAccount();
 
 test.describe('basic tests', () => {
   test.beforeEach(async ({ page }) => {
-    await mockProvider(page);
-
     await page.goto('/');
-
-    await changeAccount(page, privateKey);
   });
 
   test('should load the homepage successfully', async ({ page }) => {

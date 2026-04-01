@@ -31,7 +31,7 @@ const seedDraft = (
 test.describe('draft saving', () => {
   test('saves note draft to localStorage after typing content', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('draft saving', () => {
 
   test('does not save draft when content is empty', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -67,7 +67,7 @@ test.describe('draft saving', () => {
 
   test('new draft overwrites old draft', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     // First modal session — type content A
     await page.getByTestId('new-note-btn').click();
@@ -106,7 +106,7 @@ test.describe('draft saving', () => {
 
   test('saves encrypted draft for secrets with encrypted content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -131,7 +131,7 @@ test.describe('draft saving', () => {
 
   test('saves encrypted draft for seals with encrypted content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     await page.getByRole('button', { name: 'New Seal' }).click();
@@ -158,7 +158,7 @@ test.describe('draft saving', () => {
 test.describe('draft toast', () => {
   test('shows toast on app load when a note draft exists', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await seedDraft(page, { type: 'note', title: 'My Saved Draft', content: '<p>Body</p>', encrypted: false });
 
     // Hard reload so DraftToast remounts and detects the draft in localStorage
@@ -171,7 +171,7 @@ test.describe('draft toast', () => {
 
   test('shows Untitled when draft title is empty', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await seedDraft(page, { type: 'note', title: '', content: '<p>Some body</p>', encrypted: false });
 
     await page.reload();
@@ -193,7 +193,7 @@ test.describe('draft toast', () => {
 
   test('Dismiss clears localStorage and removes the toast', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await seedDraft(page, { type: 'note', title: 'Draft to dismiss', content: '<p>Body</p>', encrypted: false });
 
     await page.reload();
@@ -210,7 +210,7 @@ test.describe('draft toast', () => {
 
   test('toast shows correct type label for secrets', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await page.goto('/');
     await seedDraft(page, {
       type: 'secret',
@@ -233,7 +233,7 @@ test.describe('note draft restore', () => {
   test('Continue navigates to notes page and opens modal with draft content', async ({ page }) => {
     // Start on /archive so clicking Continue causes a navigation to /
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await page.goto('/archive');
 
     const title = 'Restored Title';
@@ -256,7 +256,7 @@ test.describe('note draft restore', () => {
 
   test('draft is cleared from localStorage after saving the restored note', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await page.goto('/archive');
 
     const title = 'Draft to save';
@@ -285,7 +285,7 @@ test.describe('note draft restore', () => {
 test.describe('encrypted draft restore', () => {
   test('Continue for a locked secret draft shows passphrase modal', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     // Type in New Secret modal to create a draft
@@ -317,7 +317,7 @@ test.describe('encrypted draft restore', () => {
 
   test('unlocking via Continue opens the secret modal with decrypted content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     const title = 'Restored Secret';
@@ -354,7 +354,7 @@ test.describe('encrypted draft restore', () => {
 
   test('unlocking via Continue opens the seal modal with decrypted content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     const title = 'Restored Seal';
@@ -389,7 +389,7 @@ test.describe('encrypted draft restore', () => {
 
   test('Continue for already-unlocked session navigates directly without passphrase modal', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -424,8 +424,8 @@ test.describe('encrypted draft restore', () => {
 test.describe('unsaved changes confirmation', () => {
   test('closing note modal with unsaved edits shows confirmation', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'Unsaved Test', content: 'original' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'Unsaved Test', content: 'original' }]);
     await page.reload();
 
     // Open note modal and edit
@@ -446,8 +446,8 @@ test.describe('unsaved changes confirmation', () => {
 
   test('discard button closes modal and discards changes', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'Discard Test', content: 'original content' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'Discard Test', content: 'original content' }]);
     await page.reload();
 
     // Open, edit, close, discard
@@ -467,8 +467,8 @@ test.describe('unsaved changes confirmation', () => {
 
   test('closing note modal without changes does NOT show confirmation', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
-    await seedNotes(account.address, [{ title: 'NoConfirm Test' }]);
+    const { address } = await notesPage.signInDirectly();
+    await seedNotes(address, [{ title: 'NoConfirm Test' }]);
     await page.reload();
 
     // Open note modal in view mode (no edits)
@@ -483,7 +483,7 @@ test.describe('unsaved changes confirmation', () => {
 
   test('new note modal with content shows confirmation on cancel', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -500,7 +500,7 @@ test.describe('unsaved changes confirmation', () => {
 
   test('new note modal with empty content does NOT show confirmation', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -513,7 +513,7 @@ test.describe('unsaved changes confirmation', () => {
 
   test('new secret modal with content shows confirmation on cancel', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -527,10 +527,10 @@ test.describe('unsaved changes confirmation', () => {
 
   test('clicking checkbox in view mode in a secret does NOT trigger discard dialog on close', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    const { account, mekBytes } = await secretsPage.signInWithWallet();
+    const { address, mekBytes } = await secretsPage.signInDirectly();
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Secret task</p></li></ul>';
-    await seedSecrets(account.address, mekBytes, [{ title: 'Secret Checkbox Test', content: checkboxContent }]);
+    await seedSecrets(address, mekBytes, [{ title: 'Secret Checkbox Test', content: checkboxContent }]);
     await page.reload();
     await secretsPage.unlock();
 
@@ -548,10 +548,10 @@ test.describe('unsaved changes confirmation', () => {
 
   test('clicking checkbox in view mode does NOT trigger discard dialog on close', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    const { account } = await notesPage.signInWithWallet();
+    const { address } = await notesPage.signInDirectly();
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task item</p></li></ul>';
-    await seedNotes(account.address, [{ title: 'Checkbox Test', content: checkboxContent }]);
+    await seedNotes(address, [{ title: 'Checkbox Test', content: checkboxContent }]);
     await page.reload();
 
     await notesPage.noteCard('Checkbox Test').click();

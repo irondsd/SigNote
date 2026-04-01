@@ -1,9 +1,12 @@
 import { type Page } from '@playwright/test';
+import type { Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mockProvider } from '../utils/mockProvider';
 import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { signIn } from '../utils/signIn';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 
 export class BasePage {
   readonly page: Page;
@@ -45,6 +48,20 @@ export class BasePage {
     await signIn(this.page);
 
     return { privateKey: key, account };
+  }
+
+  /**
+   * Fast sign-in by injecting a NextAuth session cookie directly — no UI flow.
+   * - No arg: creates a fresh account.
+   * - With address: uses the provided address (assumes DB fixtures already exist).
+   * Returns { address }.
+   */
+  async signInDirectly(address?: Address): Promise<{ address: Address }> {
+    const resolvedAddress = address ?? makeAccount().account.address;
+    const token = await createTestSession(resolvedAddress);
+    await injectSession(this.page, token);
+    await this.goto();
+    return { address: resolvedAddress };
   }
 
   /** Simulate tab becoming hidden (soft-lock trigger). */

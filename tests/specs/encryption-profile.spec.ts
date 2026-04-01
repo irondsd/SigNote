@@ -7,29 +7,29 @@ const TEST_NEW_PASSPHRASE = 'different-horse-new-staple-1337';
 
 test.describe('encryption profile', () => {
   test('should see encryption profile setup', async ({ page }) => {
-    const { privateKey } = makeAccount();
+    const { account } = makeAccount();
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await expect(page.locator('#enc-passphrase')).toBeVisible();
     await expect(page.getByText('Set up encrypted notes')).toBeVisible();
   });
 
   test('should not see encryption profile setup if already setup', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await expect(page.locator('#enc-passphrase')).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
   });
 
   test('should setup encryption profile', async ({ page }) => {
-    const { privateKey } = makeAccount();
+    const { account } = makeAccount();
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
 
     await expect(page.locator('#enc-passphrase')).toBeVisible();
 
@@ -51,11 +51,11 @@ test.describe('encryption profile', () => {
   });
 
   test('should change passphrase', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await page.goto('/change-passphrase');
 
     await expect(page.locator('#cp-old')).toBeVisible();

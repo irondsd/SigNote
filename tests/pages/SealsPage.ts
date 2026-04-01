@@ -1,10 +1,13 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import type { Address } from 'viem';
 import { BasePage } from './BasePage';
 import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
 import { changeAccount } from '../utils/changeAccount';
 import { signIn } from '../utils/signIn';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 
 export class SealsPage extends BasePage {
   protected defaultUrl = '/seals';
@@ -50,6 +53,28 @@ export class SealsPage extends BasePage {
     await signIn(this.page);
 
     return { privateKey: key, account, mekBytes };
+  }
+
+  /**
+   * Fast sign-in via cookie injection.
+   * - No arg: creates fresh account + seeds encryption profile.
+   * - With address: assumes profile already seeded externally.
+   */
+  async signInDirectly(): Promise<{ address: Address; mekBytes: Uint8Array }>;
+  async signInDirectly(address: Address): Promise<{ address: Address }>;
+  async signInDirectly(address?: Address): Promise<unknown> {
+    if (address) {
+      const token = await createTestSession(address);
+      await injectSession(this.page, token);
+      await this.goto();
+      return { address };
+    }
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    const token = await createTestSession(account.address);
+    await injectSession(this.page, token);
+    await this.goto();
+    return { address: account.address, mekBytes };
   }
 
   async unlock(passphrase = SealsPage.PASSPHRASE): Promise<void> {

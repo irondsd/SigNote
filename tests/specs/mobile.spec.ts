@@ -3,25 +3,18 @@ import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mobileSignIn } from '../utils/mobileSignIn';
 import { mockProvider } from '../utils/mockProvider';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 
 test.use({ viewport: { width: 400, height: 812 } });
 
 test.describe.configure({ mode: 'parallel' });
 
-// Helper: base setup — no sign-in
-const setup = async (page: Page) => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
-  await page.goto('/');
-  await changeAccount(page, privateKey);
-  return { privateKey, account };
-};
-
 // ─── Test 1: Signed-out state + sidebar opens ────────────────────────────────
 
 test('shows signed-out state and opens sidebar drawer', async ({ page }) => {
-  await setup(page);
+  await page.goto('/');
 
   // Hamburger is visible on mobile
   await expect(page.getByTestId('mobile-menu-btn')).toBeVisible();
@@ -33,14 +26,16 @@ test('shows signed-out state and opens sidebar drawer', async ({ page }) => {
   await page.getByTestId('mobile-menu-btn').click();
 
   // Drawer is open → sign-in button is accessible
-  // (the drawer uses CSS transform off-screen when closed, so we verify it post-open)
   await expect(page.getByTestId('mobile-drawer').getByTestId('sign-in-button')).toBeVisible();
 });
 
-// ─── Test 2: Sign-in works ───────────────────────────────────────────────────
+// ─── Test 2: Sign-in works (keeps full UI flow — this tests the mobile sign-in UX) ──
 
 test('sign in works on mobile', async ({ page }) => {
-  await setup(page);
+  const { privateKey } = makeAccount();
+  await mockProvider(page);
+  await page.goto('/');
+  await changeAccount(page, privateKey);
   await mobileSignIn(page);
 
   // Wallet address visible in the open drawer confirms successful sign-in
@@ -50,8 +45,10 @@ test('sign in works on mobile', async ({ page }) => {
 // ─── Test 3: Notes shown in 1-column layout ──────────────────────────────────
 
 test('shows notes in 1-column layout at 400px', async ({ page }) => {
-  const { account } = await setup(page);
-  await mobileSignIn(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
+  await page.goto('/');
 
   await seedNotes(account.address, [
     { title: 'Mobile Layout Note 1' },
@@ -79,12 +76,12 @@ test('shows notes in 1-column layout at 400px', async ({ page }) => {
 // ─── Test 4: 50 notes load via infinite scroll ───────────────────────────────
 
 test('loads all 50 notes via infinite scroll', async ({ page }) => {
-  const { account } = await setup(page);
-  await mobileSignIn(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
+  await page.goto('/');
 
   // Seed 50 notes with unique, identifiable titles.
-  // seedNotes assigns ascending positions (1000, 2000, …), so note 50 has the highest
-  // position and loads first. Note 1 (lowest position) will be the last to load.
   await seedNotes(
     account.address,
     Array.from({ length: 50 }, (_, i) => ({ title: `Scroll Note ${String(i + 1).padStart(2, '0')}` })),
@@ -95,17 +92,12 @@ test('loads all 50 notes via infinite scroll', async ({ page }) => {
   // First page loads 30 notes
   await expect(page.getByTestId('note-card')).toHaveCount(30, { timeout: 10000 });
 
-  // Scroll to trigger IntersectionObserver: scroll the last visible card into view,
-  // which brings the sentinel element (placed right after cards) into the viewport.
-  // .content grows with its children so window scroll is document-level; Playwright's
-  // scrollIntoViewIfNeeded handles whichever container is the actual scroller.
   for (let attempt = 0; attempt < 5; attempt++) {
     const count = await page.getByTestId('note-card').count();
     if (count >= 50) break;
 
     await page.getByTestId('note-card').last().scrollIntoViewIfNeeded();
 
-    // Wait for the count to increase before next scroll attempt
     try {
       await expect(page.getByTestId('note-card')).not.toHaveCount(count, { timeout: 5000 });
     } catch {
@@ -123,8 +115,10 @@ test('loads all 50 notes via infinite scroll', async ({ page }) => {
 // ─── Test 5: Header hides on scroll down, reappears on scroll up ─────────────
 
 test('header hides on scroll down and reappears on scroll up', async ({ page }) => {
-  const { account } = await setup(page);
-  await mobileSignIn(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
+  await page.goto('/');
 
   await seedNotes(
     account.address,

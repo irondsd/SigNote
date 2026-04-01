@@ -9,12 +9,12 @@ test.describe.configure({ mode: 'parallel' });
 
 test.describe('keyboard formatting', () => {
   test('cmd+b applies bold', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Bold Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+b');
     await page.keyboard.type('bold text');
@@ -24,12 +24,12 @@ test.describe('keyboard formatting', () => {
   });
 
   test('cmd+i applies italic', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Italic Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+i');
     await page.keyboard.type('italic text');
@@ -39,12 +39,12 @@ test.describe('keyboard formatting', () => {
   });
 
   test('cmd+u applies underline', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Underline Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+u');
     await page.keyboard.type('underlined text');
@@ -54,12 +54,12 @@ test.describe('keyboard formatting', () => {
   });
 
   test('cmd+shift+s applies strikethrough', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Strike Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.press('Meta+Shift+s');
     await page.keyboard.type('struck text');
@@ -73,12 +73,12 @@ test.describe('keyboard formatting', () => {
 
 test.describe('url auto-detection', () => {
   test('typed URL becomes a link with target="_blank"', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `URL Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('https://example.com ');
 
@@ -92,12 +92,12 @@ test.describe('url auto-detection', () => {
 
 test.describe('checkboxes', () => {
   test('[ ] creates a task item checkbox', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Checkbox Create ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('[ ] ');
     await page.keyboard.type('my task');
@@ -107,7 +107,7 @@ test.describe('checkboxes', () => {
   });
 
   test('checkbox is clickable in view mode and toggles checked state', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Checkbox View ${Date.now()}`;
     const [note] = await seedNotes(account.address, [
       {
@@ -117,7 +117,7 @@ test.describe('checkboxes', () => {
     ]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     // Open modal in view mode (no edit-btn click)
     await notesPage.noteCard(title).click();
@@ -140,12 +140,12 @@ test.describe('checkboxes', () => {
 
 test.describe('horizontal rule', () => {
   test('--- creates a horizontal rule divider', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Divider Test ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('---');
     await page.keyboard.press('Enter');
@@ -159,12 +159,12 @@ test.describe('horizontal rule', () => {
 
 test.describe('code blocks', () => {
   test('backtick wrapping creates inline code', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Inline Code ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('`hello`');
 
@@ -174,12 +174,12 @@ test.describe('code blocks', () => {
   });
 
   test('triple backtick creates a code block', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Code Block ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('```');
     await page.keyboard.press('Enter');
@@ -192,12 +192,12 @@ test.describe('code blocks', () => {
   });
 
   test('clicking inline code in view mode copies to clipboard', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Copy Inline ${Date.now()}`;
     await seedNotes(account.address, [{ title, content: '<p><code>hello world</code></p>' }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
     await notesPage.noteCard(title).click();
@@ -209,14 +209,14 @@ test.describe('code blocks', () => {
   });
 
   test('clicking copy button on code block copies to clipboard', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Copy Block ${Date.now()}`;
     await seedNotes(account.address, [
       { title, content: '<pre><code class="language-undefined">const x = 1</code></pre>' },
     ]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
     await notesPage.noteCard(title).click();
@@ -230,14 +230,14 @@ test.describe('code blocks', () => {
   });
 
   test('code block shows language label in view mode', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Code Block Language ${Date.now()}`;
     await seedNotes(account.address, [
       { title, content: '<pre><code class="language-typescript">echo hello</code></pre>' },
     ]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
@@ -250,12 +250,12 @@ test.describe('code blocks', () => {
 
 test.describe('lists', () => {
   test('- creates an unordered list', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Bullet List ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('- ');
     await page.keyboard.type('list item');
@@ -266,12 +266,12 @@ test.describe('lists', () => {
   });
 
   test('1. creates an ordered list', async ({ page }) => {
-    const { account, privateKey } = makeAccount();
+    const { account } = makeAccount();
     const title = `Ordered List ${Date.now()}`;
     const [note] = await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.openInEditMode(title);
     await page.keyboard.type('1. ');
     await page.keyboard.type('first item');

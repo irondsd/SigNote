@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { signIn } from '../utils/signIn';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
@@ -18,13 +17,12 @@ const secretCard = (page: Page, title: string) => page.getByTestId('secret-card'
 // ─── XSS helpers ────────────────────────────────────────────────────────────
 
 const setupWithPayload = async (page: Page, title: string, content: string) => {
-  const { privateKey, account } = makeAccount();
+  const { account } = makeAccount();
   await seedNotes(account.address, [{ title, content }]);
 
-  await mockProvider(page);
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto('/');
-  await changeAccount(page, privateKey);
-  await signIn(page);
 
   await noteCard(page, title).waitFor({ state: 'visible' });
 };
@@ -32,11 +30,10 @@ const setupWithPayload = async (page: Page, title: string, content: string) => {
 // ─── Auth helper ─────────────────────────────────────────────────────────────
 
 const signInFresh = async (page: Page) => {
-  const { privateKey, account } = makeAccount();
-  await mockProvider(page);
+  const { account } = makeAccount();
+  const token = await createTestSession(account.address);
+  await injectSession(page, token);
   await page.goto('/');
-  await changeAccount(page, privateKey);
-  await signIn(page);
   return { account };
 };
 
@@ -81,14 +78,13 @@ test.describe('XSS sanitization in NoteCard', () => {
 
 test.describe('XSS sanitization in EncryptedNoteCard', () => {
   const setupSecretWithPayload = async (page: Page, title: string, content: string) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     await seedSecrets(account.address, mekBytes, [{ title, content }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/secrets');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
     await page.getByPlaceholder('Your passphrase').fill(TEST_PASSPHRASE);
@@ -222,13 +218,12 @@ test.describe('payload size limits', () => {
   });
 
   test('PATCH /api/notes/{id} with content > 500k chars returns 413', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Size Test' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/notes/${note._id}`, {
       data: { content: 'C'.repeat(500_001) },
@@ -271,13 +266,12 @@ test.describe('payload size limits', () => {
 
 test.describe('color enum validation', () => {
   test('PATCH /api/notes/{id} with invalid color returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Color Test Note' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/notes/${note._id}`, {
       data: { color: 'purple' },
@@ -286,14 +280,13 @@ test.describe('color enum validation', () => {
   });
 
   test('PATCH /api/secrets/{id} with invalid color returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [secret] = await seedSecrets(account.address, fakeMek, [{ title: 'Color Test Secret' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/secrets/${secret._id}`, {
       data: { color: 'purple' },
@@ -302,14 +295,13 @@ test.describe('color enum validation', () => {
   });
 
   test('PATCH /api/seals/{id} with invalid color returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [seal] = await seedSeals(account.address, fakeMek, [{ title: 'Color Test Seal' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/seals/${seal._id}`, {
       data: { color: 'purple' },
@@ -325,13 +317,12 @@ test.describe('position infinity/NaN rejected', () => {
   // which Node.js JSON.parse decodes as Infinity.
 
   test('PATCH /api/notes/{id} with position Infinity returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Position Test Note' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/notes/${note._id}`, {
       headers: { 'Content-Type': 'application/json' },
@@ -341,14 +332,13 @@ test.describe('position infinity/NaN rejected', () => {
   });
 
   test('PATCH /api/secrets/{id} with position Infinity returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [secret] = await seedSecrets(account.address, fakeMek, [{ title: 'Position Test Secret' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/secrets/${secret._id}`, {
       headers: { 'Content-Type': 'application/json' },
@@ -358,14 +348,13 @@ test.describe('position infinity/NaN rejected', () => {
   });
 
   test('PATCH /api/seals/{id} with position Infinity returns 400', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [seal] = await seedSeals(account.address, fakeMek, [{ title: 'Position Test Seal' }]);
 
-    await mockProvider(page);
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
     await page.goto('/');
-    await changeAccount(page, privateKey);
-    await signIn(page);
 
     const res = await page.request.patch(`/api/seals/${seal._id}`, {
       headers: { 'Content-Type': 'application/json' },

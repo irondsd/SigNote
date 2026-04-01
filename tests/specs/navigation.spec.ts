@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
+import { changeAccount } from '../utils/changeAccount';
 import { mobileSignIn } from '../utils/mobileSignIn';
 import { NotesPage } from '../pages/NotesPage';
 
@@ -12,7 +12,7 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('desktop sidebar navigation', () => {
   test('clicking Notes link navigates to /', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
     await page.goto('/secrets');
 
     await page.getByRole('link', { name: 'Notes' }).click();
@@ -21,7 +21,7 @@ test.describe('desktop sidebar navigation', () => {
 
   test('clicking Secrets link navigates to /secrets', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByRole('link', { name: 'Secrets' }).click();
     await expect(page).toHaveURL('/secrets');
@@ -29,7 +29,7 @@ test.describe('desktop sidebar navigation', () => {
 
   test('clicking Seals link navigates to /seals', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByRole('link', { name: 'Seals' }).click();
     await expect(page).toHaveURL('/seals');
@@ -37,7 +37,7 @@ test.describe('desktop sidebar navigation', () => {
 
   test('active link is visually highlighted', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     // On the notes page, the Notes link should have the active class
     const notesLink = page.getByRole('link', { name: 'Notes' });

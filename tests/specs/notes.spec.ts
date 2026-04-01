@@ -10,7 +10,7 @@ test.describe.configure({ mode: 'parallel' });
 test.describe('create note', () => {
   test('create note with title and content', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -24,7 +24,7 @@ test.describe('create note', () => {
 
   test('create note with title only', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     const title = `Title Only ${Date.now()}`;
@@ -36,7 +36,7 @@ test.describe('create note', () => {
 
   test('save button disabled when both fields empty, enabled after typing title', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -52,12 +52,12 @@ test.describe('create note', () => {
 
 test.describe('archive and unarchive', () => {
   test('archive note moves it to archive page', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Archivable ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
@@ -75,24 +75,24 @@ test.describe('archive and unarchive', () => {
   });
 
   test('archived notes do not appear in the main list', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const tag = `archmain${Date.now()}`;
     await seedNotes(account.address, [{ title: `${tag} active` }, { title: `${tag} archived`, archived: true }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await expect(notesPage.noteCard(`${tag} active`)).toBeVisible({ timeout: 10000 });
     await expect(notesPage.noteCard(`${tag} archived`)).not.toBeVisible();
   });
 
   test('unarchive note moves it back to main grid', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `To Unarchive ${Date.now()}`;
     await seedNotes(account.address, [{ title, archived: true }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
     await notesPage.goto('/archive');
 
     await notesPage.noteCard(title).click();
@@ -115,7 +115,7 @@ test.describe('archive and unarchive', () => {
 
 test.describe('search notes', () => {
   test('search returns both archived and non-archived results', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const tag = `srch${Date.now()}`;
     await seedNotes(account.address, [
       { title: `${tag} note 1` },
@@ -124,7 +124,7 @@ test.describe('search notes', () => {
     ]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     await page.getByRole('textbox', { name: 'Search notes' }).fill(tag);
@@ -139,7 +139,7 @@ test.describe('search notes', () => {
   });
 
   test('search filters out non-matching notes', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const catsTag = `cats${Date.now()}`;
     const dogsTag = `dogs${Date.now()}`;
     await seedNotes(account.address, [
@@ -149,7 +149,7 @@ test.describe('search notes', () => {
     ]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search notes' });
@@ -164,12 +164,12 @@ test.describe('search notes', () => {
   });
 
   test('clearing search hides archived notes', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const tag = `clr${Date.now()}`;
     await seedNotes(account.address, [{ title: `${tag} active` }, { title: `${tag} archived`, archived: true }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Search' }).click();
     const searchInput = page.getByRole('textbox', { name: 'Search notes' });
@@ -189,12 +189,12 @@ test.describe('search notes', () => {
 
 test.describe('delete note', () => {
   test('delete note disappears from grid immediately', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `To Delete ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
@@ -204,12 +204,12 @@ test.describe('delete note', () => {
   });
 
   test('deleted note absent after page reload', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Delete Reload ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await page.getByTestId('delete-btn').click();
@@ -221,12 +221,12 @@ test.describe('delete note', () => {
   });
 
   test('undo delete restores note', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Undo Delete ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await page.getByTestId('delete-btn').click();
@@ -242,12 +242,12 @@ test.describe('delete note', () => {
 
 test.describe('edit note', () => {
   test('edit note content updates content field', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Content Edit ${Date.now()}`;
     const [seededNote] = await seedNotes(account.address, [{ title, content: '<p>Old content</p>' }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
@@ -270,14 +270,14 @@ test.describe('edit note', () => {
   });
 
   test('edit note updates title and bumps updatedAt', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const originalTitle = `Original ${Date.now()}`;
     const updatedTitle = `Updated ${Date.now() + 1}`;
     const [seededNote] = await seedNotes(account.address, [{ title: originalTitle }]);
     const originalUpdatedAt = new Date(seededNote.updatedAt).getTime();
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(originalTitle).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
@@ -306,18 +306,17 @@ test.describe('edit note', () => {
 
 test.describe('note color', () => {
   test('change color applies to card and does not bump updatedAt', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Color Test ${Date.now()}`;
     const [seededNote] = await seedNotes(account.address, [{ title }]);
     const originalUpdatedAt = new Date(seededNote.updatedAt).getTime();
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    // Set up PATCH listener before triggering color change
     const patchPromise = page.waitForResponse(
       (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
     );
@@ -339,12 +338,12 @@ test.describe('note color', () => {
   });
 
   test('reset color to default clears color field', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Reset Color ${Date.now()}`;
     const [seededNote] = await seedNotes(account.address, [{ title, color: 'blue' }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
@@ -370,7 +369,7 @@ test.describe('modal max height', () => {
 
   test('new note modal height is capped at 90% of window height', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
@@ -388,12 +387,12 @@ test.describe('modal max height', () => {
   });
 
   test('note modal in view mode height is capped at 90% of window height', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `View Height ${Date.now()}`;
     await seedNotes(account.address, [{ title, content: bigContent }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
@@ -405,12 +404,12 @@ test.describe('modal max height', () => {
   });
 
   test('note modal in edit mode height is capped at 90% of window height', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Edit Height ${Date.now()}`;
     await seedNotes(account.address, [{ title, content: bigContent }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();

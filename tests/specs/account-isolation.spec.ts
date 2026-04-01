@@ -22,7 +22,7 @@ test.describe('account isolation - notes', () => {
     await seedNotes(accountB.account.address, [{ title: tagB, content: '<p>B content</p>' }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(accountA.privateKey);
+    await notesPage.signInDirectly(accountA.account.address);
 
     await expect(notesPage.noteCard(tagA)).toBeVisible();
     await expect(notesPage.noteCard(tagB)).toHaveCount(0);
@@ -32,7 +32,8 @@ test.describe('account isolation - notes', () => {
     await expect(page.getByTestId('sign-in-button').first()).toBeVisible();
 
     // Sign in as account B
-    await notesPage.signInWithWallet(accountB.privateKey);
+    await page.context().clearCookies();
+    await notesPage.signInDirectly(accountB.account.address);
 
     await expect(notesPage.noteCard(tagB)).toBeVisible();
     await expect(notesPage.noteCard(tagA)).toHaveCount(0);
@@ -56,7 +57,7 @@ test.describe('account isolation - secrets', () => {
     await seedSecrets(accountB.account.address, mekB, [{ title: tagB, content: 'B secret' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(accountA.privateKey);
+    await secretsPage.signInDirectly(accountA.account.address);
     await secretsPage.unlock();
 
     await expect(secretsPage.secretCard(tagA)).toBeVisible();
@@ -67,7 +68,8 @@ test.describe('account isolation - secrets', () => {
     await expect(page.getByTestId('sign-in-button').first()).toBeVisible();
 
     // Sign in as account B and unlock
-    await secretsPage.signInWithWallet(accountB.privateKey);
+    await page.context().clearCookies();
+    await secretsPage.signInDirectly(accountB.account.address);
     await secretsPage.unlock();
 
     await expect(secretsPage.secretCard(tagB)).toBeVisible();

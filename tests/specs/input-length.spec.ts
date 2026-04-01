@@ -24,7 +24,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewNoteModal blocks title over 500 chars', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await page.getByTestId('note-title-input').click();
@@ -37,7 +37,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewNoteModal blocks content over 500k chars', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet();
+    await notesPage.signInDirectly();
 
     await page.getByTestId('new-note-btn').click();
     await page.getByTestId('note-title-input').fill('Test');
@@ -51,12 +51,12 @@ test.describe('input length constraints in modals', () => {
   // ── Note (t1) — Edit modal ───────────────────────────────────────────────
 
   test('NoteModal blocks title over 500 chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Constraint Note ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await page.getByTestId('edit-btn').click();
@@ -67,12 +67,12 @@ test.describe('input length constraints in modals', () => {
   });
 
   test('NoteModal blocks content over 500k chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const title = `Constraint Note Content ${Date.now()}`;
     await seedNotes(account.address, [{ title }]);
 
     const notesPage = new NotesPage(page);
-    await notesPage.signInWithWallet(privateKey);
+    await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
     await page.getByTestId('edit-btn').click();
@@ -86,7 +86,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewSecretModal blocks title over 500 chars', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -100,7 +100,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewSecretModal blocks content over 500k chars', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await page.getByRole('button', { name: 'New Secret' }).click();
@@ -115,13 +115,13 @@ test.describe('input length constraints in modals', () => {
   // ── Secret (t2) — Edit modal ─────────────────────────────────────────────
 
   test('SecretNoteModal blocks title over 500 chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Constraint Secret ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -133,13 +133,13 @@ test.describe('input length constraints in modals', () => {
   });
 
   test('SecretNoteModal blocks content over 500k chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Constraint Secret Content ${Date.now()}`;
     await seedSecrets(account.address, mekBytes, [{ title, content: 'initial' }]);
 
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet(privateKey);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
@@ -154,7 +154,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewSealModal blocks title over 500 chars', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     await page.getByRole('button', { name: 'New Seal' }).click();
@@ -168,7 +168,7 @@ test.describe('input length constraints in modals', () => {
 
   test('NewSealModal blocks content over 500k chars', async ({ page }) => {
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet();
+    await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     await page.getByRole('button', { name: 'New Seal' }).click();
@@ -183,13 +183,13 @@ test.describe('input length constraints in modals', () => {
   // ── Seal (t3) — Edit modal ───────────────────────────────────────────────
 
   test('SealNoteModal blocks title over 500 chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Constraint Seal ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
@@ -203,13 +203,13 @@ test.describe('input length constraints in modals', () => {
   });
 
   test('SealNoteModal blocks content over 500k chars on edit', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `Constraint Seal Content ${Date.now()}`;
     await seedSeals(account.address, mekBytes, [{ title, content: 'initial' }]);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();

@@ -21,7 +21,7 @@ const WRONG_PASSPHRASE = 'this-is-definitely-wrong-99';
 test.describe('lock / unlock state', () => {
   test('shows Locked badge when profile exists but session not unlocked', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
 
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
@@ -29,7 +29,7 @@ test.describe('lock / unlock state', () => {
 
   test('Unlock button opens the passphrase modal', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
 
     await page.getByRole('button', { name: 'Unlock' }).click();
 
@@ -39,7 +39,7 @@ test.describe('lock / unlock state', () => {
 
   test('correct passphrase unlocks and shows Unlocked badge', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
@@ -48,7 +48,7 @@ test.describe('lock / unlock state', () => {
 
   test('Lock button re-locks the session', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
@@ -60,7 +60,7 @@ test.describe('lock / unlock state', () => {
 
   test('session persists across page reload', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
     await secretsPage.unlock();
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
@@ -76,22 +76,22 @@ test.describe('lock / unlock state', () => {
 
 test.describe('lock / unlock state on seals page', () => {
   test('shows Locked badge on /seals when profile exists but session not unlocked', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
   });
 
   test('Unlock button on /seals opens passphrase modal and correct passphrase unlocks', async ({ page }) => {
-    const { privateKey, account } = makeAccount();
+    const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
 
     const sealsPage = new SealsPage(page);
-    await sealsPage.signInWithWallet(privateKey);
+    await sealsPage.signInDirectly(account.address);
 
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
@@ -109,7 +109,7 @@ test.describe('lock / unlock state on seals page', () => {
 test.describe('wrong passphrase', () => {
   test('wrong passphrase shows error and stays locked', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
 
     // Enter wrong passphrase — modal stays open, so don't wait for dismiss
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
@@ -125,7 +125,7 @@ test.describe('wrong passphrase', () => {
 
   test('correct passphrase after wrong one succeeds', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
 
     // Enter wrong passphrase first
     await page.getByRole('button', { name: 'Unlock', exact: true }).click();
@@ -142,7 +142,7 @@ test.describe('wrong passphrase', () => {
 
   test('cancel passphrase modal keeps session locked', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
-    await secretsPage.signInWithWallet();
+    await secretsPage.signInDirectly();
 
     await page.getByRole('button', { name: 'Unlock' }).click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
