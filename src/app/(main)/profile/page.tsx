@@ -115,72 +115,80 @@ function ProfilePageContent() {
             <CardTitle>Profile</CardTitle>
           </CardHeader>
           <CardContent className={s.overviewBody}>
-            <div className={s.addressRow}>
-              {isEditing ? (
-                <div className={s.inputWrapper}>
-                  <Input
-                    className={s.inputWithIcon}
-                    value={editValue}
-                    maxLength={50}
-                    autoFocus
-                    disabled={isSaving}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setIsEditing(false);
-                      if (e.key === 'Enter') {
-                        const trimmed = editValue.trim();
-                        if (trimmed && trimmed !== profile?.displayName) {
-                          updateDisplayName(trimmed, {
+            {isLoading ? (
+              <>
+                <div className={`${s.skeleton} ${s.skeletonDisplayName}`} />
+                <div className={`${s.skeleton} ${s.skeletonJoinedDate}`} />
+              </>
+            ) : (
+              <>
+                <div className={s.addressRow}>
+                  {isEditing ? (
+                    <div className={s.inputWrapper}>
+                      <Input
+                        className={s.inputWithIcon}
+                        value={editValue}
+                        maxLength={50}
+                        autoFocus
+                        disabled={isSaving}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setIsEditing(false);
+                          if (e.key === 'Enter') {
+                            const trimmed = editValue.trim();
+                            if (trimmed && trimmed !== profile?.displayName) {
+                              updateDisplayName(trimmed, {
+                                onSuccess: () => setIsEditing(false),
+                                onError: () => toast.error('Failed to update display name.'),
+                              });
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
+                        disabled={isSaving || !editValue.trim() || editValue.trim() === profile?.displayName}
+                        onClick={() => {
+                          updateDisplayName(editValue.trim(), {
                             onSuccess: () => setIsEditing(false),
                             onError: () => toast.error('Failed to update display name.'),
                           });
-                        }
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                    disabled={isSaving || !editValue.trim() || editValue.trim() === profile?.displayName}
-                    onClick={() => {
-                      updateDisplayName(editValue.trim(), {
-                        onSuccess: () => setIsEditing(false),
-                        onError: () => toast.error('Failed to update display name.'),
-                      });
-                    }}
-                    aria-label="Save display name"
-                  >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span data-testid="profile-address" className={s.address}>
-                    {profile?.displayName}
-                  </span>
-                  {profile && (
-                    <button
-                      className={s.editBtn}
-                      onClick={() => {
-                        setEditValue(profile.displayName);
-                        setIsEditing(true);
-                      }}
-                      aria-label="Edit display name"
-                    >
-                      <Pencil size={13} />
-                    </button>
+                        }}
+                        aria-label="Save display name"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <span data-testid="profile-address" className={s.address}>
+                        {profile?.displayName}
+                      </span>
+                      {profile && (
+                        <button
+                          className={s.editBtn}
+                          onClick={() => {
+                            setEditValue(profile.displayName);
+                            setIsEditing(true);
+                          }}
+                          aria-label="Edit display name"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </div>
-            {joinedDate && (
-              <p className={s.joinedDate}>
-                Member since <strong>{joinedDate}</strong>
-              </p>
+                </div>
+                {joinedDate && (
+                  <p className={s.joinedDate}>
+                    Member since <strong>{joinedDate}</strong>
+                  </p>
+                )}
+              </>
             )}
-            {isLoading && !joinedDate && <div className={`${s.skeleton} ${s.skeletonJoinedDate}`} />}
           </CardContent>
         </Card>
 

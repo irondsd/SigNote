@@ -203,8 +203,12 @@
 
 // Skeleton loading
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
@@ -220,8 +224,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
@@ -229,7 +237,26 @@
   color: var(--muted-foreground);
 }
 
-.skeletonJoinedDate { width: 160px; height: 14px; }
-.skeletonIcon       { width: 16px;  height: 16px; border-radius: 4px; flex-shrink: 0; }
-.skeletonLabelSm    { width: 120px; height: 13px; }
-.skeletonDescSm     { width: 80px;  height: 12px; }
+.skeletonDisplayName {
+  width: 200px;
+  height: 13px;
+  padding: 3px 0;
+}
+.skeletonJoinedDate {
+  width: 160px;
+  height: 14px;
+}
+.skeletonIcon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.skeletonLabelSm {
+  width: 120px;
+  height: 13px;
+}
+.skeletonDescSm {
+  width: 80px;
+  height: 12px;
+}

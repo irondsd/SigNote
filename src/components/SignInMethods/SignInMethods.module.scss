@@ -71,3 +71,41 @@
   flex-direction: column;
   gap: 8px;
 }
+
+// Skeleton loading
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 25%,
+    color-mix(in oklch, var(--muted-foreground) 20%, var(--muted)) 50%,
+    var(--muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: calc(var(--radius-md) / 2);
+}
+
+.skeletonIdentityIcon {
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.skeletonIdentityLabel {
+  width: 80px;
+  height: 14px;
+}
+
+.skeletonIdentitySubject {
+  width: 120px;
+  height: 12px;
+}
+
+.skeletonButton {
+  width: 60px;
+  height: 32px;
+}
