@@ -14,8 +14,5 @@ export const eraseNotes = (userId: string) => NoteModel.deleteMany({ userId });
 export const eraseEncryptionProfile = (userId: string) => EncryptionProfileModel.deleteOne({ userId });
 
 export const eraseAccount = async (userId: string) => {
-  await Promise.all([
-    UserModel.deleteOne({ _id: userId }),
-    AuthIdentityModel.deleteMany({ userId }),
-  ]);
+  await Promise.all([UserModel.deleteOne({ _id: userId }), AuthIdentityModel.deleteMany({ userId })]);
 };

@@ -193,18 +193,18 @@ GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
 ```
 
-| Variable                               | Description                                                    | Required |
-| -------------------------------------- | -------------------------------------------------------------- | -------- |
-| `NEXTAUTH_URL`                         | Exact public app origin (used for both SIWE and OAuth)         | Yes      |
-| `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions                       | Yes      |
-| `MONGODB_URI`                          | MongoDB connection string                                      | Yes      |
-| `MONGODB_DB`                           | Database name                                                  | Yes      |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi              | Yes      |
-| `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app (for SIWE)               | Yes      |
-| `GOOGLE_CLIENT_ID`                     | Google OAuth 2.0 Client ID (from Google Cloud Console)         | No*      |
-| `GOOGLE_CLIENT_SECRET`                 | Google OAuth 2.0 Client Secret (from Google Cloud Console)     | No*      |
+| Variable                               | Description                                                | Required |
+| -------------------------------------- | ---------------------------------------------------------- | -------- |
+| `NEXTAUTH_URL`                         | Exact public app origin (used for both SIWE and OAuth)     | Yes      |
+| `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions                   | Yes      |
+| `MONGODB_URI`                          | MongoDB connection string                                  | Yes      |
+| `MONGODB_DB`                           | Database name                                              | Yes      |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi          | Yes      |
+| `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app (for SIWE)           | Yes      |
+| `GOOGLE_CLIENT_ID`                     | Google OAuth 2.0 Client ID (from Google Cloud Console)     | No\*     |
+| `GOOGLE_CLIENT_SECRET`                 | Google OAuth 2.0 Client Secret (from Google Cloud Console) | No\*     |
 
-*Only required if you want to enable Google OAuth sign-in. SIWE works without Google credentials.
+\*Only required if you want to enable Google OAuth sign-in. SIWE works without Google credentials.
 
 > The local dev script runs on port `5000`, so `NEXTAUTH_URL` should be `http://localhost:5000` unless you change the port.
 

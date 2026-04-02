@@ -133,11 +133,7 @@ test.describe('desktop reorder', () => {
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1 (col 1), Note 2 (col 2), Note 3 (col 3)
-    await seedNotes(address, [
-      { title: `${tag} Note 3` },
-      { title: `${tag} Note 2` },
-      { title: `${tag} Note 1` },
-    ]);
+    await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
     await page.reload();
     await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
@@ -319,11 +315,7 @@ test.describe('mobile reorder', () => {
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1, Note 2, Note 3
-    await seedNotes(address, [
-      { title: `${tag} Note 3` },
-      { title: `${tag} Note 2` },
-      { title: `${tag} Note 1` },
-    ]);
+    await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
     await page.reload();
 
@@ -347,11 +339,7 @@ test.describe('mobile reorder', () => {
 
     // Seed reversed: Note 3=1000, Note 2=2000, Note 1=3000
     // UI order: Note 1, Note 2, Note 3
-    await seedNotes(address, [
-      { title: `${tag} Note 3` },
-      { title: `${tag} Note 2` },
-      { title: `${tag} Note 1` },
-    ]);
+    await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
     await page.reload();
 

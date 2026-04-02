@@ -17,10 +17,7 @@ const getExpectedOrigin = () => {
   return null;
 };
 
-export async function validateSiweCredentials(
-  message: string,
-  signature: string,
-): Promise<{ address: string } | null> {
+export async function validateSiweCredentials(message: string, signature: string): Promise<{ address: string } | null> {
   try {
     const siwe = new SiweMessage(message);
     const expectedDomain = getExpectedDomain();
