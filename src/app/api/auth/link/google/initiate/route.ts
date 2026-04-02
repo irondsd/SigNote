@@ -41,7 +41,8 @@ export async function GET() {
     access_type: 'online',
   });
 
-  return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  const authUrl = process.env.GOOGLE_AUTH_URL ?? 'https://accounts.google.com/o/oauth2/v2/auth';
+  return NextResponse.redirect(`${authUrl}?${params}`);
 }
 
 export function getRedirectUri() {

@@ -43,6 +43,10 @@ export default async function globalSetup() {
   // Use a stable fake client ID/secret — the mock server accepts any values.
   process.env.GOOGLE_CLIENT_ID = 'mock-google-client-id';
   process.env.GOOGLE_CLIENT_SECRET = 'mock-google-client-secret';
+  // Point custom link routes at the mock server instead of Google's production endpoints.
+  process.env.GOOGLE_AUTH_URL = `http://localhost:${mockOAuth.port}/auth`;
+  process.env.GOOGLE_TOKEN_URL = `http://localhost:${mockOAuth.port}/token`;
+  process.env.GOOGLE_USERINFO_URL = `http://localhost:${mockOAuth.port}/userinfo`;
   (globalThis as GlobalWithMongo).__MOCK_OAUTH__ = mockOAuth;
   console.log(`Mock OAuth server started on port ${mockOAuth.port}`);
 

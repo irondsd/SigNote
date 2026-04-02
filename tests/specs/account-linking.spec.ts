@@ -46,11 +46,27 @@ async function clickLinkSiwe(page: Page): Promise<void> {
 
 test.describe('SIWE primary → link Google', () => {
   test('links Google account and shows success toast', async ({ page }) => {
-    // Google OAuth tests need the mock OAuth server to be accessible, which requires
-    // the page to load so that the mock provider is injected (needed for profile page).
-    // However, Google OAuth goes through a redirect loop outside the app.
-    // For now, we skip this test and focus on the SIWE → link flow which works locally.
-    test.skip();
+    const { account } = makeAccount();
+    const token = await createTestSession(account.address);
+    await injectSession(page, token);
+
+    await configureGoogleUser({
+      sub: 'google-link-primary-01',
+      name: 'Test User',
+      email: 'google-link-primary@example.com',
+    });
+
+    await page.goto('/profile');
+    await expect(page.getByTestId('identity-siwe')).toBeVisible();
+    await expect(page.getByTestId('link-google-button')).toBeVisible();
+
+    await page.getByTestId('link-google-button').click();
+
+    // Full OAuth redirect: initiate → mock /auth → callback → /profile?linked=google
+    await page.waitForURL(/\/profile/, { timeout: 20000 });
+    await expect(page.getByText('Google account linked successfully.')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('identity-siwe')).toBeVisible();
+    await expect(page.getByTestId('identity-google')).toBeVisible();
   });
 });
 
@@ -83,10 +99,7 @@ test.describe('Google primary → link SIWE', () => {
 test.describe('link wallet with encrypted data', () => {
   test('fails with conflict error when wallet has secrets', async ({ page }) => {
     // Inject Google user A session and mock provider, then navigate to profile.
-    const googleToken = await createGoogleTestSession(
-      'google-conflict-secrets-01',
-      'conflict-secrets@example.com',
-    );
+    const googleToken = await createGoogleTestSession('google-conflict-secrets-01', 'conflict-secrets@example.com');
     await injectSession(page, googleToken);
     await mockProvider(page);
     await page.goto('/profile');
@@ -95,8 +108,8 @@ test.describe('link wallet with encrypted data', () => {
     await expect(page.getByTestId('link-siwe-button')).toBeVisible();
 
     // Get the browser wallet address (mock provider generates it on page load)
-    const walletAddress = await page.evaluate(
-      () => (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
+    const walletAddress = await page.evaluate(() =>
+      (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
     );
 
     // Seed user B: SIWE user with that wallet address + secrets
@@ -115,18 +128,15 @@ test.describe('link wallet with encrypted data', () => {
   });
 
   test('fails with conflict error when wallet has seals', async ({ page }) => {
-    const googleToken = await createGoogleTestSession(
-      'google-conflict-seals-01',
-      'conflict-seals@example.com',
-    );
+    const googleToken = await createGoogleTestSession('google-conflict-seals-01', 'conflict-seals@example.com');
     await injectSession(page, googleToken);
     await mockProvider(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('link-siwe-button')).toBeVisible();
 
-    const walletAddress = await page.evaluate(
-      () => (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
+    const walletAddress = await page.evaluate(() =>
+      (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
     );
 
     // Seed user B with seals
@@ -141,18 +151,15 @@ test.describe('link wallet with encrypted data', () => {
   });
 
   test('succeeds when wallet has only an encryption profile (no secrets or seals)', async ({ page }) => {
-    const googleToken = await createGoogleTestSession(
-      'google-conflict-ep-only-01',
-      'conflict-ep-only@example.com',
-    );
+    const googleToken = await createGoogleTestSession('google-conflict-ep-only-01', 'conflict-ep-only@example.com');
     await injectSession(page, googleToken);
     await mockProvider(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('link-siwe-button')).toBeVisible();
 
-    const walletAddress = await page.evaluate(
-      () => (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
+    const walletAddress = await page.evaluate(() =>
+      (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
     );
 
     // Seed user B: encryption profile only, no secrets or seals

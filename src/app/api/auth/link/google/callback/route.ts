@@ -37,7 +37,8 @@ export async function GET(req: Request) {
   }
 
   // Exchange code for tokens
-  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+  const tokenUrl = process.env.GOOGLE_TOKEN_URL ?? 'https://oauth2.googleapis.com/token';
+  const tokenRes = await fetch(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -59,7 +60,8 @@ export async function GET(req: Request) {
   }
 
   // Fetch user info
-  const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+  const userInfoUrl = process.env.GOOGLE_USERINFO_URL ?? 'https://www.googleapis.com/oauth2/v2/userinfo';
+  const userInfoRes = await fetch(userInfoUrl, {
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
 
@@ -68,14 +70,17 @@ export async function GET(req: Request) {
   }
 
   const userInfo = (await userInfoRes.json()) as {
-    id: string;
+    id?: string;
+    sub?: string;
     email?: string;
     verified_email?: boolean;
+    email_verified?: boolean;
     name?: string;
     picture?: string;
   };
 
-  if (!userInfo.id) {
+  const googleId = userInfo.id ?? userInfo.sub;
+  if (!googleId) {
     return NextResponse.redirect(buildProfileUrl('link_error=server_error'));
   }
 
@@ -83,9 +88,9 @@ export async function GET(req: Request) {
   attachDatabasePool(client);
 
   try {
-    await linkIdentity(userId, 'google', userInfo.id, {
+    await linkIdentity(userId, 'google', googleId, {
       email: userInfo.email,
-      emailVerified: userInfo.verified_email,
+      emailVerified: userInfo.verified_email ?? userInfo.email_verified,
       rawProfileJson: { displayName: userInfo.name, image: userInfo.picture },
     });
     return NextResponse.redirect(buildProfileUrl('linked=google'));
