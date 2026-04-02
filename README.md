@@ -2,7 +2,7 @@
 
 SigNote is a wallet-native notes app with three security tiers.
 
-It uses **Sign-In with Ethereum (SIWE)** for authentication and a passphrase-based encryption system for higher-security notes. The goal is simple: keep note ownership tied to an Ethereum address while letting users choose the right privacy level for each note.
+It supports **Sign-In with Ethereum (SIWE)** and **Google OAuth** for authentication, and uses a passphrase-based encryption system for higher-security notes. The goal is simple: let users choose their identity (privacy or convenience) while choosing the right privacy level for each note.
 
 ## Core idea
 
@@ -106,14 +106,30 @@ Keys are created as non-extractable `CryptoKey` objects where possible, preventi
 
 ## Authentication
 
-SigNote authenticates users with SIWE:
+SigNote supports two authentication methods:
+
+### Sign-In with Ethereum (SIWE)
 
 1. The client requests a nonce.
 2. The user signs a SIWE message with their wallet.
 3. The signature is verified server-side.
 4. A session is issued and tied to the wallet address.
 
-Because SIWE validates the domain and origin, `NEXTAUTH_URL` must exactly match the URL you use in the browser during local development and deployment.
+SIWE is ideal for users who prioritize privacy and anonymity.
+
+### Google OAuth
+
+1. The user clicks "Sign in with Google".
+2. Google verifies the user's identity.
+3. A session is issued and tied to the user's Google account.
+
+Google OAuth is ideal for users who prioritize convenience.
+
+### Account Linking
+
+Users can link both SIWE and Google to the same account for flexibility. Either method can be used to sign in and access the same encrypted notes.
+
+> ⚠️ Both methods validate against `NEXTAUTH_URL`, which must exactly match the URL you use in the browser during local development and deployment.
 
 ---
 
@@ -133,7 +149,7 @@ Titles are intentionally left unencrypted to enable full-text indexing while kee
 
 - **Next.js** (App Router)
 - **React 19**
-- **NextAuth** with SIWE credentials flow
+- **NextAuth** with SIWE and Google OAuth support
 - **MongoDB** with Mongoose
 - **Web Crypto API** for all client-side encryption
 - **Wagmi** + **RainbowKit** for wallet connection
@@ -162,22 +178,33 @@ cp .env.local.example .env.local
 ### 3. Configure environment variables
 
 ```bash
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=""
-NEXT_PUBLIC_RPC_URL=""
-MONGODB_URI="mongodb+srv://<username>:<password>@<cluster-url>/"
-MONGODB_DB="signote"
+# Core configuration
 NEXTAUTH_URL="http://localhost:5000"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
+MONGODB_URI="mongodb+srv://<username>:<password>@<cluster-url>/"
+MONGODB_DB="signote"
+
+# SIWE configuration
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=""
+NEXT_PUBLIC_RPC_URL=""
+
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
 ```
 
-| Variable                               | Description                                        |
-| -------------------------------------- | -------------------------------------------------- |
-| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi  |
-| `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app              |
-| `MONGODB_URI`                          | MongoDB connection string                          |
-| `MONGODB_DB`                           | Database name                                      |
-| `NEXTAUTH_URL`                         | Exact public app origin used for SIWE verification |
-| `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions           |
+| Variable                               | Description                                                    | Required |
+| -------------------------------------- | -------------------------------------------------------------- | -------- |
+| `NEXTAUTH_URL`                         | Exact public app origin (used for both SIWE and OAuth)         | Yes      |
+| `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions                       | Yes      |
+| `MONGODB_URI`                          | MongoDB connection string                                      | Yes      |
+| `MONGODB_DB`                           | Database name                                                  | Yes      |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi              | Yes      |
+| `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app (for SIWE)               | Yes      |
+| `GOOGLE_CLIENT_ID`                     | Google OAuth 2.0 Client ID (from Google Cloud Console)         | No*      |
+| `GOOGLE_CLIENT_SECRET`                 | Google OAuth 2.0 Client Secret (from Google Cloud Console)     | No*      |
+
+*Only required if you want to enable Google OAuth sign-in. SIWE works without Google credentials.
 
 > The local dev script runs on port `5000`, so `NEXTAUTH_URL` should be `http://localhost:5000` unless you change the port.
 
@@ -218,7 +245,9 @@ src/
 
 ## Security notes
 
-- Wallet authentication is handled with SIWE; no passwords are involved in authentication.
+- Authentication (SIWE or Google OAuth) and encryption (passphrase-based) are independent. Your sign-in method doesn't affect your encryption.
+- SIWE authentication uses domain binding to prevent phishing; Google OAuth relies on Google's security model.
+- If you use account linking (SIWE + Google), both methods provide access to the same account and encrypted notes.
 - The MEK never leaves the browser and is never sent to the server in any form.
 - The `serverShare` stored in MongoDB is useless without the user's passphrase.
 - `sessionStorage` (which holds `deviceShare`) is tab-scoped and cleared automatically when the tab closes.
