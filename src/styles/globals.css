@@ -40,11 +40,11 @@
 }
 
 :root {
-  --note-yellow: oklch(95.884% 0.0809 98.627 / 0.431);
-  --note-red: oklch(94.977% 0.02516 14.351 / 0.482);
-  --note-blue: oklch(94.623% 0.03008 235.752 / 0.561);
-  --note-green: oklch(94.929% 0.04928 148.006 / 0.565);
-  --note-clay: oklch(93.807% 0.03814 58.353 / 0.607);
+  --note-yellow: oklch(97.278% 0.04986 97);
+  --note-red: oklch(98.012% 0.00963 16);
+  --note-blue: oklch(97.223% 0.0159 233);
+  --note-green: oklch(98.439% 0.02483 149);
+  --note-clay: oklch(95.912% 0.02524 59);
   --note-gray: oklch(0.97 0 0);
   --code-bg: oklch(80% 0.00008 270 / 0.2);
   --background: oklch(1 0 0);

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Pencil, X, Palette } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, SWITCH_COLORS } from '@/config/noteColors';
+import { NOTE_COLORS } from '@/config/noteColors';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
@@ -93,8 +93,12 @@ export function SharedNoteModal({
                     <button
                       type="button"
                       key={c}
-                      className={cn(s.swatch, color === c && s.swatchSelected)}
-                      style={{ background: SWITCH_COLORS[c] }}
+                      className={cn(
+                        s.swatch,
+                        color === c && s.swatchSelected,
+                        s[`switch${c.charAt(0).toUpperCase() + c.slice(1)}` as keyof typeof s],
+                      )}
+                      // style={{ background: SWITCH_COLORS[c] }}
                       onClick={() => onColorChange(c)}
                       title={c.charAt(0).toUpperCase() + c.slice(1)}
                       aria-label={c.charAt(0).toUpperCase() + c.slice(1)}
