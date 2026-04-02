@@ -5,8 +5,8 @@ import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
 import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
-import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 
@@ -27,31 +27,31 @@ export function SecretsGrid({
   showArchivedBadge = false,
   isDragDisabled = false,
 }: SecretsGridProps) {
-  const { mek, phase, lockType, rehydrate } = useEncryption();
+  const { mek, phase, lockType, rehydrate: ctxRehydrate } = useEncryption();
   const isUnlocked = phase === 'unlocked';
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const pendingNoteRef = useRef<CachedSecretNote | null>(null);
-  const [showPassphrase, setShowPassphrase] = useState(false);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, { content: string; iv: string }>>(new Map());
 
+  const guard = useEncryptionGuard();
+
   const openDecryptedNote = useCallback(
-    (note: CachedSecretNote) => {
+    async (note: CachedSecretNote) => {
       if (!mek || !note.encryptedBody) {
         setSelected(note);
         setSelectedDecrypted('');
         return;
       }
 
-      decryptSecretBody(mek, note.encryptedBody)
-        .then((content) => {
-          setSelected(note);
-          setSelectedDecrypted(content);
-        })
-        .catch(() => {
-          setSelected(note);
-          setSelectedDecrypted('');
-        });
+      try {
+        const content = await decryptSecretBody(mek, note.encryptedBody);
+        setSelected(note);
+        setSelectedDecrypted(content);
+      } catch {
+        setSelected(note);
+        setSelectedDecrypted('');
+      }
     },
     [mek],
   );
@@ -90,49 +90,69 @@ export function SecretsGrid({
     });
   }, [mek, notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Trigger open after passphrase unlock provides mek (mirrors SealNoteModal pattern)
-  useEffect(() => {
-    const note = pendingNoteRef.current;
-    if (!mek || !note) return;
-    pendingNoteRef.current = null;
-
-    if (!note.encryptedBody) {
-      setSelected(note);
-      setSelectedDecrypted('');
-      return;
-    }
-
-    decryptSecretBody(mek, note.encryptedBody)
-      .then((content) => {
-        setSelected(note);
-        setSelectedDecrypted(content);
-      })
-      .catch(() => {
-        setSelected(note);
-        setSelectedDecrypted('');
-      });
-  }, [mek]);
-
   const handleNoteClick = useCallback(
     async (note: CachedSecretNote) => {
       if (!isUnlocked) {
         pendingNoteRef.current = note;
         if (lockType === 'soft') {
+          // For soft lock, try to rehydrate directly (deviceShare still in sessionStorage)
           try {
-            await rehydrate();
-            // On success, mek is restored → existing useEffect opens the note
+            await ctxRehydrate();
+            // On success, mek is restored; useEffect below will open the note
           } catch {
-            setShowPassphrase(true);
+            // If rehydrate fails, fall back to passphrase modal
+            await guard.execute(async (mek) => {
+              const noteToOpen = pendingNoteRef.current;
+              pendingNoteRef.current = null;
+              if (noteToOpen && mek && noteToOpen.encryptedBody) {
+                try {
+                  const content = await decryptSecretBody(mek, noteToOpen.encryptedBody);
+                  setSelected(noteToOpen);
+                  setSelectedDecrypted(content);
+                } catch {
+                  setSelected(noteToOpen);
+                  setSelectedDecrypted('');
+                }
+              } else {
+                setSelected(noteToOpen || null);
+                setSelectedDecrypted('');
+              }
+            });
           }
         } else {
-          setShowPassphrase(true);
+          // For hard lock, use guard to show passphrase
+          await guard.execute(async (mek) => {
+            const noteToOpen = pendingNoteRef.current;
+            pendingNoteRef.current = null;
+            if (noteToOpen && mek && noteToOpen.encryptedBody) {
+              try {
+                const content = await decryptSecretBody(mek, noteToOpen.encryptedBody);
+                setSelected(noteToOpen);
+                setSelectedDecrypted(content);
+              } catch {
+                setSelected(noteToOpen);
+                setSelectedDecrypted('');
+              }
+            } else {
+              setSelected(noteToOpen || null);
+              setSelectedDecrypted('');
+            }
+          });
         }
         return;
       }
-      openDecryptedNote(note);
+      await openDecryptedNote(note);
     },
-    [isUnlocked, lockType, rehydrate, openDecryptedNote],
+    [isUnlocked, lockType, guard, ctxRehydrate, openDecryptedNote],
   );
+
+  // Trigger open after mek becomes available (either from rehydrate or passphrase unlock)
+  useEffect(() => {
+    const note = pendingNoteRef.current;
+    if (!mek || !note) return;
+    pendingNoteRef.current = null;
+    openDecryptedNote(note);
+  }, [mek, openDecryptedNote]);
 
   return (
     <BaseGrid
@@ -173,18 +193,7 @@ export function SecretsGrid({
         />
       )}
     >
-      {showPassphrase && (
-        <PassphraseModal
-          onSuccess={() => {
-            setShowPassphrase(false);
-            // pendingNote is picked up by the useEffect above when mek becomes available
-          }}
-          onClose={() => {
-            setShowPassphrase(false);
-            pendingNoteRef.current = null;
-          }}
-        />
-      )}
+      {guard.PassphraseGuard}
 
       {selected && (
         <SecretNoteModal

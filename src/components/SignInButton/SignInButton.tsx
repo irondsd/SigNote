@@ -20,7 +20,7 @@ export function SignInButton({ className, size = 'default' }: SignInButtonProps)
           data-testid="sign-in-button"
           size="lg"
           className={cn(
-            "w-full rounded-[14px] text-base font-bold h-13 py-2 px-8 shadow-[0_4px_20px_color-mix(in_oklch,var(--primary)_35%,transparent)] hover:-translate-y-px",
+            'w-full rounded-[14px] text-base font-bold h-13 py-2 px-8 shadow-[0_4px_20px_color-mix(in_oklch,var(--primary)_35%,transparent)] hover:-translate-y-px',
             className,
           )}
           onClick={() => setShowModal(true)}

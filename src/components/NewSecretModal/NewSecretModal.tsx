@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
-import { useEncryption } from '@/contexts/EncryptionContext';
+import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
-import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { NewModal } from '@/components/NewModal/NewModal';
@@ -23,12 +22,10 @@ type NewSecretModalProps = {
 };
 
 export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecretModalProps) {
-  const { mek } = useEncryption();
+  const guard = useSimpleEncryptionGuard();
   const [title, setTitle] = useState(initialContent?.title ?? '');
   const [content, setContent] = useState(initialContent?.content ?? '');
   const [saving, setSaving] = useState(false);
-  const [showPassphrase, setShowPassphrase] = useState(false);
-  const [pendingSave, setPendingSave] = useState(false);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
   const createSecret = useCreateSecret({
     onError: () => {
@@ -45,49 +42,29 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
 
   useEffect(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    if (isContentEmpty || !mek) return;
+    if (isContentEmpty) return;
 
     draftTimerRef.current = setTimeout(async () => {
-      const payload = await encryptSecretBody(mek, content);
-      saveDraft({
-        type: 'secret',
-        title,
-        content: JSON.stringify(payload),
-        encrypted: true,
-        savedAt: Date.now(),
-      });
+      try {
+        await guard.execute(async (mek) => {
+          const payload = await encryptSecretBody(mek, content);
+          saveDraft({
+            type: 'secret',
+            title,
+            content: JSON.stringify(payload),
+            encrypted: true,
+            savedAt: Date.now(),
+          });
+        });
+      } catch {
+        // Silently fail on draft save if no MEK
+      }
     }, 500);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [title, content, isContentEmpty, mek]);
-
-  // Complete pending save after passphrase unlock restores mek
-  useEffect(() => {
-    if (pendingSave && mek) {
-      setPendingSave(false);
-      performSave(mek);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mek, pendingSave]);
-
-  const performSave = async (currentMek: CryptoKey) => {
-    if (isTitleEmpty && isContentEmpty) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    setSaving(true);
-    try {
-      const trimmedTitle = title.trim();
-      const trimmedContent = content.trim();
-      const encryptedBody = trimmedContent ? await encryptSecretBody(currentMek, trimmedContent) : null;
-      clearDraft();
-      pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
-      createSecret.mutate({ title: trimmedTitle, encryptedBody });
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
+  }, [title, content, isContentEmpty, guard]);
 
   const handleSave = async () => {
     if (title.length > MAX_TITLE) {
@@ -98,12 +75,23 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
       toast.error('Content is too large to save');
       return;
     }
-    if (!mek) {
-      setPendingSave(true);
-      setShowPassphrase(true);
-      return;
+    if (isTitleEmpty && isContentEmpty) return;
+
+    try {
+      setSaving(true);
+      await guard.execute(async (mek) => {
+        if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+        const trimmedTitle = title.trim();
+        const trimmedContent = content.trim();
+        const encryptedBody = trimmedContent ? await encryptSecretBody(mek, trimmedContent) : null;
+        clearDraft();
+        pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
+        createSecret.mutate({ title: trimmedTitle, encryptedBody });
+        onClose();
+      });
+    } finally {
+      setSaving(false);
     }
-    performSave(mek);
   };
 
   return (
@@ -146,15 +134,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         />
       </NewModal>
 
-      {showPassphrase && (
-        <PassphraseModal
-          onSuccess={() => setShowPassphrase(false)}
-          onClose={() => {
-            setShowPassphrase(false);
-            setPendingSave(false);
-          }}
-        />
-      )}
+      {guard.PassphraseGuard}
 
       {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
     </>

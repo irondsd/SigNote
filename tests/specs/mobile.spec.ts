@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mobileSignIn } from '../utils/mobileSignIn';

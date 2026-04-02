@@ -11,9 +11,7 @@ export function UnauthenticatedState() {
         <KeyRound size={56} strokeWidth={1} />
       </div>
       <h2 className={s.heading}>Welcome to SigNote</h2>
-      <p className={s.sub}>
-        Sign in to access your notes securely.
-      </p>
+      <p className={s.sub}>Sign in to access your notes securely.</p>
       <SignInButton size="large" className={'max-w-100'} />
     </div>
   );

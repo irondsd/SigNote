@@ -14,7 +14,7 @@ import { api } from '@/lib/api';
 import { EthereumIcon, GoogleIcon } from '@/components/icons/SignInIcons';
 import s from './SignInMethods.module.scss';
 
-export function SignInMethods () {
+export function SignInMethods() {
   const { data: identities, isLoading } = useIdentities();
   const { mutate: unlink, isPending: isUnlinking } = useUnlinkIdentity();
   const { sign, step: siweStep } = useSiweSign();
@@ -133,7 +133,9 @@ export function SignInMethods () {
                         </Button>
                       </span>
                     </TooltipTrigger>
-                    {isOnlyOne && <TooltipContent side="left">You must keep at least one sign-in method</TooltipContent>}
+                    {isOnlyOne && (
+                      <TooltipContent side="left">You must keep at least one sign-in method</TooltipContent>
+                    )}
                   </Tooltip>
                 </div>
               </React.Fragment>

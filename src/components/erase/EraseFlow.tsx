@@ -158,8 +158,7 @@ export function EraseFlow({
                         </>
                       ) : (
                         <>
-                          <Trash2 size={14} />
-                          I confirm, delete my data
+                          <Trash2 size={14} />I confirm, delete my data
                         </>
                       )}
                     </Button>

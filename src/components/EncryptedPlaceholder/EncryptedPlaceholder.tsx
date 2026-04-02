@@ -38,7 +38,6 @@ function generateRandomLines(lineCount: number): LineData[] {
   });
 }
 
-
 export function estimateLines(ciphertext: string): number {
   const estimatedBytes = Math.floor(ciphertext.length * 0.75) - 16;
   const lines = Math.ceil(Math.max(estimatedBytes, 0) / 60);
@@ -73,7 +72,8 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlacehol
   };
 
   const renderBars = () => {
-    const lines = shuffleData !== null ? shuffleData : ciphertext ? generateLines(ciphertext, rows) : generateRandomLines(rows);
+    const lines =
+      shuffleData !== null ? shuffleData : ciphertext ? generateLines(ciphertext, rows) : generateRandomLines(rows);
     return lines.map((line, i) => (
       <div key={i} className={s.line} style={{ width: getLineWidth(i, line.fillFraction) }}>
         {line.weights.map((w, j) => (

@@ -7,8 +7,8 @@ import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } fr
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
-import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
@@ -26,7 +26,7 @@ type SealNoteModalProps = {
 };
 
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
-  const { mek, phase, lockType, rehydrate } = useEncryption();
+  const { mek, phase, lockType, rehydrate: ctxRehydrate } = useEncryption();
   const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
@@ -36,13 +36,12 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [decrypting, setDecrypting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [decryptError, setDecryptError] = useState('');
-  const [showPassphrase, setShowPassphrase] = useState(false);
-  // Set to true after passphrase unlock — triggers decrypt via useEffect when mek is available
-  const [pendingDecrypt, setPendingDecrypt] = useState(false);
-  const [pendingSave, setPendingSave] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
+  const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
+
+  const guard = useEncryptionGuard();
 
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
@@ -53,66 +52,54 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     editing && (title !== (note.title ?? '') || (isDecrypted && decryptedContent !== originalDecryptedRef.current));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 
-  // Trigger decrypt after passphrase unlock provides mek
-  useEffect(() => {
-    if (pendingDecrypt && mek) {
-      setPendingDecrypt(false);
-      performDecrypt(mek);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mek, pendingDecrypt]);
+  const performDecrypt = useCallback(
+    async (currentMek: CryptoKey) => {
+      if (!note.encryptedBody || !note.wrappedNoteKey) {
+        setDecryptedContent('');
+        return;
+      }
+      setDecrypting(true);
+      setDecryptError('');
+      try {
+        const plaintext = await decryptSealBody(currentMek, note.encryptedBody, note.wrappedNoteKey, note._id);
+        originalDecryptedRef.current = plaintext;
+        setDecryptedContent(plaintext);
+        totalTimeRef.current = DECRYPT_FOR_SECONDS;
+        setTimeLeft(DECRYPT_FOR_SECONDS);
+      } catch {
+        setDecryptError('Failed to decrypt. The note may be corrupted.');
+      } finally {
+        setDecrypting(false);
+      }
+    },
+    [note._id, note.encryptedBody, note.wrappedNoteKey],
+  );
 
-  // Complete pending save after passphrase unlock restores mek
-  useEffect(() => {
-    if (pendingSave && mek) {
-      setPendingSave(false);
-      performSave(mek);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mek, pendingSave]);
-
-  const performDecrypt = async (currentMek: CryptoKey) => {
-    if (!note.encryptedBody || !note.wrappedNoteKey) {
-      setDecryptedContent('');
-      return;
-    }
+  const handleDecrypt = async () => {
     setDecrypting(true);
-    setDecryptError('');
     try {
-      const plaintext = await decryptSealBody(currentMek, note.encryptedBody, note.wrappedNoteKey, note._id);
-      originalDecryptedRef.current = plaintext;
-      setDecryptedContent(plaintext);
-      totalTimeRef.current = DECRYPT_FOR_SECONDS;
-      setTimeLeft(DECRYPT_FOR_SECONDS);
-    } catch {
-      setDecryptError('Failed to decrypt. The note may be corrupted.');
+      if (lockType === 'soft') {
+        // Soft lock: try rehydrate directly, then decrypt
+        pendingActionRef.current = 'decrypt';
+        try {
+          await ctxRehydrate();
+          // On success, mek is restored; useEffect below will perform decrypt
+        } catch {
+          // On failure, fall back to passphrase modal
+          pendingActionRef.current = null;
+          await guard.execute(async (mek) => {
+            await performDecrypt(mek);
+          });
+        }
+      } else {
+        // Hard lock or unlocked: just decrypt
+        await guard.execute(async (mek) => {
+          await performDecrypt(mek);
+        });
+      }
     } finally {
       setDecrypting(false);
     }
-  };
-
-  const handleDecrypt = async () => {
-    if (!mek) {
-      if (lockType === 'soft') {
-        // Soft lock: deviceShare still in sessionStorage — rehydrate silently
-        setDecrypting(true);
-        setPendingDecrypt(true);
-        try {
-          await rehydrate();
-          // pendingDecrypt useEffect fires once mek is restored
-        } catch {
-          setDecrypting(false);
-          setPendingDecrypt(false);
-          setShowPassphrase(true);
-        }
-        return;
-      }
-      // Hard lock: need passphrase
-      setPendingDecrypt(true);
-      setShowPassphrase(true);
-      return;
-    }
-    performDecrypt(mek);
   };
 
   const handleEncrypt = useCallback(() => {
@@ -148,59 +135,81 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     return () => clearInterval(id);
   }, [timeLeft, editing, handleEncrypt]);
 
-  const performSave = async (currentMek: CryptoKey) => {
-    if (decryptedContent === null) return;
-    if (title.length > MAX_TITLE) {
-      toast.error('Title is too long');
-      return;
-    }
-    if (decryptedContent.length > MAX_CONTENT) {
-      toast.error('Content is too large to save');
-      return;
-    }
+  const performSave = useCallback(
+    async (currentMek: CryptoKey) => {
+      if (decryptedContent === null) return;
+      if (title.length > MAX_TITLE) {
+        toast.error('Title is too long');
+        return;
+      }
+      if (decryptedContent.length > MAX_CONTENT) {
+        toast.error('Content is too large to save');
+        return;
+      }
+      setSaving(true);
+      try {
+        let encryptedBody = note.encryptedBody;
+        let wrappedNoteKey = note.wrappedNoteKey;
+
+        if (decryptedContent.trim()) {
+          const encrypted = await encryptSealBody(currentMek, decryptedContent, note._id);
+          encryptedBody = encrypted.encryptedBody;
+          wrappedNoteKey = encrypted.wrappedNoteKey;
+        } else {
+          encryptedBody = null;
+          wrappedNoteKey = null;
+        }
+
+        updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
+        setEditing(false);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [decryptedContent, title, note.encryptedBody, note.wrappedNoteKey, note._id, updateSeal],
+  );
+
+  const handleSave = async () => {
     setSaving(true);
     try {
-      let encryptedBody = note.encryptedBody;
-      let wrappedNoteKey = note.wrappedNoteKey;
-
-      if (decryptedContent.trim()) {
-        const encrypted = await encryptSealBody(currentMek, decryptedContent, note._id);
-        encryptedBody = encrypted.encryptedBody;
-        wrappedNoteKey = encrypted.wrappedNoteKey;
+      if (lockType === 'soft') {
+        // Soft lock: try rehydrate directly, then save
+        pendingActionRef.current = 'save';
+        try {
+          await ctxRehydrate();
+          // On success, mek is restored; useEffect below will perform save
+        } catch {
+          // On failure, fall back to passphrase modal
+          pendingActionRef.current = null;
+          await guard.execute(async (mek) => {
+            await performSave(mek);
+          });
+        }
       } else {
-        encryptedBody = null;
-        wrappedNoteKey = null;
+        // Hard lock or unlocked: just save
+        await guard.execute(async (mek) => {
+          await performSave(mek);
+        });
       }
-
-      updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
-      setEditing(false);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!mek) {
-      if (lockType === 'soft') {
-        setSaving(true);
-        setPendingSave(true);
-        try {
-          await rehydrate();
-          // pendingSave useEffect fires when mek is restored
-        } catch {
-          setSaving(false);
-          setPendingSave(false);
-          setShowPassphrase(true);
-        }
-        return;
+  // Execute pending action after mek becomes available (rehydrate or passphrase unlock)
+  useEffect(() => {
+    const action = pendingActionRef.current;
+    if (!action || !mek) return;
+
+    (async () => {
+      if (action === 'decrypt') {
+        await performDecrypt(mek);
+      } else if (action === 'save') {
+        await performSave(mek);
       }
-      // Hard lock: passphrase required
-      setPendingSave(true);
-      setShowPassphrase(true);
-      return;
-    }
-    performSave(mek);
-  };
+      pendingActionRef.current = null;
+    })();
+  }, [mek, performDecrypt, performSave]);
 
   const handleDelete = () => {
     deleteSeal.mutate(note._id);
@@ -307,16 +316,22 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               content={decryptedContent}
               onChange={async (html) => {
                 setDecryptedContent(html);
-                if (!editing && mek) {
-                  if (html.trim()) {
-                    const encrypted = await encryptSealBody(mek, html, note._id);
-                    updateSeal.mutate({
-                      id: note._id,
-                      encryptedBody: encrypted.encryptedBody,
-                      wrappedNoteKey: encrypted.wrappedNoteKey,
+                if (!editing && guard.isMekAvailable) {
+                  try {
+                    await guard.execute(async (mek) => {
+                      if (html.trim()) {
+                        const encrypted = await encryptSealBody(mek, html, note._id);
+                        updateSeal.mutate({
+                          id: note._id,
+                          encryptedBody: encrypted.encryptedBody,
+                          wrappedNoteKey: encrypted.wrappedNoteKey,
+                        });
+                      } else {
+                        updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
+                      }
                     });
-                  } else {
-                    updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
+                  } catch {
+                    // Silently fail on auto-save encryption
                   }
                 }
               }}
@@ -348,16 +363,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         )}
       </SharedNoteModal>
 
-      {showPassphrase && (
-        <PassphraseModal
-          onSuccess={() => setShowPassphrase(false)}
-          onClose={() => {
-            setShowPassphrase(false);
-            setPendingDecrypt(false);
-            setPendingSave(false);
-          }}
-        />
-      )}
+      {guard.PassphraseGuard}
 
       {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
     </>
