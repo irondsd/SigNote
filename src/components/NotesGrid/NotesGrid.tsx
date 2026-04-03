@@ -6,6 +6,7 @@ import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
+import { getStableKey } from '@/lib/stableKeyStore';
 
 type NotesGridProps = {
   notes: NoteDocument[] | undefined;
@@ -39,7 +40,7 @@ export function NotesGrid({
       onNoteClick={(note) => setSelected(note)}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableNoteCard
-          key={note._id.toString()}
+          key={getStableKey(note._id.toString())}
           note={note}
           onClick={onClick}
           showArchivedBadge={showBadge}

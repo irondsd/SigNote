@@ -12,6 +12,7 @@ import {
   toggleArchive,
   restoreSnapshots,
 } from '@/lib/queryCache';
+import { registerStableKey } from '@/lib/stableKeyStore';
 
 export type CachedSealNote = {
   _id: string;
@@ -89,8 +90,9 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
     },
     onMutate: async (input) => {
       const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
+      const tempId = `temp-${Date.now()}`;
       const tempNote: CachedSealNote = {
-        _id: `temp-${Date.now()}`,
+        _id: tempId,
         title: input.title,
         encryptedBody: null,
         wrappedNoteKey: null,
@@ -102,7 +104,10 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
         color: null,
       };
       insertAtTop(qc, snapshots, tempNote);
-      return { snapshots };
+      return { snapshots, tempId };
+    },
+    onSuccess: (data, _vars, context) => {
+      if (data?._id && context?.tempId) registerStableKey(data._id, context.tempId);
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);

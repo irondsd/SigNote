@@ -11,6 +11,7 @@ import {
   toggleArchive,
   restoreSnapshots,
 } from '@/lib/queryCache';
+import { registerStableKey } from '@/lib/stableKeyStore';
 
 export type CachedNote = {
   _id: string;
@@ -58,8 +59,9 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
     mutationFn: apiCreateNote,
     onMutate: async (input) => {
       const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
+      const tempId = `temp-${Date.now()}`;
       const tempNote: CachedNote = {
-        _id: `temp-${Date.now()}`,
+        _id: tempId,
         title: input.title,
         content: input.content,
         archived: false,
@@ -70,7 +72,11 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
         color: null,
       };
       insertAtTop(qc, snapshots, tempNote);
-      return { snapshots };
+      return { snapshots, tempId };
+    },
+    onSuccess: (data, _vars, context) => {
+      const realId = (data as { _id: string })?._id;
+      if (realId && context?.tempId) registerStableKey(realId, context.tempId);
     },
     onError: (_err, vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);

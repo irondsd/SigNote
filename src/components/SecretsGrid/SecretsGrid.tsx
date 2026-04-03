@@ -9,6 +9,7 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
+import { getStableKey } from '@/lib/stableKeyStore';
 
 type SecretsGridProps = {
   notes: CachedSecretNote[] | undefined;
@@ -167,7 +168,7 @@ export function SecretsGrid({
       onNoteClick={handleNoteClick}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableEncryptedCard
-          key={note._id}
+          key={getStableKey(note._id)}
           id={note._id}
           title={note.title}
           updatedAt={note.updatedAt}

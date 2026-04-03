@@ -12,6 +12,7 @@ import {
   toggleArchive,
   restoreSnapshots,
 } from '@/lib/queryCache';
+import { registerStableKey } from '@/lib/stableKeyStore';
 
 export type CachedSecretNote = {
   _id: string;
@@ -59,8 +60,9 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
     mutationFn: apiCreateSecret,
     onMutate: async (input) => {
       const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
+      const tempId = `temp-${Date.now()}`;
       const tempNote: CachedSecretNote = {
-        _id: `temp-${Date.now()}`,
+        _id: tempId,
         title: input.title,
         encryptedBody: input.encryptedBody,
         archived: false,
@@ -71,7 +73,11 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
         color: null,
       };
       insertAtTop(qc, snapshots, tempNote);
-      return { snapshots };
+      return { snapshots, tempId };
+    },
+    onSuccess: (data, _vars, context) => {
+      const realId = (data as { _id: string })?._id;
+      if (realId && context?.tempId) registerStableKey(realId, context.tempId);
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);

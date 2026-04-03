@@ -6,6 +6,7 @@ import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEn
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
 import { SealNoteModal } from '@/components/SealNoteModal/SealNoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
+import { getStableKey } from '@/lib/stableKeyStore';
 
 type SealsGridProps = {
   notes: CachedSealNote[] | undefined;
@@ -39,7 +40,7 @@ export function SealsGrid({
       onNoteClick={(note) => setSelected(note)}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableEncryptedCard
-          key={note._id}
+          key={getStableKey(note._id)}
           id={note._id}
           title={note.title}
           updatedAt={note.updatedAt}
