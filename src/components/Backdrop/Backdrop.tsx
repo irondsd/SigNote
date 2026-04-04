@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/utils/cn';
 import s from './Backdrop.module.scss';
 
@@ -33,13 +34,14 @@ export function Backdrop({ onClose, className, children, disableClose }: Backdro
     return () => vv.removeEventListener('resize', handleResize);
   }, []);
 
-  return (
+  return createPortal(
     <div
       className={cn(s.backdrop, keyboardOpen && s.keyboardOpen, className)}
       onClick={disableClose ? undefined : onClose}
       data-backdrop="true"
     >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }

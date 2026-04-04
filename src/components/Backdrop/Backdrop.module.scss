@@ -19,6 +19,18 @@
   padding-top: 12px;
 }
 
+@media (max-width: 767px) {
+  .backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .keyboardOpen {
+    align-items: flex-end;
+    padding-top: 0;
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
