@@ -68,57 +68,6 @@ export function SharedNoteModal({
             </h2>
           )}
           <div className={s.headerActions}>
-            <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
-              <PopoverTrigger asChild>
-                <Button
-                  data-testid="color-palette-btn"
-                  variant="ghost"
-                  size="icon-sm"
-                  title="Note color"
-                  aria-label="Note color"
-                >
-                  <Palette size={16} />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className={cn(s.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
-                <div className={s.colorSwatches}>
-                  <button
-                    type="button"
-                    className={cn(s.swatch, s.swatchDefault, !color && s.swatchSelected)}
-                    onClick={() => onColorChange(null)}
-                    title="Default"
-                    aria-label="Default"
-                  />
-                  {NOTE_COLORS.map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      className={cn(
-                        s.swatch,
-                        color === c && s.swatchSelected,
-                        s[`switch${c.charAt(0).toUpperCase() + c.slice(1)}` as keyof typeof s],
-                      )}
-                      // style={{ background: SWITCH_COLORS[c] }}
-                      onClick={() => onColorChange(c)}
-                      title={c.charAt(0).toUpperCase() + c.slice(1)}
-                      aria-label={c.charAt(0).toUpperCase() + c.slice(1)}
-                    />
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-            {showEditButton && (
-              <Button
-                data-testid="edit-btn"
-                variant="ghost"
-                size="icon-sm"
-                onClick={onEditToggle}
-                title="Edit"
-                aria-label="Edit"
-              >
-                <Pencil size={16} />
-              </Button>
-            )}
             <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close" aria-label="Close">
               <X size={18} />
             </Button>
@@ -131,7 +80,63 @@ export function SharedNoteModal({
           <span data-testid="note-date" className={s.date}>
             Updated {date}
           </span>
-          <div className={s.actions}>{footerActions}</div>
+          <div className={s.actions}>
+            {!editing && (
+              <>
+                {showEditButton && (
+                  <Button
+                    data-testid="edit-btn"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={onEditToggle}
+                    title="Edit"
+                    aria-label="Edit"
+                  >
+                    <Pencil size={16} />
+                  </Button>
+                )}
+                <Popover open={colorPickerOpen} onOpenChange={onColorPickerOpenChange}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      data-testid="color-palette-btn"
+                      variant="ghost"
+                      size="icon-sm"
+                      title="Note color"
+                      aria-label="Note color"
+                    >
+                      <Palette size={16} />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className={cn(s.colorPickerContent, 'z-200')} align="end" sideOffset={8}>
+                    <div className={s.colorSwatches}>
+                      <button
+                        type="button"
+                        className={cn(s.swatch, s.swatchDefault, !color && s.swatchSelected)}
+                        onClick={() => onColorChange(null)}
+                        title="Default"
+                        aria-label="Default"
+                      />
+                      {NOTE_COLORS.map((c) => (
+                        <button
+                          type="button"
+                          key={c}
+                          className={cn(
+                            s.swatch,
+                            color === c && s.swatchSelected,
+                            s[`switch${c.charAt(0).toUpperCase() + c.slice(1)}` as keyof typeof s],
+                          )}
+                          onClick={() => onColorChange(c)}
+                          title={c.charAt(0).toUpperCase() + c.slice(1)}
+                          aria-label={c.charAt(0).toUpperCase() + c.slice(1)}
+                        />
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
+            {footerActions}
+          </div>
         </div>
       </Modal>
     </Backdrop>

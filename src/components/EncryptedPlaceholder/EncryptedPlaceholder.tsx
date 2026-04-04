@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import s from './EncryptedPlaceholder.module.scss';
@@ -10,6 +10,8 @@ type EncryptedPlaceholderProps = {
   rows?: number;
   /** Base64 ciphertext used to deterministically generate word-strip layout */
   ciphertext?: string;
+  /** Optional content rendered below the encrypted bars (e.g. a Decrypt button) */
+  children?: ReactNode;
 };
 
 function getByteAt(ct: string, i: number): number {
@@ -47,7 +49,7 @@ export function estimateLines(ciphertext: string): number {
 const FRAMES = 10;
 const INTERVAL_MS = 50; // Total animation duration will be FRAMES * INTERVAL_MS (e.g. 450ms for 6 frames at 75ms each)
 
-export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlaceholderProps) {
+export function EncryptedPlaceholder({ rows = 3, ciphertext, children }: EncryptedPlaceholderProps) {
   const [shuffleData, setShuffleData] = useState<LineData[] | null>(() => generateRandomLines(rows));
 
   useEffect(() => {
@@ -94,6 +96,7 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext }: EncryptedPlacehol
         </TooltipTrigger>
         <TooltipContent side="top">Encrypted</TooltipContent>
       </Tooltip>
+      {children && <div className={s.children}>{children}</div>}
     </div>
   );
 }

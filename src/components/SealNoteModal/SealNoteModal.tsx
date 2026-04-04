@@ -257,41 +257,35 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const date = new Date(note.updatedAt).toLocaleString();
 
-  const footerActions =
-    isDecrypted && editing ? (
-      <Button data-testid="save-btn" size="sm" onClick={handleSave} disabled={saving}>
-        <Check size={15} />
-        {saving ? 'Saving…' : 'Save'}
+  const footerActions = editing ? (
+    <Button data-testid="save-btn" size="sm" onClick={handleSave} disabled={saving}>
+      <Check size={15} />
+      {saving ? 'Saving…' : 'Save'}
+    </Button>
+  ) : (
+    <>
+      <Button
+        data-testid="archive-btn"
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleArchiveToggle}
+        title={isArchived ? 'Unarchive' : 'Archive'}
+        aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
+      >
+        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
       </Button>
-    ) : (
-      <>
-        {isDecrypted ? (
-          <Button data-testid="encrypt-btn" variant="outline" size="sm" onClick={handleEncrypt}>
-            <Lock size={15} />
-            Encrypt
-          </Button>
-        ) : (
-          <Button data-testid="decrypt-btn" variant="outline" size="sm" onClick={handleDecrypt} disabled={decrypting}>
-            <LockOpen size={15} />
-            {decrypting ? 'Decrypting…' : 'Decrypt'}
-          </Button>
-        )}
-        <Button
-          data-testid="archive-btn"
-          variant="outline"
-          size="sm"
-          onClick={handleArchiveToggle}
-          title={isArchived ? 'Unarchive' : 'Archive'}
-        >
-          {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-          {isArchived ? 'Unarchive' : 'Archive'}
-        </Button>
-        <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>
-          <Trash2 size={15} />
-          Delete
-        </Button>
-      </>
-    );
+      <Button
+        data-testid="delete-btn"
+        variant="destructive"
+        size="icon-sm"
+        onClick={handleDelete}
+        title="Delete"
+        aria-label="Delete note"
+      >
+        <Trash2 size={15} />
+      </Button>
+    </>
+  );
 
   return (
     <>
@@ -339,17 +333,36 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               placeholder="Write your seal…"
             />
             {timeLeft !== null && !editing && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={s.timerWrapper}>
-                    <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="z-200">
-                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
-                  minute
-                </TooltipContent>
-              </Tooltip>
+              <div className={s.btns}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={s.timerWrapper}>
+                      <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="z-200">
+                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
+                    minute
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-2 w-8 h-8"
+                      type="button"
+                      onClick={handleEncrypt}
+                      data-testid="encrypt-btn"
+                      title="Encrypt"
+                      aria-label="Re-encrypt now"
+                    >
+                      <Lock size={16} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="z-200">
+                    Re-encrypt now
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             )}
           </div>
         ) : (
@@ -357,7 +370,21 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             <EncryptedPlaceholder
               rows={estimateLines(note.encryptedBody?.ciphertext ?? '')}
               ciphertext={note.encryptedBody?.ciphertext}
-            />
+            >
+              <div className="w-full flex gap-2 flex-col items-center justify-center">
+                <Button
+                  data-testid="decrypt-btn"
+                  variant="subtle-primary"
+                  size="sm"
+                  onClick={handleDecrypt}
+                  disabled={decrypting}
+                >
+                  <LockOpen size={13} />
+                  {decrypting ? 'Decrypting…' : 'Decrypt to view'}
+                </Button>
+                <p className={s.encHint}>Content is end-to-end encrypted</p>
+              </div>
+            </EncryptedPlaceholder>
             {decryptError && <p className={s.decryptError}>{decryptError}</p>}
           </div>
         )}

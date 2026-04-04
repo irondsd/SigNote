@@ -35,6 +35,14 @@
     opacity 0.1s ease;
 }
 
+.children {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 .lockIcon {
   position: absolute;
   /* Fixed at center of row index 1: (16px offset + 10px height / 2) = 21px */

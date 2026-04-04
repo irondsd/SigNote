@@ -150,17 +150,23 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     <>
       <Button
         data-testid="archive-btn"
-        variant="outline"
-        size="sm"
+        variant="ghost"
+        size="icon-sm"
         onClick={handleArchiveToggle}
         title={isArchived ? 'Unarchive' : 'Archive'}
+        aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
       >
         {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-        {isArchived ? 'Unarchive' : 'Archive'}
       </Button>
-      <Button data-testid="delete-btn" variant="destructive" size="sm" onClick={handleDelete}>
+      <Button
+        data-testid="delete-btn"
+        variant="destructive"
+        size="icon-sm"
+        onClick={handleDelete}
+        title="Delete"
+        aria-label="Delete note"
+      >
         <Trash2 size={15} />
-        Delete
       </Button>
     </>
   );
