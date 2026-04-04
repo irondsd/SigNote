@@ -44,27 +44,14 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     if (isContentEmpty) return;
 
-    draftTimerRef.current = setTimeout(async () => {
-      try {
-        await guard.execute(async (mek) => {
-          const payload = await encryptSecretBody(mek, content);
-          saveDraft({
-            type: 'secret',
-            title,
-            content: JSON.stringify(payload),
-            encrypted: true,
-            savedAt: Date.now(),
-          });
-        });
-      } catch {
-        // Silently fail on draft save if no MEK
-      }
+    draftTimerRef.current = setTimeout(() => {
+      saveDraft({ type: 'secret', title, content, savedAt: Date.now() });
     }, 500);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [title, content, isContentEmpty, guard]);
+  }, [title, content, isContentEmpty]);
 
   const handleSave = async () => {
     if (title.length > MAX_TITLE) {

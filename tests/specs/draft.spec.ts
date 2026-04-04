@@ -19,7 +19,7 @@ const getDraft = (page: Page) =>
 
 const seedDraft = (
   page: Page,
-  data: { type: 'note' | 'secret' | 'seal'; title: string; content: string; encrypted: boolean },
+  data: { type: 'note' | 'secret' | 'seal'; title: string; content: string },
 ) =>
   page.evaluate(({ key, draft }) => localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() })), {
     key: DRAFT_KEY,
@@ -46,7 +46,6 @@ test.describe('draft saving', () => {
     expect(draft).not.toBeNull();
     expect(draft.type).toBe('note');
     expect(draft.title).toBe('My Draft');
-    expect(draft.encrypted).toBe(false);
     expect(draft.content).toContain('Draft body here');
     expect(draft.savedAt).toBeGreaterThan(0);
   });
@@ -104,7 +103,7 @@ test.describe('draft saving', () => {
     expect(draft?.content).not.toContain('Content A');
   });
 
-  test('saves encrypted draft for secrets with encrypted content', async ({ page }) => {
+  test('saves plaintext draft for secrets', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -120,16 +119,12 @@ test.describe('draft saving', () => {
     const draft = await getDraft(page);
     expect(draft).not.toBeNull();
     expect(draft.type).toBe('secret');
-    expect(draft.title).toBe('Secret Draft'); // title is plaintext
-    expect(draft.encrypted).toBe(true);
-    // Content is encrypted JSON — must not contain the plaintext
-    expect(draft.content).not.toContain('My private secret body');
-    const payload = JSON.parse(draft.content);
-    expect(payload).toHaveProperty('ciphertext');
-    expect(payload).toHaveProperty('iv');
+    expect(draft.title).toBe('Secret Draft');
+    expect(draft.content).toContain('My private secret body');
+    expect(draft.savedAt).toBeGreaterThan(0);
   });
 
-  test('saves encrypted draft for seals with encrypted content', async ({ page }) => {
+  test('saves plaintext draft for seals', async ({ page }) => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly();
     await sealsPage.unlock();
@@ -146,10 +141,8 @@ test.describe('draft saving', () => {
     expect(draft).not.toBeNull();
     expect(draft.type).toBe('seal');
     expect(draft.title).toBe('Seal Draft');
-    expect(draft.encrypted).toBe(true);
-    expect(draft.content).not.toContain('My private seal body');
-    const payload = JSON.parse(draft.content);
-    expect(payload).toHaveProperty('ciphertext');
+    expect(draft.content).toContain('My private seal body');
+    expect(draft.savedAt).toBeGreaterThan(0);
   });
 });
 
@@ -159,7 +152,7 @@ test.describe('draft toast', () => {
   test('shows toast on app load when a note draft exists', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
-    await seedDraft(page, { type: 'note', title: 'My Saved Draft', content: '<p>Body</p>', encrypted: false });
+    await seedDraft(page, { type: 'note', title: 'My Saved Draft', content: '<p>Body</p>' });
 
     // Hard reload so DraftToast remounts and detects the draft in localStorage
     await page.reload();
@@ -172,7 +165,7 @@ test.describe('draft toast', () => {
   test('shows Untitled when draft title is empty', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
-    await seedDraft(page, { type: 'note', title: '', content: '<p>Some body</p>', encrypted: false });
+    await seedDraft(page, { type: 'note', title: '', content: '<p>Some body</p>' });
 
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
@@ -194,7 +187,7 @@ test.describe('draft toast', () => {
   test('Dismiss clears localStorage and removes the toast', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
-    await seedDraft(page, { type: 'note', title: 'Draft to dismiss', content: '<p>Body</p>', encrypted: false });
+    await seedDraft(page, { type: 'note', title: 'Draft to dismiss', content: '<p>Body</p>' });
 
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
@@ -215,8 +208,7 @@ test.describe('draft toast', () => {
     await seedDraft(page, {
       type: 'secret',
       title: 'My Secret',
-      content: JSON.stringify({ alg: 'AES-GCM', iv: 'abc', ciphertext: 'xyz' }),
-      encrypted: true,
+      content: '<p>My secret body</p>',
     });
 
     await page.reload();
@@ -238,7 +230,7 @@ test.describe('note draft restore', () => {
 
     const title = 'Restored Title';
     const content = 'Restored body content';
-    await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>`, encrypted: false });
+    await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>` });
 
     // Hard reload — DraftToast remounts on /archive and shows toast
     await page.reload();
@@ -261,7 +253,7 @@ test.describe('note draft restore', () => {
 
     const title = 'Draft to save';
     const content = 'Content that should be saved';
-    await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>`, encrypted: false });
+    await seedDraft(page, { type: 'note', title, content: `<p>${content}</p>` });
 
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
@@ -280,20 +272,23 @@ test.describe('note draft restore', () => {
   });
 });
 
-// ─── Group 4: Encrypted draft restore ────────────────────────────────────────
+// ─── Group 4: Vault draft restore ────────────────────────────────────────────
 
-test.describe('encrypted draft restore', () => {
-  test('Continue for a locked secret draft shows passphrase modal', async ({ page }) => {
+test.describe('vault draft restore', () => {
+  test('Continue for a locked secret draft opens modal with plaintext content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
+    const title = 'Locked Secret Draft';
+    const content = 'Sensitive content';
+
     // Type in New Secret modal to create a draft
     await page.getByRole('button', { name: 'New Secret' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill('Locked Secret Draft');
+    await page.getByTestId('note-title-input').fill(title);
     await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type('Sensitive content');
+    await page.keyboard.type(content);
     await page.waitForTimeout(700);
 
     // Close modal without saving — confirm discard
@@ -303,62 +298,30 @@ test.describe('encrypted draft restore', () => {
     // Clear sessionStorage to simulate a locked session on next page load
     await page.evaluate(() => sessionStorage.clear());
 
-    // Hard reload on /secrets — DraftToast remounts; phase transitions to 'locked'
+    // Hard reload — DraftToast shows, vault is locked
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    // Wait for Unlock button so phaseRef is settled before clicking Continue
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
-    // Click Continue — session is locked, so PassphraseModal should appear
+    // Continue navigates to /secrets and opens modal — no passphrase needed
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-  });
 
-  test('unlocking via Continue opens the secret modal with decrypted content', async ({ page }) => {
-    const secretsPage = new SecretsPage(page);
-    await secretsPage.signInDirectly();
-    await secretsPage.unlock();
+    // Passphrase modal should NOT appear
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
 
-    const title = 'Restored Secret';
-    const content = 'Decrypted draft content';
-
-    await page.getByRole('button', { name: 'New Secret' }).click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill(title);
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type(content);
-    await page.waitForTimeout(700);
-
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await page.getByRole('button', { name: 'Discard' }).click();
-    await page.evaluate(() => sessionStorage.clear());
-
-    // Hard reload — DraftToast shows; phase = 'locked'
-    await page.reload();
-    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
-
-    // Continue → PassphraseModal → unlock → soft nav to /secrets?draft=true
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
-    await page.getByRole('button', { name: 'Unlock' }).last().click();
-
-    // Modal opens with decrypted content
-    await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 30000 });
+    // Modal opens with plaintext draft content
+    await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
-    await expect(page.getByTestId('tiptap-editor')).toContainText(content, { timeout: 5000 });
+    await expect(page.getByTestId('tiptap-editor')).toContainText(content);
   });
 
-  test('unlocking via Continue opens the seal modal with decrypted content', async ({ page }) => {
+  test('Continue for a locked seal draft opens modal with plaintext content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly();
     await sealsPage.unlock();
 
     const title = 'Restored Seal';
-    const content = 'Decrypted seal content';
+    const content = 'Seal draft content';
 
     await page.getByRole('button', { name: 'New Seal' }).click();
     await expect(page.getByTestId('note-title-input')).toBeVisible();
@@ -373,16 +336,15 @@ test.describe('encrypted draft restore', () => {
 
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('You have an unsaved seal draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-    await page.getByPlaceholder('Your passphrase').fill(SealsPage.PASSPHRASE);
-    await page.getByRole('button', { name: 'Unlock' }).last().click();
 
-    // Modal opens with decrypted content
-    await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 30000 });
+    // Passphrase modal should NOT appear
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+
+    // Modal opens with plaintext content
+    await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content, { timeout: 5000 });
   });
@@ -404,8 +366,6 @@ test.describe('encrypted draft restore', () => {
     // Do NOT clear sessionStorage — MEK is still rehydratable on next load
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    // Wait for Lock button to confirm MEK reconstructed before clicking Continue
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
 
     await page.getByRole('button', { name: 'Continue' }).click();

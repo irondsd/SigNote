@@ -1,8 +1,7 @@
 export type DraftData = {
   type: 'note' | 'secret' | 'seal';
   title: string;
-  content: string; // plaintext for notes; JSON.stringify(EncryptedPayload) for secrets/seals
-  encrypted: boolean;
+  content: string; // always plaintext
   savedAt: number;
 };
 

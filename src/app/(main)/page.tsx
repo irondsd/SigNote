@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { SquarePlus, Archive } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
@@ -23,17 +23,11 @@ function NotesPage() {
     search,
   });
   const [showNewNote, setShowNewNote] = useState(false);
-  const [pendingContent, setPendingContent] = useState<{ title: string; content: string } | null>(null);
+  const [saveErrorContent, setSaveErrorContent] = useState<{ title: string; content: string } | null>(null);
   const { draftRestore, setDraftRestore } = useDraftRestore();
 
-  useEffect(() => {
-    if (draftRestore) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- consuming context value from DraftToast is intentional, not cascading
-      setPendingContent(draftRestore);
-      setDraftRestore(null);
-      setShowNewNote(true);
-    }
-  }, [draftRestore, setDraftRestore]);
+  const modalOpen = showNewNote || !!draftRestore || !!saveErrorContent;
+  const initialContent = draftRestore ?? saveErrorContent ?? undefined;
 
   const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -89,16 +83,16 @@ function NotesPage() {
         <UnauthenticatedState />
       )}
 
-      {showNewNote && (
+      {modalOpen && (
         <NewNoteModal
           onClose={() => {
             setShowNewNote(false);
-            setPendingContent(null);
+            setDraftRestore(null);
+            setSaveErrorContent(null);
           }}
-          initialContent={pendingContent ?? undefined}
+          initialContent={initialContent}
           onSaveError={(vars) => {
-            setPendingContent(vars);
-            setShowNewNote(true);
+            setSaveErrorContent(vars);
           }}
         />
       )}

@@ -36,7 +36,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     if (isContentEmpty) return;
 
     draftTimerRef.current = setTimeout(() => {
-      saveDraft({ type: 'note', title, content, encrypted: false, savedAt: Date.now() });
+      saveDraft({ type: 'note', title, content, savedAt: Date.now() });
     }, 500);
 
     return () => {

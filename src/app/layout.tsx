@@ -1,13 +1,11 @@
 import '@/styles/globals.css';
 import s from './layout.module.scss';
-import { geistMono, geistSans, inter } from '@/config/fonts';
+import { inter } from '@/config/fonts';
 import { Web3Provider } from '@/providers/Web3Provider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
 import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
-import { EncryptionProvider } from '@/contexts/EncryptionContext';
-import { AutoLockListener } from '@/components/AutoLockListener/AutoLockListener';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration/ServiceWorkerRegistration';
 import type { Viewport } from 'next';
 
@@ -44,16 +42,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className={cn(geistSans.className, geistMono.variable, 'antialiased', s.body)}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(inter.variable, 'antialiased', s.body)}>
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
-            <Web3Provider>
-              <EncryptionProvider>
-                <AutoLockListener />
-                {children}
-              </EncryptionProvider>
-            </Web3Provider>
+            <Web3Provider>{children}</Web3Provider>
           </AuthSessionProvider>
           <Toaster />
           <ServiceWorkerRegistration />

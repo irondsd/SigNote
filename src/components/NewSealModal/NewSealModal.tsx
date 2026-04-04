@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
-import { encryptSealBody, encryptSecretBody } from '@/lib/crypto';
+import { encryptSealBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { Button } from '@/components/ui/button';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
@@ -44,28 +44,14 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     if (isContentEmpty) return;
 
-    draftTimerRef.current = setTimeout(async () => {
-      try {
-        await guard.execute(async (mek) => {
-          // Use encryptSecretBody for drafts — no sealId needed at this stage
-          const payload = await encryptSecretBody(mek, content);
-          saveDraft({
-            type: 'seal',
-            title,
-            content: JSON.stringify(payload),
-            encrypted: true,
-            savedAt: Date.now(),
-          });
-        });
-      } catch {
-        // Silently fail on draft save if no MEK
-      }
+    draftTimerRef.current = setTimeout(() => {
+      saveDraft({ type: 'seal', title, content, savedAt: Date.now() });
     }, 500);
 
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [title, content, isContentEmpty, guard]);
+  }, [title, content, isContentEmpty]);
 
   const handleSave = async () => {
     if (title.length > MAX_TITLE) {
