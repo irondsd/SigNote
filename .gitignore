@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# serwist generated files
+/public/sw.js
+/public/workbox-*.js
+/public/serwist-*.js
+
 # production
 /build
 
