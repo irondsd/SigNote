@@ -20,7 +20,7 @@ type SecretNoteModalProps = {
 
 export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteModalProps) {
   const guard = useEncryptionGuard();
-  const { mek, phase, lockType, rehydrate: ctxRehydrate } = useEncryption();
+  const { mek, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(decryptedContent);
@@ -31,17 +31,19 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
+  const mountLockSerialRef = useRef(lockSerial);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== savedContentRef.current);
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
   const handleClose = () => confirmClose(onClose);
 
-  // Hard lock: close modal if not editing
+  // Hard lock event: close modal if not editing.
+  // Uses lockSerial snapshotted at mount — safe to open modals while already locked.
   useEffect(() => {
-    if (phase === 'locked' && lockType === 'hard' && !editing) {
+    if (lockSerial > mountLockSerialRef.current && !editing) {
       onClose();
     }
-  }, [phase, lockType, editing, onClose]);
+  }, [lockSerial, editing, onClose]);
 
   const deleteSecret = useDeleteSecret();
   const undeleteSecret = useUndeleteSecret();

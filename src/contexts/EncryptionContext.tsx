@@ -41,11 +41,14 @@ type MaterialResponse = {
 };
 
 export type EncryptionPhase = 'loading' | 'setup' | 'locked' | 'unlocked';
-export type LockType = 'none' | 'soft' | 'hard';
+export type LockType = 'none' | 'soft';
 
 type EncryptionContextValue = {
   phase: EncryptionPhase;
   lockType: LockType;
+  /** Monotonically increments each time lock() is called. Components snapshot this at mount
+   *  and close themselves if it advances — the correct way to detect a hard-lock event. */
+  lockSerial: number;
   mek: CryptoKey | null;
   unlock: (passphrase: string) => Promise<void>;
   lock: () => void;
@@ -135,6 +138,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const profileExists = !profileLoading && !!profileResponse?.exists;
   const { mek, setMek } = useMekRehydration(sessionStatus, profileExists);
   const [lockType, setLockType] = useState<LockType>('none');
+  const [lockSerial, setLockSerial] = useState(0);
 
   // Single source of truth for all rendering decisions
   const phase: EncryptionPhase = (() => {
@@ -159,7 +163,8 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const lock = useCallback(() => {
     setMek(null);
     clearDeviceShare();
-    setLockType('hard');
+    setLockType('none');
+    setLockSerial((s) => s + 1);
   }, [setMek]);
 
   const softLock = useCallback(() => {
@@ -215,7 +220,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   );
 
   return (
-    <EncryptionContext.Provider value={{ phase, lockType, mek, unlock, lock, softLock, rehydrate, setupProfile }}>
+    <EncryptionContext.Provider value={{ phase, lockType, lockSerial, mek, unlock, lock, softLock, rehydrate, setupProfile }}>
       {children}
     </EncryptionContext.Provider>
   );

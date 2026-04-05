@@ -26,7 +26,7 @@ type SealNoteModalProps = {
 };
 
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
-  const { mek, phase, lockType, rehydrate: ctxRehydrate } = useEncryption();
+  const { mek, phase, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
   const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
@@ -40,6 +40,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
+  const mountLockSerialRef = useRef(lockSerial);
 
   const guard = useEncryptionGuard();
 
@@ -109,16 +110,21 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     totalTimeRef.current = DECRYPT_FOR_SECONDS;
   }, []);
 
-  // Soft lock: clear decrypted content in view mode
-  // Hard lock: close modal if not editing
+  // Hard lock event: close modal if not editing.
+  // Uses lockSerial (increments on each lock() call) snapshotted at mount so that
+  // modals opened *after* a hard lock don't immediately close themselves.
   useEffect(() => {
-    if (phase !== 'locked') return;
-    if (lockType === 'soft' && !editing && isDecrypted) {
-      handleEncrypt();
-    } else if (lockType === 'hard' && !editing) {
+    if (lockSerial > mountLockSerialRef.current && !editing) {
       onClose();
     }
-  }, [phase, lockType, editing, isDecrypted, handleEncrypt, onClose]);
+  }, [lockSerial, editing, onClose]);
+
+  // Soft lock: re-encrypt decrypted content in view mode (keep modal open).
+  useEffect(() => {
+    if (phase === 'locked' && lockType === 'soft' && !editing && isDecrypted) {
+      handleEncrypt();
+    }
+  }, [phase, lockType, editing, isDecrypted, handleEncrypt]);
 
   // Auto-encrypt countdown
   useEffect(() => {

@@ -71,4 +71,24 @@ export class BasePage {
       document.dispatchEvent(new Event('visibilitychange'));
     });
   }
+
+  /**
+   * Simulate the 5-minute inactivity hard lock without waiting 5 minutes.
+   * Patches window.setTimeout so any long delay (≥1 min) becomes 50 ms, then
+   * dispatches a mousemove so useAutoLock's resetTimer() re-arms with the fast
+   * timeout.  After ~200 ms the inactivity timer fires and lock() runs.
+   * No production code is modified — mirrors the setInterval override used in seals.spec.ts.
+   */
+  async simulateHardLock(): Promise<void> {
+    await this.page.evaluate(() => {
+      const orig = window.setTimeout.bind(window);
+      // @ts-expect-error override for testing
+      window.setTimeout = (fn: TimerHandler, ms?: number, ...args: unknown[]) =>
+        orig(fn, ms !== undefined && ms >= 60_000 ? 50 : ms, ...args);
+      // Reset the inactivity timer so it re-arms using the patched setTimeout.
+      document.dispatchEvent(new MouseEvent('mousemove'));
+    });
+    // Give the 50 ms timer time to fire.
+    await this.page.waitForTimeout(200);
+  }
 }

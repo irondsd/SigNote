@@ -181,6 +181,31 @@ test.describe('soft lock — seals', () => {
 // ─── Hard Lock ──────────────────────────────────────────────────────────────
 
 test.describe('hard lock', () => {
+  test('hard lock closes open seal modal, and seal can be reopened afterwards', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    await seedSeals(account.address, mekBytes, [{ title: 'HardLock Seal', content: 'secret content' }]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+
+    // Open the seal modal
+    await sealsPage.sealCard('HardLock Seal').click();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+
+    // Simulate 5-minute inactivity hard lock firing while the modal is open.
+    await sealsPage.simulateHardLock();
+
+    // Modal should close and vault should be locked
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('decrypt-btn')).not.toBeVisible();
+
+    // Clicking the seal card should open the modal again
+    await sealsPage.sealCard('HardLock Seal').click();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible({ timeout: 5000 });
+  });
+
   test('manual lock (hard lock) clears deviceShare and requires passphrase', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
