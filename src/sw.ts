@@ -16,6 +16,20 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    // Cache page navigations so offline refresh works on all routes (/secrets, /seals, etc.).
+    // Without this, only statically precached pages (e.g. /) survive an offline refresh.
+    {
+      matcher: ({ request }) => request.mode === 'navigate',
+      handler: new NetworkFirst({
+        cacheName: 'pages-cache',
+        networkTimeoutSeconds: 3,
+        plugins: [
+          new ExpirationPlugin({
+            maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+          }),
+        ],
+      }),
+    },
     // Cache the session endpoint so the user stays authenticated offline.
     // NetworkFirst: serves fresh data when online, falls back to cache when offline.
     {
