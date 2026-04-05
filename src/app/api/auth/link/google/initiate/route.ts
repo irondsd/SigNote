@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 
 import { authOptions } from '@/config/auth';
+import { getRedirectUri } from '../utils';
 
 export const runtime = 'nodejs';
 
@@ -43,12 +44,4 @@ export async function GET() {
 
   const authUrl = process.env.GOOGLE_AUTH_URL ?? 'https://accounts.google.com/o/oauth2/v2/auth';
   return NextResponse.redirect(`${authUrl}?${params}`);
-}
-
-export function getRedirectUri() {
-  const nextAuthUrl = process.env.NEXTAUTH_URL;
-  const vercelUrl = process.env.VERCEL_URL;
-  if (nextAuthUrl) return `${nextAuthUrl}/api/auth/link/google/callback`;
-  if (vercelUrl) return `https://${vercelUrl}/api/auth/link/google/callback`;
-  return 'http://localhost:5000/api/auth/link/google/callback';
 }

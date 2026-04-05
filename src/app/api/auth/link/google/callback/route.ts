@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 
 import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
-import { getRedirectUri } from '../initiate/route';
+import { getRedirectUri } from '../utils';
 
 export const runtime = 'nodejs';
 
