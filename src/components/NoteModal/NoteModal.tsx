@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Trash2, Archive, Check, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -77,36 +75,6 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
 
   const date = new Date(note.updatedAt).toLocaleString();
 
-  const footerActions = editing ? (
-    <Button data-testid="save-btn" size="sm" onClick={handleSave}>
-      <Check size={15} />
-      Save
-    </Button>
-  ) : (
-    <>
-      <Button
-        data-testid="archive-btn"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleArchiveToggle}
-        title={isArchived ? 'Unarchive' : 'Archive'}
-        aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
-      >
-        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-      </Button>
-      <Button
-        data-testid="delete-btn"
-        variant="destructive"
-        size="icon-sm"
-        onClick={handleDelete}
-        title="Delete"
-        aria-label="Delete note"
-      >
-        <Trash2 size={15} />
-      </Button>
-    </>
-  );
-
   return (
     <>
       <SharedNoteModal
@@ -121,7 +89,10 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
         onClose={handleClose}
         disableClose={editing}
         date={date}
-        footerActions={footerActions}
+        onSave={handleSave}
+        isArchived={isArchived}
+        onArchive={handleArchiveToggle}
+        onDelete={handleDelete}
       >
         <TiptapEditor
           content={content}

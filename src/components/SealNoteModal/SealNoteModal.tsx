@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Trash2, Archive, ArchiveRestore, Check, LockOpen, Lock } from 'lucide-react';
+import { LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -257,36 +257,6 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const date = new Date(note.updatedAt).toLocaleString();
 
-  const footerActions = editing ? (
-    <Button data-testid="save-btn" size="sm" onClick={handleSave} disabled={saving}>
-      <Check size={15} />
-      {saving ? 'Saving…' : 'Save'}
-    </Button>
-  ) : (
-    <>
-      <Button
-        data-testid="archive-btn"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleArchiveToggle}
-        title={isArchived ? 'Unarchive' : 'Archive'}
-        aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
-      >
-        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-      </Button>
-      <Button
-        data-testid="delete-btn"
-        variant="destructive"
-        size="icon-sm"
-        onClick={handleDelete}
-        title="Delete"
-        aria-label="Delete note"
-      >
-        <Trash2 size={15} />
-      </Button>
-    </>
-  );
-
   return (
     <>
       <SharedNoteModal
@@ -302,7 +272,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onClose={handleClose}
         disableClose={editing}
         date={date}
-        footerActions={footerActions}
+        onSave={handleSave}
+        saving={saving}
+        isArchived={isArchived}
+        onArchive={handleArchiveToggle}
+        onDelete={handleDelete}
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>

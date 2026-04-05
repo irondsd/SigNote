@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, Archive, ArchiveRestore, Trash2, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { NoteColorPicker } from '@/components/NoteColorPicker/NoteColorPicker';
@@ -22,7 +22,11 @@ type SharedNoteModalProps = {
   onClose: () => void;
   disableClose?: boolean;
   date: string;
-  footerActions: ReactNode;
+  onSave: () => void;
+  saving?: boolean;
+  isArchived: boolean;
+  onArchive: () => void;
+  onDelete: () => void;
   children: ReactNode;
 };
 
@@ -45,7 +49,11 @@ export function SharedNoteModal({
   onClose,
   disableClose,
   date,
-  footerActions,
+  onSave,
+  saving = false,
+  isArchived,
+  onArchive,
+  onDelete,
   children,
 }: SharedNoteModalProps) {
   return (
@@ -80,7 +88,7 @@ export function SharedNoteModal({
             Updated {date}
           </span>
           <div className={s.actions}>
-            {!editing && (
+            {!editing ? (
               <>
                 {showEditButton && (
                   <Button
@@ -101,9 +109,33 @@ export function SharedNoteModal({
                   onOpenChange={onColorPickerOpenChange}
                   isEditing={editing}
                 />
+                <Button
+                  data-testid="archive-btn"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onArchive}
+                  title={isArchived ? 'Unarchive' : 'Archive'}
+                  aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
+                >
+                  {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                </Button>
+                <Button
+                  data-testid="delete-btn"
+                  variant="destructive"
+                  size="icon-sm"
+                  onClick={onDelete}
+                  title="Delete"
+                  aria-label="Delete note"
+                >
+                  <Trash2 size={15} />
+                </Button>
               </>
+            ) : (
+              <Button data-testid="save-btn" size="sm" onClick={onSave} disabled={saving}>
+                <Check size={15} />
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
             )}
-            {footerActions}
           </div>
         </div>
       </Modal>

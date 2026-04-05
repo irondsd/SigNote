@@ -1,11 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Trash2, Archive, Check, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
@@ -141,36 +139,6 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
   const date = new Date(note.updatedAt).toLocaleString();
 
-  const footerActions = editing ? (
-    <Button data-testid="save-btn" size="sm" onClick={handleSave} disabled={saving}>
-      <Check size={15} />
-      {saving ? 'Saving…' : 'Save'}
-    </Button>
-  ) : (
-    <>
-      <Button
-        data-testid="archive-btn"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleArchiveToggle}
-        title={isArchived ? 'Unarchive' : 'Archive'}
-        aria-label={isArchived ? 'Unarchive note' : 'Archive note'}
-      >
-        {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
-      </Button>
-      <Button
-        data-testid="delete-btn"
-        variant="destructive"
-        size="icon-sm"
-        onClick={handleDelete}
-        title="Delete"
-        aria-label="Delete note"
-      >
-        <Trash2 size={15} />
-      </Button>
-    </>
-  );
-
   return (
     <>
       <SharedNoteModal
@@ -185,7 +153,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onClose={handleClose}
         disableClose={editing}
         date={date}
-        footerActions={footerActions}
+        onSave={handleSave}
+        saving={saving}
+        isArchived={isArchived}
+        onArchive={handleArchiveToggle}
+        onDelete={handleDelete}
       >
         <TiptapEditor
           content={content}
