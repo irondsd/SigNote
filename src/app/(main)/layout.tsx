@@ -4,6 +4,7 @@ import { MobileHeader } from '@/components/MobileHeader/MobileHeader';
 import { DraftToast } from '@/components/DraftToast/DraftToast';
 import { SwipeNavWrapper } from '@/components/SwipeNavWrapper/SwipeNavWrapper';
 import { DraftRestoreProvider } from '@/contexts/DraftRestoreContext';
+import { OfflineBanner } from '@/components/OfflineBanner/OfflineBanner';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className={s.content}>
           <MobileHeader />
+          <OfflineBanner />
           <SwipeNavWrapper className={s.main}>{children}</SwipeNavWrapper>
         </div>
         <DraftToast />
