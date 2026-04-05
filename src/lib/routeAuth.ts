@@ -25,7 +25,7 @@ type AuthedHandler = (req: NextRequest, ctx: AuthedContext) => Promise<NextRespo
 
 export function withSession(
   handler: AuthedHandler,
-): (req: NextRequest, nextCtx?: { params: Promise<Record<string, string>> }) => Promise<NextResponse> {
+): (req: NextRequest, nextCtx: { params: Promise<Record<string, string>> }) => Promise<NextResponse> {
   return async (req, nextCtx) => {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id;
