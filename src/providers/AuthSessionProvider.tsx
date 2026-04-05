@@ -8,5 +8,8 @@ type AuthSessionProviderProps = {
 };
 
 export const AuthSessionProvider: FC<AuthSessionProviderProps> = ({ children }) => {
-  return <SessionProvider>{children}</SessionProvider>;
+  // refetchOnWindowFocus:false prevents session re-checks on tab focus,
+  // which would fail (and drop the session) when the user is offline.
+  // todo: check if we can make it conditional based on online status, to allow session refreshing when online.
+  return <SessionProvider refetchOnWindowFocus={false}>{children}</SessionProvider>;
 };

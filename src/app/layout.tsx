@@ -2,6 +2,7 @@ import '@/styles/globals.css';
 import s from './layout.module.scss';
 import { inter } from '@/config/fonts';
 import { Web3Provider } from '@/providers/Web3Provider';
+import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
 import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
@@ -46,7 +47,9 @@ export default async function RootLayout({
       <body className={cn(inter.variable, 'antialiased', s.body)}>
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
-            <Web3Provider>{children}</Web3Provider>
+            <ReactQueryProvider>
+              <Web3Provider>{children}</Web3Provider>
+            </ReactQueryProvider>
           </AuthSessionProvider>
           <Toaster />
           <ServiceWorkerRegistration />

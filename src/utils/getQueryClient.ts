@@ -5,6 +5,7 @@ function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 60 * 1000,
+        gcTime: 7 * 24 * 60 * 60 * 1000, // must be >= persister maxAge
       },
       dehydrate: {
         // include pending queries in dehydration
