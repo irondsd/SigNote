@@ -220,7 +220,9 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   );
 
   return (
-    <EncryptionContext.Provider value={{ phase, lockType, lockSerial, mek, unlock, lock, softLock, rehydrate, setupProfile }}>
+    <EncryptionContext.Provider
+      value={{ phase, lockType, lockSerial, mek, unlock, lock, softLock, rehydrate, setupProfile }}
+    >
       {children}
     </EncryptionContext.Provider>
   );

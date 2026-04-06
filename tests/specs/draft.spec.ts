@@ -17,10 +17,7 @@ const getDraft = (page: Page) =>
     return raw ? JSON.parse(raw) : null;
   }, DRAFT_KEY);
 
-const seedDraft = (
-  page: Page,
-  data: { type: 'note' | 'secret' | 'seal'; title: string; content: string },
-) =>
+const seedDraft = (page: Page, data: { type: 'note' | 'secret' | 'seal'; title: string; content: string }) =>
   page.evaluate(({ key, draft }) => localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() })), {
     key: DRAFT_KEY,
     draft: data,

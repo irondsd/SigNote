@@ -12,10 +12,7 @@ function getQueryCacheStore() {
 }
 
 export const queryCacheStorage = {
-  getItem: (key: string): Promise<string | null> =>
-    get<string>(key, getQueryCacheStore()).then((v) => v ?? null),
-  setItem: (key: string, value: string): Promise<void> =>
-    set(key, value, getQueryCacheStore()),
-  removeItem: (key: string): Promise<void> =>
-    del(key, getQueryCacheStore()),
+  getItem: (key: string): Promise<string | null> => get<string>(key, getQueryCacheStore()).then((v) => v ?? null),
+  setItem: (key: string, value: string): Promise<void> => set(key, value, getQueryCacheStore()),
+  removeItem: (key: string): Promise<void> => del(key, getQueryCacheStore()),
 };

@@ -50,10 +50,7 @@ export function buildTierPrefetchOptions<T>(config: TierConfig, userId: string) 
   };
 }
 
-export const useNoteTier = <T>(
-  config: TierConfig,
-  params: { archived?: boolean; search?: string },
-) => {
+export const useNoteTier = <T>(config: TierConfig, params: { archived?: boolean; search?: string }) => {
   const { archived, search = '' } = params;
   const { data: session } = useSession();
   const userId = session?.user?.id;

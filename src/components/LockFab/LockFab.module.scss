@@ -11,7 +11,9 @@
   font-weight: 600;
   cursor: pointer;
   z-index: 50;
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
   border: none;
   line-height: 1;
 
