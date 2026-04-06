@@ -6,6 +6,7 @@ import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -65,6 +66,7 @@ test.describe('statistics', () => {
       { title: 'Archived note', archived: true },
     ]);
 
+    await clearSession(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('notes-count')).toHaveText('3');
@@ -87,6 +89,7 @@ test.describe('statistics', () => {
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret A' }, { title: 'Secret B' }]);
     await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }]);
 
+    await clearSession(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('secrets-count')).toHaveText('2');

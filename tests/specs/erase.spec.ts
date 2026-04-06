@@ -7,6 +7,7 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
 import { ProfilePage } from '../pages/ProfilePage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -153,6 +154,7 @@ test.describe('erase encryption profile', () => {
     await expect(profilePage.notesCount()).toHaveText('2');
     await expect(profilePage.eraseProfileBtn()).toBeDisabled();
 
+    await clearSession(page);
     await page.goto('/secrets');
     await expect(page.locator('#enc-passphrase')).toBeVisible();
   });
@@ -169,6 +171,7 @@ test.describe('erase encryption profile', () => {
     await performErase(page);
     await expect(page).toHaveURL('/profile', { timeout: 15000 });
 
+    await clearSession(page);
     await page.goto('/secrets');
     await expect(page.locator('#enc-passphrase')).toBeVisible();
 

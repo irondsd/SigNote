@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -106,6 +107,7 @@ test.describe('archive and unarchive', () => {
 
     await expect(notesPage.noteCard(title)).not.toBeVisible();
 
+    await clearSession(page);
     await page.goto('/');
     await expect(notesPage.noteCard(title)).toBeVisible();
   });
@@ -215,6 +217,7 @@ test.describe('delete note', () => {
     await page.getByTestId('delete-btn').click();
     await expect(notesPage.noteCard(title)).not.toBeVisible();
 
+    await clearSession(page);
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(notesPage.noteCard(title)).not.toBeVisible();

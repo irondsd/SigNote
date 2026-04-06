@@ -4,6 +4,7 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -14,6 +15,7 @@ test.describe('modal close - X button', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'XClose Test' }]);
+    await clearSession(page);
     await page.reload();
 
     await notesPage.noteCard('XClose Test').click();
@@ -57,6 +59,7 @@ test.describe('modal close - backdrop click', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'NoClose Edit' }]);
+    await clearSession(page);
     await page.reload();
 
     await notesPage.noteCard('NoClose Edit').click();
@@ -116,8 +119,8 @@ test.describe('modal close - secrets', () => {
     const { address } = await notesPage.signInDirectly();
     const { mekBytes } = await seedEncryptionProfile(address, SecretsPage.PASSPHRASE);
     await seedSecrets(address, mekBytes, [{ title: 'SecretClose Test', content: 'secret body' }]);
+    await clearSession(page);
     await page.goto('/secrets');
-    await page.reload();
 
     const secretsPage = new SecretsPage(page);
     await secretsPage.unlock();

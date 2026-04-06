@@ -3,6 +3,7 @@ import { configureGoogleUser, setGoogleError } from '../utils/googleAuth';
 
 // Tests share a single mock OAuth server instance that holds one profile at a
 // time, so they must run serially to avoid races between concurrent workers.
+// todo: make OAuth server support multiple profiles and concurrent tests, then remove this constraint.
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Google sign-in', () => {
@@ -55,6 +56,8 @@ test.describe('Google sign-in', () => {
 
     // ── Second sign-in: same Google sub ──────────────────────────────────────
     await configureGoogleUser(profile);
+    await page.goto('/');
+    await page.keyboard.press('Escape');
     await clickGoogleSignIn(page);
     await expect(displayName).toBeVisible({ timeout: 20000 });
 

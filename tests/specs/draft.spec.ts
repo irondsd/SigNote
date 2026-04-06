@@ -4,6 +4,7 @@ import { seedSecrets } from '../fixtures/seedSecrets';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -383,6 +384,7 @@ test.describe('unsaved changes confirmation', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'Unsaved Test', content: 'original' }]);
+    await clearSession(page);
     await page.reload();
 
     // Open note modal and edit
@@ -405,6 +407,7 @@ test.describe('unsaved changes confirmation', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'Discard Test', content: 'original content' }]);
+    await clearSession(page);
     await page.reload();
 
     // Open, edit, close, discard
@@ -426,6 +429,7 @@ test.describe('unsaved changes confirmation', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'NoConfirm Test' }]);
+    await clearSession(page);
     await page.reload();
 
     // Open note modal in view mode (no edits)
@@ -488,6 +492,7 @@ test.describe('unsaved changes confirmation', () => {
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Secret task</p></li></ul>';
     await seedSecrets(address, mekBytes, [{ title: 'Secret Checkbox Test', content: checkboxContent }]);
+    await clearSession(page);
     await page.reload();
     await secretsPage.unlock();
 
@@ -509,6 +514,7 @@ test.describe('unsaved changes confirmation', () => {
     const checkboxContent =
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task item</p></li></ul>';
     await seedNotes(address, [{ title: 'Checkbox Test', content: checkboxContent }]);
+    await clearSession(page);
     await page.reload();
 
     await notesPage.noteCard('Checkbox Test').click();

@@ -6,6 +6,7 @@ import { mockProvider } from '../utils/mockProvider';
 import { createTestSession } from '../utils/createTestSession';
 import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
+import { clearSession } from '../utils/clearSession';
 
 test.use({ viewport: { width: 400, height: 812 } });
 
@@ -57,6 +58,7 @@ test('shows notes in 1-column layout at 400px', async ({ page }) => {
     { title: 'Mobile Layout Note 4' },
   ]);
 
+  await clearSession(page);
   await page.reload();
 
   // All 4 notes visible
@@ -124,6 +126,7 @@ test('header hides on scroll down and reappears on scroll up', async ({ page }) 
     account.address,
     Array.from({ length: 15 }, (_, i) => ({ title: `Header Scroll Note ${i + 1}` })),
   );
+  await clearSession(page);
   await page.reload();
   await expect(page.getByTestId('note-card')).toHaveCount(15, { timeout: 10000 });
 

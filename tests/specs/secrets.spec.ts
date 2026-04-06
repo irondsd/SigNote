@@ -3,6 +3,7 @@ import { makeAccount } from '../utils/makeAccount';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { SecretsPage } from '../pages/SecretsPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -286,6 +287,7 @@ test.describe('delete secret', () => {
     await page.getByTestId('delete-btn').click();
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
+    await clearSession(page);
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(secretsPage.secretCard(title)).not.toBeVisible();

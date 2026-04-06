@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -32,6 +33,7 @@ test.describe('empty results - search', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'Existing Note' }]);
+    await clearSession(page);
     await page.reload();
     await expect(page.getByText('Existing Note')).toBeVisible();
 
@@ -46,6 +48,7 @@ test.describe('empty results - search', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'Visible Note' }]);
+    await clearSession(page);
     await page.reload();
     await expect(page.getByText('Visible Note')).toBeVisible();
 

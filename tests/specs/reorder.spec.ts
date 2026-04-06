@@ -4,6 +4,7 @@ import { createTestSession } from '../utils/createTestSession';
 import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -56,6 +57,7 @@ test.describe('desktop reorder', () => {
       { title: `${tag} Note 1`, content: '<p>123</p>' },
     ]);
 
+    await clearSession(page);
     await page.reload();
     await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
@@ -106,6 +108,7 @@ test.describe('desktop reorder', () => {
       Array.from({ length: 9 }, (_, i) => ({ title: `${tag} Note ${9 - i}` })),
     );
 
+    await clearSession(page);
     await page.reload();
     await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
@@ -135,6 +138,7 @@ test.describe('desktop reorder', () => {
     // UI order: Note 1 (col 1), Note 2 (col 2), Note 3 (col 3)
     await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
+    await clearSession(page);
     await page.reload();
     await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
@@ -190,6 +194,7 @@ test.describe('desktop reorder', () => {
       Array.from({ length: 6 }, (_, i) => ({ title: `${tag} Note ${6 - i}` })),
     );
 
+    await clearSession(page);
     await page.reload();
     await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
 
@@ -242,6 +247,7 @@ test.describe('mobile reorder', () => {
       Array.from({ length: 6 }, (_, i) => ({ title: `${tag} Note ${6 - i}` })),
     );
 
+    await clearSession(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);
@@ -317,6 +323,7 @@ test.describe('mobile reorder', () => {
     // UI order: Note 1, Note 2, Note 3
     await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
+    await clearSession(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);
@@ -341,6 +348,7 @@ test.describe('mobile reorder', () => {
     // UI order: Note 1, Note 2, Note 3
     await seedNotes(address, [{ title: `${tag} Note 3` }, { title: `${tag} Note 2` }, { title: `${tag} Note 1` }]);
 
+    await clearSession(page);
     await page.reload();
 
     const notesPage = new NotesPage(page);

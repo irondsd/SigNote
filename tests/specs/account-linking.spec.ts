@@ -64,7 +64,7 @@ test.describe('SIWE primary → link Google', () => {
 
     // Full OAuth redirect: initiate → mock /auth → callback → /profile?linked=google
     await page.waitForURL(/\/profile/, { timeout: 20000 });
-    await expect(page.getByText('Google account linked successfully.')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Google account linked successfully.').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('identity-siwe')).toBeVisible();
     await expect(page.getByTestId('identity-google')).toBeVisible();
   });

@@ -3,6 +3,7 @@ import { makeAccount } from '../utils/makeAccount';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSeals } from '../fixtures/seedSeals';
 import { SealsPage } from '../pages/SealsPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -333,6 +334,7 @@ test.describe('delete seal', () => {
     await deletePromise;
     await expect(sealsPage.sealCard(title)).not.toBeVisible();
 
+    await clearSession(page);
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(sealsPage.sealCard(title)).not.toBeVisible();
@@ -409,6 +411,7 @@ test.describe('archive and unarchive seal', () => {
 
     await expect(sealsPage.sealCard(title)).not.toBeVisible();
 
+    await clearSession(page);
     await page.goto('/seals');
     await expect(sealsPage.sealCard(title)).toBeVisible();
   });
