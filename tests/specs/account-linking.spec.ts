@@ -21,7 +21,7 @@ test.describe.configure({ mode: 'parallel' });
  * (same flow as signIn.ts). Returns after the wallet connects and signs.
  */
 async function clickLinkSiwe(page: Page): Promise<void> {
-  await page.getByTestId('link-siwe-button').click();
+  await page.getByTestId('connect-siwe').click();
 
   // Race: RainbowKit modal may appear (click Browser Wallet) or wallet auto-connects
   await Promise.any([
@@ -58,9 +58,9 @@ test.describe('SIWE primary → link Google', () => {
 
     await page.goto('/profile');
     await expect(page.getByTestId('identity-siwe')).toBeVisible();
-    await expect(page.getByTestId('link-google-button')).toBeVisible();
+    await expect(page.getByTestId('connect-google')).toBeVisible();
 
-    await page.getByTestId('link-google-button').click();
+    await page.getByTestId('connect-google').click();
 
     // Full OAuth redirect: initiate → mock /auth → callback → /profile?linked=google
     await page.waitForURL(/\/profile/, { timeout: 20000 });
@@ -82,7 +82,7 @@ test.describe('Google primary → link SIWE', () => {
     await page.goto('/profile');
 
     await expect(page.getByTestId('identity-google')).toBeVisible();
-    await expect(page.getByTestId('link-siwe-button')).toBeVisible();
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
 
     await clickLinkSiwe(page);
 
@@ -105,7 +105,7 @@ test.describe('link wallet with encrypted data', () => {
     await page.goto('/profile');
 
     await expect(page.getByTestId('identity-google')).toBeVisible();
-    await expect(page.getByTestId('link-siwe-button')).toBeVisible();
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
 
     // Get the browser wallet address (mock provider generates it on page load)
     const walletAddress = await page.evaluate(() =>
@@ -123,8 +123,8 @@ test.describe('link wallet with encrypted data', () => {
     // Expect conflict error toast
     await expect(page.getByText('This wallet has encrypted data')).toBeVisible({ timeout: 15000 });
 
-    // No SIWE identity should have been added
-    await expect(page.getByTestId('identity-siwe')).not.toBeAttached();
+    // SIWE should still show as unlinked (Connect button visible)
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
   });
 
   test('fails with conflict error when wallet has seals', async ({ page }) => {
@@ -133,7 +133,7 @@ test.describe('link wallet with encrypted data', () => {
     await mockProvider(page);
     await page.goto('/profile');
 
-    await expect(page.getByTestId('link-siwe-button')).toBeVisible();
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
 
     const walletAddress = await page.evaluate(() =>
       (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
@@ -147,7 +147,7 @@ test.describe('link wallet with encrypted data', () => {
     await clickLinkSiwe(page);
 
     await expect(page.getByText('This wallet has encrypted data')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('identity-siwe')).not.toBeAttached();
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
   });
 
   test('succeeds when wallet has only an encryption profile (no secrets or seals)', async ({ page }) => {
@@ -156,7 +156,7 @@ test.describe('link wallet with encrypted data', () => {
     await mockProvider(page);
     await page.goto('/profile');
 
-    await expect(page.getByTestId('link-siwe-button')).toBeVisible();
+    await expect(page.getByTestId('connect-siwe')).toBeVisible();
 
     const walletAddress = await page.evaluate(() =>
       (window as unknown as { ethereum: { getCurrentAddress: () => string } }).ethereum.getCurrentAddress(),
@@ -192,8 +192,8 @@ test.describe('already linked state', () => {
     await expect(page.getByTestId('identity-google')).toBeVisible();
 
     // No link buttons: both providers are already connected
-    await expect(page.getByTestId('link-siwe-button')).not.toBeAttached();
-    await expect(page.getByTestId('link-google-button')).not.toBeAttached();
+    await expect(page.getByTestId('connect-siwe')).not.toBeAttached();
+    await expect(page.getByTestId('connect-google')).not.toBeAttached();
   });
 });
 
@@ -219,9 +219,9 @@ test.describe('unlink identity', () => {
     await page.getByTestId('unlink-google').click();
     await expect(page.getByText('Sign-in method removed.')).toBeVisible({ timeout: 10000 });
 
-    // Google identity gone, SIWE remains
-    await expect(page.getByTestId('identity-google')).not.toBeAttached({ timeout: 10000 });
-    await expect(page.getByTestId('identity-siwe')).toBeVisible();
+    // Google identity unlinked: row shows Connect button; SIWE remains linked
+    await expect(page.getByTestId('connect-google')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('unlink-siwe')).toBeVisible();
 
     // Unlink button for SIWE is now disabled (last identity)
     await expect(page.getByTestId('unlink-siwe')).toBeDisabled();
