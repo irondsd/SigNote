@@ -1,7 +1,7 @@
 import '@/styles/globals.css';
 import s from './layout.module.scss';
 import { inter } from '@/config/fonts';
-import { Web3Provider } from '@/providers/Web3Provider';
+import { Web3ProviderLazy } from '@/providers/Web3ProviderLazy';
 import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
 import { cn } from '@/utils/cn';
@@ -48,7 +48,7 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <ReactQueryProvider>
-              <Web3Provider>{children}</Web3Provider>
+              <Web3ProviderLazy>{children}</Web3ProviderLazy>
             </ReactQueryProvider>
           </AuthSessionProvider>
           <Toaster />
