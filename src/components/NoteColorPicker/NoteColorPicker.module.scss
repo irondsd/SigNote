@@ -18,14 +18,13 @@
 }
 
 .colorPickerContent {
-  width: auto !important;
-  padding: 8px !important;
-  gap: 0 !important;
+  width: auto;
+  padding: 12px;
 }
 
 .colorSwatches {
   display: flex;
-  gap: 6px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -38,7 +37,7 @@
   padding: 0;
   transition: box-shadow 0.12s;
   flex-shrink: 0;
-  filter: saturate(5);
+  filter: saturate(3) brightness(0.9);
 
   &.swatchSelected {
     box-shadow:
@@ -61,6 +60,7 @@
   background: var(--card);
   border: 1.5px solid var(--border) !important;
   position: relative;
+  filter: none !important;
 
   &::after {
     content: '';
