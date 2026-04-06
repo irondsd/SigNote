@@ -58,14 +58,19 @@ function json(res: http.ServerResponse, status: number, body: unknown) {
 }
 
 export async function startMockOAuthServer(): Promise<MockOAuthServer> {
-  // Shared mutable state — tests are expected to run serially within googleSignIn.spec.ts
-  let currentProfile: MockOAuthProfile = {
+  // Legacy single-slot state (kept for backward compatibility)
+  const currentProfile: MockOAuthProfile = {
     sub: `mock-${crypto.randomUUID()}`,
     name: 'Mock User',
     email: 'mock@example.com',
     email_verified: true,
   };
   let nextError: string | null = null;
+
+  // Per-flow maps — keyed by UUID issued by /configure and /set-error.
+  // Tests inject the flowId via a _flow_key query param on the /auth redirect.
+  const flowProfiles = new Map<string, MockOAuthProfile>();
+  const flowErrors = new Map<string, string>();
 
   // Maps issued auth codes and access tokens to profiles
   const codeProfiles = new Map<string, MockOAuthProfile>();
@@ -104,18 +109,25 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
     if (req.method === 'GET' && url.pathname === '/auth') {
       const redirectUri = url.searchParams.get('redirect_uri')!;
       const state = url.searchParams.get('state') ?? '';
+      const flowKey = url.searchParams.get('_flow_key') ?? null;
       const callbackUrl = new URL(redirectUri);
 
-      if (nextError) {
-        callbackUrl.searchParams.set('error', nextError);
+      const error = flowKey ? (flowErrors.get(flowKey) ?? null) : nextError;
+      if (flowKey) flowErrors.delete(flowKey);
+      else nextError = null;
+
+      if (error) {
+        callbackUrl.searchParams.set('error', error);
         callbackUrl.searchParams.set('state', state);
-        nextError = null;
         res.writeHead(302, { Location: callbackUrl.toString() });
         return res.end();
       }
 
+      const profile = (flowKey ? flowProfiles.get(flowKey) : null) ?? currentProfile;
+      if (flowKey) flowProfiles.delete(flowKey);
+
       const code = crypto.randomUUID();
-      codeProfiles.set(code, { ...currentProfile });
+      codeProfiles.set(code, { ...profile });
       callbackUrl.searchParams.set('code', code);
       callbackUrl.searchParams.set('state', state);
       res.writeHead(302, { Location: callbackUrl.toString() });
@@ -170,17 +182,17 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
     // POST /configure  { sub, name, email, picture? }
     if (req.method === 'POST' && url.pathname === '/configure') {
       const body = await readBody(req);
-      currentProfile = { email_verified: true, ...JSON.parse(body) };
-      res.writeHead(200);
-      return res.end();
+      const flowId = crypto.randomUUID();
+      flowProfiles.set(flowId, { email_verified: true, ...JSON.parse(body) });
+      return json(res, 200, { flowId });
     }
 
     // POST /set-error  { error: 'access_denied' }
     if (req.method === 'POST' && url.pathname === '/set-error') {
       const body = await readBody(req);
-      nextError = JSON.parse(body).error as string;
-      res.writeHead(200);
-      return res.end();
+      const flowId = crypto.randomUUID();
+      flowErrors.set(flowId, JSON.parse(body).error as string);
+      return json(res, 200, { flowId });
     }
 
     res.writeHead(404);

@@ -1,13 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 import { configureGoogleUser, setGoogleError } from '../utils/googleAuth';
 
-// Tests share a single mock OAuth server instance that holds one profile at a
-// time, so they must run serially to avoid races between concurrent workers.
-// todo: make OAuth server support multiple profiles and concurrent tests, then remove this constraint.
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'parallel' });
 
 test.describe('Google sign-in', () => {
   async function clickGoogleSignIn(page: Page) {
+    // In dev mode the Next.js portal overlay can intercept pointer events when
+    // there are console issues (e.g. from concurrent OAuth activity). Neutralise
+    // it so the sign-in button click lands on the right element.
+    await page.evaluate(() => {
+      document.querySelectorAll<HTMLElement>('nextjs-portal').forEach((el) => {
+        el.style.pointerEvents = 'none';
+      });
+    });
+
     const signInButton = page.getByTestId('sign-in-button').first();
     await expect(signInButton).toBeVisible();
     await signInButton.click();
@@ -18,7 +24,7 @@ test.describe('Google sign-in', () => {
   }
 
   test('new user signing in with Google creates an account and establishes a session', async ({ page }) => {
-    await configureGoogleUser({ sub: 'g-new-001', name: 'Alice Test', email: 'alice@example.com' });
+    await configureGoogleUser(page, { sub: 'g-new-001', name: 'Alice Test', email: 'alice@example.com' });
 
     await page.goto('/');
     await clickGoogleSignIn(page);
@@ -37,7 +43,7 @@ test.describe('Google sign-in', () => {
     const profile = { sub: 'g-returning-002', name: 'Bob Return', email: 'bob@example.com' };
 
     // ── First sign-in: creates the user ──────────────────────────────────────
-    await configureGoogleUser(profile);
+    await configureGoogleUser(page, profile);
     await page.goto('/');
     await clickGoogleSignIn(page);
 
@@ -55,7 +61,7 @@ test.describe('Google sign-in', () => {
     await expect(page.getByTestId('sign-in-button').first()).toBeVisible({ timeout: 10000 });
 
     // ── Second sign-in: same Google sub ──────────────────────────────────────
-    await configureGoogleUser(profile);
+    await configureGoogleUser(page, profile);
     await page.goto('/');
     await page.keyboard.press('Escape');
     await clickGoogleSignIn(page);
@@ -70,7 +76,7 @@ test.describe('Google sign-in', () => {
   });
 
   test('Google OAuth error leaves the user unauthenticated', async ({ page }) => {
-    await setGoogleError('access_denied');
+    await setGoogleError(page, 'access_denied');
 
     await page.goto('/');
     await clickGoogleSignIn(page);

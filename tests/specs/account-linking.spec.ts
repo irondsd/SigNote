@@ -50,7 +50,7 @@ test.describe('SIWE primary → link Google', () => {
     const token = await createTestSession(account.address);
     await injectSession(page, token);
 
-    await configureGoogleUser({
+    await configureGoogleUser(page, {
       sub: 'google-link-primary-01',
       name: 'Test User',
       email: 'google-link-primary@example.com',
