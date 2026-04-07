@@ -64,6 +64,8 @@ export function useSiweSign() {
       return { message: messageStr, signature, address: addr };
     } catch (err) {
       if (err instanceof UserRejectedRequestError) {
+        // User rejected signature — reset to idle state
+        pendingSign.current = false;
         setStep('idle');
         return null;
       }

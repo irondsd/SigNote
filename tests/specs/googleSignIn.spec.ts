@@ -26,6 +26,14 @@ test.describe('Google sign-in', () => {
   test('new user signing in with Google creates an account and establishes a session', async ({ page }) => {
     await configureGoogleUser(page, { sub: 'g-new-001', name: 'Alice Test', email: 'alice@example.com' });
 
+    // Clear IDB so profile fetch doesn't restore stale data
+    await page.evaluate(async () => {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      }
+    });
+
     await page.goto('/');
     await clickGoogleSignIn(page);
 
