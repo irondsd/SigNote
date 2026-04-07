@@ -10,7 +10,7 @@ test.describe('basic tests', () => {
     await page.waitForLoadState('networkidle');
 
     // Check that the page has loaded successfully
-    expect(page.url()).toBe('http://localhost:5000/');
+    expect(page.url()).toBe('http://localhost:5005/');
 
     // Check that the page has rendered successfully by looking for the Next.js root element
     const nextRoot = page.locator('main');

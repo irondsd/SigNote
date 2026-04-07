@@ -59,13 +59,13 @@ export default async function globalSetup() {
 
   // Spawn Next.js with the current process.env (which now includes MONGODB_URI)
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const server = spawn(npmCommand, ['run', 'dev'], {
+  const server = spawn(npmCommand, ['run', 'dev:test'], {
     env: { ...process.env },
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'ignore',
   });
   (globalThis as GlobalWithMongo).__SERVER__ = server;
 
-  await waitForServer('http://localhost:5000');
-  console.log('Next.js dev server ready at http://localhost:5000');
+  await waitForServer('http://localhost:5005');
+  console.log('Next.js dev server ready at http://localhost:5005');
 }
