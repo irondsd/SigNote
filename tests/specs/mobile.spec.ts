@@ -89,6 +89,7 @@ test('loads all 50 notes via infinite scroll', async ({ page }) => {
     Array.from({ length: 50 }, (_, i) => ({ title: `Scroll Note ${String(i + 1).padStart(2, '0')}` })),
   );
 
+  await clearSession(page);
   await page.reload();
 
   // First page loads 30 notes

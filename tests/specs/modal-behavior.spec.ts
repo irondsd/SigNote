@@ -45,6 +45,7 @@ test.describe('modal close - backdrop click', () => {
     const notesPage = new NotesPage(page);
     const { address } = await notesPage.signInDirectly();
     await seedNotes(address, [{ title: 'Backdrop Test' }]);
+    await clearSession(page);
     await page.reload();
 
     await notesPage.noteCard('Backdrop Test').click();

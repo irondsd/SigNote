@@ -77,6 +77,7 @@ test.describe('statistics', () => {
 
     await seedNotes(account.address, [{ title: 'Visible note' }, { title: 'Deleted note', deletedAt: new Date() }]);
 
+    await clearSession(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('notes-count')).toHaveText('1');

@@ -107,6 +107,7 @@ test.describe('erase account', () => {
 
   test('skips encryption-dependent steps when no encryption profile exists', async ({ page }) => {
     await setup(page);
+    await clearSession(page);
 
     // Register listener before navigation so it catches the profile fetch triggered on page load
     const profileLoaded = page.waitForResponse((r) => r.url().includes('/api/profile') && r.status() === 200);

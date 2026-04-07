@@ -364,6 +364,14 @@ test.describe('archive and unarchive secret', () => {
 
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
+    // Clear IDB cache only (preserve sessionStorage so MEK auto-rehydrates)
+    await page.evaluate(async () => {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      }
+    });
+
     await page.goto('/secrets');
     await expect(secretsPage.secretCard(title)).toBeVisible();
   });
