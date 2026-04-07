@@ -26,6 +26,8 @@ test.describe('Google sign-in', () => {
   test('new user signing in with Google creates an account and establishes a session', async ({ page }) => {
     await configureGoogleUser(page, { sub: 'g-new-001', name: 'Alice Test', email: 'alice@example.com' });
 
+    await page.goto('/');
+
     // Clear IDB so profile fetch doesn't restore stale data
     await page.evaluate(async () => {
       const dbs = await indexedDB.databases();
@@ -34,7 +36,7 @@ test.describe('Google sign-in', () => {
       }
     });
 
-    await page.goto('/');
+    await page.reload();
     await clickGoogleSignIn(page);
 
     // NextAuth redirects browser → mock /auth → mock auto-redirects → NextAuth callback

@@ -50,6 +50,14 @@ export function EraseFlow({
     return () => clearTimeout(timer);
   }, [phase, onDone]);
 
+  useEffect(() => {
+    if (phase !== 'ready') return;
+    if (hasEncryptionProfile !== false) return;
+    const skipKeys = new Set(stepConfigs.filter((c) => c.requiresEncryptionProfile).map((c) => c.key));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSteps((prev) => prev.map((step) => (skipKeys.has(step.key) ? { ...step, status: 'skipped' } : step)));
+  }, [phase, hasEncryptionProfile, stepConfigs]);
+
   const handleConfirm = async () => {
     setConfirmError(null);
     setPhase('confirming');
@@ -58,12 +66,6 @@ export function EraseFlow({
       const { token } = await api.post(verifyEndpoint).json<{ token: string }>();
 
       setEraseToken(token);
-
-      if (!hasEncryptionProfile) {
-        const skipKeys = new Set(stepConfigs.filter((c) => c.requiresEncryptionProfile).map((c) => c.key));
-        setSteps((prev) => prev.map((step) => (skipKeys.has(step.key) ? { ...step, status: 'skipped' } : step)));
-      }
-
       setPhase('ready');
     } catch (err) {
       console.error('Erase confirm error:', err);
