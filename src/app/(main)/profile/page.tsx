@@ -19,7 +19,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
@@ -273,24 +273,30 @@ function ProfilePageContent() {
                 <span className={s.actionLabel}>Passphrase</span>
                 <span className={s.actionDesc}>Change the passphrase used to protect your secrets and seals.</span>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={profile?.hasEncryptionProfile ? undefined : 0} className={s.tooltipWrapper}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!profile?.hasEncryptionProfile}
-                      onClick={() => router.push('/change-passphrase')}
-                    >
-                      <KeyRound size={14} />
-                      Change
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                {!profile?.hasEncryptionProfile && (
-                  <TooltipContent side="left">No encryption profile set up</TooltipContent>
-                )}
-              </Tooltip>
+              {profile?.hasEncryptionProfile ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/change-passphrase')}
+                >
+                  <KeyRound size={14} />
+                  Change
+                </Button>
+              ) : (
+                <TooltipOrPopover
+                  trigger={
+                    <span tabIndex={0} className={s.tooltipWrapper}>
+                      <Button variant="outline" size="sm" disabled>
+                        <KeyRound size={14} />
+                        Change
+                      </Button>
+                    </span>
+                  }
+                  side="left"
+                >
+                  No encryption profile set up
+                </TooltipOrPopover>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -309,26 +315,30 @@ function ProfilePageContent() {
                   recovered.
                 </span>
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={profile?.hasEncryptionProfile ? undefined : 0} className={s.tooltipWrapper}>
-                    <Link href="/erase-encryption">
-                      <Button
-                        data-testid="erase-profile-btn"
-                        variant="destructive"
-                        size="sm"
-                        disabled={!profile?.hasEncryptionProfile}
-                      >
-                        <ShieldOff size={14} />
-                        Erase
-                      </Button>
-                    </Link>
-                  </span>
-                </TooltipTrigger>
-                {!profile?.hasEncryptionProfile && (
-                  <TooltipContent side="left">No encryption profile set up</TooltipContent>
-                )}
-              </Tooltip>
+              {profile?.hasEncryptionProfile ? (
+                <Link href="/erase-encryption">
+                  <Button data-testid="erase-profile-btn" variant="destructive" size="sm">
+                    <ShieldOff size={14} />
+                    Erase
+                  </Button>
+                </Link>
+              ) : (
+                <TooltipOrPopover
+                  trigger={
+                    <span tabIndex={0} className={s.tooltipWrapper}>
+                      <Link href="/erase-encryption">
+                        <Button data-testid="erase-profile-btn" variant="destructive" size="sm" disabled>
+                          <ShieldOff size={14} />
+                          Erase
+                        </Button>
+                      </Link>
+                    </span>
+                  }
+                  side="left"
+                >
+                  No encryption profile set up
+                </TooltipOrPopover>
+              )}
             </div>
 
             <div className={s.divider} />

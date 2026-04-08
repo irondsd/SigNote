@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { Lock } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import s from './EncryptedPlaceholder.module.scss';
 
 type EncryptedPlaceholderProps = {
@@ -88,14 +88,16 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext, children }: Encrypt
   return (
     <div data-testid="encrypted-placeholder" className={s.wrapper}>
       <div className={`${s.bars} ${s.animMorph}`}>{renderBars()}</div>
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <TooltipOrPopover
+        trigger={
           <div className={s.lockIcon} aria-label="Content is encrypted">
             <Lock size={14} />
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="top">Encrypted</TooltipContent>
-      </Tooltip>
+        }
+        side="top"
+      >
+        Encrypted
+      </TooltipOrPopover>
       {children && <div className={s.children}>{children}</div>}
     </div>
   );

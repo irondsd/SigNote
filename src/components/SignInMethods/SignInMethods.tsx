@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { HTTPError } from 'ky';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useIdentities, useUnlinkIdentity } from '@/hooks/useIdentities';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { shortenAddress } from '@/utils/shortenAddress';
@@ -125,25 +125,31 @@ export function SignInMethods() {
                       )}
                     </div>
                     {isLinked ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span tabIndex={isOnlyOne ? 0 : undefined} className={s.tooltipWrapper}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={isOnlyOne || isUnlinking}
-                              onClick={() => handleUnlink(provider.id)}
-                              data-testid={`unlink-${provider.id}`}
-                            >
-                              {isUnlinking ? <Loader2 size={14} className="animate-spin" /> : null}
-                              Unlink
-                            </Button>
-                          </span>
-                        </TooltipTrigger>
-                        {isOnlyOne && (
-                          <TooltipContent side="left">You must keep at least one sign-in method</TooltipContent>
-                        )}
-                      </Tooltip>
+                      isOnlyOne ? (
+                        <TooltipOrPopover
+                          trigger={
+                            <span tabIndex={0} className={s.tooltipWrapper}>
+                              <Button variant="outline" size="sm" disabled data-testid={`unlink-${provider.id}`}>
+                                Unlink
+                              </Button>
+                            </span>
+                          }
+                          side="left"
+                        >
+                          You must keep at least one sign-in method
+                        </TooltipOrPopover>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isUnlinking}
+                          onClick={() => handleUnlink(provider.id)}
+                          data-testid={`unlink-${provider.id}`}
+                        >
+                          {isUnlinking ? <Loader2 size={14} className="animate-spin" /> : null}
+                          Unlink
+                        </Button>
+                      )
                     ) : (
                       <Button
                         variant="outline"

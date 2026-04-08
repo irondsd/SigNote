@@ -2,7 +2,7 @@
 
 import { useEffect, useReducer } from 'react';
 import { getRelativeTime } from '@/utils/getRelativeTime';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 
 type RelativeDateProps = {
   updatedAt: string | Date;
@@ -48,14 +48,15 @@ export function RelativeDate({ updatedAt, createdAt, className, 'data-testid': t
   if (!createdAt) return label;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild className="cursor-pointer">
-        {label}
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>Updated: {formatExact(updatedAt)}</p>
-        <p>Created: {formatExact(createdAt)}</p>
-      </TooltipContent>
-    </Tooltip>
+    <TooltipOrPopover
+      trigger={
+        <span data-testid={testId} className={`${className ?? ''} cursor-pointer`.trim()}>
+          Updated {getRelativeTime(updatedAt)}
+        </span>
+      }
+    >
+      <p>Updated: {formatExact(updatedAt)}</p>
+      <p>Created: {formatExact(createdAt)}</p>
+    </TooltipOrPopover>
   );
 }

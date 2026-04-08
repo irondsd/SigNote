@@ -10,7 +10,7 @@ import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlace
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -313,19 +313,19 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             />
             {timeLeft !== null && !editing && (
               <div className={s.btns}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
+                <TooltipOrPopover
+                  trigger={
                     <div className={s.timerWrapper}>
                       <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
                     </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="z-200">
-                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
-                    minute
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
+                  }
+                  side="bottom"
+                >
+                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
+                  minute
+                </TooltipOrPopover>
+                <TooltipOrPopover
+                  trigger={
                     <button
                       className="p-2 w-8 h-8"
                       type="button"
@@ -336,11 +336,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                     >
                       <Lock size={16} />
                     </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="z-200">
-                    Re-encrypt now
-                  </TooltipContent>
-                </Tooltip>
+                  }
+                  side="bottom"
+                >
+                  Re-encrypt now
+                </TooltipOrPopover>
               </div>
             )}
           </div>
