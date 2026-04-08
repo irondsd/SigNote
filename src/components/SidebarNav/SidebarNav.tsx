@@ -66,7 +66,6 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
       {/* Bottom section */}
       <div className={s.bottom}>
         <div className={s.themeRow}>
-          <span className={s.label}>Theme</span>
           <ThemeToggle />
         </div>
 
