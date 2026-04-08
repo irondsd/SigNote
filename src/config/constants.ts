@@ -1,7 +1,7 @@
 export const POSITION_STEP = 1000;
 
 // Passphrase constraints
-export const MIN_PASSPHRASE_LENGTH = 16;
+export const MIN_PASSPHRASE_LENGTH = 8;
 export const MAX_PASSPHRASE_LENGTH = 256;
 
 // Notes / Secrets / Seals constraints
