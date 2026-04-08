@@ -19,9 +19,16 @@ export function LockFab() {
 
   if (!isAuthenticated || (phase !== 'locked' && phase !== 'unlocked')) return null;
 
-  const handleClick = async () => {
+  const handleLock = () => {
+    if (!isUnlocked) {
+      return;
+    }
+
+    lock();
+  };
+
+  const handleUnlock = async () => {
     if (isUnlocked) {
-      lock();
       return;
     }
     if (lockType === 'soft') {
@@ -40,16 +47,31 @@ export function LockFab() {
 
   return (
     <>
-      <button
-        className={cn(s.fab, isUnlocked ? s.unlocked : s.locked)}
-        onClick={handleClick}
-        disabled={rehydrating}
-        aria-label={isUnlocked ? 'Lock' : 'Unlock'}
-        title={isUnlocked ? 'Lock' : 'Unlock'}
-      >
-        {isUnlocked ? <Lock size={16} /> : <LockOpen size={16} />}
-        {rehydrating ? 'Unlocking…' : isUnlocked ? 'Lock' : 'Unlock'}
-      </button>
+      <div className={s.fab} role="group" aria-label="Encryption lock controls" aria-busy={rehydrating}>
+        <button
+          type="button"
+          className={cn(s.option, !isUnlocked && s.active)}
+          onClick={handleLock}
+          disabled={rehydrating}
+          aria-label="Lock"
+          aria-pressed={!isUnlocked}
+          title="Lock"
+        >
+          <Lock size={20} />
+        </button>
+
+        <button
+          type="button"
+          className={cn(s.option, isUnlocked && s.active)}
+          onClick={handleUnlock}
+          disabled={rehydrating}
+          aria-label="Unlock"
+          aria-pressed={isUnlocked}
+          title="Unlock"
+        >
+          <LockOpen size={20} />
+        </button>
+      </div>
 
       {showPassphrase && (
         <PassphraseModal
