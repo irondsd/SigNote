@@ -12,9 +12,30 @@
   background: color-mix(in oklch, var(--background) 88%, var(--muted));
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   backdrop-filter: blur(12px);
+  isolation: isolate;
+}
+
+.thumb {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow:
+    0 10px 24px color-mix(in oklch, var(--primary) 28%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--primary-foreground) 22%, transparent);
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease;
+  will-change: transform;
+  z-index: 0;
 }
 
 .option {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -26,14 +47,12 @@
   color: var(--muted-foreground);
   cursor: pointer;
   transition:
-    background-color 0.15s,
-    color 0.15s,
+    color 0.22s ease,
     opacity 0.15s,
     transform 0.15s,
-    box-shadow 0.15s;
+    filter 0.22s ease;
 
   &:hover {
-    background: color-mix(in oklch, var(--muted) 88%, transparent);
     color: var(--foreground);
   }
 
@@ -46,13 +65,22 @@
   }
 }
 
-.active {
-  background: var(--primary);
+.isLocked .lockOption,
+.isUnlocked .unlockOption {
   color: var(--primary-foreground);
-  // box-shadow: 0 6px 16px color-mix(in oklch, var(--primary) 35%, transparent);
 
   &:hover {
-    background: var(--primary);
     color: var(--primary-foreground);
+  }
+}
+
+.isUnlocked .thumb {
+  transform: translateX(44px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb,
+  .option {
+    transition: none;
   }
 }

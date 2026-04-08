@@ -47,10 +47,17 @@ export function LockFab() {
 
   return (
     <>
-      <div className={s.fab} role="group" aria-label="Encryption lock controls" aria-busy={rehydrating}>
+      <div
+        className={cn(s.fab, isUnlocked ? s.isUnlocked : s.isLocked)}
+        role="group"
+        aria-label="Encryption lock controls"
+        aria-busy={rehydrating}
+      >
+        <span className={s.thumb} aria-hidden="true" />
+
         <button
           type="button"
-          className={cn(s.option, !isUnlocked && s.active)}
+          className={cn(s.option, s.lockOption)}
           onClick={handleLock}
           disabled={rehydrating}
           aria-label="Lock"
@@ -62,7 +69,7 @@ export function LockFab() {
 
         <button
           type="button"
-          className={cn(s.option, isUnlocked && s.active)}
+          className={cn(s.option, s.unlockOption)}
           onClick={handleUnlock}
           disabled={rehydrating}
           aria-label="Unlock"
