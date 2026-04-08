@@ -63,6 +63,7 @@ export function LockFab() {
           aria-label="Lock"
           aria-pressed={!isUnlocked}
           title="Lock"
+          data-testid="lock-button"
         >
           <Lock size={20} />
         </button>
@@ -75,6 +76,7 @@ export function LockFab() {
           aria-label="Unlock"
           aria-pressed={isUnlocked}
           title="Unlock"
+          data-testid="unlock-button"
         >
           <LockOpen size={20} />
         </button>

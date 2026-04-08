@@ -23,8 +23,8 @@ test.describe('lock / unlock state', () => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
 
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Unlock button opens the passphrase modal', async ({ page }) => {
@@ -42,33 +42,32 @@ test.describe('lock / unlock state', () => {
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'false');
   });
 
   test('Lock button re-locks the session', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
 
     await secretsPage.lock();
 
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('session persists across page reload', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
 
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
     // Should still be unlocked (sessionStorage rehydration)
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
   });
 });
 
@@ -82,8 +81,8 @@ test.describe('lock / unlock state on seals page', () => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly(account.address);
 
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Unlock button on /seals opens passphrase modal and correct passphrase unlocks', async ({ page }) => {
@@ -99,8 +98,7 @@ test.describe('lock / unlock state on seals page', () => {
     await page.getByPlaceholder('Your passphrase').fill(SealsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
-    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   });
 });
 
@@ -120,7 +118,7 @@ test.describe('wrong passphrase', () => {
     await expect(page.getByText('Incorrect passphrase')).toBeVisible({ timeout: 20000 });
     // Modal still open (error shown) means session is still locked
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).not.toBeVisible();
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('correct passphrase after wrong one succeeds', async ({ page }) => {
@@ -137,7 +135,7 @@ test.describe('wrong passphrase', () => {
     await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Unlock' }).last().click();
 
-    await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   });
 
   test('cancel passphrase modal keeps session locked', async ({ page }) => {

@@ -78,16 +78,20 @@ export class SealsPage extends BasePage {
   }
 
   async unlock(passphrase = SealsPage.PASSPHRASE): Promise<void> {
-    await this.page.getByRole('button', { name: 'Unlock', exact: true }).click();
+    const unlockButton = this.page.getByTestId('unlock-button');
+
+    await unlockButton.click();
     await expect(this.page.getByPlaceholder('Your passphrase')).toBeVisible();
     await this.page.getByPlaceholder('Your passphrase').fill(passphrase);
     await this.page.getByRole('button', { name: 'Unlock' }).last().click();
     // PBKDF2 at 600k iterations can be slow; allow enough time
-    await expect(this.page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(unlockButton).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   }
 
   async lock(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Lock', exact: true }).click();
+    const lockButton = this.page.getByTestId('lock-button');
+
+    await lockButton.click();
   }
 
   // NOTE: EncryptedNoteCard renders data-testid="secret-card" for both secrets and seals

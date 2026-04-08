@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import type { FC, ReactNode } from 'react';
 
 import { getQueryClient } from '@/utils/getQueryClient';
@@ -18,7 +18,7 @@ export const ReactQueryProvider: FC<{ children: ReactNode }> = ({ children }) =>
     <QueryClientProvider client={queryClient}>
       {children}
       <QueryPersister />
-      <ReactQueryDevtools initialIsOpen={false} />
+      {/* <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" /> */}
     </QueryClientProvider>
   );
 };
