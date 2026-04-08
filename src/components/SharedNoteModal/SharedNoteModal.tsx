@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { NoteColorPicker } from '@/components/NoteColorPicker/NoteColorPicker';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
+import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './SharedNoteModal.module.scss';
 
 type SharedNoteModalProps = {
@@ -21,7 +22,8 @@ type SharedNoteModalProps = {
   onEditToggle: () => void;
   onClose: () => void;
   disableClose?: boolean;
-  date: string;
+  updatedAt: string | Date;
+  createdAt: string | Date;
   onSave: () => void;
   saving?: boolean;
   isArchived: boolean;
@@ -48,7 +50,8 @@ export function SharedNoteModal({
   onEditToggle,
   onClose,
   disableClose,
-  date,
+  updatedAt,
+  createdAt,
   onSave,
   saving = false,
   isArchived,
@@ -84,9 +87,7 @@ export function SharedNoteModal({
         <div className={s.body}>{children}</div>
 
         <div className={s.footer}>
-          <span data-testid="note-date" className={s.date}>
-            Updated {date}
-          </span>
+          <RelativeDate data-testid="note-date" updatedAt={updatedAt} createdAt={createdAt} className={s.date} />
           <div className={s.actions}>
             {!editing ? (
               <>

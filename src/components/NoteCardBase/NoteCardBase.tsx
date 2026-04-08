@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
+import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './NoteCardBase.module.scss';
 
 function colorClass(color: string | null | undefined) {
@@ -31,7 +32,6 @@ export function NoteCardBase({
   content,
   'data-testid': testId,
 }: NoteCardBaseProps) {
-  const date = new Date(updatedAt).toLocaleDateString();
   const contentRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
@@ -61,7 +61,7 @@ export function NoteCardBase({
           Archived
         </span>
       )}
-      <span className={s.date}>{date}</span>
+      <RelativeDate updatedAt={updatedAt} className={s.date} />
     </div>
   );
 }

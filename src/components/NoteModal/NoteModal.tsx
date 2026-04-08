@@ -73,8 +73,6 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
     setColorPickerOpen(false);
   };
 
-  const date = new Date(note.updatedAt).toLocaleString();
-
   return (
     <>
       <SharedNoteModal
@@ -88,7 +86,8 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        date={date}
+        updatedAt={note.updatedAt}
+        createdAt={note.createdAt}
         onSave={handleSave}
         isArchived={isArchived}
         onArchive={handleArchiveToggle}

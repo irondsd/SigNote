@@ -261,8 +261,6 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     });
   };
 
-  const date = new Date(note.updatedAt).toLocaleString();
-
   return (
     <>
       <SharedNoteModal
@@ -277,7 +275,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        date={date}
+        updatedAt={note.updatedAt}
+        createdAt={note.createdAt}
         onSave={handleSave}
         saving={saving}
         isArchived={isArchived}

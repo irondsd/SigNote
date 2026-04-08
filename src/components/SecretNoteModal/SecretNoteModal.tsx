@@ -139,8 +139,6 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     })();
   }, [mek, performSave]);
 
-  const date = new Date(note.updatedAt).toLocaleString();
-
   return (
     <>
       <SharedNoteModal
@@ -154,7 +152,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        date={date}
+        updatedAt={note.updatedAt}
+        createdAt={note.createdAt}
         onSave={handleSave}
         saving={saving}
         isArchived={isArchived}
