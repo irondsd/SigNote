@@ -130,10 +130,11 @@ export const useUpdateNote = () => {
     mutationFn: apiUpdateNote,
     onMutate: async ({ id, archived, ...rest }) => {
       const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
+      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedNote>;
       if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedNote>);
+        toggleArchive(qc, snapshots, id, archived, patch);
       } else {
-        patchInPlace(qc, snapshots, id, rest as Partial<CachedNote>);
+        patchInPlace(qc, snapshots, id, patch);
       }
       return { snapshots };
     },

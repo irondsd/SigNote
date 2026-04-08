@@ -131,10 +131,11 @@ export const useUpdateSecret = () => {
     mutationFn: apiUpdateSecret,
     onMutate: async ({ id, archived, ...rest }) => {
       const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
+      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedSecretNote>;
       if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedSecretNote>);
+        toggleArchive(qc, snapshots, id, archived, patch);
       } else {
-        patchInPlace(qc, snapshots, id, rest as Partial<CachedSecretNote>);
+        patchInPlace(qc, snapshots, id, patch);
       }
       return { snapshots };
     },

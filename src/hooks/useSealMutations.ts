@@ -161,10 +161,11 @@ export const useUpdateSeal = () => {
     mutationFn: apiUpdateSeal,
     onMutate: async ({ id, archived, ...rest }) => {
       const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
+      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedSealNote>;
       if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, rest as Partial<CachedSealNote>);
+        toggleArchive(qc, snapshots, id, archived, patch);
       } else {
-        patchInPlace(qc, snapshots, id, rest as Partial<CachedSealNote>);
+        patchInPlace(qc, snapshots, id, patch);
       }
       return { snapshots };
     },
