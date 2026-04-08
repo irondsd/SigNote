@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Lock } from 'lucide-react';
-import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import s from './EncryptedPlaceholder.module.scss';
 
 type EncryptedPlaceholderProps = {
@@ -24,18 +22,17 @@ function generateLines(ciphertext: string, lineCount: number): LineData[] {
   return Array.from({ length: lineCount }, (_, l) => {
     const count = 3 + (getByteAt(ciphertext, l * 17) % 5); // 3–7 strips
     const weights = Array.from({ length: count }, (_, s) => 1 + (getByteAt(ciphertext, l * 31 + s * 7 + 5) % 9));
-    const isLast = l === lineCount - 1;
-    const fillFraction = isLast ? 0.35 + (getByteAt(ciphertext, l * 13 + 2) % 30) / 100 : 1;
+    const fillSeed = (getByteAt(ciphertext, l * 43 + 11) * 31 + getByteAt(ciphertext, l * 43 + 23)) % 1001;
+    const fillFraction = 90 + fillSeed / 100;
     return { weights, fillFraction };
   });
 }
 
 function generateRandomLines(lineCount: number): LineData[] {
-  return Array.from({ length: lineCount }, (_, l) => {
+  return Array.from({ length: lineCount }, () => {
     const count = 3 + Math.floor(Math.random() * 5); // 3–7 strips
     const weights = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * 9));
-    const isLast = l === lineCount - 1;
-    const fillFraction = isLast ? 0.35 + Math.random() * 0.3 : 1;
+    const fillFraction = 90 + Math.random() * 10;
     return { weights, fillFraction };
   });
 }
@@ -67,17 +64,11 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext, children }: Encrypt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getLineWidth = (i: number, fillFraction: number) => {
-    if (fillFraction < 1) return `${fillFraction * 100}%`;
-    if (i === 1 || i === 2) return 'calc(100% - 28px)';
-    return undefined;
-  };
-
   const renderBars = () => {
     const lines =
       shuffleData !== null ? shuffleData : ciphertext ? generateLines(ciphertext, rows) : generateRandomLines(rows);
     return lines.map((line, i) => (
-      <div key={i} className={s.line} style={{ width: getLineWidth(i, line.fillFraction) }}>
+      <div key={i} className={s.line} style={{ width: `${line.fillFraction}%` }}>
         {line.weights.map((w, j) => (
           <div key={j} className={s.strip} style={{ flex: `${w} 0 0` }} />
         ))}
@@ -88,16 +79,6 @@ export function EncryptedPlaceholder({ rows = 3, ciphertext, children }: Encrypt
   return (
     <div data-testid="encrypted-placeholder" className={s.wrapper}>
       <div className={`${s.bars} ${s.animMorph}`}>{renderBars()}</div>
-      <TooltipOrPopover
-        trigger={
-          <div className={s.lockIcon} aria-label="Content is encrypted">
-            <Lock size={14} />
-          </div>
-        }
-        side="top"
-      >
-        Encrypted
-      </TooltipOrPopover>
       {children && <div className={s.children}>{children}</div>}
     </div>
   );

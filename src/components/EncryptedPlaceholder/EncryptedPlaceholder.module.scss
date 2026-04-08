@@ -42,16 +42,3 @@
   align-items: flex-start;
   gap: 6px;
 }
-
-.lockIcon {
-  position: absolute;
-  /* Fixed at center of row index 1: (16px offset + 10px height / 2) = 21px */
-  top: 28px;
-  right: 4px;
-  transform: translateY(-50%);
-  color: var(--muted-foreground);
-  display: flex;
-  align-items: center;
-  cursor: default;
-  opacity: 0.8;
-}
