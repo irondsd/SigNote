@@ -51,7 +51,7 @@ function SealsPageContent() {
         actions={
           isAuthenticated && (phase === 'locked' || phase === 'unlocked') ? (
             <>
-              <Link href="/seals/archive">
+              <Link href="/seals/archive" className="mr-2">
                 <Button variant="ghost" size="icon" aria-label="Archive" title="Archive">
                   <Archive size={18} />
                 </Button>

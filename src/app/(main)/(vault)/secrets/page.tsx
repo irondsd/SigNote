@@ -51,7 +51,7 @@ function SecretsPageContent() {
         actions={
           isAuthenticated && (phase === 'locked' || phase === 'unlocked') ? (
             <>
-              <Link href="/secrets/archive">
+              <Link href="/secrets/archive" className="mr-2">
                 <Button variant="ghost" size="icon" aria-label="Archive" title="Archive">
                   <Archive size={18} />
                 </Button>
