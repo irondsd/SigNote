@@ -12,6 +12,51 @@ import { authOptions } from '@/config/auth';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
+const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/; // 32 bytes → 44-char base64
+const BASE64_12 = /^[A-Za-z0-9+/]{16}$/; // 12 bytes → 16-char base64, no padding
+const BASE64 = /^[A-Za-z0-9+/]+=*$/; // any non-empty base64
+
+function validateKeyCheck(kc: unknown): string | null {
+  if (!kc || typeof kc !== 'object') return 'Invalid keyCheck';
+  const k = kc as Record<string, unknown>;
+  if (k.alg !== 'A256GCM') return 'Invalid keyCheck.alg';
+  if (!BASE64_12.test(k.iv as string)) return 'Invalid keyCheck.iv';
+  if (!BASE64.test(k.ciphertext as string)) return 'Invalid keyCheck.ciphertext';
+  return null;
+}
+
+function validateProfileBody(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return 'Invalid body';
+  const b = body as Record<string, unknown>;
+
+  if (!BASE64_32.test(b.serverShare as string)) return 'Invalid serverShare';
+  if (!BASE64_32.test(b.salt as string)) return 'Invalid salt';
+
+  const kdf = b.kdf as Record<string, unknown>;
+  if (!kdf || typeof kdf !== 'object') return 'Invalid kdf';
+  if (kdf.name !== 'PBKDF2') return 'Invalid kdf.name';
+  if (!['SHA-256', 'SHA-512'].includes(kdf.hash as string)) return 'Invalid kdf.hash';
+  if (
+    typeof kdf.iterations !== 'number' ||
+    !Number.isInteger(kdf.iterations) ||
+    kdf.iterations < 100_000
+  )
+    return 'kdf.iterations must be an integer ≥ 100000';
+  if (typeof kdf.length !== 'number' || kdf.length <= 0) return 'Invalid kdf.length';
+
+  return validateKeyCheck(b.keyCheck);
+}
+
+function validatePatchBody(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return 'Invalid body';
+  const b = body as Record<string, unknown>;
+
+  if (!BASE64_32.test(b.serverShare as string)) return 'Invalid serverShare';
+  if (!BASE64_32.test(b.salt as string)) return 'Invalid salt';
+
+  return validateKeyCheck(b.keyCheck);
+}
+
 export const runtime = 'nodejs';
 
 export async function GET() {
@@ -52,6 +97,11 @@ export async function POST(req: NextRequest) {
   attachDatabasePool(client);
 
   const body = await req.json();
+  const validationError = validateProfileBody(body);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
   const { version, serverShare, salt, kdf, keyCheck } = body as {
     version: number;
     serverShare: string;
@@ -83,6 +133,11 @@ export async function PATCH(req: NextRequest) {
   attachDatabasePool(client);
 
   const body = await req.json();
+  const validationError = validatePatchBody(body);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
   const { serverShare, salt, keyCheck } = body as {
     serverShare: string;
     salt: string;
