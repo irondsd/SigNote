@@ -35,6 +35,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [decryptError, setDecryptError] = useState('');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
@@ -167,6 +168,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         }
 
         updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
+        setUpdatedAt(new Date().toISOString());
         setEditing(false);
       } finally {
         setSaving(false);
@@ -275,7 +277,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        updatedAt={note.updatedAt}
+        updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
         saving={saving}

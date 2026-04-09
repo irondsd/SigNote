@@ -28,6 +28,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -79,6 +80,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       try {
         const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
         updateSecret.mutate({ id: note._id, title, encryptedBody }, { onError: () => setEditing(true) });
+        setUpdatedAt(new Date().toISOString());
         setEditing(false);
       } finally {
         setSaving(false);
@@ -152,7 +154,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        updatedAt={note.updatedAt}
+        updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
         saving={saving}

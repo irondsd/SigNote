@@ -21,6 +21,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   const [content, setContent] = useState(note.content ?? '');
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
+  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
@@ -58,6 +59,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
       return;
     }
     updateNote.mutate({ id: note._id.toString(), title, content }, { onError: () => setEditing(true) });
+    setUpdatedAt(new Date().toISOString());
     setEditing(false);
   };
 
@@ -86,7 +88,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
-        updatedAt={note.updatedAt}
+        updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
         isArchived={isArchived}

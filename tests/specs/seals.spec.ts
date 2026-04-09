@@ -483,7 +483,40 @@ test.describe('auto-encrypt timer', () => {
   });
 });
 
-// ─── Group 7: Search Seals ────────────────────────────────────────────────────
+// ─── Group 7: Date Update After Save ─────────────────────────────────────────
+
+test.describe('date update after save', () => {
+  test('seal modal shows "Updated seconds ago" after saving edit', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    const title = `Date Update Seal ${Date.now()}`;
+    await seedSeals(account.address, mekBytes, [{ title, content: 'Original seal content' }]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+
+    await sealsPage.sealCard(title).click();
+    await expect(page.getByTestId('note-title')).toBeVisible();
+
+    // Must decrypt first to reveal the edit button
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByTestId('edit-btn')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('edit-btn').click();
+
+    await page.getByTestId('note-title-input').fill(`${title} edited`);
+
+    const patchPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('save-btn').click();
+    await patchPromise;
+
+    await expect(page.getByTestId('note-date')).toContainText('Updated seconds ago');
+  });
+});
+
+// ─── Group 8: Search Seals ────────────────────────────────────────────────────
 
 test.describe('search seals', () => {
   test('search returns both archived and non-archived results by title', async ({ page }) => {

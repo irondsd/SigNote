@@ -457,7 +457,36 @@ test.describe('search secrets', () => {
   });
 });
 
-// ─── Group 7: Infinite Scroll Decryption ─────────────────────────────────────
+// ─── Group 7: Date Update After Save ─────────────────────────────────────────
+
+test.describe('date update after save', () => {
+  test('secret modal shows "Updated seconds ago" after saving edit', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+    const title = `Date Update Secret ${Date.now()}`;
+    await seedSecrets(account.address, mekBytes, [{ title, content: 'Original secret' }]);
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
+    await secretsPage.unlock();
+
+    await secretsPage.secretCard(title).click();
+    await expect(page.getByTestId('note-title')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+
+    await page.getByTestId('note-title-input').fill(`${title} edited`);
+
+    const patchPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('save-btn').click();
+    await patchPromise;
+
+    await expect(page.getByTestId('note-date')).toContainText('Updated seconds ago');
+  });
+});
+
+// ─── Group 8: Infinite Scroll Decryption ─────────────────────────────────────
 
 test.describe('infinite scroll decryption', () => {
   test('secrets loaded via infinite scroll are auto-decrypted when already unlocked', async ({ page }) => {

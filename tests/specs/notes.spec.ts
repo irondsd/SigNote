@@ -365,6 +365,33 @@ test.describe('note color', () => {
   });
 });
 
+// ─── Group 6: Date Update After Save ─────────────────────────────────────────
+
+test.describe('date update after save', () => {
+  test('note modal shows "Updated seconds ago" after saving edit', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Date Update Note ${Date.now()}`;
+    await seedNotes(account.address, [{ title, content: '<p>Original content</p>' }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+
+    await notesPage.noteCard(title).click();
+    await expect(page.getByTestId('note-title')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+
+    await page.getByTestId('note-title-input').fill(`${title} edited`);
+
+    const patchPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('save-btn').click();
+    await patchPromise;
+
+    await expect(page.getByTestId('note-date')).toContainText('Updated seconds ago');
+  });
+});
+
 // ─── Group 7: Modal Max Height ────────────────────────────────────────────────
 
 test.describe('modal max height', () => {
