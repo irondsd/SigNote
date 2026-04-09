@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createSeal, getSealsByUserId } from '@/controllers/seals';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
-import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
+import { MAX_CIPHER, MAX_SEARCH, MAX_TITLE } from '@/config/constants';
 
 export const runtime = 'nodejs';
 
@@ -12,7 +12,7 @@ export const GET = withSession(async (req, { userId }) => {
   const archived = archivedParam === null ? undefined : archivedParam === 'true';
   const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30));
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
-  const search = (req.nextUrl.searchParams.get('q') || '').trim();
+  const search = (req.nextUrl.searchParams.get('q') || '').trim().slice(0, MAX_SEARCH);
 
   const seals = await getSealsByUserId(userId, archived, limit, offset, search);
 

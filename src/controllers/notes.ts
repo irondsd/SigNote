@@ -1,4 +1,4 @@
-import { POSITION_STEP } from '@/config/constants';
+import { MAX_SEARCH, POSITION_STEP } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -31,7 +31,7 @@ export const createNote = async (userId: string, title: string, content: string)
 
 export const getNotesByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
   const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
-  const normalizedSearch = search.trim();
+  const normalizedSearch = search.trim().slice(0, MAX_SEARCH);
 
   if (!normalizedSearch) {
     return NoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();

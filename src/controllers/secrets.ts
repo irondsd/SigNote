@@ -1,4 +1,4 @@
-import { POSITION_STEP } from '@/config/constants';
+import { MAX_SEARCH, POSITION_STEP } from '@/config/constants';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
 
@@ -30,7 +30,7 @@ export const createSecret = async (userId: string, title: string, encryptedBody:
 
 export const getSecretsByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
   const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
-  const normalized = search.trim();
+  const normalized = search.trim().slice(0, MAX_SEARCH);
 
   if (!normalized) {
     return SecretNoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();

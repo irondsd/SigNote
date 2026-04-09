@@ -1,4 +1,4 @@
-import { POSITION_STEP } from '@/config/constants';
+import { MAX_SEARCH, POSITION_STEP } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
 
@@ -36,7 +36,7 @@ export const createSeal = async (
 
 export const getSealsByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
   const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
-  const normalized = search.trim();
+  const normalized = search.trim().slice(0, MAX_SEARCH);
 
   if (!normalized) {
     return SealNoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();

@@ -8,6 +8,7 @@ export const MAX_PASSPHRASE_LENGTH = 256;
 export const MAX_TITLE = 500;
 export const MAX_CONTENT = 500_000;
 export const MAX_CIPHER = MAX_CONTENT * 1.5; // Allow for some overhead from encryption, but not unbounded growth
+export const MAX_SEARCH = 200;
 
 // Encryption constants
 export const ENC_PBKDF2_ITERATIONS = 600_000;
