@@ -15,7 +15,7 @@ type NoteCardBaseProps = {
   title?: string;
   updatedAt: string | Date;
   color?: string | null;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   archived?: boolean;
   content?: React.ReactNode;
@@ -47,8 +47,8 @@ export function NoteCardBase({
       className={cn(s.card, colorClass(color))}
       role="button"
       tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
+      onClick={(e) => onClick((e.currentTarget as HTMLElement).getBoundingClientRect())}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick((e.currentTarget as HTMLElement).getBoundingClientRect())}
     >
       {title && <h3 className={s.title}>{title}</h3>}
       {content != null && (

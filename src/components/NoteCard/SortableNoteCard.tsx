@@ -8,7 +8,7 @@ import { NoteCard } from './NoteCard';
 
 type SortableNoteCardProps = {
   note: NoteDocument;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   isDragDisabled?: boolean;
 };

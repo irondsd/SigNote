@@ -6,7 +6,7 @@ import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 
 type NoteCardProps = {
   note: NoteDocument;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
 };
 

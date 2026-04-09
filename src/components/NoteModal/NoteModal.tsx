@@ -13,9 +13,10 @@ import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 type NoteModalProps = {
   note: NoteDocument;
   onClose: () => void;
+  cardRect?: DOMRect;
 };
 
-export function NoteModal({ note, onClose }: NoteModalProps) {
+export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(note.content ?? '');
@@ -78,6 +79,7 @@ export function NoteModal({ note, onClose }: NoteModalProps) {
   return (
     <>
       <SharedNoteModal
+        cardRect={cardRect}
         title={title}
         editing={editing}
         onTitleChange={setTitle}

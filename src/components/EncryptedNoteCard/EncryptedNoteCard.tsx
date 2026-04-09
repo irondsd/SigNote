@@ -8,7 +8,7 @@ type EncryptedNoteCardProps = {
   title: string;
   updatedAt: string;
   color: string | null | undefined;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
   /** If provided, renders decrypted HTML preview instead of placeholder */
   decryptedContent?: string;
   /** Base64 ciphertext for deterministic placeholder layout */

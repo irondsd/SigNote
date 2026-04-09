@@ -10,7 +10,7 @@ type SortableEncryptedCardProps = {
   title: string;
   updatedAt: string;
   color: string | null | undefined;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
   decryptedContent?: string;
   ciphertext?: string;
   showArchivedBadge?: boolean;

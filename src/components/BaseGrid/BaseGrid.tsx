@@ -28,14 +28,14 @@ type BaseGridProps<T extends BaseItem> = {
   notes: T[] | undefined;
   getId: (note: T) => string;
   reorderType: 'notes' | 'secrets' | 'seals';
-  renderCard: (note: T, onClick: () => void, showArchivedBadge: boolean, isDragDisabled: boolean) => ReactNode;
+  renderCard: (note: T, onClick: (rect: DOMRect) => void, showArchivedBadge: boolean, isDragDisabled: boolean) => ReactNode;
   renderOverlayCard: (note: T, showArchivedBadge: boolean) => ReactNode;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
   showArchivedBadge?: boolean;
   isDragDisabled?: boolean;
-  onNoteClick: (note: T) => void;
+  onNoteClick: (note: T, rect: DOMRect) => void;
   children?: ReactNode;
 };
 
@@ -125,7 +125,7 @@ export function BaseGrid<T extends BaseItem>({
       >
         <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={s.grid}>
-            {notes.map((note) => renderCard(note, () => onNoteClick(note), showArchivedBadge, !dragEnabled))}
+            {notes.map((note) => renderCard(note, (rect) => onNoteClick(note, rect), showArchivedBadge, !dragEnabled))}
           </div>
         </SortableContext>
 

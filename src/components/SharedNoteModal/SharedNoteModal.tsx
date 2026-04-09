@@ -30,6 +30,7 @@ type SharedNoteModalProps = {
   onArchive: () => void;
   onDelete: () => void;
   children: ReactNode;
+  cardRect?: DOMRect;
 };
 
 function noteColorClass(color: string | null | undefined) {
@@ -58,10 +59,11 @@ export function SharedNoteModal({
   onArchive,
   onDelete,
   children,
+  cardRect,
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal className={cn(s.modal, noteColorClass(color))}>
+      <Modal cardRect={cardRect} className={cn(s.modal, noteColorClass(color))}>
         <div className={s.header}>
           {editing ? (
             <input
