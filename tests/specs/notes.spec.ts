@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
@@ -397,6 +397,37 @@ test.describe('date update after save', () => {
 test.describe('modal max height', () => {
   const bigContent = Array.from({ length: 200 }, (_, i) => `<p>Line ${i + 1}</p>`).join('');
 
+  const waitForModalToBeStable = async (page: Page) => {
+    await page.getByTestId('note-modal').evaluate(async (el) => {
+      const hasRunningAnimations = () =>
+        el.getAnimations({ subtree: true }).some((animation) => animation.playState === 'running');
+
+      let previousHeight = -1;
+      let stableFrames = 0;
+      const maxFramesToWait = 180;
+      const minStableFrames = 6;
+
+      for (let frame = 0; frame < maxFramesToWait; frame++) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+        const currentHeight = el.getBoundingClientRect().height;
+        const heightStable = Math.abs(currentHeight - previousHeight) < 0.5;
+
+        if (heightStable && !hasRunningAnimations()) {
+          stableFrames += 1;
+        } else {
+          stableFrames = 0;
+        }
+
+        previousHeight = currentHeight;
+
+        if (stableFrames >= minStableFrames) {
+          return;
+        }
+      }
+    });
+  };
+
   test('new note modal height is capped at 90% of window height', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
@@ -409,6 +440,8 @@ test.describe('modal max height', () => {
     for (let i = 0; i < 200; i++) {
       await page.keyboard.press('Enter');
     }
+
+    await waitForModalToBeStable(page);
 
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);
@@ -427,6 +460,8 @@ test.describe('modal max height', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
+    await waitForModalToBeStable(page);
+
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);
 
@@ -444,6 +479,8 @@ test.describe('modal max height', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
     await page.getByTestId('edit-btn').click();
+
+    await waitForModalToBeStable(page);
 
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);
