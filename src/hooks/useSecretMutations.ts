@@ -11,6 +11,7 @@ import {
   patchInPlace,
   toggleArchive,
   restoreSnapshots,
+  invalidateSnapshots,
 } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
 
@@ -87,7 +88,10 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
       });
       callbacks?.onError?.();
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -104,7 +108,10 @@ export const useDeleteSecret = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -121,7 +128,10 @@ export const useUndeleteSecret = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -143,6 +153,9 @@ export const useUpdateSecret = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save secret');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };

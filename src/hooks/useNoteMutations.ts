@@ -10,6 +10,7 @@ import {
   patchInPlace,
   toggleArchive,
   restoreSnapshots,
+  invalidateSnapshots,
 } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
 
@@ -86,7 +87,10 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
       });
       callbacks?.onError?.(vars);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -103,7 +107,10 @@ export const useDeleteNote = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -120,7 +127,10 @@ export const useUndeleteNote = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -142,6 +152,9 @@ export const useUpdateNote = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save note');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };

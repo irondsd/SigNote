@@ -50,6 +50,10 @@ export function patchInPlace<T extends WithId>(
   });
 }
 
+export function invalidateSnapshots<T>(qc: QueryClient, snapshots: Snapshot<T>[]): Promise<void[]> {
+  return Promise.all(snapshots.map(([queryKey]) => qc.invalidateQueries({ queryKey, exact: true })));
+}
+
 export function toggleArchive<T extends WithId>(
   qc: QueryClient,
   snapshots: Snapshot<T>[],

@@ -11,6 +11,7 @@ import {
   patchInPlace,
   toggleArchive,
   restoreSnapshots,
+  invalidateSnapshots,
 } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
 
@@ -117,7 +118,10 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
       });
       callbacks?.onError?.();
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -134,7 +138,10 @@ export const useDeleteSeal = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to delete seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -151,7 +158,10 @@ export const useUndeleteSeal = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to restore seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
 
@@ -173,6 +183,9 @@ export const useUpdateSeal = () => {
       if (context) restoreSnapshots(qc, context.snapshots);
       toast.error('Failed to save seal');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [ROOT] }),
+    onSettled: (_data, _err, _vars, context) => {
+      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
+      return qc.invalidateQueries({ queryKey: [ROOT] });
+    },
   });
 };
