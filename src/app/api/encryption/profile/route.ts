@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const body = await req.json();
+  let body;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
   const validationError = validateProfileBody(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
@@ -132,7 +134,9 @@ export async function PATCH(req: NextRequest) {
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  const body = await req.json();
+  let body;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
   const validationError = validatePatchBody(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });

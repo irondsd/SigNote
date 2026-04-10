@@ -31,7 +31,9 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   if (!isValidObjectId(id)) throw new RouteAuthError(404, 'Not found');
   const seal = assertOwner(await getSealById(id), userId);
 
-  const body = await req.json();
+  let body;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
   const { title, encryptedBody, wrappedNoteKey, archived, deleted, color, position } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload | null;
