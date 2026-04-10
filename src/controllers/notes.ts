@@ -1,21 +1,11 @@
-import { MAX_SEARCH, POSITION_STEP } from '@/config/constants';
+import { MAX_SEARCH } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-export const getNextPosition = async (userId: string) => {
-  const lastNote = await NoteModel.findOne({ userId, deletedAt: null })
-    .sort({ position: -1 })
-    .select({ position: 1 })
-    .lean()
-    .exec();
-
-  return (lastNote?.position ?? 0) + POSITION_STEP;
-};
+import { getNextPosition } from '@/utils/calculatePosition';
+import { escapeRegExp } from '@/utils/regexUtils';
 
 export const createNote = async (userId: string, title: string, content: string) => {
   const now = new Date();
-  const position = await getNextPosition(userId);
+  const position = await getNextPosition(NoteModel, userId);
 
   const note = await NoteModel.create({
     userId,

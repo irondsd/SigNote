@@ -1,3 +1,5 @@
+import { type Model } from 'mongoose';
+
 import { POSITION_STEP } from '@/config/constants';
 
 /**
@@ -17,4 +19,14 @@ export function calculatePosition(above: number | null, below: number | null): n
     return above / 2;
   }
   return (above + below) / 2;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getNextPosition(Model: Model<any>, userId: string): Promise<number> {
+  const last = await Model.findOne({ userId, deletedAt: null })
+    .sort({ position: -1 })
+    .select({ position: 1 })
+    .lean()
+    .exec();
+  return (last?.position ?? 0) + POSITION_STEP;
 }

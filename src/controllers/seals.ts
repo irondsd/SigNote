@@ -1,18 +1,8 @@
-import { MAX_SEARCH, POSITION_STEP } from '@/config/constants';
+import { MAX_SEARCH } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-export const getNextPosition = async (userId: string) => {
-  const last = await SealNoteModel.findOne({ userId, deletedAt: null })
-    .sort({ position: -1 })
-    .select({ position: 1 })
-    .lean()
-    .exec();
-
-  return (last?.position ?? 0) + POSITION_STEP;
-};
+import { getNextPosition } from '@/utils/calculatePosition';
+import { escapeRegExp } from '@/utils/regexUtils';
 
 export const createSeal = async (
   userId: string,
@@ -21,7 +11,7 @@ export const createSeal = async (
   wrappedNoteKey: EncryptedPayload | null = null,
 ) => {
   const now = new Date();
-  const position = await getNextPosition(userId);
+  const position = await getNextPosition(SealNoteModel, userId);
 
   return SealNoteModel.create({
     userId,
@@ -42,6 +32,7 @@ export const getSealsByUserId = async (userId: string, archived?: boolean, limit
     return SealNoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();
   }
 
+  // Content is encrypted ciphertext — full-text search is only possible on title
   return SealNoteModel.find({
     ...baseQuery,
     title: { $regex: new RegExp(escapeRegExp(normalized), 'i') },
