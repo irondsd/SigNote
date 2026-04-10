@@ -10,6 +10,11 @@ export const MAX_CONTENT = 500_000;
 export const MAX_CIPHER = MAX_CONTENT * 1.5; // Allow for some overhead from encryption, but not unbounded growth
 export const MAX_SEARCH = 200;
 
+// Auto-lock timing
+export const HARD_LOCK_MS = 5 * 60 * 1000; // 5 minutes of inactivity
+export const SLEEP_CHECK_INTERVAL_MS = 10_000; // interval for sleep detection
+export const SLEEP_THRESHOLD_MS = 30_000; // gap that signals device sleep
+
 // Encryption constants
 export const ENC_PBKDF2_ITERATIONS = 600_000;
 export const ENC_PBKDF2_LENGTH = 32;

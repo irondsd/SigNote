@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { HARD_LOCK_MS, SLEEP_CHECK_INTERVAL_MS, SLEEP_THRESHOLD_MS } from '@/config/constants';
 import { useEncryption } from '@/contexts/EncryptionContext';
-
-const HARD_LOCK_MS = 5 * 60 * 1000; // 5 minutes
-const SLEEP_CHECK_INTERVAL_MS = 10_000; // 10 seconds
-const SLEEP_THRESHOLD_MS = 30_000; // 30 seconds gap = sleep detected
 
 const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'] as const;
 
 export function useAutoLock() {
-  const { phase, softLock, lock } = useEncryption();
+  const { phase, lockType, softLock, lock } = useEncryption();
+  const isSoftLocked = lockType === 'soft';
   const isUnlocked = phase === 'unlocked';
 
   // Soft lock: visibilitychange
@@ -49,6 +47,30 @@ export function useAutoLock() {
       }
     };
   }, [isUnlocked, lock]);
+
+  // Hard lock: escalate soft lock after HARD_LOCK_MS (handles mobile PWA resume + foreground case)
+  useEffect(() => {
+    if (!isSoftLocked) return;
+
+    const checkEscalation = () => {
+      const ts = sessionStorage.getItem('softLockTs');
+      if (ts && Date.now() - parseInt(ts, 10) > HARD_LOCK_MS) {
+        lock();
+      }
+    };
+
+    const timer = setTimeout(checkEscalation, HARD_LOCK_MS);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) checkEscalation();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isSoftLocked, lock]);
 
   // Hard lock: sleep detection
   useEffect(() => {

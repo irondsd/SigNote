@@ -19,6 +19,7 @@ import {
   verifyKeyCheck,
   xor32,
 } from '@/lib/crypto';
+import { HARD_LOCK_MS } from '@/config/constants';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
+      sessionStorage.removeItem('softLockTs');
     },
     [setMek],
   );
@@ -165,14 +167,26 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     clearDeviceShare();
     setLockType('none');
     setLockSerial((s) => s + 1);
+    sessionStorage.removeItem('softLockTs');
   }, [setMek]);
 
   const softLock = useCallback(() => {
     setMek(null);
     setLockType('soft');
+    sessionStorage.setItem('softLockTs', Date.now().toString());
   }, [setMek]);
 
   const rehydrate = useCallback(async (): Promise<void> => {
+    const softLockTs = sessionStorage.getItem('softLockTs');
+    if (softLockTs && Date.now() - parseInt(softLockTs, 10) > HARD_LOCK_MS) {
+      clearDeviceShare();
+      setMek(null);
+      setLockType('none');
+      setLockSerial((s) => s + 1);
+      sessionStorage.removeItem('softLockTs');
+      throw new Error('Session expired');
+    }
+
     const deviceShare = loadDeviceShare();
     if (!deviceShare) throw new Error('No device share available');
     const material = await fetchMaterialRequest();
@@ -183,6 +197,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     }
     setMek(key);
     setLockType('none');
+    sessionStorage.removeItem('softLockTs');
   }, [setMek]);
 
   const setupProfile = useCallback(
