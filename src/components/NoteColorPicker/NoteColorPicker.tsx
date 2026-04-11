@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { Palette } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { NOTE_COLORS } from '@/config/noteColors';
@@ -14,6 +15,12 @@ type NoteColorPickerProps = {
   onOpenChange: (open: boolean) => void;
   isEditing?: boolean;
 };
+
+function swatchStyle(color: (typeof NOTE_COLORS)[number]): CSSProperties {
+  return {
+    backgroundColor: `var(--note-${color})`,
+  };
+}
 
 export function NoteColorPicker({
   color,
@@ -52,11 +59,8 @@ export function NoteColorPicker({
             <button
               type="button"
               key={c}
-              className={cn(
-                s.swatch,
-                color === c && s.swatchSelected,
-                s[`switch${c.charAt(0).toUpperCase() + c.slice(1)}` as keyof typeof s],
-              )}
+              className={cn(s.swatch, color === c && s.swatchSelected)}
+              style={swatchStyle(c)}
               onClick={() => onColorChange(c)}
               title={c.charAt(0).toUpperCase() + c.slice(1)}
               aria-label={c.charAt(0).toUpperCase() + c.slice(1)}

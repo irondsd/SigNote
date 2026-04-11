@@ -1,4 +1,4 @@
-import { type ReactNode, useLayoutEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { cn } from '@/utils/cn';
 import s from './Modal.module.scss';
 
@@ -6,9 +6,10 @@ type ModalProps = {
   children: ReactNode;
   className?: string;
   cardRect?: DOMRect;
+  style?: CSSProperties;
 };
 
-export function Modal({ children, className, cardRect }: ModalProps) {
+export function Modal({ children, className, cardRect, style }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -50,7 +51,13 @@ export function Modal({ children, className, cardRect }: ModalProps) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally only runs on mount
 
   return (
-    <div ref={modalRef} data-testid="note-modal" className={cn(s.modal, className)} onClick={(e) => e.stopPropagation()}>
+    <div
+      ref={modalRef}
+      data-testid="note-modal"
+      className={cn(s.modal, className)}
+      style={style}
+      onClick={(e) => e.stopPropagation()}
+    >
       {children}
     </div>
   );

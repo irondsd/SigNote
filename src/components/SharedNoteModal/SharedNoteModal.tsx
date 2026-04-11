@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Pencil, X, Archive, ArchiveRestore, Trash2, Check } from 'lucide-react';
+import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { NoteColorPicker } from '@/components/NoteColorPicker/NoteColorPicker';
@@ -33,10 +34,12 @@ type SharedNoteModalProps = {
   cardRect?: DOMRect;
 };
 
-function noteColorClass(color: string | null | undefined) {
-  if (!color) return undefined;
-  const key = `color${color.charAt(0).toUpperCase()}${color.slice(1)}`;
-  return s[key as keyof typeof s];
+function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
+  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
+
+  return {
+    '--note-modal-bg': `var(--note-${color})`,
+  } as CSSProperties;
 }
 
 export function SharedNoteModal({
@@ -63,7 +66,7 @@ export function SharedNoteModal({
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal cardRect={cardRect} className={cn(s.modal, noteColorClass(color))}>
+      <Modal cardRect={cardRect} className={cn(s.modal)} style={noteModalStyle(color)}>
         <div className={s.header}>
           {editing ? (
             <input
