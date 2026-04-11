@@ -1,13 +1,13 @@
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const withSerwist = withSerwistInit({
   swSrc: 'src/sw.ts',
   swDest: 'public/sw.js',
-  disable: process.env.NODE_ENV !== 'production',
+  disable: !isProduction,
 });
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 const contentSecurityPolicy = [
   "default-src 'self'",
