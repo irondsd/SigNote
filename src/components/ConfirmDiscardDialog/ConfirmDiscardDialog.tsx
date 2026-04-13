@@ -14,15 +14,17 @@ export function ConfirmDiscardDialog({ onDiscard, onCancel }: ConfirmDiscardDial
   return (
     <Backdrop onClose={onCancel} className={s.backdrop}>
       <Modal className={s.modal}>
-        <h2 className={s.heading}>Discard unsaved changes?</h2>
-        <p className={s.body}>Your changes have not been saved and will be lost.</p>
-        <div className={s.actions}>
-          <Button variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onDiscard}>
-            Discard
-          </Button>
+        <div data-testid="confirm-discard-dialog">
+          <h2 className={s.heading}>Discard unsaved changes?</h2>
+          <p className={s.body}>Your changes have not been saved and will be lost.</p>
+          <div className={s.actions}>
+            <Button variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={onDiscard}>
+              Discard
+            </Button>
+          </div>
         </div>
       </Modal>
     </Backdrop>

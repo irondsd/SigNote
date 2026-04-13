@@ -144,7 +144,40 @@ test.describe('draft saving', () => {
   });
 });
 
-// ─── Group 2: Draft toast ────────────────────────────────────────────────────
+// ─── Group 2: Draft discard clears localStorage ──────────────────────────────
+
+test.describe('discard clears draft', () => {
+  test('clicking Discard on new note modal removes draft from localStorage', async ({ page }) => {
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly();
+
+    await page.getByTestId('new-note-btn').click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+
+    await page.getByTestId('note-title-input').fill('Draft to discard');
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type('Some content');
+
+    // Wait for debounce to save the draft
+    await expect.poll(() => getDraft(page), { timeout: 5000 }).not.toBeNull();
+
+    // Cancel → confirm dialog → Discard
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
+    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await expect(page.getByTestId('note-title-input')).toHaveCount(0);
+
+    // Draft must be gone
+    expect(await getDraft(page)).toBeNull();
+
+    // Reload — no draft toast should appear
+    await page.reload();
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('You have an unsaved')).not.toBeVisible();
+  });
+});
+
+// ─── Group 3: Draft toast ─────────────────────────────────────────────────────
 
 test.describe('draft toast', () => {
   test('shows toast on app load when a note draft exists', async ({ page }) => {
@@ -281,17 +314,8 @@ test.describe('vault draft restore', () => {
     const title = 'Locked Secret Draft';
     const content = 'Sensitive content';
 
-    // Type in New Secret modal to create a draft
-    await page.getByRole('button', { name: 'New Secret' }).click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill(title);
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type(content);
-    await page.waitForTimeout(700);
-
-    // Close modal without saving — confirm discard
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await page.getByRole('button', { name: 'Discard' }).click();
+    // Seed draft directly to simulate an "accidental close" (tab closed, crash, etc.)
+    await seedDraft(page, { type: 'secret', title, content: `<p>${content}</p>` });
 
     // Clear sessionStorage to simulate a locked session on next page load
     await page.evaluate(() => sessionStorage.clear());
@@ -321,15 +345,8 @@ test.describe('vault draft restore', () => {
     const title = 'Restored Seal';
     const content = 'Seal draft content';
 
-    await page.getByRole('button', { name: 'New Seal' }).click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill(title);
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type(content);
-    await page.waitForTimeout(700);
-
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await page.getByRole('button', { name: 'Discard' }).click();
+    // Seed draft directly to simulate an "accidental close" (tab closed, crash, etc.)
+    await seedDraft(page, { type: 'seal', title, content: `<p>${content}</p>` });
     await page.evaluate(() => sessionStorage.clear());
 
     await page.reload();
@@ -352,16 +369,8 @@ test.describe('vault draft restore', () => {
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
 
-    await page.getByRole('button', { name: 'New Secret' }).click();
-    await expect(page.getByTestId('note-title-input')).toBeVisible();
-    await page.getByTestId('note-title-input').fill('Unlocked Secret Draft');
-    await page.getByTestId('tiptap-editor').click();
-    await page.keyboard.type('Unlocked body');
-    await page.waitForTimeout(700);
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await page.getByRole('button', { name: 'Discard' }).click();
-
-    // Do NOT clear sessionStorage — MEK is still rehydratable on next load
+    // Seed draft directly — do NOT clear sessionStorage so MEK is still rehydratable on next load
+    await seedDraft(page, { type: 'secret', title: 'Unlocked Secret Draft', content: '<p>Unlocked body</p>' });
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('You have an unsaved secret draft')).toBeVisible();
@@ -398,8 +407,8 @@ test.describe('unsaved changes confirmation', () => {
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByText('Discard unsaved changes?')).toBeVisible();
 
-    // Cancel keeps editing
-    await page.getByRole('button', { name: 'Cancel' }).click();
+    // Cancel keeps editing — scope to the confirm dialog to avoid hitting modal footer's Cancel button
+    await page.getByTestId('confirm-discard-dialog').getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
   });
 

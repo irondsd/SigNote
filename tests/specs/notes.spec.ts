@@ -303,6 +303,43 @@ test.describe('edit note', () => {
     const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
     expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(originalUpdatedAt);
   });
+  test('cancel edit reverts title and content changes without saving', async ({ page }) => {
+    const { account } = makeAccount();
+    const originalTitle = `Cancel Test ${Date.now()}`;
+    const originalContent = '<p>Original content</p>';
+    const [seededNote] = await seedNotes(account.address, [{ title: originalTitle, content: originalContent }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+
+    await notesPage.noteCard(originalTitle).click();
+    await expect(page.getByTestId('note-title')).toBeVisible();
+    await page.getByTestId('edit-btn').click();
+
+    // Change title and content
+    await page.getByTestId('note-title-input').fill('Changed Title');
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.type('Changed content');
+
+    // Click Cancel — no PATCH request should fire
+    let patchFired = false;
+    page.on('request', (req) => {
+      if (req.url().includes('/api/notes/') && req.method() === 'PATCH') patchFired = true;
+    });
+    await page.getByTestId('note-modal').getByRole('button', { name: 'Cancel' }).click();
+
+    // Modal should return to view mode showing the original title
+    await expect(page.getByTestId('note-title')).toHaveText(originalTitle);
+    expect(patchFired).toBe(false);
+
+    // API confirms the note is unchanged
+    const notesRes = await page.request.get('/api/notes');
+    const notes = await notesRes.json();
+    const unchanged = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    expect(unchanged.title).toBe(originalTitle);
+    expect(unchanged.content).toBe(originalContent);
+  });
 });
 
 // ─── Group 6: Color ───────────────────────────────────────────────────────────
