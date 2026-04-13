@@ -2,7 +2,7 @@
 
 import type { FC, ReactNode } from 'react';
 import { useEffect } from 'react';
-import { SessionProvider, useSession } from 'next-auth/react';
+import { SessionProvider, signOut, useSession } from 'next-auth/react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { clearDraft } from '@/lib/draft';
 import { queryCacheStorage } from '@/lib/idb';
@@ -19,6 +19,15 @@ function SessionCleanup() {
       queryCacheStorage.removeItem('signote-query-cache');
     }
   }, [status]);
+  useEffect(() => {
+    const channel = new BroadcastChannel('signote-auth');
+    channel.onmessage = (e) => {
+      if (e.data?.type === 'logout') {
+        signOut({ redirect: false });
+      }
+    };
+    return () => channel.close();
+  }, []);
   return null;
 }
 

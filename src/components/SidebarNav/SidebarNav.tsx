@@ -46,6 +46,9 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const handleSignOut = async () => {
     disconnect();
     signOut({ redirect: false });
+    const channel = new BroadcastChannel('signote-auth');
+    channel.postMessage({ type: 'logout' });
+    channel.close();
   };
 
   return (
