@@ -281,3 +281,240 @@ test.describe('lists', () => {
     expect(content).toContain('<li>');
   });
 });
+
+// ─── Group 7: Formatting Toolbar ─────────────────────────────────────────────
+
+test.describe('formatting toolbar', () => {
+  async function openToolbar(notesPage: InstanceType<typeof NotesPage>) {
+    const page = notesPage.page;
+    await page.getByTitle('Formatting options').click();
+    await expect(page.getByTitle('Bold')).toBeVisible();
+    await page.waitForTimeout(250); // wait for CSS grid animation to finish
+  }
+
+  test('toolbar toggle shows and hides the toolbar', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Toggle ${Date.now()}`;
+    await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+
+    await expect(page.getByTitle('Bold')).not.toBeVisible();
+    await page.getByTitle('Formatting options').click();
+    await expect(page.getByTitle('Bold')).toBeVisible();
+    await page.getByTitle('Formatting options').click();
+    await expect(page.getByTitle('Bold')).not.toBeVisible();
+  });
+
+  test('H1 button applies heading 1', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar H1 ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Heading 1').click();
+    await page.keyboard.type('heading text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<h1>');
+  });
+
+  test('H2 button applies heading 2', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar H2 ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Heading 2').click();
+    await page.keyboard.type('heading text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<h2>');
+  });
+
+  test('H3 button applies heading 3', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar H3 ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Heading 3').click();
+    await page.keyboard.type('heading text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<h3>');
+  });
+
+  test('Bold button applies bold', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Bold ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Bold').click();
+    await page.keyboard.type('bold text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<strong>');
+  });
+
+  test('Italic button applies italic', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Italic ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Italic').click();
+    await page.keyboard.type('italic text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<em>');
+  });
+
+  test('Strikethrough button applies strikethrough', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Strike ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Strikethrough').click();
+    await page.keyboard.type('struck text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<s>');
+  });
+
+  test('Underline button applies underline', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Underline ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Underline').click();
+    await page.keyboard.type('underlined text');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<u>');
+  });
+
+  test('Inline code button applies code', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Code ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Inline code').click();
+    await page.keyboard.type('const x = 1');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<code>');
+  });
+
+  test('Code block button creates a code block', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar CodeBlock ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Code block').click();
+    await page.keyboard.type('const x = 1;');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<pre>');
+    expect(content).toContain('<code');
+  });
+
+  test('Ordered list button creates an ordered list', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar OL ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Ordered list').click();
+    await page.keyboard.type('first item');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<ol>');
+    expect(content).toContain('<li>');
+  });
+
+  test('Bullet list button creates an unordered list', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar UL ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Bullet list').click();
+    await page.keyboard.type('list item');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<ul>');
+    expect(content).toContain('<li>');
+  });
+
+  test('Task list button creates a task list', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar TaskList ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Task list').click();
+    await page.keyboard.type('my task');
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('data-type="taskItem"');
+  });
+
+  test('Divider line button inserts a horizontal rule', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar HR ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [{ title }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+    await page.getByTitle('Divider line').click();
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).toContain('<hr');
+  });
+});

@@ -12,6 +12,10 @@
   overflow: hidden;
 }
 
+.wrapper:not(.open) .inner {
+  visibility: hidden;
+}
+
 .row {
   display: flex;
   align-items: center;
