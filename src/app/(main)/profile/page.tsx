@@ -274,11 +274,7 @@ function ProfilePageContent() {
                 <span className={s.actionDesc}>Change the passphrase used to protect your secrets and seals.</span>
               </div>
               {profile?.hasEncryptionProfile ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/change-passphrase')}
-                >
+                <Button variant="outline" size="sm" onClick={() => router.push('/change-passphrase')}>
                   <KeyRound size={14} />
                   Change
                 </Button>

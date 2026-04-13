@@ -20,8 +20,11 @@ export const GET = withSession(async (req, { userId }) => {
 
 export const POST = withSession(async (req, { userId }) => {
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const { title, content } = body as { title?: string; content?: string };
 
   if ((title?.length ?? 0) > MAX_TITLE || (content?.length ?? 0) > MAX_CONTENT) {

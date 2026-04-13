@@ -36,11 +36,7 @@ function validateProfileBody(body: unknown): string | null {
   if (!kdf || typeof kdf !== 'object') return 'Invalid kdf';
   if (kdf.name !== 'PBKDF2') return 'Invalid kdf.name';
   if (!['SHA-256', 'SHA-512'].includes(kdf.hash as string)) return 'Invalid kdf.hash';
-  if (
-    typeof kdf.iterations !== 'number' ||
-    !Number.isInteger(kdf.iterations) ||
-    kdf.iterations < 100_000
-  )
+  if (typeof kdf.iterations !== 'number' || !Number.isInteger(kdf.iterations) || kdf.iterations < 100_000)
     return 'kdf.iterations must be an integer ≥ 100000';
   if (typeof kdf.length !== 'number' || kdf.length <= 0) return 'Invalid kdf.length';
 
@@ -97,8 +93,11 @@ export async function POST(req: NextRequest) {
   attachDatabasePool(client);
 
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const validationError = validateProfileBody(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
@@ -135,8 +134,11 @@ export async function PATCH(req: NextRequest) {
   attachDatabasePool(client);
 
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const validationError = validatePatchBody(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
