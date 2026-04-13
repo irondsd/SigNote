@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useEditor, EditorContent, ReactNodeViewRenderer } from '@tiptap/react';
+import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import CodeBlock from '@tiptap/extension-code-block';
 import Link from '@tiptap/extension-link';
@@ -23,9 +24,10 @@ type TiptapEditorProps = {
   editable: boolean;
   placeholder?: string;
   autoFocus?: boolean;
+  onEditorReady?: (editor: Editor) => void;
 };
 
-export function TiptapEditor({ content, onChange, editable, placeholder, autoFocus }: TiptapEditorProps) {
+export function TiptapEditor({ content, onChange, editable, placeholder, autoFocus, onEditorReady }: TiptapEditorProps) {
   const editableRef = useRef(editable);
 
   const editor = useEditor({
@@ -51,6 +53,11 @@ export function TiptapEditor({ content, onChange, editable, placeholder, autoFoc
     editableRef.current = editable;
     editor?.setEditable(editable);
   }, [editor, editable]);
+
+  useEffect(() => {
+    if (editor) onEditorReady?.(editor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;

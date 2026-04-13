@@ -28,15 +28,10 @@
   font-weight: 600;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--border);
   outline: none;
   color: var(--card-foreground);
   padding: 6px 0;
   font-family: inherit;
-
-  &:focus {
-    border-bottom-color: var(--primary);
-  }
 
   &::placeholder {
     color: var(--muted-foreground);
@@ -46,8 +41,19 @@
 
 .footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
+}
+
+.footerRight {
+  display: flex;
+  gap: 8px;
+}
+
+.formatActive {
+  background: var(--accent) !important;
+  color: var(--primary) !important;
 }

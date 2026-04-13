@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, Type } from 'lucide-react';
+import type { Editor } from '@tiptap/core';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -13,6 +15,7 @@ import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft } from '@/lib/draft';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { toast } from 'sonner';
+import { cn } from '@/utils/cn';
 import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewSecretModalProps = {
@@ -26,6 +29,8 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const [title, setTitle] = useState(initialContent?.title ?? '');
   const [content, setContent] = useState(initialContent?.content ?? '');
   const [saving, setSaving] = useState(false);
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
   const createSecret = useCreateSecret({
     onError: () => {
@@ -39,6 +44,11 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const isDirty = !isTitleEmpty || !isContentEmpty;
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
   const handleClose = () => confirmClose(onClose);
+  const handleConfirmDiscard = () => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    clearDraft();
+    onConfirmDiscard();
+  };
 
   useEffect(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
@@ -87,21 +97,33 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         heading="New Secret"
         onClose={handleClose}
         onBackdropClose={handleClose}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={handleClose}>
-              <X size={14} />
-              Cancel
-            </Button>
             <Button
-              data-testid="save-secret-btn"
-              size="sm"
-              onClick={handleSave}
-              disabled={(isTitleEmpty && isContentEmpty) || saving}
+              variant="ghost"
+              size="icon-sm"
+              title="Formatting options"
+              onClick={() => setShowFormatBar((v) => !v)}
+              className={cn(showFormatBar && s.formatActive)}
             >
-              <Check size={14} />
-              {saving ? 'Saving…' : 'Save Secret'}
+              <Type size={15} />
             </Button>
+            <div className={s.footerRight}>
+              <Button variant="ghost" size="sm" onClick={handleClose}>
+                <X size={14} />
+                Cancel
+              </Button>
+              <Button
+                data-testid="save-secret-btn"
+                size="sm"
+                onClick={handleSave}
+                disabled={(isTitleEmpty && isContentEmpty) || saving}
+              >
+                <Check size={14} />
+                {saving ? 'Saving…' : 'Save Secret'}
+              </Button>
+            </div>
           </>
         }
       >
@@ -118,12 +140,13 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
           editable={true}
           placeholder="Write your secret…"
           autoFocus
+          onEditorReady={setEditor}
         />
       </NewModal>
 
       {guard.PassphraseGuard}
 
-      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+      {showConfirm && <ConfirmDiscardDialog onDiscard={handleConfirmDiscard} onCancel={onCancelClose} />}
     </>
   );
 }

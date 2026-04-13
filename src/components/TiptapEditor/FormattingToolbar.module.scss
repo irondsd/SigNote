@@ -1,0 +1,51 @@
+.wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+
+  &.open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.inner {
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background 0.1s,
+    color 0.1s;
+
+  &:hover {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}

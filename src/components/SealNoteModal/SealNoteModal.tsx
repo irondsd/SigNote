@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LockOpen, Lock } from 'lucide-react';
+import { LockOpen, Lock, Type } from 'lucide-react';
 import { toast } from 'sonner';
+import type { Editor } from '@tiptap/core';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -15,8 +17,10 @@ import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { cn } from '@/utils/cn';
 import { DecryptTimer } from './DecryptTimer';
 import s from './SealNoteModal.module.scss';
+import sm from '@/components/SharedNoteModal/SharedNoteModal.module.scss';
 
 const DECRYPT_FOR_SECONDS = 60;
 
@@ -38,6 +42,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [decryptError, setDecryptError] = useState('');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -284,6 +290,20 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
+        toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} /> : undefined}
+        formatToggle={
+          isDecrypted ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Formatting options"
+              onClick={() => setShowFormatBar((v) => !v)}
+              className={cn(showFormatBar && sm.formatActive)}
+            >
+              <Type size={15} />
+            </Button>
+          ) : undefined
+        }
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>
@@ -312,6 +332,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               }}
               editable={editing}
               placeholder="Write your seal…"
+              onEditorReady={setEditor}
             />
             {timeLeft !== null && !editing && (
               <div className={s.btns}>

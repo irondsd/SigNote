@@ -1,9 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Type } from 'lucide-react';
 import { toast } from 'sonner';
+import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
+import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
@@ -11,6 +15,8 @@ import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { cn } from '@/utils/cn';
+import s from '@/components/SharedNoteModal/SharedNoteModal.module.scss';
 
 type SecretNoteModalProps = {
   note: CachedSecretNote;
@@ -29,6 +35,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -161,6 +169,18 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        formatToggle={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Formatting options"
+            onClick={() => setShowFormatBar((v) => !v)}
+            className={cn(showFormatBar && s.formatActive)}
+          >
+            <Type size={15} />
+          </Button>
+        }
       >
         <TiptapEditor
           content={content}
@@ -179,6 +199,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
           }}
           editable={editing}
           placeholder="Write your secret…"
+          onEditorReady={setEditor}
         />
       </SharedNoteModal>
 

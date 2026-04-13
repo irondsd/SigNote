@@ -32,6 +32,8 @@ type SharedNoteModalProps = {
   onDelete: () => void;
   children: ReactNode;
   cardRect?: DOMRect;
+  toolbar?: ReactNode;
+  formatToggle?: ReactNode;
 };
 
 function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
@@ -63,6 +65,8 @@ export function SharedNoteModal({
   onDelete,
   children,
   cardRect,
+  toolbar,
+  formatToggle,
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
@@ -91,8 +95,15 @@ export function SharedNoteModal({
 
         <div className={s.body}>{children}</div>
 
+        {toolbar}
+
         <div className={s.footer}>
-          <RelativeDate data-testid="note-date" updatedAt={updatedAt} createdAt={createdAt} className={s.date} />
+          <div className={s.footerLeft}>
+            {editing && formatToggle}
+            {!editing && (
+              <RelativeDate data-testid="note-date" updatedAt={updatedAt} createdAt={createdAt} className={s.date} />
+            )}
+          </div>
           <div className={s.actions}>
             {!editing ? (
               <>

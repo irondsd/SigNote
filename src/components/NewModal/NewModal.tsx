@@ -12,10 +12,11 @@ type NewModalProps = {
   onClose: () => void;
   onBackdropClose?: () => void;
   footer: ReactNode;
+  toolbar?: ReactNode;
   children: ReactNode;
 };
 
-export function NewModal({ heading, onClose, onBackdropClose, footer, children }: NewModalProps) {
+export function NewModal({ heading, onClose, onBackdropClose, footer, toolbar, children }: NewModalProps) {
   return (
     <Backdrop onClose={onBackdropClose ?? onClose}>
       <Modal>
@@ -26,6 +27,7 @@ export function NewModal({ heading, onClose, onBackdropClose, footer, children }
           </Button>
         </div>
         <div className={s.body}>{children}</div>
+        {toolbar}
         <div className={s.footer}>{footer}</div>
       </Modal>
     </Backdrop>

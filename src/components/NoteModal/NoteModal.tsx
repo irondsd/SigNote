@@ -1,14 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import { Type } from 'lucide-react';
 import { toast } from 'sonner';
+import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
+import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { cn } from '@/utils/cn';
+import s from '@/components/SharedNoteModal/SharedNoteModal.module.scss';
 
 type NoteModalProps = {
   note: NoteDocument;
@@ -24,6 +30,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [showFormatBar, setShowFormatBar] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -96,6 +104,18 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        formatToggle={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Formatting options"
+            onClick={() => setShowFormatBar((v) => !v)}
+            className={cn(showFormatBar && s.formatActive)}
+          >
+            <Type size={15} />
+          </Button>
+        }
       >
         <TiptapEditor
           content={content}
@@ -107,6 +127,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
           }}
           editable={editing}
           placeholder="Write your note..."
+          onEditorReady={setEditor}
         />
       </SharedNoteModal>
 

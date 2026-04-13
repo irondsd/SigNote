@@ -137,14 +137,6 @@
 .editable {
   :global(.ProseMirror) {
     min-height: 200px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    transition: border-color 0.15s;
-
-    &:focus {
-      border-color: var(--primary);
-    }
   }
 }
 
