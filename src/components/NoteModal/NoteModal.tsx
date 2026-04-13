@@ -1,20 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Type } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
+import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
-import { cn } from '@/utils/cn';
-import s from '@/components/SharedNoteModal/SharedNoteModal.module.scss';
 
 type NoteModalProps = {
   note: NoteDocument;
@@ -112,17 +109,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
-        formatToggle={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Formatting options"
-            onClick={() => setShowFormatBar((v) => !v)}
-            className={cn(showFormatBar && s.formatActive)}
-          >
-            <Type size={15} />
-          </Button>
-        }
+        formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
       >
         <TiptapEditor
           key={editing ? 'editing' : 'viewing'}

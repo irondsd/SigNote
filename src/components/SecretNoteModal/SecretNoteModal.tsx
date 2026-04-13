@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Type } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
+import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
@@ -15,8 +14,6 @@ import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
-import { cn } from '@/utils/cn';
-import s from '@/components/SharedNoteModal/SharedNoteModal.module.scss';
 
 type SecretNoteModalProps = {
   note: CachedSecretNote;
@@ -177,17 +174,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
-        formatToggle={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Formatting options"
-            onClick={() => setShowFormatBar((v) => !v)}
-            className={cn(showFormatBar && s.formatActive)}
-          >
-            <Type size={15} />
-          </Button>
-        }
+        formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
       >
         <TiptapEditor
           key={editing ? 'editing' : 'viewing'}
