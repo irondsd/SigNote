@@ -109,6 +109,9 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
               variant="ghost"
               size="icon-sm"
               title="Formatting options"
+              onMouseDown={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.preventDefault()}
+              onTouchEnd={(e) => { e.preventDefault(); setShowFormatBar((v) => !v); }}
               onClick={() => setShowFormatBar((v) => !v)}
               className={cn(showFormatBar && s.formatActive)}
             >
