@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import type { Editor } from '@tiptap/core';
 import {
   Heading1,
@@ -25,65 +26,81 @@ type Props = {
   isOpen: boolean;
 };
 
-// Prevent toolbar buttons from stealing focus from the editor
-const noFocusSteal = (e: React.MouseEvent) => e.preventDefault();
+// On desktop: onMouseDown preventDefault keeps editor focused when clicking toolbar buttons.
+// On mobile: touchstart preventDefault stops the browser from dismissing the keyboard.
+// Since preventing touchstart cancels click synthesis, we run the action on touchend instead.
+function ToolbarButton({ title, action, children }: { title: string; action: () => void; children: React.ReactNode }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      title={title}
+      onMouseDown={(e) => e.preventDefault()}
+      onTouchStart={(e) => e.preventDefault()}
+      onTouchEnd={(e) => { e.preventDefault(); action(); }}
+      onClick={action}
+    >
+      {children}
+    </Button>
+  );
+}
 
 export function FormattingToolbar({ editor, isOpen }: Props) {
   return (
     <div className={cn(s.wrapper, isOpen && s.open)}>
       <div className={s.inner}>
         <div className={s.row}>
-          <Button variant="ghost" size="icon-sm" title="Heading 1" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
+          <ToolbarButton title="Heading 1" action={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
             <Heading1 size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Heading 2" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Heading 2" action={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
             <Heading2 size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Heading 3" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Heading 3" action={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>
             <Heading3 size={15} />
-          </Button>
+          </ToolbarButton>
 
           <div className={s.divider} />
 
-          <Button variant="ghost" size="icon-sm" title="Bold" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleBold().run()}>
+          <ToolbarButton title="Bold" action={() => editor?.chain().focus().toggleBold().run()}>
             <Bold size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Italic" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleItalic().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Italic" action={() => editor?.chain().focus().toggleItalic().run()}>
             <Italic size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Strikethrough" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleStrike().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Strikethrough" action={() => editor?.chain().focus().toggleStrike().run()}>
             <Strikethrough size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Underline" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleUnderline().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Underline" action={() => editor?.chain().focus().toggleUnderline().run()}>
             <Underline size={15} />
-          </Button>
+          </ToolbarButton>
 
           <div className={s.divider} />
 
-          <Button variant="ghost" size="icon-sm" title="Inline code" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleCode().run()}>
+          <ToolbarButton title="Inline code" action={() => editor?.chain().focus().toggleCode().run()}>
             <Code size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Code block" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleCodeBlock().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Code block" action={() => editor?.chain().focus().toggleCodeBlock().run()}>
             <Terminal size={15} />
-          </Button>
+          </ToolbarButton>
 
           <div className={s.divider} />
 
-          <Button variant="ghost" size="icon-sm" title="Ordered list" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
+          <ToolbarButton title="Ordered list" action={() => editor?.chain().focus().toggleOrderedList().run()}>
             <ListOrdered size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Bullet list" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleBulletList().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Bullet list" action={() => editor?.chain().focus().toggleBulletList().run()}>
             <List size={15} />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Task list" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().toggleTaskList().run()}>
+          </ToolbarButton>
+          <ToolbarButton title="Task list" action={() => editor?.chain().focus().toggleTaskList().run()}>
             <ListChecks size={15} />
-          </Button>
+          </ToolbarButton>
 
           <div className={s.divider} />
 
-          <Button variant="ghost" size="icon-sm" title="Divider line" onMouseDown={noFocusSteal} onClick={() => editor?.chain().focus().setHorizontalRule().run()}>
+          <ToolbarButton title="Divider line" action={() => editor?.chain().focus().setHorizontalRule().run()}>
             <Minus size={15} />
-          </Button>
+          </ToolbarButton>
         </div>
       </div>
     </div>
