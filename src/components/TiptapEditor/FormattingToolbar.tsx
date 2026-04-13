@@ -14,8 +14,10 @@ import {
   ListOrdered,
   List,
   ListChecks,
+  Minus,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { Button } from '@/components/ui/button';
 import s from './FormattingToolbar.module.scss';
 
 type Props = {
@@ -28,99 +30,57 @@ export function FormattingToolbar({ editor, isOpen }: Props) {
     <div className={cn(s.wrapper, isOpen && s.open)}>
       <div className={s.inner}>
         <div className={s.row}>
-          <button
-            className={s.btn}
-            title="Heading 1"
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-          >
+          <Button variant="ghost" size="icon-sm" title="Heading 1" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>
             <Heading1 size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Heading 2"
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Heading 2" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>
             <Heading2 size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Heading 3"
-            onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Heading 3" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>
             <Heading3 size={15} />
-          </button>
+          </Button>
 
           <div className={s.divider} />
 
-          <button
-            className={s.btn}
-            title="Bold"
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-          >
+          <Button variant="ghost" size="icon-sm" title="Bold" onClick={() => editor?.chain().focus().toggleBold().run()}>
             <Bold size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Italic"
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Italic" onClick={() => editor?.chain().focus().toggleItalic().run()}>
             <Italic size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Strikethrough"
-            onClick={() => editor?.chain().focus().toggleStrike().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Strikethrough" onClick={() => editor?.chain().focus().toggleStrike().run()}>
             <Strikethrough size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Underline"
-            onClick={() => editor?.chain().focus().toggleUnderline().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Underline" onClick={() => editor?.chain().focus().toggleUnderline().run()}>
             <Underline size={15} />
-          </button>
+          </Button>
 
           <div className={s.divider} />
 
-          <button
-            className={s.btn}
-            title="Inline code"
-            onClick={() => editor?.chain().focus().toggleCode().run()}
-          >
+          <Button variant="ghost" size="icon-sm" title="Inline code" onClick={() => editor?.chain().focus().toggleCode().run()}>
             <Code size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Code block"
-            onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Code block" onClick={() => editor?.chain().focus().toggleCodeBlock().run()}>
             <Terminal size={15} />
-          </button>
+          </Button>
 
           <div className={s.divider} />
 
-          <button
-            className={s.btn}
-            title="Ordered list"
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-          >
+          <Button variant="ghost" size="icon-sm" title="Ordered list" onClick={() => editor?.chain().focus().toggleOrderedList().run()}>
             <ListOrdered size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Bullet list"
-            onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Bullet list" onClick={() => editor?.chain().focus().toggleBulletList().run()}>
             <List size={15} />
-          </button>
-          <button
-            className={s.btn}
-            title="Task list"
-            onClick={() => editor?.chain().focus().toggleTaskList().run()}
-          >
+          </Button>
+          <Button variant="ghost" size="icon-sm" title="Task list" onClick={() => editor?.chain().focus().toggleTaskList().run()}>
             <ListChecks size={15} />
-          </button>
+          </Button>
+
+          <div className={s.divider} />
+
+          <Button variant="ghost" size="icon-sm" title="Divider line" onClick={() => editor?.chain().focus().setHorizontalRule().run()}>
+            <Minus size={15} />
+          </Button>
         </div>
       </div>
     </div>
