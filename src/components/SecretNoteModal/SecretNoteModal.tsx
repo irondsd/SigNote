@@ -124,6 +124,12 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     }
   };
 
+  const handleCancel = () => {
+    setTitle(note.title ?? '');
+    setContent(savedContentRef.current);
+    setEditing(false);
+  };
+
   const handleArchiveToggle = () => {
     const next = !isArchived;
     setIsArchived(next);
@@ -165,6 +171,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
+        onCancel={handleCancel}
         saving={saving}
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
@@ -183,6 +190,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         }
       >
         <TiptapEditor
+          key={editing ? 'editing' : 'viewing'}
           content={content}
           onChange={async (html) => {
             setContent(html);

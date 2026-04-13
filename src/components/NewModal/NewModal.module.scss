@@ -7,10 +7,21 @@
 }
 
 .heading {
+  flex: 1;
   font-size: 17px;
   font-weight: 700;
   margin: 0;
   color: var(--card-foreground);
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  padding: 0;
+
+  &::placeholder {
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
 }
 
 .body {

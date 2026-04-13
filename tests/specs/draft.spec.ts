@@ -101,7 +101,7 @@ test.describe('draft saving', () => {
     expect(draft?.content).not.toContain('Content A');
   });
 
-  test('saves plaintext draft for secrets', async ({ page }) => {
+  test('saves draft for secrets', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -122,7 +122,7 @@ test.describe('draft saving', () => {
     expect(draft.savedAt).toBeGreaterThan(0);
   });
 
-  test('saves plaintext draft for seals', async ({ page }) => {
+  test('saves draft for seals', async ({ page }) => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly();
     await sealsPage.unlock();
@@ -273,7 +273,7 @@ test.describe('note draft restore', () => {
 // ─── Group 4: Vault draft restore ────────────────────────────────────────────
 
 test.describe('vault draft restore', () => {
-  test('Continue for a locked secret draft opens modal with plaintext content', async ({ page }) => {
+  test('Continue for a locked secret draft opens modal with content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -307,13 +307,13 @@ test.describe('vault draft restore', () => {
     // Passphrase modal should NOT appear
     await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
 
-    // Modal opens with plaintext draft content
+    // Modal opens with draft content
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content);
   });
 
-  test('Continue for a locked seal draft opens modal with plaintext content', async ({ page }) => {
+  test('Continue for a locked seal draft opens modal with content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly();
     await sealsPage.unlock();
@@ -341,7 +341,7 @@ test.describe('vault draft restore', () => {
     // Passphrase modal should NOT appear
     await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
 
-    // Modal opens with plaintext content
+    // Modal opens with draft content
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content, { timeout: 5000 });

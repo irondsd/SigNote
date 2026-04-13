@@ -253,6 +253,12 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     setColorPickerOpen(false);
   };
 
+  const handleCancel = () => {
+    setTitle(note.title ?? '');
+    setDecryptedContent(originalDecryptedRef.current);
+    setEditing(false);
+  };
+
   const doClose = () => {
     setDecryptedContent(null);
     setEditing(false);
@@ -286,6 +292,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
+        onCancel={handleCancel}
         saving={saving}
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
@@ -308,6 +315,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         {isDecrypted ? (
           <div className={s.decryptedBody}>
             <TiptapEditor
+              key={editing ? 'editing' : 'viewing'}
               content={decryptedContent}
               onChange={async (html) => {
                 setDecryptedContent(html);

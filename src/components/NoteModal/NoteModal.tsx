@@ -58,6 +58,12 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     });
   };
 
+  const handleCancel = () => {
+    setTitle(note.title ?? '');
+    setContent(note.content ?? '');
+    setEditing(false);
+  };
+
   const handleSave = () => {
     if (title.length > MAX_TITLE) {
       toast.error('Title is too long');
@@ -101,6 +107,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         updatedAt={updatedAt}
         createdAt={note.createdAt}
         onSave={handleSave}
+        onCancel={handleCancel}
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
@@ -118,6 +125,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         }
       >
         <TiptapEditor
+          key={editing ? 'editing' : 'viewing'}
           content={content}
           onChange={(html) => {
             setContent(html);

@@ -26,6 +26,7 @@ type SharedNoteModalProps = {
   updatedAt: string | Date;
   createdAt: string | Date;
   onSave: () => void;
+  onCancel?: () => void;
   saving?: boolean;
   isArchived: boolean;
   onArchive: () => void;
@@ -59,6 +60,7 @@ export function SharedNoteModal({
   updatedAt,
   createdAt,
   onSave,
+  onCancel,
   saving = false,
   isArchived,
   onArchive,
@@ -148,10 +150,18 @@ export function SharedNoteModal({
                 </Button>
               </>
             ) : (
-              <Button data-testid="save-btn" size="sm" onClick={onSave} disabled={saving}>
-                <Check size={15} />
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
+              <>
+                {onCancel && (
+                  <Button variant="ghost" size="sm" onClick={onCancel}>
+                    <X size={14} />
+                    Cancel
+                  </Button>
+                )}
+                <Button data-testid="save-btn" size="sm" onClick={onSave} disabled={saving}>
+                  <Check size={15} />
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </>
             )}
           </div>
         </div>

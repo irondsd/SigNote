@@ -73,7 +73,16 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
   return (
     <>
       <NewModal
-        heading="New Note"
+        heading={
+          <input
+            data-testid="note-title-input"
+            className={s.heading}
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+        }
         onClose={handleClose}
         onBackdropClose={handleClose}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
@@ -106,19 +115,11 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
           </>
         }
       >
-        <input
-          data-testid="note-title-input"
-          className={s.titleInput}
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
         <TiptapEditor
           content={content}
           onChange={setContent}
           editable={true}
           placeholder="Write your note..."
-          autoFocus
           onEditorReady={setEditor}
         />
       </NewModal>
