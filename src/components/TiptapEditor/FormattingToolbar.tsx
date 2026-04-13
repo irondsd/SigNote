@@ -16,6 +16,7 @@ import {
   List,
   ListChecks,
   Minus,
+  Type,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,23 @@ type Props = {
 // On desktop: onMouseDown preventDefault keeps editor focused when clicking toolbar buttons.
 // On mobile: touchstart preventDefault stops the browser from dismissing the keyboard.
 // Since preventing touchstart cancels click synthesis, we run the action on touchend instead.
+export function FormatToggleButton({ isActive, onToggle }: { isActive: boolean; onToggle: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      title="Formatting options"
+      onMouseDown={(e) => e.preventDefault()}
+      onTouchStart={(e) => e.preventDefault()}
+      onTouchEnd={(e) => { e.preventDefault(); onToggle(); }}
+      onClick={onToggle}
+      className={cn(isActive && s.toggleActive)}
+    >
+      <Type size={15} />
+    </Button>
+  );
+}
+
 function ToolbarButton({ title, action, children }: { title: string; action: () => void; children: React.ReactNode }) {
   return (
     <Button

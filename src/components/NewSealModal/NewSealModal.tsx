@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Check, Type } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import type { Editor } from '@tiptap/core';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSealBody } from '@/lib/crypto';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { FormattingToolbar } from '@/components/TiptapEditor/FormattingToolbar';
+import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -15,7 +15,6 @@ import { NewModal } from '@/components/NewModal/NewModal';
 import { saveDraft, clearDraft } from '@/lib/draft';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { toast } from 'sonner';
-import { cn } from '@/utils/cn';
 import s from '@/components/NewModal/NewModal.module.scss';
 
 type NewSealModalProps = {
@@ -105,18 +104,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
         footer={
           <>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title="Formatting options"
-              onMouseDown={(e) => e.preventDefault()}
-              onTouchStart={(e) => e.preventDefault()}
-              onTouchEnd={(e) => { e.preventDefault(); setShowFormatBar((v) => !v); }}
-              onClick={() => setShowFormatBar((v) => !v)}
-              className={cn(showFormatBar && s.formatActive)}
-            >
-              <Type size={15} />
-            </Button>
+            <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
             <div className={s.footerRight}>
               <Button variant="ghost" size="sm" onClick={handleClose}>
                 <X size={14} />

@@ -37,3 +37,8 @@
   margin: 0 4px;
   flex-shrink: 0;
 }
+
+.toggleActive {
+  background: oklch(76.79% 0.16028 69.258 / 0.1) !important;
+  color: var(--primary) !important;
+}
