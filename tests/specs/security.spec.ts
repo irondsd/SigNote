@@ -274,7 +274,7 @@ test.describe('color enum validation', () => {
     await page.goto('/');
 
     const res = await page.request.patch(`/api/notes/${note._id}`, {
-      data: { color: 'purple' },
+      data: { color: 'black' },
     });
     expect(res.status()).toBe(400);
   });
@@ -289,7 +289,7 @@ test.describe('color enum validation', () => {
     await page.goto('/');
 
     const res = await page.request.patch(`/api/secrets/${secret._id}`, {
-      data: { color: 'purple' },
+      data: { color: 'black' },
     });
     expect(res.status()).toBe(400);
   });
@@ -304,7 +304,7 @@ test.describe('color enum validation', () => {
     await page.goto('/');
 
     const res = await page.request.patch(`/api/seals/${seal._id}`, {
-      data: { color: 'purple' },
+      data: { color: 'black' },
     });
     expect(res.status()).toBe(400);
   });
