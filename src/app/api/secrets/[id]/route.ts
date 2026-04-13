@@ -32,8 +32,11 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   const secret = assertOwner(await getSecretById(id), userId);
 
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const { title, encryptedBody, archived, deleted, color, position } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload | null;

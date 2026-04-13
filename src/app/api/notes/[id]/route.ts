@@ -31,8 +31,11 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   const note = assertOwner(await getNoteById(id), userId);
 
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const { title, content, archived, deleted, color, position } = body as {
     title?: string;
     content?: string;

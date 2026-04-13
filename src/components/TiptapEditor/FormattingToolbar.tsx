@@ -37,7 +37,10 @@ function ToolbarButton({ title, action, children }: { title: string; action: () 
       title={title}
       onMouseDown={(e) => e.preventDefault()}
       onTouchStart={(e) => e.preventDefault()}
-      onTouchEnd={(e) => { e.preventDefault(); action(); }}
+      onTouchEnd={(e) => {
+        e.preventDefault();
+        action();
+      }}
       onClick={action}
     >
       {children}

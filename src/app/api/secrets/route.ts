@@ -21,8 +21,11 @@ export const GET = withSession(async (req, { userId }) => {
 
 export const POST = withSession(async (req, { userId }) => {
   let body;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ error: 'Invalid request body' }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const { title, encryptedBody } = body as { title?: string; encryptedBody?: EncryptedPayload };
 
   if ((title?.length ?? 0) > MAX_TITLE || (encryptedBody?.ciphertext?.length ?? 0) > MAX_CIPHER) {

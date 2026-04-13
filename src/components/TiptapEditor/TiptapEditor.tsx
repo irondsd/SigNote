@@ -27,7 +27,14 @@ type TiptapEditorProps = {
   onEditorReady?: (editor: Editor) => void;
 };
 
-export function TiptapEditor({ content, onChange, editable, placeholder, autoFocus, onEditorReady }: TiptapEditorProps) {
+export function TiptapEditor({
+  content,
+  onChange,
+  editable,
+  placeholder,
+  autoFocus,
+  onEditorReady,
+}: TiptapEditorProps) {
   const editableRef = useRef(editable);
 
   const editor = useEditor({
@@ -63,7 +70,8 @@ export function TiptapEditor({ content, onChange, editable, placeholder, autoFoc
     const target = e.target as HTMLElement;
     if (!editable && target.tagName === 'CODE' && !target.closest('pre')) {
       const text = target.textContent ?? '';
-      navigator.clipboard.writeText(text)
+      navigator.clipboard
+        .writeText(text)
         .then(() => toast.success('Copied to clipboard'))
         .catch(() => toast.error('Could not copy to clipboard'));
     }

@@ -38,7 +38,10 @@ export function NotesGrid({
       isLoadingMore={isLoadingMore}
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
-      onNoteClick={(note, rect) => { setSelected(note); setCardRect(rect); }}
+      onNoteClick={(note, rect) => {
+        setSelected(note);
+        setCardRect(rect);
+      }}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableNoteCard
           key={getStableKey(note._id.toString())}
@@ -50,7 +53,16 @@ export function NotesGrid({
       )}
       renderOverlayCard={(note, showBadge) => <NoteCard note={note} onClick={() => {}} showArchivedBadge={showBadge} />}
     >
-      {selected && <NoteModal note={selected} cardRect={cardRect ?? undefined} onClose={() => { setSelected(null); setCardRect(null); }} />}
+      {selected && (
+        <NoteModal
+          note={selected}
+          cardRect={cardRect ?? undefined}
+          onClose={() => {
+            setSelected(null);
+            setCardRect(null);
+          }}
+        />
+      )}
     </BaseGrid>
   );
 }

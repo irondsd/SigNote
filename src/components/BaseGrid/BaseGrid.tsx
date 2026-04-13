@@ -28,7 +28,12 @@ type BaseGridProps<T extends BaseItem> = {
   notes: T[] | undefined;
   getId: (note: T) => string;
   reorderType: 'notes' | 'secrets' | 'seals';
-  renderCard: (note: T, onClick: (rect: DOMRect) => void, showArchivedBadge: boolean, isDragDisabled: boolean) => ReactNode;
+  renderCard: (
+    note: T,
+    onClick: (rect: DOMRect) => void,
+    showArchivedBadge: boolean,
+    isDragDisabled: boolean,
+  ) => ReactNode;
   renderOverlayCard: (note: T, showArchivedBadge: boolean) => ReactNode;
   onLoadMore?: () => void;
   hasMore?: boolean;
