@@ -38,7 +38,10 @@ export function FormatToggleButton({ isActive, onToggle }: { isActive: boolean; 
       title="Formatting options"
       onMouseDown={(e) => e.preventDefault()}
       onTouchStart={(e) => e.preventDefault()}
-      onTouchEnd={(e) => { e.preventDefault(); onToggle(); }}
+      onTouchEnd={(e) => {
+        e.preventDefault();
+        onToggle();
+      }}
       onClick={onToggle}
       className={cn(isActive && s.toggleActive)}
     >

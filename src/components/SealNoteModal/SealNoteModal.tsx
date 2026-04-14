@@ -297,7 +297,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onDelete={handleDelete}
         toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} /> : undefined}
         formatToggle={
-          isDecrypted ? <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} /> : undefined
+          isDecrypted ? (
+            <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
+          ) : undefined
         }
       >
         {isDecrypted ? (
