@@ -22,7 +22,7 @@ export default function SealsArchivePage() {
 
   return (
     <div className={s.page}>
-      <ArchivePageHeader title="Archived Seals" backHref="/seals" backLabel="Seals" BackIcon={BookLock} />
+      <ArchivePageHeader title="Archived Seals" backHref="/seals" backLabel="Seals" BackIcon="seals" />
 
       {showLoadingState ? (
         <div className={s.loading}>

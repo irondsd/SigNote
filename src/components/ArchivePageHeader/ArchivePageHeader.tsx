@@ -1,13 +1,13 @@
-import { type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import s from './ArchivePageHeader.module.scss';
+import { InlineSvg } from '@irondsd/inline-svg';
 
 interface ArchivePageHeaderProps {
   title: string;
   backHref: string;
   backLabel: string;
-  BackIcon: LucideIcon;
+  BackIcon: string;
 }
 
 export function ArchivePageHeader({ title, backHref, backLabel, BackIcon }: ArchivePageHeaderProps) {
@@ -17,7 +17,7 @@ export function ArchivePageHeader({ title, backHref, backLabel, BackIcon }: Arch
       <div className={s.actions}>
         <Link href={backHref}>
           <Button variant="ghost">
-            <BackIcon size={18} />
+            <InlineSvg src={`/icons/${BackIcon}.svg`} className={'w-4.5 h-4.5'} />
             {backLabel}
           </Button>
         </Link>

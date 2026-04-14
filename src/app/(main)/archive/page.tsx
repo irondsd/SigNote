@@ -21,7 +21,7 @@ export default function Page() {
 
   return (
     <div className={s.page}>
-      <ArchivePageHeader title="Archived Notes" backHref="/" backLabel="Notes" BackIcon={NotebookText} />
+      <ArchivePageHeader title="Archived Notes" backHref="/" backLabel="Notes" BackIcon="notes" />
 
       {showLoadingState ? (
         <div className={s.loading}>

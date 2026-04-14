@@ -22,7 +22,7 @@ export default function SecretsArchivePage() {
 
   return (
     <div className={s.page}>
-      <ArchivePageHeader title="Archived Secrets" backHref="/secrets" backLabel="Secrets" BackIcon={SquareAsterisk} />
+      <ArchivePageHeader title="Archived Secrets" backHref="/secrets" backLabel="Secrets" BackIcon="secrets" />
 
       {showLoadingState ? (
         <div className={s.loading}>

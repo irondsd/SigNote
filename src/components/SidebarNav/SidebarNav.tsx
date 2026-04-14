@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { useDisconnect } from 'wagmi';
-import { NotebookText, BookLock, SquareAsterisk, Github, BookOpen, LogOut } from 'lucide-react';
+import { Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -14,15 +14,16 @@ import { Logo } from '../Logo/Logo';
 import { useMemo } from 'react';
 import { isAddress } from 'viem';
 import { shortenAddress } from '@/utils/shortenAddress';
+import { InlineSvg } from '@irondsd/inline-svg';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
 });
 
 const NAV_LINKS = [
-  { href: '/', label: 'Notes', icon: NotebookText },
-  { href: '/secrets', label: 'Secrets', icon: SquareAsterisk },
-  { href: '/seals', label: 'Seals', icon: BookLock },
+  { href: '/', label: 'Notes', icon: 'notes.svg' },
+  { href: '/secrets', label: 'Secrets', icon: 'secrets.svg' },
+  { href: '/seals', label: 'Seals', icon: 'seals.svg' },
 ];
 
 type SidebarNavProps = {
@@ -58,7 +59,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
         {NAV_LINKS.map(({ href, label, icon: Icon }) => (
           <li key={href}>
             <Link href={href} className={`${s.link} ${pathname === href ? s.active : ''}`} onClick={onNavClick}>
-              <Icon size={18} strokeWidth={1.8} />
+              <InlineSvg src={`/icons/${Icon}`} className={'w-4.5 h-4.5'} />
               <span>{label}</span>
             </Link>
           </li>
