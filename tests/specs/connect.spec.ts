@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { changeAccount } from '../utils/changeAccount';
 import { makeAccount } from '../utils/makeAccount';
 import { mockProvider } from '../utils/mockProvider';
+import { signIn } from '../utils/signIn';
 import { shortenAddress } from '../../src/utils/shortenAddress';
 
 const { privateKey, account } = makeAccount();
@@ -104,30 +105,9 @@ test.describe('connect wallet', () => {
 
     test('should sign out and return to unauthenticated state', async ({ page }) => {
       const signInButton = page.getByTestId('sign-in-button').first();
-      await signInButton.click();
-
-      // Click "Sign in with Ethereum" in SignInModal
-      const siweBtn = page.getByTestId('siwe-sign-in-btn');
-      await siweBtn.waitFor({ state: 'visible' });
-      await siweBtn.click();
+      await signIn(page);
 
       const walletAddress = page.getByTestId('display-name').first();
-      await Promise.any([
-        page.waitForFunction(() => {
-          const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
-          const buttons = modal?.querySelectorAll('button');
-          for (const btn of buttons || []) {
-            if (btn.textContent?.includes('Browser Wallet')) {
-              btn.scrollIntoView();
-              btn.click();
-              return true;
-            }
-          }
-          return false;
-        }),
-        walletAddress.waitFor({ state: 'visible' }),
-      ]);
-
       await expect(walletAddress).toBeVisible();
 
       // Sign out

@@ -138,7 +138,11 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   const profileExists = !profileLoading && !!profileResponse?.exists;
   const { mek, setMek } = useMekRehydration(sessionStatus, profileExists);
-  const [lockType, setLockType] = useState<LockType>('none');
+  // If deviceShare is already in sessionStorage on mount, treat as soft-locked so
+  // handleNoteClick (and any other guard callers) try ctxRehydrate() before prompting.
+  const [lockType, setLockType] = useState<LockType>(() =>
+    typeof window !== 'undefined' && loadDeviceShare() !== null ? 'soft' : 'none',
+  );
   const [lockSerial, setLockSerial] = useState(0);
 
   // Single source of truth for all rendering decisions

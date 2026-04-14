@@ -26,10 +26,13 @@ export function SealsGrid({
   isDragDisabled = false,
 }: SealsGridProps) {
   const [selected, setSelected] = useState<CachedSealNote | null>(null);
-  const [initialNoteId] = useState<string | null>(() =>
-    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null,
-  );
+  const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
   const openedInitialRef = useRef(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInitialNoteId(new URLSearchParams(window.location.search).get('id'));
+  }, []);
 
   useEffect(() => {
     if (!initialNoteId || openedInitialRef.current || !notes) return;
