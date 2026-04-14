@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type CachedSealNote } from '@/hooks/useSealMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
@@ -26,6 +26,19 @@ export function SealsGrid({
   isDragDisabled = false,
 }: SealsGridProps) {
   const [selected, setSelected] = useState<CachedSealNote | null>(null);
+  const [initialNoteId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null,
+  );
+  const openedInitialRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialNoteId || openedInitialRef.current || !notes) return;
+    const note = notes.find((n) => n._id === initialNoteId);
+    if (!note) return;
+    openedInitialRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(note);
+  }, [notes, initialNoteId]);
 
   return (
     <BaseGrid
@@ -37,7 +50,10 @@ export function SealsGrid({
       isLoadingMore={isLoadingMore}
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
-      onNoteClick={(note) => setSelected(note)}
+      onNoteClick={(note) => {
+        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id}`);
+        setSelected(note);
+      }}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableEncryptedCard
           key={getStableKey(note._id)}
@@ -64,7 +80,15 @@ export function SealsGrid({
         />
       )}
     >
-      {selected && <SealNoteModal note={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <SealNoteModal
+          note={selected}
+          onClose={() => {
+            window.history.replaceState(null, '', window.location.pathname);
+            setSelected(null);
+          }}
+        />
+      )}
     </BaseGrid>
   );
 }

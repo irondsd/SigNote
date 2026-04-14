@@ -33,6 +33,10 @@ export function SecretsGrid({
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const pendingNoteRef = useRef<CachedSecretNote | null>(null);
+  const [initialNoteId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null,
+  );
+  const openedInitialRef = useRef(false);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, { content: string; iv: string }>>(new Map());
 
   const guard = useEncryptionGuard();
@@ -155,6 +159,15 @@ export function SecretsGrid({
     openDecryptedNote(note);
   }, [mek, openDecryptedNote]);
 
+  useEffect(() => {
+    if (!initialNoteId || openedInitialRef.current || !notes) return;
+    const note = notes.find((n) => n._id === initialNoteId);
+    if (!note) return;
+    openedInitialRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    handleNoteClick(note);
+  }, [notes, initialNoteId, handleNoteClick]);
+
   return (
     <BaseGrid
       notes={notes}
@@ -165,7 +178,10 @@ export function SecretsGrid({
       isLoadingMore={isLoadingMore}
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
-      onNoteClick={handleNoteClick}
+      onNoteClick={async (note) => {
+        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id}`);
+        await handleNoteClick(note);
+      }}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
         <SortableEncryptedCard
           key={getStableKey(note._id)}
@@ -201,6 +217,7 @@ export function SecretsGrid({
           note={selected}
           decryptedContent={selectedDecrypted}
           onClose={() => {
+            window.history.replaceState(null, '', window.location.pathname);
             setSelected(null);
             setSelectedDecrypted('');
           }}

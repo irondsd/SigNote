@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
@@ -27,6 +27,19 @@ export function NotesGrid({
 }: NotesGridProps) {
   const [selected, setSelected] = useState<NoteDocument | null>(null);
   const [cardRect, setCardRect] = useState<DOMRect | null>(null);
+  const [initialNoteId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null,
+  );
+  const openedInitialRef = useRef(false);
+
+  useEffect(() => {
+    if (!initialNoteId || openedInitialRef.current || !notes) return;
+    const note = notes.find((n) => n._id.toString() === initialNoteId);
+    if (!note) return;
+    openedInitialRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(note);
+  }, [notes, initialNoteId]);
 
   return (
     <BaseGrid
@@ -39,6 +52,7 @@ export function NotesGrid({
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
       onNoteClick={(note, rect) => {
+        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id.toString()}`);
         setSelected(note);
         setCardRect(rect);
       }}
@@ -58,6 +72,7 @@ export function NotesGrid({
           note={selected}
           cardRect={cardRect ?? undefined}
           onClose={() => {
+            window.history.replaceState(null, '', window.location.pathname);
             setSelected(null);
             setCardRect(null);
           }}
