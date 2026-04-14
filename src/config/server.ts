@@ -9,7 +9,7 @@ export const server = {
   transports: {
     [mainnet.id]: http(rpcUrl),
   },
-  ssr: false,
+  ssr: true,
 } as const;
 
 export const serverConfig: Config = createConfig(server);
