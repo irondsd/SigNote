@@ -7,7 +7,6 @@ import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
-import { Button } from '@/components/ui/button';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';

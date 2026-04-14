@@ -1,7 +1,6 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { BookLock } from 'lucide-react';
 import { useSeals } from '@/hooks/useSeals';
 import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';

@@ -6,7 +6,6 @@ import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
-import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';

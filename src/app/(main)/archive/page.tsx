@@ -1,7 +1,6 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { NotebookText } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';

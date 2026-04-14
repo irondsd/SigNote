@@ -1,7 +1,6 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { SquareAsterisk } from 'lucide-react';
 import { useSecrets } from '@/hooks/useSecrets';
 import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
