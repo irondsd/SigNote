@@ -26,13 +26,17 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody } = body as { title?: string; encryptedBody?: EncryptedPayload };
+  const { title, encryptedBody, color } = body as {
+    title?: string;
+    encryptedBody?: EncryptedPayload;
+    color?: string | null;
+  };
 
   if ((title?.length ?? 0) > MAX_TITLE || (encryptedBody?.ciphertext?.length ?? 0) > MAX_CIPHER) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const secret = await createSecret(userId, title ?? '', encryptedBody ?? null);
+  const secret = await createSecret(userId, title ?? '', encryptedBody ?? null, color);
 
   return NextResponse.json(secret, { status: 201 });
 });

@@ -64,6 +64,30 @@ test.describe('create secret', () => {
     await expect(page.getByTestId('save-secret-btn')).toBeEnabled();
   });
 
+  test('create secret with color saves the color field', async ({ page }) => {
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly();
+    await secretsPage.unlock();
+
+    const title = `Color Secret ${Date.now()}`;
+    await page.getByRole('button', { name: 'New Secret' }).click();
+    await page.getByTestId('note-title-input').fill(title);
+
+    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Yellow').click();
+
+    const postPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
+    );
+    await page.getByTestId('save-secret-btn').click();
+    await postPromise;
+
+    const res = await page.request.get('/api/secrets');
+    const secrets = await res.json();
+    const created = secrets.find((s: { title: string }) => s.title === title);
+    expect(created.color).toBe('yellow');
+  });
+
   test('clicking New Secret while locked opens passphrase modal then new secret modal', async ({ page }) => {
     const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);

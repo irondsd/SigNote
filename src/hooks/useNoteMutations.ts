@@ -26,7 +26,7 @@ export type CachedNote = {
   color: string | null;
 };
 
-type CreateNoteInput = { title: string; content: string };
+type CreateNoteInput = { title: string; content: string; color?: string | null };
 type UpdateNoteInput = {
   id: string;
   title?: string;
@@ -70,7 +70,7 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
         position: -1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        color: null,
+        color: input.color ?? null,
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

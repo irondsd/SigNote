@@ -9,6 +9,7 @@ export const createSeal = async (
   title: string,
   encryptedBody: EncryptedPayload | null = null,
   wrappedNoteKey: EncryptedPayload | null = null,
+  color?: string | null,
 ) => {
   const now = new Date();
   const position = await getNextPosition(SealNoteModel, userId);
@@ -19,6 +20,7 @@ export const createSeal = async (
     encryptedBody,
     wrappedNoteKey,
     position,
+    ...(color != null && { color }),
     createdAt: now,
     updatedAt: now,
   });

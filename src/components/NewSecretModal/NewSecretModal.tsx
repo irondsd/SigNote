@@ -30,6 +30,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const [saving, setSaving] = useState(false);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [color, setColor] = useState<string | null>(null);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
   const createSecret = useCreateSecret({
     onError: () => {
@@ -82,7 +83,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         const encryptedBody = trimmedContent ? await encryptSecretBody(mek, trimmedContent) : null;
         clearDraft();
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
-        createSecret.mutate({ title: trimmedTitle, encryptedBody });
+        createSecret.mutate({ title: trimmedTitle, encryptedBody, color });
         onClose();
       });
     } finally {
@@ -93,44 +94,44 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   return (
     <>
       <NewModal
-        heading="New Secret"
+        heading={
+          <input
+            data-testid="note-title-input"
+            className={s.heading}
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+        }
         onClose={handleClose}
         onBackdropClose={handleClose}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
-        footer={
+        footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        onColorChange={setColor}
+        footerActions={
           <>
-            <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
-            <div className={s.footerRight}>
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <X size={14} />
-                Cancel
-              </Button>
-              <Button
-                data-testid="save-secret-btn"
-                size="sm"
-                onClick={handleSave}
-                disabled={(isTitleEmpty && isContentEmpty) || saving}
-              >
-                <Check size={14} />
-                {saving ? 'Saving…' : 'Save Secret'}
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button
+              data-testid="save-secret-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={(isTitleEmpty && isContentEmpty) || saving}
+            >
+              <Check size={14} />
+              {saving ? 'Saving…' : 'Save Secret'}
+            </Button>
           </>
         }
       >
-        <input
-          data-testid="note-title-input"
-          className={s.titleInput}
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
         <TiptapEditor
           content={content}
           onChange={setContent}
           editable={true}
           placeholder="Write your secret…"
-          autoFocus
           onEditorReady={setEditor}
         />
       </NewModal>

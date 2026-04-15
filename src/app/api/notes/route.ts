@@ -25,13 +25,13 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, content } = body as { title?: string; content?: string };
+  const { title, content, color } = body as { title?: string; content?: string; color?: string | null };
 
   if ((title?.length ?? 0) > MAX_TITLE || (content?.length ?? 0) > MAX_CONTENT) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const note = await createNote(userId, title ?? '', content ?? '');
+  const note = await createNote(userId, title ?? '', content ?? '', color);
 
   return NextResponse.json(note, { status: 201 });
 });

@@ -4,7 +4,12 @@ import { type EncryptedPayload } from '@/types/crypto';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
 
-export const createSecret = async (userId: string, title: string, encryptedBody: EncryptedPayload | null) => {
+export const createSecret = async (
+  userId: string,
+  title: string,
+  encryptedBody: EncryptedPayload | null,
+  color?: string | null,
+) => {
   const now = new Date();
   const position = await getNextPosition(SecretNoteModel, userId);
 
@@ -13,6 +18,7 @@ export const createSecret = async (userId: string, title: string, encryptedBody:
     title,
     encryptedBody,
     position,
+    ...(color != null && { color }),
     createdAt: now,
     updatedAt: now,
   });

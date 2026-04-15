@@ -26,6 +26,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
   const [content, setContent] = useState(initialContent?.content ?? '');
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [color, setColor] = useState<string | null>(null);
   const createNote = useCreateNote({ onError: onSaveError });
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -65,7 +66,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     }
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     clearDraft();
-    createNote.mutate({ title: title.trim(), content: content.trim() });
+    createNote.mutate({ title: title.trim(), content: content.trim(), color });
     onClose();
   };
 
@@ -85,24 +86,23 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
         onClose={handleClose}
         onBackdropClose={handleClose}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
-        footer={
+        footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        onColorChange={setColor}
+        footerActions={
           <>
-            <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
-            <div className={s.footerRight}>
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <X size={14} />
-                Cancel
-              </Button>
-              <Button
-                data-testid="save-note-btn"
-                size="sm"
-                onClick={handleSave}
-                disabled={isTitleEmpty && isContentEmpty}
-              >
-                <Check size={14} />
-                Save Note
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button
+              data-testid="save-note-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={isTitleEmpty && isContentEmpty}
+            >
+              <Check size={14} />
+              Save Note
+            </Button>
           </>
         }
       >

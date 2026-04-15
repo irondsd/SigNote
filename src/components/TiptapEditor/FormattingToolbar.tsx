@@ -16,6 +16,7 @@ import {
   List,
   ListChecks,
   Minus,
+  RemoveFormatting,
   Type,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -124,6 +125,15 @@ export function FormattingToolbar({ editor, isOpen }: Props) {
 
           <ToolbarButton title="Divider line" action={() => editor?.chain().focus().setHorizontalRule().run()}>
             <Minus size={15} />
+          </ToolbarButton>
+
+          <div className={s.divider} />
+
+          <ToolbarButton
+            title="Clear formatting"
+            action={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}
+          >
+            <RemoveFormatting size={15} />
           </ToolbarButton>
         </div>
       </div>

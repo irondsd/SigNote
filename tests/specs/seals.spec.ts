@@ -60,6 +60,30 @@ test.describe('create seal', () => {
     await expect(page.getByTestId('save-seal-btn')).toBeEnabled();
   });
 
+  test('create seal with color saves the color field', async ({ page }) => {
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly();
+    await sealsPage.unlock();
+
+    const title = `Color Seal ${Date.now()}`;
+    await page.getByRole('button', { name: 'New Seal' }).click();
+    await page.getByTestId('note-title-input').fill(title);
+
+    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Yellow').click();
+
+    const postPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST',
+    );
+    await page.getByTestId('save-seal-btn').click();
+    await postPromise;
+
+    const res = await page.request.get('/api/seals');
+    const seals = await res.json();
+    const created = seals.find((s: { title: string }) => s.title === title);
+    expect(created.color).toBe('yellow');
+  });
+
   test('clicking New Seal while locked opens passphrase modal then new seal modal', async ({ page }) => {
     const { account } = makeAccount();
     await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);

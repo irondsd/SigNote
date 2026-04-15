@@ -30,6 +30,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
   const [saving, setSaving] = useState(false);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [color, setColor] = useState<string | null>(null);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
   const createSeal = useCreateSeal({
     onError: () => {
@@ -83,6 +84,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
         createSeal.mutate({
           title: trimmedTitle,
+          color,
           encryptBody: async (sealId: string) => {
             if (!trimmedContent) return null;
             return encryptSealBody(mek, trimmedContent, sealId);
@@ -98,44 +100,44 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
   return (
     <>
       <NewModal
-        heading="New Seal"
+        heading={
+          <input
+            data-testid="note-title-input"
+            className={s.heading}
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+        }
         onClose={handleClose}
         onBackdropClose={handleClose}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
-        footer={
+        footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        onColorChange={setColor}
+        footerActions={
           <>
-            <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
-            <div className={s.footerRight}>
-              <Button variant="ghost" size="sm" onClick={handleClose}>
-                <X size={14} />
-                Cancel
-              </Button>
-              <Button
-                data-testid="save-seal-btn"
-                size="sm"
-                onClick={handleSave}
-                disabled={(isTitleEmpty && isContentEmpty) || saving}
-              >
-                <Check size={14} />
-                {saving ? 'Saving…' : 'Save Seal'}
-              </Button>
-            </div>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
+              <X size={14} />
+              Cancel
+            </Button>
+            <Button
+              data-testid="save-seal-btn"
+              size="sm"
+              onClick={handleSave}
+              disabled={(isTitleEmpty && isContentEmpty) || saving}
+            >
+              <Check size={14} />
+              {saving ? 'Saving…' : 'Save Seal'}
+            </Button>
           </>
         }
       >
-        <input
-          data-testid="note-title-input"
-          className={s.titleInput}
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
         <TiptapEditor
           content={content}
           onChange={setContent}
           editable={true}
           placeholder="Write your seal…"
-          autoFocus
           onEditorReady={setEditor}
         />
       </NewModal>

@@ -47,6 +47,29 @@ test.describe('create note', () => {
     await page.getByTestId('note-title-input').fill('Something');
     await expect(page.getByTestId('save-note-btn')).toBeEnabled();
   });
+
+  test('create note with color saves the color field', async ({ page }) => {
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly();
+
+    await page.getByTestId('new-note-btn').click();
+    const title = `Color Note ${Date.now()}`;
+    await page.getByTestId('note-title-input').fill(title);
+
+    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Yellow').click();
+
+    const postPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/notes') && r.request().method() === 'POST',
+    );
+    await page.getByTestId('save-note-btn').click();
+    await postPromise;
+
+    const res = await page.request.get('/api/notes');
+    const notes = await res.json();
+    const created = notes.find((n: { title: string }) => n.title === title);
+    expect(created.color).toBe('yellow');
+  });
 });
 
 // ─── Group 2: Archive / Unarchive ───────────────────────────────────────────

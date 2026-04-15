@@ -27,7 +27,7 @@ export type CachedSecretNote = {
   color: string | null;
 };
 
-type CreateSecretInput = { title: string; encryptedBody: EncryptedPayload | null };
+type CreateSecretInput = { title: string; encryptedBody: EncryptedPayload | null; color?: string | null };
 type UpdateSecretInput = {
   id: string;
   title?: string;
@@ -71,7 +71,7 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
         position: -1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        color: null,
+        color: input.color ?? null,
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

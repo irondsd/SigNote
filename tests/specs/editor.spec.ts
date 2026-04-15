@@ -517,4 +517,23 @@ test.describe('formatting toolbar', () => {
     const content = await notesPage.saveAndGetContent(note._id.toString());
     expect(content).toContain('<hr');
   });
+
+  test('Clear formatting removes bold from selected text', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Clear ${Date.now()}`;
+    const [note] = await seedNotes(account.address, [
+      { title, content: '<p><strong>bold text</strong></p>' },
+    ]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await page.keyboard.press('Meta+a');
+    await openToolbar(notesPage);
+    await page.getByTitle('Clear formatting').click();
+
+    const content = await notesPage.saveAndGetContent(note._id.toString());
+    expect(content).not.toContain('<strong>');
+    expect(content).toContain('bold text');
+  });
 });

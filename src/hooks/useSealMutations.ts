@@ -32,6 +32,7 @@ type CreateSealInput = {
   title: string;
   encryptedBody?: EncryptedPayload | null;
   wrappedNoteKey?: EncryptedPayload | null;
+  color?: string | null;
 };
 
 type UpdateSealInput = {
@@ -78,11 +79,12 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
   return useMutation({
     mutationFn: async (input: {
       title: string;
+      color?: string | null;
       encryptBody: (
         sealId: string,
       ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
     }) => {
-      const created = await apiCreateSeal({ title: input.title });
+      const created = await apiCreateSeal({ title: input.title, color: input.color });
       const encrypted = await input.encryptBody(created._id);
       if (encrypted) {
         return apiPatchSeal(created._id, encrypted);
@@ -102,7 +104,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
         position: -1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        color: null,
+        color: input.color ?? null,
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

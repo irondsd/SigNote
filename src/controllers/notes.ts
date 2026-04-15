@@ -3,7 +3,7 @@ import { NoteModel } from '@/models/Note';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
 
-export const createNote = async (userId: string, title: string, content: string) => {
+export const createNote = async (userId: string, title: string, content: string, color?: string | null) => {
   const now = new Date();
   const position = await getNextPosition(NoteModel, userId);
 
@@ -12,6 +12,7 @@ export const createNote = async (userId: string, title: string, content: string)
     title,
     content,
     position,
+    ...(color != null && { color }),
     createdAt: now,
     updatedAt: now,
   });
