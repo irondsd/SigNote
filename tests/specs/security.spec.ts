@@ -364,6 +364,34 @@ test.describe('position infinity/NaN rejected', () => {
   });
 });
 
+// ─── Nonce rate limiting ──────────────────────────────────────────────────────
+
+test.describe('nonce rate limiting', () => {
+  test('returns 200 for requests under the rate limit', async ({ page }) => {
+    const res = await page.request.get('/api/auth/nonce', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.nonce).toBeDefined();
+  });
+
+  test('returns 429 after exceeding the rate limit', async ({ page }) => {
+    // Use a unique IP so parallel tests don't share the counter
+    const ip = '203.0.113.11';
+    for (let i = 0; i < 10; i++) {
+      const res = await page.request.get('/api/auth/nonce', {
+        headers: { 'x-forwarded-for': ip },
+      });
+      expect(res.status()).toBe(200);
+    }
+    const res = await page.request.get('/api/auth/nonce', {
+      headers: { 'x-forwarded-for': ip },
+    });
+    expect(res.status()).toBe(429);
+  });
+});
+
 // ─── Limit cap ───────────────────────────────────────────────────────────────
 
 test.describe('limit parameter cap', () => {

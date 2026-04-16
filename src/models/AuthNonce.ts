@@ -5,6 +5,7 @@ export type AuthNonce = {
   usedAt: Date | null;
   createdAt: Date;
   expiresAt: Date;
+  ip?: string;
 };
 
 export type AuthNonceDocument = HydratedDocument<AuthNonce>;
@@ -30,6 +31,9 @@ const authNonceSchema = new Schema<AuthNonce>(
       type: Date,
       required: true,
     },
+    ip: {
+      type: String,
+    },
   },
   {
     collection: 'auth_nonces',
@@ -37,5 +41,6 @@ const authNonceSchema = new Schema<AuthNonce>(
 );
 
 authNonceSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+authNonceSchema.index({ ip: 1, createdAt: 1 });
 
 export const AuthNonceModel = models.AuthNonce || model<AuthNonce>('AuthNonce', authNonceSchema);
