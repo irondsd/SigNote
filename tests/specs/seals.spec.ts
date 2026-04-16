@@ -72,9 +72,7 @@ test.describe('create seal', () => {
     await page.getByTestId('color-palette-btn').click();
     await page.getByTitle('Yellow').click();
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 

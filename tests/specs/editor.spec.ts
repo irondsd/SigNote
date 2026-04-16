@@ -521,9 +521,7 @@ test.describe('formatting toolbar', () => {
   test('Clear formatting removes bold from selected text', async ({ page }) => {
     const { account } = makeAccount();
     const title = `Toolbar Clear ${Date.now()}`;
-    const [note] = await seedNotes(account.address, [
-      { title, content: '<p><strong>bold text</strong></p>' },
-    ]);
+    const [note] = await seedNotes(account.address, [{ title, content: '<p><strong>bold text</strong></p>' }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);

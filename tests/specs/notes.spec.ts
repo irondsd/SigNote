@@ -59,9 +59,7 @@ test.describe('create note', () => {
     await page.getByTestId('color-palette-btn').click();
     await page.getByTitle('Yellow').click();
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
     await page.getByTestId('save-note-btn').click();
     await postPromise;
 
