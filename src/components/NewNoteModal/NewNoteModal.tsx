@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
-import type { Editor } from '@tiptap/core';
 import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
 import { NewModal } from '@/components/NewModal/NewModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
-import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import { saveDraft, clearDraft } from '@/lib/draft';
+import { clearDraft } from '@/lib/draft';
+import { useNewNoteState } from '@/hooks/useNewNoteState';
 import s from '@/components/NewModal/NewModal.module.scss';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { toast } from 'sonner';
@@ -22,37 +20,27 @@ type NewNoteModalProps = {
 };
 
 export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteModalProps) {
-  const [title, setTitle] = useState(initialContent?.title ?? '');
-  const [content, setContent] = useState(initialContent?.content ?? '');
-  const [showFormatBar, setShowFormatBar] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [color, setColor] = useState<string | null>(null);
+  const {
+    title,
+    setTitle,
+    content,
+    setContent,
+    showFormatBar,
+    setShowFormatBar,
+    editor,
+    setEditor,
+    color,
+    setColor,
+    isTitleEmpty,
+    isContentEmpty,
+    showConfirm,
+    onCancelClose,
+    handleClose,
+    handleConfirmDiscard,
+    draftTimerRef,
+  } = useNewNoteState('note', onClose, initialContent);
+
   const createNote = useCreateNote({ onError: onSaveError });
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isTitleEmpty = !title.trim();
-  const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
-  const isDirty = !isTitleEmpty || !isContentEmpty;
-  const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
-  const handleClose = () => confirmClose(onClose);
-  const handleConfirmDiscard = () => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    clearDraft();
-    onConfirmDiscard();
-  };
-
-  useEffect(() => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    if (isContentEmpty) return;
-
-    draftTimerRef.current = setTimeout(() => {
-      saveDraft({ type: 'note', title, content, savedAt: Date.now() });
-    }, 500);
-
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    };
-  }, [title, content, isContentEmpty]);
 
   const handleSave = () => {
     if (isTitleEmpty && isContentEmpty) return;

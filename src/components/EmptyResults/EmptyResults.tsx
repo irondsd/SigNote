@@ -2,7 +2,7 @@
 
 import { SearchX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import s from '@/components/EmptyState/EmptyState.module.scss';
+import { EmptyStateLayout } from '@/components/EmptyState/EmptyStateLayout';
 
 type EmptyResultsProps = {
   onClear: () => void;
@@ -10,15 +10,15 @@ type EmptyResultsProps = {
 
 export function EmptyResults({ onClear }: EmptyResultsProps) {
   return (
-    <div className={s.container}>
-      <div className={s.icon}>
-        <SearchX size={48} strokeWidth={1.2} />
-      </div>
-      <h3 className={s.heading}>No results found</h3>
-      <p className={s.sub}>Try a different search term.</p>
-      <Button className="mt-2" variant="outline" onClick={onClear}>
-        Clear search
-      </Button>
-    </div>
+    <EmptyStateLayout
+      icon={<SearchX size={48} strokeWidth={1.2} />}
+      heading="No results found"
+      sub="Try a different search term."
+      action={
+        <Button className="mt-2" variant="outline" onClick={onClear}>
+          Clear search
+        </Button>
+      }
+    />
   );
 }

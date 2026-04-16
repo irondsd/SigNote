@@ -2,7 +2,7 @@
 
 import { PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import s from './EmptyState.module.scss';
+import { EmptyStateLayout } from './EmptyStateLayout';
 
 type EmptyStateProps = {
   onNewNote?: () => void;
@@ -10,16 +10,16 @@ type EmptyStateProps = {
 
 export function EmptyState({ onNewNote }: EmptyStateProps) {
   return (
-    <div className={s.container}>
-      <div className={s.icon}>
-        <PenLine size={48} strokeWidth={1.2} />
-      </div>
-      <h3 className={s.heading}>No notes yet</h3>
-      <p className={s.sub}>Create your first note to get started.</p>
-      <Button className="mt-2" onClick={onNewNote}>
-        <PenLine size={16} />
-        Create a note
-      </Button>
-    </div>
+    <EmptyStateLayout
+      icon={<PenLine size={48} strokeWidth={1.2} />}
+      heading="No notes yet"
+      sub="Create your first note to get started."
+      action={
+        <Button className="mt-2" onClick={onNewNote}>
+          <PenLine size={16} />
+          Create a note
+        </Button>
+      }
+    />
   );
 }

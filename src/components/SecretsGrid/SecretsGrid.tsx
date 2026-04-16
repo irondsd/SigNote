@@ -10,6 +10,7 @@ import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type SecretsGridProps = {
   notes: CachedSecretNote[] | undefined;
@@ -33,13 +34,6 @@ export function SecretsGrid({
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const pendingNoteRef = useRef<CachedSecretNote | null>(null);
-  const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
-  const openedInitialRef = useRef(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInitialNoteId(new URLSearchParams(window.location.search).get('id'));
-  }, []);
   const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, { content: string; iv: string }>>(new Map());
 
   const guard = useEncryptionGuard();
@@ -162,15 +156,7 @@ export function SecretsGrid({
     openDecryptedNote(note);
   }, [mek, openDecryptedNote]);
 
-  useEffect(() => {
-    if (!initialNoteId || openedInitialRef.current || !notes) return;
-    if (phase === 'loading') return; // wait for session/profile to settle before acting
-    const note = notes.find((n) => n._id === initialNoteId);
-    if (!note) return;
-    openedInitialRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    handleNoteClick(note);
-  }, [notes, initialNoteId, handleNoteClick, phase]);
+  useInitialNoteId(notes, (n) => n._id, handleNoteClick, phase !== 'loading');
 
   return (
     <BaseGrid

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type NotesGridProps = {
   notes: NoteDocument[] | undefined;
@@ -27,22 +28,8 @@ export function NotesGrid({
 }: NotesGridProps) {
   const [selected, setSelected] = useState<NoteDocument | null>(null);
   const [cardRect, setCardRect] = useState<DOMRect | null>(null);
-  const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
-  const openedInitialRef = useRef(false);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInitialNoteId(new URLSearchParams(window.location.search).get('id'));
-  }, []);
-
-  useEffect(() => {
-    if (!initialNoteId || openedInitialRef.current || !notes) return;
-    const note = notes.find((n) => n._id.toString() === initialNoteId);
-    if (!note) return;
-    openedInitialRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelected(note);
-  }, [notes, initialNoteId]);
+  useInitialNoteId(notes, (n) => n._id.toString(), setSelected);
 
   return (
     <BaseGrid

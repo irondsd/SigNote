@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { type CachedSealNote } from '@/hooks/useSealMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
 import { SealNoteModal } from '@/components/SealNoteModal/SealNoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type SealsGridProps = {
   notes: CachedSealNote[] | undefined;
@@ -26,22 +27,8 @@ export function SealsGrid({
   isDragDisabled = false,
 }: SealsGridProps) {
   const [selected, setSelected] = useState<CachedSealNote | null>(null);
-  const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
-  const openedInitialRef = useRef(false);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setInitialNoteId(new URLSearchParams(window.location.search).get('id'));
-  }, []);
-
-  useEffect(() => {
-    if (!initialNoteId || openedInitialRef.current || !notes) return;
-    const note = notes.find((n) => n._id === initialNoteId);
-    if (!note) return;
-    openedInitialRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelected(note);
-  }, [notes, initialNoteId]);
+  useInitialNoteId(notes, (n) => n._id, setSelected);
 
   return (
     <BaseGrid
