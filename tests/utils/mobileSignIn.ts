@@ -13,6 +13,7 @@ export const mobileSignIn = async (page: Page): Promise<void> => {
   // Wait for SignInModal and click "Sign in with Ethereum"
   const siweBtn = page.getByTestId('siwe-sign-in-btn');
   await siweBtn.waitFor({ state: 'visible' });
+  await expect(siweBtn).toBeEnabled({ timeout: 10000 });
   await siweBtn.click();
 
   // Race: RainbowKit modal appears (click Browser Wallet) vs auto-connect completes
