@@ -1,8 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { makeAccount } from '../utils/makeAccount';
-import { mockProvider } from '../utils/mockProvider';
-import { changeAccount } from '../utils/changeAccount';
-import { mobileSignIn } from '../utils/mobileSignIn';
 import { NotesPage } from '../pages/NotesPage';
 
 test.describe.configure({ mode: 'parallel' });
@@ -59,30 +55,23 @@ test.describe('mobile drawer navigation', () => {
   test.use({ viewport: { width: 400, height: 812 } });
 
   test('drawer navigation works', async ({ page }) => {
-    const { privateKey } = makeAccount();
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await mobileSignIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly();
+    await page.getByTestId('mobile-menu-btn').click();
 
-    // mobileSignIn leaves the drawer open — navigate directly
     const drawer = page.getByTestId('mobile-drawer');
     await drawer.getByRole('link', { name: 'Secrets' }).click();
     await expect(page).toHaveURL('/secrets');
   });
 
   test('drawer closes after navigation click', async ({ page }) => {
-    const { privateKey } = makeAccount();
-    await mockProvider(page);
-    await page.goto('/');
-    await changeAccount(page, privateKey);
-    await mobileSignIn(page);
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly();
+    await page.getByTestId('mobile-menu-btn').click();
 
-    // mobileSignIn leaves the drawer open — click a nav link
     const drawer = page.getByTestId('mobile-drawer');
     await drawer.getByRole('link', { name: 'Seals' }).click();
 
-    // After navigation, re-open the menu button should be clickable (drawer closed)
     await expect(page).toHaveURL('/seals');
     await expect(page.getByTestId('mobile-menu-btn')).toBeVisible();
   });
