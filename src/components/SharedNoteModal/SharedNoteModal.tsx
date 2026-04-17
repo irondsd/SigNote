@@ -35,6 +35,7 @@ type SharedNoteModalProps = {
   cardRect?: DOMRect;
   toolbar?: ReactNode;
   formatToggle?: ReactNode;
+  footerLeft?: ReactNode;
 };
 
 function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
@@ -69,6 +70,7 @@ export function SharedNoteModal({
   cardRect,
   toolbar,
   formatToggle,
+  footerLeft,
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
@@ -95,17 +97,22 @@ export function SharedNoteModal({
           </div>
         </div>
 
-        <div className={s.body}>{children}</div>
+        <div className={s.bodyWrap}>
+          <div className={s.body}>{children}</div>
+          {!editing && (
+            <RelativeDate
+              data-testid="note-date"
+              updatedAt={updatedAt}
+              createdAt={createdAt}
+              className={s.dateOverlay}
+            />
+          )}
+        </div>
 
         {toolbar}
 
         <div className={s.footer}>
-          <div className={s.footerLeft}>
-            {editing && formatToggle}
-            {!editing && (
-              <RelativeDate data-testid="note-date" updatedAt={updatedAt} createdAt={createdAt} className={s.date} />
-            )}
-          </div>
+          <div className={s.footerLeft}>{editing ? formatToggle : footerLeft}</div>
           <div className={s.actions}>
             {!editing ? (
               <>

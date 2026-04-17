@@ -1,19 +1,12 @@
 .decryptedBody {
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
-.btns {
+.timerWrapper {
+  display: inline-flex;
+  align-items: center;
   color: var(--foreground);
-  display: flex;
-  flex-direction: row-reverse;
-}
-
-.encHint {
-  font-size: 11px;
-  color: var(--muted-foreground);
-  margin: 0;
 }
 
 .encryptedState {

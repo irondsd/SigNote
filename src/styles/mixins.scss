@@ -1,0 +1,16 @@
+@mixin unselectable-text {
+  user-select: none;
+}
+
+@mixin custom-scrollbar() {
+  scrollbar-color: var(--accent-foreground) transparent;
+  scrollbar-width: thin;
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-foreground);
+  }
+}

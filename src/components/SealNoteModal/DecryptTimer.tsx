@@ -1,3 +1,5 @@
+import { Button } from '../ui/button';
+
 type DecryptTimerProps = {
   timeLeft: number;
   total: number;
@@ -13,8 +15,9 @@ export function DecryptTimer({ timeLeft, total, onClick }: DecryptTimerProps) {
   const dashOffset = circumference * (1 - progress);
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon-sm"
       data-testid="decrypt-timer"
       onClick={onClick}
       className="inline-flex items-center justify-center cursor-pointer bg-transparent border-none p-2"
@@ -44,6 +47,6 @@ export function DecryptTimer({ timeLeft, total, onClick }: DecryptTimerProps) {
           style={{ transition: 'stroke-dashoffset 1s linear' }}
         />
       </svg>
-    </button>
+    </Button>
   );
 }

@@ -273,6 +273,48 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     });
   };
 
+  const timerButtons =
+    isDecrypted && timeLeft !== null && !editing ? (
+      <>
+        <TooltipOrPopover
+          trigger={
+            <div className={s.timerWrapper}>
+              <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
+            </div>
+          }
+          side="bottom"
+        >
+          {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a minute
+        </TooltipOrPopover>
+        <TooltipOrPopover
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="p-2 w-8 h-8"
+              type="button"
+              onClick={handleEncrypt}
+              data-testid="encrypt-btn"
+              title="Encrypt"
+              aria-label="Re-encrypt now"
+            >
+              <Lock size={16} />
+            </Button>
+          }
+          side="bottom"
+        >
+          Re-encrypt now
+        </TooltipOrPopover>
+      </>
+    ) : null;
+
+  const decryptButton = !isDecrypted ? (
+    <Button data-testid="decrypt-btn" variant="subtle-primary" size="sm" onClick={handleDecrypt} disabled={decrypting}>
+      <LockOpen size={13} />
+      {decrypting ? 'Decrypting…' : 'Decrypt to view'}
+    </Button>
+  ) : null;
+
   return (
     <>
       <SharedNoteModal
@@ -301,6 +343,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
           ) : undefined
         }
+        footerLeft={isDecrypted ? timerButtons : decryptButton}
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>
@@ -332,59 +375,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               placeholder="Write your seal…"
               onEditorReady={setEditor}
             />
-            {timeLeft !== null && !editing && (
-              <div className={s.btns}>
-                <TooltipOrPopover
-                  trigger={
-                    <div className={s.timerWrapper}>
-                      <DecryptTimer timeLeft={timeLeft} total={totalTimeRef.current} onClick={handleTimerClick} />
-                    </div>
-                  }
-                  side="bottom"
-                >
-                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')} remaining — click to add a
-                  minute
-                </TooltipOrPopover>
-                <TooltipOrPopover
-                  trigger={
-                    <button
-                      className="p-2 w-8 h-8"
-                      type="button"
-                      onClick={handleEncrypt}
-                      data-testid="encrypt-btn"
-                      title="Encrypt"
-                      aria-label="Re-encrypt now"
-                    >
-                      <Lock size={16} />
-                    </button>
-                  }
-                  side="bottom"
-                >
-                  Re-encrypt now
-                </TooltipOrPopover>
-              </div>
-            )}
           </div>
         ) : (
           <div className={s.encryptedState}>
             <EncryptedPlaceholder
               rows={estimateLines(note.encryptedBody?.ciphertext ?? '')}
               ciphertext={note.encryptedBody?.ciphertext}
-            >
-              <div className="w-full flex gap-2 flex-col items-center justify-center">
-                <Button
-                  data-testid="decrypt-btn"
-                  variant="subtle-primary"
-                  size="sm"
-                  onClick={handleDecrypt}
-                  disabled={decrypting}
-                >
-                  <LockOpen size={13} />
-                  {decrypting ? 'Decrypting…' : 'Decrypt to view'}
-                </Button>
-                <p className={s.encHint}>Content is end-to-end encrypted</p>
-              </div>
-            </EncryptedPlaceholder>
+            />
             {decryptError && <p className={s.decryptError}>{decryptError}</p>}
           </div>
         )}
