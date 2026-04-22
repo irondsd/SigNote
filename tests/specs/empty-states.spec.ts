@@ -92,6 +92,6 @@ test.describe('unauthenticated state', () => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
-    await expect(page.getByText('Sign in to access your notes securely.')).toBeVisible();
+    await expect(page.getByText('Sign in to access your notes')).toBeVisible();
   });
 });
