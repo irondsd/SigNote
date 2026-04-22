@@ -1,4 +1,4 @@
-@import '../../styles/mixins';
+@use '../../styles/mixins';
 
 .modal {
   max-width: 560px;
@@ -55,7 +55,7 @@
   padding: 16px 20px;
   padding-bottom: 32px;
 
-  @include custom-scrollbar();
+  @include mixins.custom-scrollbar();
 }
 
 .dateOverlay {

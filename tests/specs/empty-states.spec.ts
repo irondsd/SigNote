@@ -91,7 +91,7 @@ test.describe('unauthenticated state', () => {
   test('shows welcome message when not signed in', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Welcome to SigNote' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
     await expect(page.getByText('Sign in to access your notes securely.')).toBeVisible();
   });
 });

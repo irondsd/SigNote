@@ -56,7 +56,7 @@ test.describe('connect wallet', () => {
       await expect(walletAddress).toHaveText(expectedShort);
 
       // Verify authenticated UI — UnauthenticatedState should be gone
-      await expect(page.getByText('Welcome to SigNote')).not.toBeVisible();
+      await expect(page.getByText('Welcome back')).not.toBeVisible();
     });
 
     test('should reset button when signature request is rejected', async ({ page }) => {
