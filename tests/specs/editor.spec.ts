@@ -534,4 +534,21 @@ test.describe('formatting toolbar', () => {
     expect(content).not.toContain('<strong>');
     expect(content).toContain('bold text');
   });
+
+  test('Toolbar hides after saving note', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Toolbar Hide ${Date.now()}`;
+    await seedNotes(account.address, [{ title, content: '' }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.openInEditMode(title);
+    await openToolbar(notesPage);
+
+    await expect(page.getByTitle('Bold')).toBeVisible();
+
+    await page.getByTestId('save-btn').click();
+
+    await expect(page.getByTitle('Bold')).not.toBeVisible();
+  });
 });
