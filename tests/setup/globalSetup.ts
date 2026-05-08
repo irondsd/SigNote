@@ -5,6 +5,8 @@ import { config } from 'dotenv';
 import type { ChildProcess } from 'child_process';
 import { startMockOAuthServer } from '../oauth/mockOAuthServer';
 import type { MockOAuthServer } from '../oauth/mockOAuthServer';
+import { startMockS3Server } from '../s3/mockS3Server';
+import type { MockS3Server } from '../s3/mockS3Server';
 
 // Load .env.test so test workers (spawned after globalSetup) inherit these vars
 config({ path: path.resolve(__dirname, '../../.env.test') });
@@ -13,6 +15,7 @@ type GlobalWithMongo = typeof globalThis & {
   __MONGOD__?: MongoMemoryServer;
   __SERVER__?: ChildProcess;
   __MOCK_OAUTH__?: MockOAuthServer;
+  __MOCK_S3__?: MockS3Server;
 };
 
 async function waitForServer(url: string, timeoutMs = 50000): Promise<void> {
@@ -49,6 +52,16 @@ export default async function globalSetup() {
   process.env.GOOGLE_USERINFO_URL = `http://localhost:${mockOAuth.port}/userinfo`;
   (globalThis as GlobalWithMongo).__MOCK_OAUTH__ = mockOAuth;
   console.log(`Mock OAuth server started on port ${mockOAuth.port}`);
+
+  // Start mock S3 server for file upload tests.
+  const mockS3 = await startMockS3Server();
+  process.env.AWS_S3_ENDPOINT = `http://127.0.0.1:${mockS3.port}`;
+  process.env.AWS_S3_BUCKET = 'test-bucket';
+  process.env.AWS_S3_REGION = 'us-east-1';
+  process.env.AWS_ACCESS_KEY_ID = 'test-key';
+  process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
+  (globalThis as GlobalWithMongo).__MOCK_S3__ = mockS3;
+  console.log(`Mock S3 server started on port ${mockS3.port}`);
 
   // Start on a random port and propagate the URI via process.env before
   // spawning the web server, so it inherits the correct MONGODB_URI.

@@ -8,7 +8,10 @@ const s3 = new S3Client({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
   // Required for R2 and other S3-compatible providers
-  ...(process.env.AWS_S3_ENDPOINT && { endpoint: process.env.AWS_S3_ENDPOINT }),
+  ...(process.env.AWS_S3_ENDPOINT && {
+    endpoint: process.env.AWS_S3_ENDPOINT,
+    forcePathStyle: true,
+  }),
 });
 
 const bucket = process.env.AWS_S3_BUCKET!;
