@@ -12,6 +12,7 @@ import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlace
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
@@ -42,6 +43,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -171,9 +173,14 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           wrappedNoteKey = null;
         }
 
-        updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
+        const fileIds = extractFileIds(decryptedContent);
+        updateSeal.mutate(
+          { id: note._id, title, encryptedBody, wrappedNoteKey, fileIds },
+          { onError: () => setEditing(true) },
+        );
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
+        setShowFormatBar(false);
       } finally {
         setSaving(false);
       }
@@ -337,7 +344,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
-        toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} /> : undefined}
+        disableSave={isUploading}
+        toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload /> : undefined}
         formatToggle={
           isDecrypted ? (
             <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
@@ -374,6 +382,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
               editable={editing}
               placeholder="Write your seal…"
               onEditorReady={setEditor}
+              allowFileUpload
+              onUploadingChange={setIsUploading}
             />
           </div>
         ) : (

@@ -11,6 +11,7 @@ import {
   updateSecretColor,
   updateSecretPosition,
 } from '@/controllers/secrets';
+import { linkFilesToNote, softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { type EncryptedPayload } from '@/types/crypto';
@@ -23,6 +24,7 @@ export const DELETE = withSession(async (_req, { userId, params: { id } }) => {
   assertOwner(await getSecretById(id), userId);
 
   await deleteSecret(id);
+  await softDeleteFilesByNoteId(id);
 
   return NextResponse.json({ success: true });
 });
@@ -37,18 +39,25 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, archived, deleted, color, position } = body as {
+  const { title, encryptedBody, archived, deleted, color, position, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload | null;
     archived?: boolean;
     deleted?: boolean;
     color?: string | null;
     position?: number;
+    fileIds?: string[];
   };
 
   let updated;
   if (typeof deleted === 'boolean') {
-    updated = deleted ? await deleteSecret(id) : await undeleteSecret(id);
+    if (deleted) {
+      updated = await deleteSecret(id);
+      await softDeleteFilesByNoteId(id);
+    } else {
+      updated = await undeleteSecret(id);
+      await restoreFilesByNoteId(id);
+    }
   } else if (typeof archived === 'boolean') {
     updated = archived ? await archiveSecret(id) : await unarchiveSecret(id);
   } else if ('color' in body) {
@@ -70,6 +79,9 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
       title ?? secret.title,
       encryptedBody !== undefined ? encryptedBody : secret.encryptedBody,
     );
+    if (Array.isArray(fileIds) && fileIds.length) {
+      await linkFilesToNote(userId, id, 'secret', fileIds);
+    }
   }
 
   return NextResponse.json(updated);

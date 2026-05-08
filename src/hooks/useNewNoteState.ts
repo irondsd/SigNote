@@ -18,7 +18,8 @@ export function useNewNoteState(
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();
-  const isContentEmpty = !content || content.replace(/<[^>]*>/g, '').trim() === '';
+  const hasAttachment = !!content && /data-type="(file|image)-attachment"/.test(content);
+  const isContentEmpty = !hasAttachment && (!content || content.replace(/<[^>]*>/g, '').trim() === '');
   const isDirty = !isTitleEmpty || !isContentEmpty;
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 

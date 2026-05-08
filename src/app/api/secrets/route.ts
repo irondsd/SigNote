@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { createSecret, getSecretsByUserId } from '@/controllers/secrets';
+import { linkFilesToNote } from '@/controllers/files';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_SEARCH, MAX_TITLE } from '@/config/constants';
@@ -26,10 +27,11 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, color } = body as {
+  const { title, encryptedBody, color, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload;
     color?: string | null;
+    fileIds?: string[];
   };
 
   if ((title?.length ?? 0) > MAX_TITLE || (encryptedBody?.ciphertext?.length ?? 0) > MAX_CIPHER) {
@@ -37,6 +39,10 @@ export const POST = withSession(async (req, { userId }) => {
   }
 
   const secret = await createSecret(userId, title ?? '', encryptedBody ?? null, color);
+
+  if (Array.isArray(fileIds) && fileIds.length) {
+    await linkFilesToNote(userId, secret._id.toString(), 'secret', fileIds);
+  }
 
   return NextResponse.json(secret, { status: 201 });
 });

@@ -5,6 +5,7 @@ import { X, Check } from 'lucide-react';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSealBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ type NewSealModalProps = {
 export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealModalProps) {
   const guard = useSimpleEncryptionGuard();
   const [saving, setSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -72,9 +74,11 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         const trimmedContent = content.trim();
         clearDraft();
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
+        const fileIds = extractFileIds(trimmedContent);
         createSeal.mutate({
           title: trimmedTitle,
           color,
+          fileIds,
           encryptBody: async (sealId: string) => {
             if (!trimmedContent) return null;
             return encryptSealBody(mek, trimmedContent, sealId);
@@ -102,7 +106,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         }
         onClose={handleClose}
         onBackdropClose={handleClose}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         footerActions={
@@ -115,7 +119,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
               data-testid="save-seal-btn"
               size="sm"
               onClick={handleSave}
-              disabled={(isTitleEmpty && isContentEmpty) || saving}
+              disabled={(isTitleEmpty && isContentEmpty) || saving || isUploading}
             >
               <Check size={14} />
               {saving ? 'Saving…' : 'Save Seal'}
@@ -129,6 +133,8 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
           editable={true}
           placeholder="Write your seal…"
           onEditorReady={setEditor}
+          allowFileUpload
+          onUploadingChange={setIsUploading}
         />
       </NewModal>
 

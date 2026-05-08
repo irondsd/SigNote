@@ -4,6 +4,11 @@ import DOMPurify from 'dompurify';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 
+const PURIFY_CONFIG = {
+  ADD_TAGS: ['div'],
+  ADD_ATTR: ['data-type', 'data-file-id', 'data-filename', 'data-size', 'data-mime-type'],
+};
+
 type NoteCardProps = {
   note: NoteDocument;
   onClick: (rect: DOMRect) => void;
@@ -21,7 +26,9 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       archived={note.archived}
       data-testid="note-card"
       content={
-        note.content ? <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content) }} /> : undefined
+        note.content ? (
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(note.content, PURIFY_CONFIG) }} />
+        ) : undefined
       }
     />
   );

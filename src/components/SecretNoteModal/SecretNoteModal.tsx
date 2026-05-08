@@ -9,6 +9,7 @@ import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -33,6 +34,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -83,9 +85,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       setSaving(true);
       try {
         const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
-        updateSecret.mutate({ id: note._id, title, encryptedBody }, { onError: () => setEditing(true) });
+        const fileIds = extractFileIds(content);
+        updateSecret.mutate({ id: note._id, title, encryptedBody, fileIds }, { onError: () => setEditing(true) });
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
+        setShowFormatBar(false);
       } finally {
         setSaving(false);
       }
@@ -172,7 +176,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        disableSave={isUploading}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
       >
         <TiptapEditor
@@ -194,6 +199,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
           editable={editing}
           placeholder="Write your secret…"
           onEditorReady={setEditor}
+          allowFileUpload
+          onUploadingChange={setIsUploading}
         />
       </SharedNoteModal>
 

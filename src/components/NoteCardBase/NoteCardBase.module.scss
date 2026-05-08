@@ -139,6 +139,31 @@
   code {
     text-wrap: auto;
   }
+
+  // File and image attachment preview in card (both shown as compact badges)
+  [data-type='file-attachment'],
+  [data-type='image-attachment'] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    margin: 4px 0;
+    border-radius: 4px;
+    background: var(--accent);
+    font-size: 11px;
+
+    &::before {
+      content: '📎';
+      font-size: 10px;
+    }
+
+    &::after {
+      content: attr(data-filename);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 }
 
 .archivedBadge {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -40,6 +41,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     draftTimerRef,
   } = useNewNoteState('note', onClose, initialContent);
 
+  const [isUploading, setIsUploading] = useState(false);
   const createNote = useCreateNote({ onError: onSaveError });
 
   const handleSave = () => {
@@ -73,7 +75,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
         }
         onClose={handleClose}
         onBackdropClose={handleClose}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         footerActions={
@@ -86,7 +88,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
               data-testid="save-note-btn"
               size="sm"
               onClick={handleSave}
-              disabled={isTitleEmpty && isContentEmpty}
+              disabled={(isTitleEmpty && isContentEmpty) || isUploading}
             >
               <Check size={14} />
               Save Note
@@ -100,6 +102,8 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
           editable={true}
           placeholder="Write your note..."
           onEditorReady={setEditor}
+          allowFileUpload
+          onUploadingChange={setIsUploading}
         />
       </NewModal>
 

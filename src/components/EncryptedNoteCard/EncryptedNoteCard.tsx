@@ -28,7 +28,14 @@ export function EncryptedNoteCard({
   archived = false,
 }: EncryptedNoteCardProps) {
   const content = decryptedContent ? (
-    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(decryptedContent) }} />
+    <div
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(decryptedContent, {
+          ADD_TAGS: ['div'],
+          ADD_ATTR: ['data-type', 'data-file-id', 'data-filename', 'data-size', 'data-mime-type'],
+        }),
+      }}
+    />
   ) : (
     <EncryptedPlaceholder rows={4} ciphertext={ciphertext} />
   );

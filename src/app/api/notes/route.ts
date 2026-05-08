@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 
 import { createNote, getNotesByUserId } from '@/controllers/notes';
+import { linkFilesToNote } from '@/controllers/files';
 import { withSession } from '@/lib/routeAuth';
 import { MAX_CONTENT, MAX_SEARCH, MAX_TITLE } from '@/config/constants';
+import { extractFileIds } from '@/lib/fileIds';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +34,11 @@ export const POST = withSession(async (req, { userId }) => {
   }
 
   const note = await createNote(userId, title ?? '', content ?? '', color);
+
+  const fileIds = extractFileIds(content ?? '');
+  if (fileIds.length) {
+    await linkFilesToNote(userId, note._id.toString(), 'note', fileIds);
+  }
 
   return NextResponse.json(note, { status: 201 });
 });
