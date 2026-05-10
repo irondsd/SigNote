@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { encryptSealBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -25,6 +27,7 @@ type NewSealModalProps = {
 
 export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealModalProps) {
   const guard = useSimpleEncryptionGuard();
+  const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
@@ -127,15 +130,19 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
           </>
         }
       >
-        <TiptapEditor
-          content={content}
-          onChange={setContent}
-          editable={true}
-          placeholder="Write your seal…"
-          onEditorReady={setEditor}
-          allowFileUpload
-          onUploadingChange={setIsUploading}
-        />
+        <FileEncryptionProvider mek={mek}>
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            editable={true}
+            placeholder="Write your seal…"
+            onEditorReady={setEditor}
+            allowFileUpload
+            onUploadingChange={setIsUploading}
+            fileEncryptionCtx={mek ? { mek } : undefined}
+            requiresEncryption
+          />
+        </FileEncryptionProvider>
       </NewModal>
 
       {guard.PassphraseGuard}

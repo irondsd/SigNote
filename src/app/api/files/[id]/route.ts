@@ -16,12 +16,17 @@ export const GET = withSession(async (req, { userId, params: { id } }) => {
   const { body, contentType, contentLength } = await streamFromS3(doc.s3Key);
 
   const headers: HeadersInit = {
-    'Content-Type': contentType,
+    'Content-Type': doc.encrypted ? 'application/octet-stream' : contentType,
     'Content-Disposition': `attachment; filename="${encodeURIComponent(doc.filename)}"`,
     'Cache-Control': 'private, max-age=3600',
   };
   if (contentLength != null) {
     headers['Content-Length'] = String(contentLength);
+  }
+  if (doc.encrypted) {
+    headers['X-File-Encrypted'] = 'true';
+    if (doc.encryptionIv) headers['X-Encryption-IV'] = doc.encryptionIv;
+    headers['X-Original-MimeType'] = doc.mimeType;
   }
 
   // @ts-expect-error -- Node Readable is accepted by the Response constructor at runtime

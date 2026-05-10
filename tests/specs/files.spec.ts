@@ -3,10 +3,15 @@ import path from 'path';
 import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { NotesPage } from '../pages/NotesPage';
+import { SecretsPage } from '../pages/SecretsPage';
+import { SealsPage } from '../pages/SealsPage';
+import { FileAttachmentModel } from '../../src/models/FileAttachment';
 import mongoose from 'mongoose';
 
-const pdfBuffer = fs.readFileSync(path.resolve(__dirname, '../fixtures/files/sample.pdf'));
-const pngBuffer = fs.readFileSync(path.resolve(__dirname, '../fixtures/files/sample.png'));
+const pdfPath = path.resolve(__dirname, '../fixtures/files/sample.pdf');
+const pngPath = path.resolve(__dirname, '../fixtures/files/sample.png');
+const pdfBuffer = fs.readFileSync(pdfPath);
+const pngBuffer = fs.readFileSync(pngPath);
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -167,5 +172,137 @@ test.describe('auth and isolation', () => {
     expect(res.status()).toBe(404);
 
     await contextB.close();
+  });
+});
+
+// ─── Encrypted file uploads ───────────────────────────────────────────────
+
+async function waitForFileUpload(page: import('@playwright/test').Page) {
+  const res = await page.waitForResponse(
+    (r) => r.url().includes('/api/files') && r.request().method() === 'POST' && r.status() === 201,
+  );
+  const json = await res.json();
+  return json.fileId as string;
+}
+
+async function assertFileEncrypted(fileId: string) {
+  const doc = await FileAttachmentModel.findById(fileId).lean();
+  expect(doc).toBeTruthy();
+  expect(doc!.encrypted).toBe(true);
+  expect(doc!.encryptionIv).toBeTruthy();
+}
+
+async function openNewSecret(page: import('@playwright/test').Page) {
+  const secretsPage = new SecretsPage(page);
+  await secretsPage.signInDirectly();
+  await secretsPage.unlock();
+  await page.getByRole('button', { name: 'New Secret' }).click();
+  await expect(page.getByTestId('note-title-input')).toBeVisible();
+  await page.getByTestId('note-title-input').fill(`Secret ${Date.now()}`);
+}
+
+async function openNewSeal(page: import('@playwright/test').Page) {
+  const sealsPage = new SealsPage(page);
+  await sealsPage.signInDirectly();
+  await sealsPage.unlock();
+  await page.getByRole('button', { name: 'New Seal' }).click();
+  await expect(page.getByTestId('note-title-input')).toBeVisible();
+  await page.getByTestId('note-title-input').fill(`Seal ${Date.now()}`);
+}
+
+async function openFormatToolbar(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Formatting options' }).click();
+  await expect(page.getByRole('button', { name: 'Attach file' })).toBeVisible();
+}
+
+async function uploadViaDropZone(page: import('@playwright/test').Page, filePath: string) {
+  await openFormatToolbar(page);
+  await page.getByRole('button', { name: 'Attach file' }).click();
+  const fileInput = page.locator('input[type="file"]');
+  await expect(fileInput).toBeAttached();
+  const uploadPromise = waitForFileUpload(page);
+  await fileInput.setInputFiles(filePath);
+  return uploadPromise;
+}
+
+async function uploadViaDrop(page: import('@playwright/test').Page, filePath: string) {
+  const editor = page.getByTestId('tiptap-editor');
+  await editor.click();
+
+  const buffer = fs.readFileSync(filePath);
+  const fileName = path.basename(filePath);
+  const mimeType = fileName.endsWith('.png') ? 'image/png' : 'application/pdf';
+
+  const uploadPromise = waitForFileUpload(page);
+
+  await editor.evaluate(
+    (el, { data, name, mime }) => {
+      const bytes = new Uint8Array(data);
+      const file = new File([bytes], name, { type: mime });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const rect = el.getBoundingClientRect();
+      const event = new DragEvent('drop', {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: dt,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      });
+      el.querySelector('.tiptap')?.dispatchEvent(event);
+    },
+    { data: Array.from(buffer), name: fileName, mime: mimeType },
+  );
+
+  return uploadPromise;
+}
+
+test.describe('encrypted file uploads', () => {
+  test.describe.configure({ mode: 'parallel' });
+
+  test('secret: file uploaded via drop zone is encrypted', async ({ page }) => {
+    await openNewSecret(page);
+    const fileId = await uploadViaDropZone(page, pngPath);
+    await assertFileEncrypted(fileId);
+  });
+
+  test('secret: file uploaded via direct drop is encrypted', async ({ page }) => {
+    await openNewSecret(page);
+    const fileId = await uploadViaDrop(page, pngPath);
+    await assertFileEncrypted(fileId);
+  });
+
+  test('seal: file uploaded via drop zone is encrypted', async ({ page }) => {
+    await openNewSeal(page);
+    const fileId = await uploadViaDropZone(page, pngPath);
+    await assertFileEncrypted(fileId);
+  });
+
+  test('seal: file uploaded via direct drop is encrypted', async ({ page }) => {
+    await openNewSeal(page);
+    const fileId = await uploadViaDrop(page, pngPath);
+    await assertFileEncrypted(fileId);
+  });
+
+  test('unused drop zone is stripped from saved content', async ({ page }) => {
+    const title = `DropZone Strip ${Date.now()}`;
+    await openNewSecret(page);
+    await page.getByTestId('note-title-input').fill(title);
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type('Some text');
+    await openFormatToolbar(page);
+    await page.getByRole('button', { name: 'Attach file' }).click();
+    await expect(page.getByText('Drop file here or click to browse')).toBeVisible();
+
+    const postPromise = page.waitForResponse(
+      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
+    );
+    await page.getByTestId('save-secret-btn').click();
+    await postPromise;
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.secretCard(title).click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText('Some text', { timeout: 10000 });
+    await expect(page.getByText('Drop file here or click to browse')).not.toBeVisible();
   });
 });

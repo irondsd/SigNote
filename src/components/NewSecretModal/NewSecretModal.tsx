@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -25,6 +27,7 @@ type NewSecretModalProps = {
 
 export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecretModalProps) {
   const guard = useSimpleEncryptionGuard();
+  const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
@@ -120,15 +123,19 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
           </>
         }
       >
-        <TiptapEditor
-          content={content}
-          onChange={setContent}
-          editable={true}
-          placeholder="Write your secret…"
-          onEditorReady={setEditor}
-          allowFileUpload
-          onUploadingChange={setIsUploading}
-        />
+        <FileEncryptionProvider mek={mek}>
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            editable={true}
+            placeholder="Write your secret…"
+            onEditorReady={setEditor}
+            allowFileUpload
+            onUploadingChange={setIsUploading}
+            fileEncryptionCtx={mek ? { mek } : undefined}
+            requiresEncryption
+          />
+        </FileEncryptionProvider>
       </NewModal>
 
       {guard.PassphraseGuard}

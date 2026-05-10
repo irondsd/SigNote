@@ -5,6 +5,7 @@ import {
   ENC_PBKDF2_LENGTH,
   ENC_SESSION_KEY,
   ENC_VERSION,
+  HKDF_INFO_FILE_ENC,
   HKDF_INFO_SECRET_BODY,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
@@ -128,8 +129,7 @@ export async function decryptAesGcm(key: CryptoKey, payload: EncryptedPayload, a
   return decodeUtf8(plaintext);
 }
 
-/** Raw encrypt of Uint8Array bytes (for wrapping note keys) */
-async function encryptBytesAesGcm(
+export async function encryptBytesAesGcm(
   key: CryptoKey,
   plaintextBytes: Uint8Array<ArrayBuffer>,
   aad?: string,
@@ -150,7 +150,7 @@ async function encryptBytesAesGcm(
   };
 }
 
-async function decryptBytesAesGcm(
+export async function decryptBytesAesGcm(
   key: CryptoKey,
   payload: EncryptedPayload,
   aad?: string,
@@ -245,6 +245,37 @@ export async function decryptSealBody(
 
   // Decrypt body
   return decryptAesGcm(nekKey, encryptedBody, aad);
+}
+
+// ─── File encryption ────────────────────────────────────────────────────────
+
+export async function deriveFileEncKey(mek: CryptoKey): Promise<CryptoKey> {
+  return hkdfDeriveAesKey(mek, HKDF_INFO_FILE_ENC);
+}
+
+export async function encryptFileBytes(
+  mek: CryptoKey,
+  plainBytes: Uint8Array<ArrayBuffer>,
+): Promise<{ iv: string; cipherBytes: ArrayBuffer }> {
+  const fileKey = await deriveFileEncKey(mek);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+
+  const cipherBytes = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, fileKey, plainBytes);
+
+  return { iv: toBase64(iv), cipherBytes };
+}
+
+export async function decryptFileBytes(
+  mek: CryptoKey,
+  ivB64: string,
+  cipherBytes: ArrayBuffer,
+): Promise<Uint8Array> {
+  const fileKey = await deriveFileEncKey(mek);
+  const iv = fromBase64(ivB64);
+
+  const plainBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, fileKey, cipherBytes);
+
+  return new Uint8Array(plainBytes);
 }
 
 // ─── Default KDF params ──────────────────────────────────────────────────────

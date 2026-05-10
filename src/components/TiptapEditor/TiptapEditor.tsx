@@ -15,6 +15,9 @@ import { FileAttachmentNode } from './extensions/FileAttachmentNode';
 import { ImageAttachmentNode } from './extensions/ImageAttachmentNode';
 import { FileDropHandler } from './extensions/FileDropHandler';
 import { DropZoneNode } from './extensions/DropZoneNode';
+import type { FileEncryptionContext } from './utils/uploadFile';
+
+export type { FileEncryptionContext };
 
 const CustomCodeBlock = CodeBlock.extend({
   addNodeView() {
@@ -31,6 +34,8 @@ type TiptapEditorProps = {
   onEditorReady?: (editor: Editor) => void;
   allowFileUpload?: boolean;
   onUploadingChange?: (isUploading: boolean) => void;
+  fileEncryptionCtx?: FileEncryptionContext;
+  requiresEncryption?: boolean;
 };
 
 export function TiptapEditor({
@@ -42,11 +47,18 @@ export function TiptapEditor({
   onEditorReady,
   allowFileUpload = false,
   onUploadingChange,
+  fileEncryptionCtx,
+  requiresEncryption = false,
 }: TiptapEditorProps) {
   const editableRef = useRef(editable);
   const uploadingRef = useRef(false);
   const onUploadingChangeRef = useRef(onUploadingChange);
   onUploadingChangeRef.current = onUploadingChange;
+  const encryptionRef = useRef<{ ctx: FileEncryptionContext | undefined; required: boolean }>({
+    ctx: fileEncryptionCtx,
+    required: requiresEncryption,
+  });
+  encryptionRef.current = { ctx: fileEncryptionCtx, required: requiresEncryption };
 
   const extensions = useMemo(() => {
     const base: Extension[] = [
@@ -60,12 +72,12 @@ export function TiptapEditor({
       base.push(
         FileAttachmentNode as unknown as Extension,
         ImageAttachmentNode as unknown as Extension,
-        FileDropHandler as unknown as Extension,
+        FileDropHandler.configure({ encryptionRef }) as unknown as Extension,
         DropZoneNode as unknown as Extension,
       );
     }
     return base;
-  }, [allowFileUpload]);
+  }, [allowFileUpload, encryptionRef]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -103,6 +115,7 @@ export function TiptapEditor({
     if (editor) onEditorReady?.(editor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
+
 
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;

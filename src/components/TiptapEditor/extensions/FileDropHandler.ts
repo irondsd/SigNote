@@ -1,11 +1,18 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import type { FileEncryptionContext } from '../utils/uploadFile';
+
+export type EncryptionRef = { current: { ctx: FileEncryptionContext | undefined; required: boolean } };
 
 const UPLOAD_COUNTER_KEY = 'fileUploadCounter';
 
-export const FileDropHandler = Extension.create({
+export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef }>({
   name: 'fileDropHandler',
+
+  addOptions() {
+    return { encryptionRef: undefined };
+  },
 
   addStorage() {
     return {
@@ -14,7 +21,8 @@ export const FileDropHandler = Extension.create({
   },
 
   addProseMirrorPlugins() {
-    const storage = this.storage as Record<string, number>;
+    const storage = this.storage as Record<string, unknown>;
+    const encryptionRef = this.options.encryptionRef;
 
     return [
       new Plugin({
@@ -27,9 +35,10 @@ export const FileDropHandler = Extension.create({
             const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
             if (pos == null) return false;
 
+            const enc = encryptionRef?.current;
             const files = Array.from(event.dataTransfer.files);
             for (const file of files) {
-              insertAndUploadFile(view, file, pos, storage);
+              insertAndUploadFile(view, file, pos, storage, enc?.ctx, enc?.required);
             }
             return true;
           },
@@ -49,9 +58,10 @@ export const FileDropHandler = Extension.create({
             if (!files.length) return false;
             event.preventDefault();
 
+            const enc = encryptionRef?.current;
             const pos = view.state.selection.from;
             for (const file of files) {
-              insertAndUploadFile(view, file, pos, storage);
+              insertAndUploadFile(view, file, pos, storage, enc?.ctx, enc?.required);
             }
             return true;
           },
@@ -88,9 +98,16 @@ async function insertAndUploadFile(
   view: EditorView,
   file: File,
   pos: number,
-  storage: Record<string, number>,
+  storage: Record<string, unknown>,
+  encryptionCtx?: FileEncryptionContext,
+  requiresEncryption?: boolean,
 ) {
   const { toast } = await import('sonner');
+
+  if (requiresEncryption && !encryptionCtx) {
+    toast.error('Unlock required to attach files');
+    return;
+  }
 
   if (file.size > MAX_FILE_SIZE) {
     toast.error(`File "${file.name}" exceeds 5 MB limit`);
@@ -120,12 +137,24 @@ async function insertAndUploadFile(
   let tr = view.state.tr.insert(insertPos, node);
   view.dispatch(tr);
 
-  storage[UPLOAD_COUNTER_KEY] = (storage[UPLOAD_COUNTER_KEY] || 0) + 1;
+  storage[UPLOAD_COUNTER_KEY] = ((storage[UPLOAD_COUNTER_KEY] as number) || 0) + 1;
 
   const formData = new FormData();
-  formData.append('file', file);
 
   try {
+    if (encryptionCtx) {
+      const { encryptFileBytes } = await import('@/lib/crypto');
+      const plainBytes = new Uint8Array(await file.arrayBuffer());
+      const { iv, cipherBytes } = await encryptFileBytes(encryptionCtx.mek, plainBytes);
+      formData.append('file', new Blob([cipherBytes]), file.name);
+      formData.append('originalMimeType', file.type);
+      formData.append('originalSize', String(file.size));
+      formData.append('encrypted', 'true');
+      formData.append('encryptionIv', iv);
+    } else {
+      formData.append('file', file);
+    }
+
     const res = await fetch('/api/files', { method: 'POST', body: formData });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Upload failed' }));
@@ -182,6 +211,6 @@ async function insertAndUploadFile(
       }
     }
   } finally {
-    storage[UPLOAD_COUNTER_KEY] = Math.max(0, (storage[UPLOAD_COUNTER_KEY] || 1) - 1);
+    storage[UPLOAD_COUNTER_KEY] = Math.max(0, ((storage[UPLOAD_COUNTER_KEY] as number) || 1) - 1);
   }
 }

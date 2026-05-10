@@ -4,6 +4,7 @@ import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { File, FileText, FileSpreadsheet, FileArchive, Trash2, X, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
+import { useDecryptedFile } from '@/hooks/useDecryptedFile';
 import s from './FileAttachmentView.module.scss';
 
 function formatFileSize(bytes: number): string {
@@ -40,6 +41,7 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
   const IconComponent = getFileIcon(mimeType);
+  const { blobUrl } = useDecryptedFile(isUploading ? null : fileId);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,21 +65,27 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (fileId) {
-      window.open(`/api/files/${fileId}`, '_blank');
+    if (blobUrl) {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
     }
   };
 
   const handleCardClick = () => {
-    if (!isEditable && fileId) {
-      window.open(`/api/files/${fileId}`, '_blank');
+    if (!isEditable && blobUrl) {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
     }
   };
 
   return (
     <NodeViewWrapper className={s.wrapper}>
       <div
-        className={`${s.card} ${isUploading ? s.uploading : ''} ${!isEditable && fileId ? s.clickable : ''} ${selected && isEditable ? s.selected : ''}`}
+        className={`${s.card} ${isUploading ? s.uploading : ''} ${!isEditable && blobUrl ? s.clickable : ''} ${selected && isEditable ? s.selected : ''}`}
         onClick={handleCardClick}
       >
         <div className={s.icon}>
@@ -97,7 +105,7 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
             </Button>
           ) : (
             <>
-              {fileId && (
+              {blobUrl && (
                 <Button variant="ghost" size="icon-sm" onClick={handleDownload} title="Download file">
                   <Download size={16} />
                 </Button>

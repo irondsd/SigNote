@@ -13,11 +13,20 @@ export const POST = withSession(async (req, { userId }) => {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
 
+  const isEncrypted = formData.get('encrypted') === 'true';
+  const encryptionIv = formData.get('encryptionIv') as string | null;
+  const originalMimeType = (formData.get('originalMimeType') as string | null) ?? file.type;
+  const originalSize = Number(formData.get('originalSize')) || file.size;
+
+  if (isEncrypted && !encryptionIv) {
+    return NextResponse.json({ error: 'Missing encryption IV' }, { status: 400 });
+  }
+
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: 'File too large (max 5 MB)' }, { status: 413 });
   }
 
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+  if (!isEncrypted && !ALLOWED_MIME_TYPES.has(file.type)) {
     return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
   }
 
@@ -25,9 +34,11 @@ export const POST = withSession(async (req, { userId }) => {
     const buffer = Buffer.from(await file.arrayBuffer());
     const doc = await createFileAttachment(userId, {
       filename: file.name,
-      size: file.size,
-      mimeType: file.type,
+      size: originalSize,
+      mimeType: originalMimeType,
       buffer,
+      encrypted: isEncrypted,
+      encryptionIv: encryptionIv ?? undefined,
     });
 
     return NextResponse.json(

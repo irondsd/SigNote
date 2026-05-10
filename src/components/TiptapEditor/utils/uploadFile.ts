@@ -1,5 +1,10 @@
 import type { Editor } from '@tiptap/core';
 import { toast } from 'sonner';
+import { encryptFileBytes } from '@/lib/crypto';
+
+export type FileEncryptionContext = {
+  mek: CryptoKey;
+};
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -24,7 +29,7 @@ function isImageMime(mime: string) {
   return mime.startsWith('image/');
 }
 
-export async function uploadFileToEditor(editor: Editor, file: File) {
+export async function uploadFileToEditor(editor: Editor, file: File, encryptionCtx?: FileEncryptionContext) {
   if (file.size > MAX_FILE_SIZE) {
     toast.error(`File "${file.name}" exceeds 5 MB limit`);
     return;
@@ -54,9 +59,20 @@ export async function uploadFileToEditor(editor: Editor, file: File) {
   }
 
   const formData = new FormData();
-  formData.append('file', file);
 
   try {
+    if (encryptionCtx) {
+      const plainBytes = new Uint8Array(await file.arrayBuffer());
+      const { iv, cipherBytes } = await encryptFileBytes(encryptionCtx.mek, plainBytes);
+      formData.append('file', new Blob([cipherBytes]), file.name);
+      formData.append('originalMimeType', file.type);
+      formData.append('originalSize', String(file.size));
+      formData.append('encrypted', 'true');
+      formData.append('encryptionIv', iv);
+    } else {
+      formData.append('file', file);
+    }
+
     const res = await fetch('/api/files', { method: 'POST', body: formData });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Upload failed' }));

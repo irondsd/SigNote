@@ -25,6 +25,7 @@ export const ENC_SESSION_KEY = 'enc_device_share_v1';
 export const HKDF_INFO_SECRET_BODY = 'secret-body:v1';
 export const HKDF_INFO_VERIFY_KEY = 'key-verify:v1';
 export const HKDF_INFO_SEAL_WRAP_PREFIX = 'seal-wrap:v1';
+export const HKDF_INFO_FILE_ENC = 'file-enc:v1';
 export const KEY_CHECK_PLAINTEXT = 'notes-key-check:v1';
 
 export function getSealKeyString(sealId: string) {

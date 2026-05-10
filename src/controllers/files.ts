@@ -34,12 +34,19 @@ export async function getUserStorageUsed(userId: string): Promise<number> {
 
 export async function createFileAttachment(
   userId: string,
-  file: { filename: string; size: number; mimeType: string; buffer: Buffer },
+  file: {
+    filename: string;
+    size: number;
+    mimeType: string;
+    buffer: Buffer;
+    encrypted?: boolean;
+    encryptionIv?: string;
+  },
 ) {
-  if (file.size > MAX_FILE_SIZE) {
+  if (file.buffer.length > MAX_FILE_SIZE) {
     throw new Error('File too large');
   }
-  if (!ALLOWED_MIME_TYPES.has(file.mimeType)) {
+  if (!file.encrypted && !ALLOWED_MIME_TYPES.has(file.mimeType)) {
     throw new Error('File type not allowed');
   }
 
@@ -49,9 +56,12 @@ export async function createFileAttachment(
   }
 
   const fileId = new mongoose.Types.ObjectId();
-  const s3Key = `uploads/${userId}/${fileId}/${file.filename}`;
+  const s3Key = file.encrypted
+    ? `uploads/${userId}/${fileId}/encrypted`
+    : `uploads/${userId}/${fileId}/${file.filename}`;
+  const s3ContentType = file.encrypted ? 'application/octet-stream' : file.mimeType;
 
-  await uploadToS3(s3Key, file.buffer, file.mimeType);
+  await uploadToS3(s3Key, file.buffer, s3ContentType);
 
   const doc = await FileAttachmentModel.create({
     _id: fileId,
@@ -60,6 +70,8 @@ export async function createFileAttachment(
     size: file.size,
     mimeType: file.mimeType,
     s3Key,
+    encrypted: file.encrypted ?? false,
+    encryptionIv: file.encryptionIv ?? null,
     createdAt: new Date(),
   });
 

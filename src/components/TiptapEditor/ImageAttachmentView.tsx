@@ -1,15 +1,17 @@
 'use client';
 
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
-import { Trash2, Download, Loader2 } from 'lucide-react';
+import { Trash2, Download, Loader2, ImageOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
+import { useDecryptedFile } from '@/hooks/useDecryptedFile';
 import s from './ImageAttachmentView.module.scss';
 
 export function ImageAttachmentView({ node, deleteNode, editor, selected }: NodeViewProps) {
   const { fileId, filename, uploadStatus } = node.attrs;
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
+  const { blobUrl, loading: decrypting, error } = useDecryptedFile(isUploading ? null : fileId);
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -28,22 +30,30 @@ export function ImageAttachmentView({ node, deleteNode, editor, selected }: Node
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (fileId) {
-      window.open(`/api/files/${fileId}`, '_blank');
+    if (blobUrl) {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
     }
   };
 
   return (
     <NodeViewWrapper className={s.wrapper}>
-      {isUploading ? (
+      {isUploading || decrypting ? (
         <div className={s.placeholder}>
           <Loader2 size={24} className={s.spinner} />
-          <span>Uploading {filename}...</span>
+          <span>{isUploading ? `Uploading ${filename}...` : 'Loading...'}</span>
         </div>
-      ) : (
+      ) : error ? (
+        <div className={s.placeholder}>
+          <ImageOff size={24} />
+          <span>Unable to load image</span>
+        </div>
+      ) : blobUrl ? (
         <div className={`${s.imageContainer} ${selected && isEditable ? s.selected : ''}`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- Tiptap node view, not a page component */}
-          <img src={`/api/files/${fileId}`} alt={filename} className={s.image} draggable={false} />
+          <img src={blobUrl} alt={filename} className={s.image} draggable={false} />
           <div className={s.overlay}>
             <Button variant="ghost" size="icon-sm" onClick={handleDownload} title="Download image" className={s.overlayBtn}>
               <Download size={16} />
@@ -55,7 +65,7 @@ export function ImageAttachmentView({ node, deleteNode, editor, selected }: Node
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </NodeViewWrapper>
   );
 }

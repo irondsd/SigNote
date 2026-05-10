@@ -10,6 +10,8 @@ export type FileAttachment = {
   filename: string;
   size: number;
   mimeType: string;
+  encrypted: boolean;
+  encryptionIv: string | null;
   createdAt: Date;
   deletedAt: Date | null;
   storageDeletedAt: Date | null;
@@ -24,6 +26,8 @@ const fileAttachmentSchema = new Schema<FileAttachment>({
   noteId: { type: String, default: null },
   noteTier: { type: String, enum: ['note', 'secret', 'seal'], default: null },
   s3Key: { type: String, required: true },
+  encrypted: { type: Boolean, default: false },
+  encryptionIv: { type: String, default: null },
   filename: { type: String, required: true },
   size: { type: Number, required: true },
   mimeType: { type: String, required: true },
