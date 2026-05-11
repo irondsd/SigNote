@@ -265,11 +265,7 @@ export async function encryptFileBytes(
   return { iv: toBase64(iv), cipherBytes };
 }
 
-export async function decryptFileBytes(
-  mek: CryptoKey,
-  ivB64: string,
-  cipherBytes: ArrayBuffer,
-): Promise<Uint8Array> {
+export async function decryptFileBytes(mek: CryptoKey, ivB64: string, cipherBytes: ArrayBuffer): Promise<Uint8Array> {
   const fileKey = await deriveFileEncKey(mek);
   const iv = fromBase64(ivB64);
 

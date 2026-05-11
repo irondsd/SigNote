@@ -27,7 +27,12 @@ export type CachedSecretNote = {
   color: string | null;
 };
 
-type CreateSecretInput = { title: string; encryptedBody: EncryptedPayload | null; color?: string | null; fileIds?: string[] };
+type CreateSecretInput = {
+  title: string;
+  encryptedBody: EncryptedPayload | null;
+  color?: string | null;
+  fileIds?: string[];
+};
 type UpdateSecretInput = {
   id: string;
   title?: string;

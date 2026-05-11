@@ -116,7 +116,6 @@ export function TiptapEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (!editable && target.tagName === 'CODE' && !target.closest('pre')) {

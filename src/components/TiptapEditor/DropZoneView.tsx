@@ -84,13 +84,7 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
       >
         <Upload size={20} />
         <span>Drop file here or click to browse</span>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          onChange={handleInputChange}
-          className={s.hiddenInput}
-        />
+        <input ref={inputRef} type="file" multiple onChange={handleInputChange} className={s.hiddenInput} />
       </div>
     </NodeViewWrapper>
   );

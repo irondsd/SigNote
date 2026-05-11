@@ -8,13 +8,7 @@ type FileEncryptionContextValue = {
 
 const FileEncryptionContext = createContext<FileEncryptionContextValue>({ mek: null });
 
-export function FileEncryptionProvider({
-  mek,
-  children,
-}: {
-  mek: CryptoKey | null;
-  children: ReactNode;
-}) {
+export function FileEncryptionProvider({ mek, children }: { mek: CryptoKey | null; children: ReactNode }) {
   return <FileEncryptionContext.Provider value={{ mek }}>{children}</FileEncryptionContext.Provider>;
 }
 

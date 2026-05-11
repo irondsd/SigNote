@@ -52,8 +52,9 @@ export async function uploadFileToEditor(editor: Editor, file: File, encryptionC
 
   editor.chain().focus().insertContent({ type: nodeType, attrs }).run();
 
-  const storage = editor.extensionManager.extensions.find((e) => e.name === 'fileDropHandler')
-    ?.storage as Record<string, number> | undefined;
+  const storage = editor.extensionManager.extensions.find((e) => e.name === 'fileDropHandler')?.storage as
+    | Record<string, number>
+    | undefined;
   if (storage) {
     storage.fileUploadCounter = (storage.fileUploadCounter || 0) + 1;
   }

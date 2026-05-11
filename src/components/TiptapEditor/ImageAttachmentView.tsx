@@ -55,11 +55,23 @@ export function ImageAttachmentView({ node, deleteNode, editor, selected }: Node
           {/* eslint-disable-next-line @next/next/no-img-element -- Tiptap node view, not a page component */}
           <img src={blobUrl} alt={filename} className={s.image} draggable={false} />
           <div className={s.overlay}>
-            <Button variant="ghost" size="icon-sm" onClick={handleDownload} title="Download image" className={s.overlayBtn}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleDownload}
+              title="Download image"
+              className={s.overlayBtn}
+            >
               <Download size={16} />
             </Button>
             {isEditable && (
-              <Button variant="ghost" size="icon-sm" onClick={handleDelete} title="Delete image" className={s.overlayBtn}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleDelete}
+                title="Delete image"
+                className={s.overlayBtn}
+              >
                 <Trash2 size={16} />
               </Button>
             )}

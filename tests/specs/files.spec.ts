@@ -15,12 +15,7 @@ const pngBuffer = fs.readFileSync(pngPath);
 
 test.describe.configure({ mode: 'parallel' });
 
-async function uploadFile(
-  page: import('@playwright/test').Page,
-  buffer: Buffer,
-  name: string,
-  mimeType: string,
-) {
+async function uploadFile(page: import('@playwright/test').Page, buffer: Buffer, name: string, mimeType: string) {
   return page.request.post('/api/files', {
     multipart: { file: { name, mimeType, buffer } },
   });
