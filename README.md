@@ -156,6 +156,7 @@ Titles are intentionally left unencrypted to enable full-text indexing while kee
 - **TanStack Query v5** for server state
 - **shadcn/ui** components
 - **Tiptap** rich text editor
+- **AWS S3 / S3-compatible** (Cloudflare R2, etc.) for file storage
 - **dnd-kit** for drag-and-drop reordering
 - **Sass modules** for styling
 
@@ -191,6 +192,13 @@ NEXT_PUBLIC_RPC_URL=""
 # Google OAuth (optional)
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+
+# S3 file storage
+AWS_S3_BUCKET=""
+AWS_S3_REGION=""
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_S3_ENDPOINT=""   # optional: S3-compatible provider endpoint
 ```
 
 | Variable                               | Description                                                | Required |
@@ -203,8 +211,15 @@ GOOGLE_CLIENT_SECRET=""
 | `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app (for SIWE)           | Yes      |
 | `GOOGLE_CLIENT_ID`                     | Google OAuth 2.0 Client ID (from Google Cloud Console)     | No\*     |
 | `GOOGLE_CLIENT_SECRET`                 | Google OAuth 2.0 Client Secret (from Google Cloud Console) | No\*     |
+| `AWS_S3_BUCKET`                        | S3 bucket name for file storage                            | Yes†     |
+| `AWS_S3_REGION`                        | AWS region                                                 | Yes†     |
+| `AWS_ACCESS_KEY_ID`                    | AWS access key ID                                          | Yes†     |
+| `AWS_SECRET_ACCESS_KEY`                | AWS secret access key                                      | Yes†     |
+| `AWS_S3_ENDPOINT`                      | Custom endpoint for S3-compatible providers (e.g. R2)      | No       |
 
 \*Only required if you want to enable Google OAuth sign-in. SIWE works without Google credentials.
+
+†Required to enable file attachments.
 
 > The local dev script runs on port `5000`, so `NEXTAUTH_URL` should be `http://localhost:5000` unless you change the port.
 
@@ -225,6 +240,7 @@ src/
 ├── app/                  # App Router pages and API route handlers
 │   ├── api/
 │   │   ├── encryption/   # Profile and key material endpoints
+│   │   ├── files/        # File upload and retrieval
 │   │   ├── notes/        # Tier 1 CRUD
 │   │   ├── secrets/      # Tier 2 CRUD
 │   │   └── seals/        # Tier 3 CRUD
@@ -249,6 +265,7 @@ src/
 - SIWE authentication uses domain binding to prevent phishing; Google OAuth relies on Google's security model.
 - If you use account linking (SIWE + Google), both methods provide access to the same account and encrypted notes.
 - The MEK never leaves the browser and is never sent to the server in any form.
+- Files attached to Secrets and Seals are encrypted client-side before upload using AES-GCM with a key derived from the MEK. The server stores only ciphertext and never sees the original file contents.
 - The `serverShare` stored in MongoDB is useless without the user's passphrase.
 - `sessionStorage` (which holds `deviceShare`) is tab-scoped and cleared automatically when the tab closes.
 - Explicit lock clears both the in-memory MEK and the `sessionStorage` entry immediately.
