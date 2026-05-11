@@ -1,26 +1,7 @@
 import mongoose from 'mongoose';
 import { FileAttachmentModel } from '@/models/FileAttachment';
 import { deleteFromS3, uploadToS3 } from '@/lib/s3';
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-const MAX_USER_STORAGE = 100 * 1024 * 1024; // 100 MB
-
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  'text/markdown',
-  'application/zip',
-]);
+import { MAX_FILE_SIZE, MAX_USER_STORAGE, ALLOWED_MIME_TYPES } from '@/config/fileConstants';
 
 export { MAX_FILE_SIZE, ALLOWED_MIME_TYPES };
 
@@ -109,12 +90,8 @@ export async function softDeleteFilesByNoteId(noteId: string) {
   await FileAttachmentModel.updateMany({ noteId, deletedAt: null }, { $set: { deletedAt: new Date() } });
 }
 
-export async function restoreFilesByNoteId(noteId: string) {
-  await FileAttachmentModel.updateMany({ noteId }, { $set: { deletedAt: null } });
-}
-
-export async function deleteFilesByNoteId(noteId: string) {
-  await FileAttachmentModel.updateMany({ noteId, deletedAt: null }, { $set: { deletedAt: new Date() } });
+export async function restoreFilesByNoteId(noteId: string, userId: string) {
+  await FileAttachmentModel.updateMany({ noteId, userId }, { $set: { deletedAt: null } });
 }
 
 export async function deleteFilesByUserId(userId: string) {

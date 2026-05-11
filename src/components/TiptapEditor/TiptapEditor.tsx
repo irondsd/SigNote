@@ -16,6 +16,7 @@ import { ImageAttachmentNode } from './extensions/ImageAttachmentNode';
 import { FileDropHandler } from './extensions/FileDropHandler';
 import { DropZoneNode } from './extensions/DropZoneNode';
 import type { FileEncryptionContext } from './utils/uploadFile';
+import { UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
 
 export type { FileEncryptionContext };
 
@@ -96,7 +97,7 @@ export function TiptapEditor({
     onTransaction: allowFileUpload
       ? ({ editor }) => {
           const storage = editor.extensionManager.extensions.find((e) => e.name === 'fileDropHandler')?.storage;
-          const count = storage?.fileUploadCounter ?? 0;
+          const count = storage?.[UPLOAD_COUNTER_KEY] ?? 0;
           const isUploading = count > 0;
           if (isUploading !== uploadingRef.current) {
             uploadingRef.current = isUploading;

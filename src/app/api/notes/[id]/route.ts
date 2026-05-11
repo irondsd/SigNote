@@ -55,7 +55,7 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
       await softDeleteFilesByNoteId(id);
     } else {
       updated = await undeleteNote(id);
-      await restoreFilesByNoteId(id);
+      await restoreFilesByNoteId(id, userId);
     }
   } else if (typeof archived === 'boolean') {
     updated = archived ? await archiveNote(id) : await unarchiveNote(id);

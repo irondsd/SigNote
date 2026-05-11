@@ -16,7 +16,6 @@ export const POST = withSession(async (req, { userId }) => {
   const isEncrypted = formData.get('encrypted') === 'true';
   const encryptionIv = formData.get('encryptionIv') as string | null;
   const originalMimeType = (formData.get('originalMimeType') as string | null) ?? file.type;
-  const originalSize = Number(formData.get('originalSize')) || file.size;
 
   if (isEncrypted && !encryptionIv) {
     return NextResponse.json({ error: 'Missing encryption IV' }, { status: 400 });
@@ -34,7 +33,7 @@ export const POST = withSession(async (req, { userId }) => {
     const buffer = Buffer.from(await file.arrayBuffer());
     const doc = await createFileAttachment(userId, {
       filename: file.name,
-      size: originalSize,
+      size: buffer.length,
       mimeType: originalMimeType,
       buffer,
       encrypted: isEncrypted,

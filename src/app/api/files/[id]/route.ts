@@ -18,7 +18,7 @@ export const GET = withSession(async (req, { userId, params: { id } }) => {
   const headers: HeadersInit = {
     'Content-Type': doc.encrypted ? 'application/octet-stream' : contentType,
     'Content-Disposition': `attachment; filename="${encodeURIComponent(doc.filename)}"`,
-    'Cache-Control': 'private, max-age=3600',
+    'Cache-Control': doc.encrypted ? 'private, no-store' : 'private, max-age=3600',
   };
   if (contentLength != null) {
     headers['Content-Length'] = String(contentLength);

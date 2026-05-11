@@ -12,6 +12,7 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { mek } = useFileEncryption();
+  const isEditable = editor.isEditable;
 
   const requiresEncryption = !!(
     editor.extensionManager.extensions.find((e) => e.name === 'fileDropHandler')?.options as
@@ -73,6 +74,8 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
     [handleFiles],
   );
 
+  if (!isEditable) return <NodeViewWrapper />;
+
   return (
     <NodeViewWrapper>
       <div
@@ -84,7 +87,14 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
       >
         <Upload size={20} />
         <span>Drop file here or click to browse</span>
-        <input ref={inputRef} type="file" multiple onChange={handleInputChange} className={s.hiddenInput} />
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,text/markdown,application/zip"
+          onChange={handleInputChange}
+          className={s.hiddenInput}
+        />
       </div>
     </NodeViewWrapper>
   );

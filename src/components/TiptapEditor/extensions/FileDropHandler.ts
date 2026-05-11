@@ -2,10 +2,10 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import type { FileEncryptionContext } from '../utils/uploadFile';
+import { UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
+import { validateFile, getNodeType, makeAttrs, uploadAndUpdateNode } from '../utils/uploadCore';
 
 export type EncryptionRef = { current: { ctx: FileEncryptionContext | undefined; required: boolean } };
-
-const UPLOAD_COUNTER_KEY = 'fileUploadCounter';
 
 export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef }>({
   name: 'fileDropHandler',
@@ -29,6 +29,7 @@ export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef 
         key: new PluginKey('fileDropHandler'),
         props: {
           handleDrop(view: EditorView, event: DragEvent) {
+            if (!view.editable) return false;
             if (!event.dataTransfer?.files.length) return false;
 
             event.preventDefault();
@@ -44,6 +45,7 @@ export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef 
           },
 
           handlePaste(view: EditorView, event: ClipboardEvent) {
+            if (!view.editable) return false;
             const items = event.clipboardData?.items;
             if (!items) return false;
 
@@ -71,29 +73,6 @@ export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef 
   },
 });
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  'text/markdown',
-  'application/zip',
-]);
-
-function isImageMime(mime: string) {
-  return mime.startsWith('image/');
-}
-
 async function insertAndUploadFile(
   view: EditorView,
   file: File,
@@ -109,108 +88,20 @@ async function insertAndUploadFile(
     return;
   }
 
-  if (file.size > MAX_FILE_SIZE) {
-    toast.error(`File "${file.name}" exceeds 5 MB limit`);
+  const error = validateFile(file);
+  if (error) {
+    toast.error(error);
     return;
   }
 
-  if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    toast.error(`File type "${file.type || 'unknown'}" is not allowed`);
-    return;
-  }
-
-  const nodeType = isImageMime(file.type) ? 'imageAttachment' : 'fileAttachment';
-  const schema = view.state.schema;
-  const nodeTypeObj = schema.nodes[nodeType];
+  const nodeType = getNodeType(file);
+  const nodeTypeObj = view.state.schema.nodes[nodeType];
   if (!nodeTypeObj) return;
 
-  const attrs = {
-    fileId: null,
-    filename: file.name,
-    size: file.size,
-    mimeType: file.type,
-    uploadStatus: 'uploading',
-  };
-
+  const attrs = makeAttrs(file);
   const node = nodeTypeObj.create(attrs);
   const insertPos = Math.min(pos, view.state.doc.content.size);
-  let tr = view.state.tr.insert(insertPos, node);
-  view.dispatch(tr);
+  view.dispatch(view.state.tr.insert(insertPos, node));
 
-  storage[UPLOAD_COUNTER_KEY] = ((storage[UPLOAD_COUNTER_KEY] as number) || 0) + 1;
-
-  const formData = new FormData();
-
-  try {
-    if (encryptionCtx) {
-      const { encryptFileBytes } = await import('@/lib/crypto');
-      const plainBytes = new Uint8Array(await file.arrayBuffer());
-      const { iv, cipherBytes } = await encryptFileBytes(encryptionCtx.mek, plainBytes);
-      formData.append('file', new Blob([cipherBytes]), file.name);
-      formData.append('originalMimeType', file.type);
-      formData.append('originalSize', String(file.size));
-      formData.append('encrypted', 'true');
-      formData.append('encryptionIv', iv);
-    } else {
-      formData.append('file', file);
-    }
-
-    const res = await fetch('/api/files', { method: 'POST', body: formData });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(err.error || 'Upload failed');
-    }
-
-    const data = await res.json();
-
-    const { state } = view;
-    let targetPos: number | null = null;
-    state.doc.descendants((n, p) => {
-      if (
-        targetPos === null &&
-        n.type.name === nodeType &&
-        n.attrs.filename === file.name &&
-        n.attrs.uploadStatus === 'uploading' &&
-        n.attrs.size === file.size
-      ) {
-        targetPos = p;
-      }
-    });
-
-    if (targetPos !== null) {
-      tr = view.state.tr.setNodeMarkup(targetPos, undefined, {
-        ...attrs,
-        fileId: data.fileId,
-        uploadStatus: 'complete',
-      });
-      view.dispatch(tr);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Upload failed';
-    toast.error(message);
-
-    const { state } = view;
-    let targetPos: number | null = null;
-    state.doc.descendants((n, p) => {
-      if (
-        targetPos === null &&
-        n.type.name === nodeType &&
-        n.attrs.filename === file.name &&
-        n.attrs.uploadStatus === 'uploading' &&
-        n.attrs.size === file.size
-      ) {
-        targetPos = p;
-      }
-    });
-
-    if (targetPos !== null) {
-      const nodeAtPos = view.state.doc.nodeAt(targetPos);
-      if (nodeAtPos) {
-        tr = view.state.tr.delete(targetPos, targetPos + nodeAtPos.nodeSize);
-        view.dispatch(tr);
-      }
-    }
-  } finally {
-    storage[UPLOAD_COUNTER_KEY] = Math.max(0, ((storage[UPLOAD_COUNTER_KEY] as number) || 1) - 1);
-  }
+  await uploadAndUpdateNode(view, file, nodeType, attrs, storage, encryptionCtx);
 }

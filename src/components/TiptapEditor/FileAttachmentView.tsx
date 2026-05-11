@@ -2,9 +2,9 @@
 
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { File, FileText, FileSpreadsheet, FileArchive, Trash2, X, Loader2, Download } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { useDecryptedFile } from '@/hooks/useDecryptedFile';
+import { useAttachmentActions } from '@/hooks/useAttachmentActions';
 import s from './FileAttachmentView.module.scss';
 
 function formatFileSize(bytes: number): string {
@@ -13,12 +13,12 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(mimeType: string) {
-  if (mimeType === 'application/pdf') return FileText;
-  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return FileSpreadsheet;
-  if (mimeType === 'application/zip') return FileArchive;
-  if (mimeType.startsWith('text/')) return FileText;
-  return File;
+function FileIcon({ mimeType }: { mimeType: string }) {
+  if (mimeType === 'application/pdf') return <FileText size={24} />;
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return <FileSpreadsheet size={24} />;
+  if (mimeType === 'application/zip') return <FileArchive size={24} />;
+  if (mimeType.startsWith('text/')) return <FileText size={24} />;
+  return <File size={24} />;
 }
 
 function getMimeLabel(mimeType: string): string {
@@ -40,37 +40,12 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
   const { fileId, filename, size, mimeType, uploadStatus } = node.attrs;
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
-  const IconComponent = getFileIcon(mimeType);
   const { blobUrl } = useDecryptedFile(isUploading ? null : fileId);
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!fileId) {
-      deleteNode();
-      return;
-    }
-    try {
-      const res = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Delete failed');
-      deleteNode();
-    } catch {
-      toast.error('Failed to delete file');
-    }
-  };
+  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode);
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     deleteNode();
-  };
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (blobUrl) {
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename;
-      a.click();
-    }
   };
 
   const handleCardClick = () => {
@@ -89,7 +64,7 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
         onClick={handleCardClick}
       >
         <div className={s.icon}>
-          {isUploading ? <Loader2 size={24} className={s.spinner} /> : <IconComponent size={24} />}
+          {isUploading ? <Loader2 size={24} className={s.spinner} /> : <FileIcon mimeType={mimeType} />}
         </div>
         <div className={s.info}>
           <span className={s.filename}>{filename}</span>

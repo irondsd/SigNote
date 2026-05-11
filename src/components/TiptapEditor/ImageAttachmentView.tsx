@@ -2,9 +2,9 @@
 
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { Trash2, Download, Loader2, ImageOff } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { useDecryptedFile } from '@/hooks/useDecryptedFile';
+import { useAttachmentActions } from '@/hooks/useAttachmentActions';
 import s from './ImageAttachmentView.module.scss';
 
 export function ImageAttachmentView({ node, deleteNode, editor, selected }: NodeViewProps) {
@@ -12,31 +12,7 @@ export function ImageAttachmentView({ node, deleteNode, editor, selected }: Node
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
   const { blobUrl, loading: decrypting, error } = useDecryptedFile(isUploading ? null : fileId);
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!fileId) {
-      deleteNode();
-      return;
-    }
-    try {
-      const res = await fetch(`/api/files/${fileId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Delete failed');
-      deleteNode();
-    } catch {
-      toast.error('Failed to delete image');
-    }
-  };
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (blobUrl) {
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename;
-      a.click();
-    }
-  };
+  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode);
 
   return (
     <NodeViewWrapper className={s.wrapper}>
