@@ -128,17 +128,13 @@ export function FormattingToolbar({ editor, isOpen, showFileUpload }: Props) {
           <ToolbarButton title="Divider line" action={() => editor?.chain().focus().setHorizontalRule().run()}>
             <Minus size={15} />
           </ToolbarButton>
-
           {showFileUpload && (
-            <>
-              <div className={s.divider} />
-              <ToolbarButton
-                title="Attach file"
-                action={() => editor?.chain().focus().insertContent({ type: 'dropZone' }).run()}
-              >
-                <Paperclip size={15} />
-              </ToolbarButton>
-            </>
+            <ToolbarButton
+              title="Attach file"
+              action={() => editor?.chain().focus().insertContent({ type: 'dropZone' }).run()}
+            >
+              <Paperclip size={15} />
+            </ToolbarButton>
           )}
 
           <div className={s.divider} />

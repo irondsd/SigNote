@@ -22,12 +22,13 @@
   gap: 2px;
   padding: 6px 12px;
   border-top: 1px solid var(--border);
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  // overflow-x: auto;
+  // scrollbar-width: none;
 
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  // &::-webkit-scrollbar {
+  //   display: none;
+  // }
 }
 
 .divider {
