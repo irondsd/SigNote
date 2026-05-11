@@ -36,6 +36,7 @@ type SharedNoteModalProps = {
   toolbar?: ReactNode;
   formatToggle?: ReactNode;
   footerLeft?: ReactNode;
+  disableSave?: boolean;
 };
 
 function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
@@ -71,6 +72,7 @@ export function SharedNoteModal({
   toolbar,
   formatToggle,
   footerLeft,
+  disableSave = false,
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
@@ -164,7 +166,7 @@ export function SharedNoteModal({
                     Cancel
                   </Button>
                 )}
-                <Button data-testid="save-btn" size="sm" onClick={onSave} disabled={saving}>
+                <Button data-testid="save-btn" size="sm" onClick={onSave} disabled={saving || disableSave}>
                   <Check size={15} />
                   {saving ? 'Saving…' : 'Save'}
                 </Button>

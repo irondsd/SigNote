@@ -7,8 +7,10 @@ import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretN
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -33,6 +35,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -83,9 +86,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       setSaving(true);
       try {
         const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
-        updateSecret.mutate({ id: note._id, title, encryptedBody }, { onError: () => setEditing(true) });
+        const fileIds = extractFileIds(content);
+        updateSecret.mutate({ id: note._id, title, encryptedBody, fileIds }, { onError: () => setEditing(true) });
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
+        setShowFormatBar(false);
       } finally {
         setSaving(false);
       }
@@ -172,29 +177,36 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        disableSave={isUploading}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
       >
-        <TiptapEditor
-          key={editing ? 'editing' : 'viewing'}
-          content={content}
-          onChange={async (html) => {
-            setContent(html);
-            if (!editing && guard.isMekAvailable) {
-              try {
-                await guard.execute(async (mek) => {
-                  const encryptedBody = html.trim() ? await encryptSecretBody(mek, html) : null;
-                  updateSecret.mutate({ id: note._id, encryptedBody });
-                });
-              } catch {
-                // Silently fail on auto-save encryption
+        <FileEncryptionProvider mek={mek}>
+          <TiptapEditor
+            key={editing ? 'editing' : 'viewing'}
+            content={content}
+            onChange={async (html) => {
+              setContent(html);
+              if (!editing && guard.isMekAvailable) {
+                try {
+                  await guard.execute(async (mek) => {
+                    const encryptedBody = html.trim() ? await encryptSecretBody(mek, html) : null;
+                    updateSecret.mutate({ id: note._id, encryptedBody });
+                  });
+                } catch {
+                  // Silently fail on auto-save encryption
+                }
               }
-            }
-          }}
-          editable={editing}
-          placeholder="Write your secret…"
-          onEditorReady={setEditor}
-        />
+            }}
+            editable={editing}
+            placeholder="Write your secret…"
+            onEditorReady={setEditor}
+            allowFileUpload
+            onUploadingChange={setIsUploading}
+            fileEncryptionCtx={mek ? { mek } : undefined}
+            requiresEncryption
+          />
+        </FileEncryptionProvider>
       </SharedNoteModal>
 
       {guard.PassphraseGuard}

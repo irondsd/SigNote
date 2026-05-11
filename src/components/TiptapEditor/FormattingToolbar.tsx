@@ -18,6 +18,7 @@ import {
   Minus,
   RemoveFormatting,
   Type,
+  Paperclip,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import s from './FormattingToolbar.module.scss';
 type Props = {
   editor: Editor | null;
   isOpen: boolean;
+  showFileUpload?: boolean;
 };
 
 // On desktop: onMouseDown preventDefault keeps editor focused when clicking toolbar buttons.
@@ -70,7 +72,7 @@ function ToolbarButton({ title, action, children }: { title: string; action: () 
   );
 }
 
-export function FormattingToolbar({ editor, isOpen }: Props) {
+export function FormattingToolbar({ editor, isOpen, showFileUpload }: Props) {
   return (
     <div className={cn(s.wrapper, isOpen && s.open)}>
       <div className={s.inner}>
@@ -126,6 +128,18 @@ export function FormattingToolbar({ editor, isOpen }: Props) {
           <ToolbarButton title="Divider line" action={() => editor?.chain().focus().setHorizontalRule().run()}>
             <Minus size={15} />
           </ToolbarButton>
+
+          {showFileUpload && (
+            <>
+              <div className={s.divider} />
+              <ToolbarButton
+                title="Attach file"
+                action={() => editor?.chain().focus().insertContent({ type: 'dropZone' }).run()}
+              >
+                <Paperclip size={15} />
+              </ToolbarButton>
+            </>
+          )}
 
           <div className={s.divider} />
 

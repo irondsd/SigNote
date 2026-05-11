@@ -4,7 +4,10 @@ import { useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useEncryption } from '@/contexts/EncryptionContext';
+import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
@@ -24,7 +27,9 @@ type NewSecretModalProps = {
 
 export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecretModalProps) {
   const guard = useSimpleEncryptionGuard();
+  const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -73,7 +78,8 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         const encryptedBody = trimmedContent ? await encryptSecretBody(mek, trimmedContent) : null;
         clearDraft();
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
-        createSecret.mutate({ title: trimmedTitle, encryptedBody, color });
+        const fileIds = extractFileIds(trimmedContent);
+        createSecret.mutate({ title: trimmedTitle, encryptedBody, color, fileIds });
         onClose();
       });
     } finally {
@@ -96,7 +102,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         }
         onClose={handleClose}
         onBackdropClose={handleClose}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         footerActions={
@@ -109,7 +115,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
               data-testid="save-secret-btn"
               size="sm"
               onClick={handleSave}
-              disabled={(isTitleEmpty && isContentEmpty) || saving}
+              disabled={(isTitleEmpty && isContentEmpty) || saving || isUploading}
             >
               <Check size={14} />
               {saving ? 'Saving…' : 'Save Secret'}
@@ -117,13 +123,19 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
           </>
         }
       >
-        <TiptapEditor
-          content={content}
-          onChange={setContent}
-          editable={true}
-          placeholder="Write your secret…"
-          onEditorReady={setEditor}
-        />
+        <FileEncryptionProvider mek={mek}>
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            editable={true}
+            placeholder="Write your secret…"
+            onEditorReady={setEditor}
+            allowFileUpload
+            onUploadingChange={setIsUploading}
+            fileEncryptionCtx={mek ? { mek } : undefined}
+            requiresEncryption
+          />
+        </FileEncryptionProvider>
       </NewModal>
 
       {guard.PassphraseGuard}

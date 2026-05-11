@@ -1,6 +1,6 @@
 {
   "name": "signote",
-  "version": "1.0.0",
+  "version": "1.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
@@ -13,6 +13,7 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1045.0",
     "@base-ui/react": "^1.2.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

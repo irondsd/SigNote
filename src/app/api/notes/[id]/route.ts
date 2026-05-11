@@ -11,9 +11,11 @@ import {
   updateNoteColor,
   updateNotePosition,
 } from '@/controllers/notes';
+import { linkFilesToNote, softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
 import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { MAX_CONTENT, MAX_TITLE } from '@/config/constants';
+import { extractFileIds } from '@/lib/fileIds';
 
 export const runtime = 'nodejs';
 
@@ -22,6 +24,7 @@ export const DELETE = withSession(async (_req, { userId, params: { id } }) => {
   const note = assertOwner(await getNoteById(id), userId);
 
   await deleteNote(note._id.toString());
+  await softDeleteFilesByNoteId(id);
 
   return NextResponse.json({ success: true });
 });
@@ -47,7 +50,13 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
 
   let updated;
   if (typeof deleted === 'boolean') {
-    updated = deleted ? await deleteNote(id) : await undeleteNote(id);
+    if (deleted) {
+      updated = await deleteNote(id);
+      await softDeleteFilesByNoteId(id);
+    } else {
+      updated = await undeleteNote(id);
+      await restoreFilesByNoteId(id, userId);
+    }
   } else if (typeof archived === 'boolean') {
     updated = archived ? await archiveNote(id) : await unarchiveNote(id);
   } else if ('color' in body) {
@@ -65,6 +74,10 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
     updated = await updateNote(id, title ?? note.title, content ?? note.content);
+    if (content !== undefined) {
+      const fileIds = extractFileIds(content);
+      if (fileIds.length) await linkFilesToNote(userId, id, 'note', fileIds);
+    }
   }
 
   return NextResponse.json(updated);

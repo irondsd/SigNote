@@ -33,6 +33,7 @@ type CreateSealInput = {
   encryptedBody?: EncryptedPayload | null;
   wrappedNoteKey?: EncryptedPayload | null;
   color?: string | null;
+  fileIds?: string[];
 };
 
 type UpdateSealInput = {
@@ -43,6 +44,7 @@ type UpdateSealInput = {
   archived?: boolean;
   deleted?: boolean;
   color?: string | null;
+  fileIds?: string[];
 };
 
 const ROOT = 'seals';
@@ -80,14 +82,15 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
     mutationFn: async (input: {
       title: string;
       color?: string | null;
+      fileIds?: string[];
       encryptBody: (
         sealId: string,
       ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
     }) => {
-      const created = await apiCreateSeal({ title: input.title, color: input.color });
+      const created = await apiCreateSeal({ title: input.title, color: input.color, fileIds: input.fileIds });
       const encrypted = await input.encryptBody(created._id);
       if (encrypted) {
-        return apiPatchSeal(created._id, encrypted);
+        return apiPatchSeal(created._id, { ...encrypted, fileIds: input.fileIds });
       }
       return created;
     },

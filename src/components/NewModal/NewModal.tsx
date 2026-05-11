@@ -45,7 +45,7 @@ export function NewModal({
 
   return (
     <Backdrop onClose={onBackdropClose ?? onClose}>
-      <Modal style={noteModalStyle(color)}>
+      <Modal style={noteModalStyle(color)} className={s.modal}>
         <div className={s.header}>
           {heading}
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close" title="Close">

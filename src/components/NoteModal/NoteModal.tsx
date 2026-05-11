@@ -28,6 +28,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -72,6 +73,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     updateNote.mutate({ id: note._id.toString(), title, content }, { onError: () => setEditing(true) });
     setUpdatedAt(new Date().toISOString());
     setEditing(false);
+    setShowFormatBar(false);
   };
 
   const handleArchiveToggle = () => {
@@ -107,7 +109,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} />}
+        disableSave={isUploading}
+        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
       >
         <TiptapEditor
@@ -122,6 +125,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
           editable={editing}
           placeholder="Write your note..."
           onEditorReady={setEditor}
+          allowFileUpload
+          onUploadingChange={setIsUploading}
         />
       </SharedNoteModal>
 

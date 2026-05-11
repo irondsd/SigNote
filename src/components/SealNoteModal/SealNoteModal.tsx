@@ -10,8 +10,10 @@ import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor
 import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
+import { extractFileIds } from '@/lib/fileIds';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
@@ -42,6 +44,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -171,9 +174,14 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           wrappedNoteKey = null;
         }
 
-        updateSeal.mutate({ id: note._id, title, encryptedBody, wrappedNoteKey }, { onError: () => setEditing(true) });
+        const fileIds = extractFileIds(decryptedContent);
+        updateSeal.mutate(
+          { id: note._id, title, encryptedBody, wrappedNoteKey, fileIds },
+          { onError: () => setEditing(true) },
+        );
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
+        setShowFormatBar(false);
       } finally {
         setSaving(false);
       }
@@ -337,7 +345,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
-        toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} /> : undefined}
+        disableSave={isUploading}
+        toolbar={isDecrypted ? <FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload /> : undefined}
         formatToggle={
           isDecrypted ? (
             <FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />
@@ -347,34 +356,40 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>
-            <TiptapEditor
-              key={editing ? 'editing' : 'viewing'}
-              content={decryptedContent}
-              onChange={async (html) => {
-                setDecryptedContent(html);
-                if (!editing && guard.isMekAvailable) {
-                  try {
-                    await guard.execute(async (mek) => {
-                      if (html.trim()) {
-                        const encrypted = await encryptSealBody(mek, html, note._id);
-                        updateSeal.mutate({
-                          id: note._id,
-                          encryptedBody: encrypted.encryptedBody,
-                          wrappedNoteKey: encrypted.wrappedNoteKey,
-                        });
-                      } else {
-                        updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
-                      }
-                    });
-                  } catch {
-                    // Silently fail on auto-save encryption
+            <FileEncryptionProvider mek={mek}>
+              <TiptapEditor
+                key={editing ? 'editing' : 'viewing'}
+                content={decryptedContent}
+                onChange={async (html) => {
+                  setDecryptedContent(html);
+                  if (!editing && guard.isMekAvailable) {
+                    try {
+                      await guard.execute(async (mek) => {
+                        if (html.trim()) {
+                          const encrypted = await encryptSealBody(mek, html, note._id);
+                          updateSeal.mutate({
+                            id: note._id,
+                            encryptedBody: encrypted.encryptedBody,
+                            wrappedNoteKey: encrypted.wrappedNoteKey,
+                          });
+                        } else {
+                          updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
+                        }
+                      });
+                    } catch {
+                      // Silently fail on auto-save encryption
+                    }
                   }
-                }
-              }}
-              editable={editing}
-              placeholder="Write your seal…"
-              onEditorReady={setEditor}
-            />
+                }}
+                editable={editing}
+                placeholder="Write your seal…"
+                onEditorReady={setEditor}
+                allowFileUpload
+                onUploadingChange={setIsUploading}
+                fileEncryptionCtx={mek ? { mek } : undefined}
+                requiresEncryption
+              />
+            </FileEncryptionProvider>
           </div>
         ) : (
           <div className={s.encryptedState}>

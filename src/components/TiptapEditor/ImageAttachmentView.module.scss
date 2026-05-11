@@ -1,0 +1,72 @@
+.wrapper {
+  margin: 0.4em 0;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.imageContainer {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: outline 0.15s;
+
+  &:hover .overlay {
+    opacity: 1;
+  }
+}
+
+.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.overlayBtn {
+  background: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+
+  &:hover {
+    background: var(--accent) !important;
+  }
+}

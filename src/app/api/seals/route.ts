@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { createSeal, getSealsByUserId } from '@/controllers/seals';
+import { linkFilesToNote } from '@/controllers/files';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_SEARCH, MAX_TITLE } from '@/config/constants';
@@ -26,11 +27,12 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, wrappedNoteKey, color } = body as {
+  const { title, encryptedBody, wrappedNoteKey, color, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload;
     wrappedNoteKey?: EncryptedPayload;
     color?: string | null;
+    fileIds?: string[];
   };
 
   if ((title?.length ?? 0) > MAX_TITLE || (encryptedBody?.ciphertext?.length ?? 0) > MAX_CIPHER) {
@@ -39,6 +41,10 @@ export const POST = withSession(async (req, { userId }) => {
 
   // encryptedBody and wrappedNoteKey are optional for 2-step creation flow
   const seal = await createSeal(userId, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null, color);
+
+  if (Array.isArray(fileIds) && fileIds.length) {
+    await linkFilesToNote(userId, seal._id.toString(), 'seal', fileIds);
+  }
 
   return NextResponse.json(seal, { status: 201 });
 });
