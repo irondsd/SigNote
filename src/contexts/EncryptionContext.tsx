@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { HTTPError } from 'ky';
+import posthog from 'posthog-js';
 import { api } from '@/lib/api';
 import {
   clearDeviceShare,
@@ -167,6 +168,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   );
 
   const lock = useCallback(() => {
+    posthog.capture('vault_locked', { type: 'hard' });
     setMek(null);
     clearDeviceShare();
     setLockType('none');
@@ -175,6 +177,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   }, [setMek]);
 
   const softLock = useCallback(() => {
+    posthog.capture('vault_locked', { type: 'soft' });
     setMek(null);
     setLockType('soft');
     sessionStorage.setItem('softLockTs', Date.now().toString());

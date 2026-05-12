@@ -90,6 +90,7 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'secret', operation: 'create' });
       toast.error('Failed to create secret', {
         description: 'Your content has been recovered.',
         duration: Infinity,
@@ -117,6 +118,7 @@ export const useDeleteSecret = () => {
     },
     onError: (_err, _id, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'secret', operation: 'delete' });
       toast.error('Failed to delete secret');
     },
     onSettled: (_data, _err, _vars, context) => {
@@ -163,10 +165,13 @@ export const useUpdateSecret = () => {
     onSuccess: (_data, vars) => {
       if (vars.archived !== undefined) {
         posthog.capture('secret_archived', { archived: vars.archived });
+      } else if (vars.title !== undefined || vars.encryptedBody !== undefined) {
+        posthog.capture('secret_updated');
       }
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'secret', operation: 'update' });
       toast.error('Failed to save secret');
     },
     onSettled: (_data, _err, _vars, context) => {

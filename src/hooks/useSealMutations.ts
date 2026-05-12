@@ -119,6 +119,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'seal', operation: 'create' });
       toast.error('Failed to create seal', {
         description: 'Your content has been recovered.',
         duration: Infinity,
@@ -146,6 +147,7 @@ export const useDeleteSeal = () => {
     },
     onError: (_err, _id, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'seal', operation: 'delete' });
       toast.error('Failed to delete seal');
     },
     onSettled: (_data, _err, _vars, context) => {
@@ -192,10 +194,13 @@ export const useUpdateSeal = () => {
     onSuccess: (_data, vars) => {
       if (vars.archived !== undefined) {
         posthog.capture('seal_archived', { archived: vars.archived });
+      } else if (vars.title !== undefined || vars.encryptedBody !== undefined) {
+        posthog.capture('seal_updated');
       }
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'seal', operation: 'update' });
       toast.error('Failed to save seal');
     },
     onSettled: (_data, _err, _vars, context) => {

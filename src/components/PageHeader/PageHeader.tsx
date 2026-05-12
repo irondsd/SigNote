@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, X, ArrowLeft } from 'lucide-react';
+import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import s from './PageHeader.module.scss';
@@ -27,6 +28,7 @@ export function PageHeader({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const openSearch = () => {
+    posthog.capture('search_opened', { page: title.toLowerCase() });
     setSearchActive(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   };

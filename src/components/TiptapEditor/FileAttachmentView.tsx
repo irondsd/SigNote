@@ -41,7 +41,7 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
   const { blobUrl } = useDecryptedFile(isUploading ? null : fileId);
-  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode);
+  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode, mimeType);
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();

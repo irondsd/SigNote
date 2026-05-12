@@ -8,11 +8,11 @@ import { useAttachmentActions } from '@/hooks/useAttachmentActions';
 import s from './ImageAttachmentView.module.scss';
 
 export function ImageAttachmentView({ node, deleteNode, editor, selected }: NodeViewProps) {
-  const { fileId, filename, uploadStatus } = node.attrs;
+  const { fileId, filename, mimeType, uploadStatus } = node.attrs;
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
   const { blobUrl, loading: decrypting, error } = useDecryptedFile(isUploading ? null : fileId);
-  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode);
+  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode, mimeType);
 
   return (
     <NodeViewWrapper className={s.wrapper}>

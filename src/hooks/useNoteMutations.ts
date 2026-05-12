@@ -83,6 +83,7 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
     },
     onError: (_err, vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'note', operation: 'create' });
       toast.error('Failed to create note', {
         description: 'Your content has been recovered.',
         duration: Infinity,
@@ -110,6 +111,7 @@ export const useDeleteNote = () => {
     },
     onError: (_err, _id, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'note', operation: 'delete' });
       toast.error('Failed to delete note');
     },
     onSettled: (_data, _err, _vars, context) => {
@@ -156,10 +158,13 @@ export const useUpdateNote = () => {
     onSuccess: (_data, vars) => {
       if (vars.archived !== undefined) {
         posthog.capture('note_archived', { archived: vars.archived });
+      } else if (vars.title !== undefined || vars.content !== undefined) {
+        posthog.capture('note_updated');
       }
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: 'note', operation: 'update' });
       toast.error('Failed to save note');
     },
     onSettled: (_data, _err, _vars, context) => {

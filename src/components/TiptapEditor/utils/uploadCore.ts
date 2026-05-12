@@ -1,6 +1,7 @@
 import type { EditorView } from '@tiptap/pm/view';
 import type { EditorState } from '@tiptap/pm/state';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, isImageMime, UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
 import type { FileEncryptionContext } from './uploadFile';
 
@@ -86,6 +87,14 @@ export async function uploadAndUpdateNode(
         uploadStatus: 'complete',
       });
       view.dispatch(tr);
+      posthog.capture('file_uploaded', {
+        mime_category: file.type.startsWith('image/')
+          ? 'image'
+          : file.type.startsWith('text/') || file.type === 'application/pdf' || file.type.startsWith('application/vnd.')
+            ? 'document'
+            : 'other',
+        encrypted: !!encryptionCtx,
+      });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Upload failed';
