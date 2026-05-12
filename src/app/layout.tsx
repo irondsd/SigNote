@@ -8,6 +8,7 @@ import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration/ServiceWorkerRegistration';
+import { PostHogIdentify } from '@/components/PostHogIdentify/PostHogIdentify';
 export { metadata, viewport } from '@/config/meta';
 
 export default async function RootLayout({
@@ -20,6 +21,7 @@ export default async function RootLayout({
       <body className={cn(inter.variable, 'antialiased', s.body)}>
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
+            <PostHogIdentify />
             <ReactQueryProvider>
               <Web3ProviderLazy>{children}</Web3ProviderLazy>
             </ReactQueryProvider>

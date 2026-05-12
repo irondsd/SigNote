@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Eye, EyeOff } from 'lucide-react';
+import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,8 +33,10 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
     setLoading(true);
     try {
       await unlock(passphrase);
+      posthog.capture('vault_unlocked');
       onSuccess();
     } catch {
+      posthog.capture('vault_unlock_failed');
       setError('Incorrect passphrase. Please try again.');
       setLoading(false);
     }

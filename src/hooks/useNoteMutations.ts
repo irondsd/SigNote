@@ -2,6 +2,7 @@
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 import { api } from '@/lib/api';
 import {
   cancelAndSnapshot,
@@ -78,6 +79,7 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
     onSuccess: (data, _vars, context) => {
       const realId = (data as { _id: string })?._id;
       if (realId && context?.tempId) registerStableKey(realId, context.tempId);
+      posthog.capture('note_created');
     },
     onError: (_err, vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
@@ -102,6 +104,9 @@ export const useDeleteNote = () => {
       const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
       filterOut(qc, snapshots, id);
       return { snapshots };
+    },
+    onSuccess: () => {
+      posthog.capture('note_deleted');
     },
     onError: (_err, _id, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
@@ -146,7 +151,12 @@ export const useUpdateNote = () => {
       } else {
         patchInPlace(qc, snapshots, id, patch);
       }
-      return { snapshots };
+      return { snapshots, archived };
+    },
+    onSuccess: (_data, vars) => {
+      if (vars.archived !== undefined) {
+        posthog.capture('note_archived', { archived: vars.archived });
+      }
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);

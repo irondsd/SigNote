@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useSiweSign } from '@/hooks/useSiweSign';
@@ -11,6 +12,7 @@ export function SiweSignInButton() {
   const { sign, step } = useSiweSign();
 
   const handleSignIn = async () => {
+    posthog.capture('sign_in_started', { method: 'ethereum' });
     const result = await sign();
     if (!result) return;
 
@@ -21,7 +23,10 @@ export function SiweSignInButton() {
     });
 
     if (res?.error) {
+      posthog.capture('sign_in_failed', { method: 'ethereum' });
       toast.error('Sign in failed. Please try again.');
+    } else {
+      posthog.capture('sign_in_completed', { method: 'ethereum' });
     }
   };
 

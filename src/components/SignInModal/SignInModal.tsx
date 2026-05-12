@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { signIn } from 'next-auth/react';
+import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
@@ -26,7 +27,10 @@ export function SignInModal({ onClose }: SignInModalProps) {
 
         <div className={s.body}>
           <Button
-            onClick={() => signIn('google')}
+            onClick={() => {
+              posthog.capture('sign_in_started', { method: 'google' });
+              signIn('google');
+            }}
             data-testid="google-sign-in-btn"
             className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
           >

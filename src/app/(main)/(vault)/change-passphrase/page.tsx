@@ -5,6 +5,7 @@ import { CheckCircle, Eye, EyeOff, HelpCircle, KeyRound, Loader2, XCircle } from
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import posthog from 'posthog-js';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,6 +176,7 @@ export default function ChangePassphrasePage() {
       }
 
       saveDeviceShare(newDeviceShare);
+      posthog.capture('passphrase_changed');
       setScreen('success');
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to update passphrase.');

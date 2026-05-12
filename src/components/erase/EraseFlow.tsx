@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -61,6 +62,7 @@ export function EraseFlow({
   const handleConfirm = async () => {
     setConfirmError(null);
     setPhase('confirming');
+    posthog.capture('account_erase_confirmed', { flow: title });
 
     try {
       const { token } = await api.post(verifyEndpoint).json<{ token: string }>();
@@ -103,6 +105,7 @@ export function EraseFlow({
         return;
       }
     }
+    posthog.capture('account_erased', { flow: title });
     setPhase('done');
   };
 

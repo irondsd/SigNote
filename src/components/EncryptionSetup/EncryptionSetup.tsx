@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff, ShieldCheck, AlertTriangle } from 'lucide-react';
+import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +44,10 @@ export function EncryptionSetup({ displayName }: EncryptionSetupProps) {
     setLoading(true);
     try {
       await setupProfile(passphrase);
+      posthog.capture('encryption_profile_setup');
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to create encryption profile.');
+      posthog.captureException(e);
       setLoading(false);
     }
   };

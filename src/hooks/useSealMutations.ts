@@ -2,6 +2,7 @@
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
 import { api } from '@/lib/api';
 import {
@@ -114,6 +115,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
     },
     onSuccess: (data, _vars, context) => {
       if (data?._id && context?.tempId) registerStableKey(data._id, context.tempId);
+      posthog.capture('seal_created');
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
@@ -138,6 +140,9 @@ export const useDeleteSeal = () => {
       const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
       filterOut(qc, snapshots, id);
       return { snapshots };
+    },
+    onSuccess: () => {
+      posthog.capture('seal_deleted');
     },
     onError: (_err, _id, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
@@ -183,6 +188,11 @@ export const useUpdateSeal = () => {
         patchInPlace(qc, snapshots, id, patch);
       }
       return { snapshots };
+    },
+    onSuccess: (_data, vars) => {
+      if (vars.archived !== undefined) {
+        posthog.capture('seal_archived', { archived: vars.archived });
+      }
     },
     onError: (_err, _vars, context) => {
       if (context) restoreSnapshots(qc, context.snapshots);
