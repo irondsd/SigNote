@@ -56,6 +56,7 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
+  background: var(--note-bg);
   filter: saturate(3) brightness(0.9);
   transition: outline-color 0.12s;
   outline: 2px solid transparent;

@@ -1,0 +1,64 @@
+@mixin pattern-base {
+  &[data-pattern='grid'],
+  &[data-pattern='dots'],
+  &[data-pattern='hatch'],
+  &[data-pattern='stars'],
+  &[data-pattern='blobs'] {
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      border-radius: inherit;
+    }
+  }
+
+  &[data-pattern='grid']::before {
+    background-color: var(--pattern-color);
+    mask-image: url('/patterns/grid.svg');
+    mask-size: 22px 22px;
+    mask-repeat: repeat;
+    -webkit-mask-image: url('/patterns/grid.svg');
+    -webkit-mask-size: 22px 22px;
+    -webkit-mask-repeat: repeat;
+  }
+
+  &[data-pattern='dots']::before {
+    background-color: var(--pattern-color);
+    mask-image: url('/patterns/dots.svg');
+    mask-size: 14px 14px;
+    mask-repeat: repeat;
+    -webkit-mask-image: url('/patterns/dots.svg');
+    -webkit-mask-size: 14px 14px;
+    -webkit-mask-repeat: repeat;
+  }
+
+  &[data-pattern='hatch']::before {
+    background-color: var(--pattern-color);
+    mask-image: url('/patterns/hatch.svg');
+    mask-size: 10px 10px;
+    mask-repeat: repeat;
+    -webkit-mask-image: url('/patterns/hatch.svg');
+    -webkit-mask-size: 10px 10px;
+    -webkit-mask-repeat: repeat;
+  }
+
+  &[data-pattern='stars']::before {
+    background-color: var(--pattern-color);
+    mask-image: url('/patterns/stars.svg');
+    mask-size: 80px 80px;
+    mask-repeat: repeat;
+    -webkit-mask-image: url('/patterns/stars.svg');
+    -webkit-mask-size: 80px 80px;
+    -webkit-mask-repeat: repeat;
+  }
+
+  &[data-pattern='blobs']::before {
+    background-image:
+      radial-gradient(circle 140px at 12% 18%, var(--pattern-color-soft) 0%, transparent 62%),
+      radial-gradient(circle 180px at 92% 88%, var(--pattern-color) 0%, transparent 60%);
+  }
+}

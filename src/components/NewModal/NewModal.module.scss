@@ -1,3 +1,5 @@
+@use '../../styles/patterns';
+
 .modal {
   max-width: 580px;
 }
@@ -34,12 +36,20 @@
 }
 
 .body {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px 20px;
   flex: 1;
   overflow-y: auto;
+
+  @include patterns.pattern-base;
+
+  > * {
+    position: relative;
+    z-index: 2;
+  }
 }
 
 .footer {

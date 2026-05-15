@@ -2,7 +2,7 @@
 
 import { InlineSvg } from '@irondsd/inline-svg';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteColors';
 import s from './NoteStylePicker.module.scss';
 
 type NoteStylePickerProps = {
@@ -12,11 +12,6 @@ type NoteStylePickerProps = {
   onColorChange: (c: string | null) => void;
   onPatternChange: (p: string | null) => void;
 };
-
-function glyphColor(color: string | null): string | undefined {
-  if (!color) return undefined;
-  return `var(--note-${color})`;
-}
 
 export function NoteStylePicker({ isOpen, color, pattern, onColorChange, onPatternChange }: NoteStylePickerProps) {
   return (
@@ -37,7 +32,7 @@ export function NoteStylePicker({ isOpen, color, pattern, onColorChange, onPatte
                 type="button"
                 key={c}
                 className={cn(s.colorSwatch, color === c && s.selected)}
-                style={{ backgroundColor: `var(--note-${c})` }}
+                data-color={c}
                 onClick={() => onColorChange(c)}
                 title={c.charAt(0).toUpperCase() + c.slice(1)}
                 aria-label={c.charAt(0).toUpperCase() + c.slice(1)}

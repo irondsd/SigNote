@@ -1,10 +1,7 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Pencil, X, Archive, ArchiveRestore, Trash2, Check, Palette } from 'lucide-react';
-import { NOTE_COLORS, type NoteColor, type NotePattern } from '@/config/noteColors';
-import { getPatternStyle } from '@/config/notePatterns';
-import { useIsDark } from '@/hooks/useIsDark';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { NoteStylePicker } from '@/components/NoteStylePicker/NoteStylePicker';
@@ -43,19 +40,6 @@ type SharedNoteModalProps = {
   disableSave?: boolean;
 };
 
-function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
-  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
-  return { '--note-modal-bg': `var(--note-${color})` } as CSSProperties;
-}
-
-function bodyPatternStyle(
-  color: string | null | undefined,
-  pattern: string | null | undefined,
-  isDark: boolean,
-): CSSProperties | undefined {
-  return getPatternStyle((color as NoteColor) ?? null, (pattern as NotePattern) ?? null, isDark);
-}
-
 export function SharedNoteModal({
   title,
   editing,
@@ -85,11 +69,9 @@ export function SharedNoteModal({
   footerLeft,
   disableSave = false,
 }: SharedNoteModalProps) {
-  const isDark = useIsDark();
-
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal cardRect={cardRect} className={cn(s.modal)} style={noteModalStyle(color)}>
+      <Modal cardRect={cardRect} className={cn(s.modal)} data-color={color || undefined}>
         <div className={s.header}>
           {editing ? (
             <input
@@ -112,7 +94,7 @@ export function SharedNoteModal({
           </div>
         </div>
 
-        <div className={s.bodyWrap} style={bodyPatternStyle(color, pattern, isDark)}>
+        <div className={s.bodyWrap} data-pattern={pattern || undefined}>
           <div className={s.body}>{children}</div>
           {!editing && (
             <RelativeDate

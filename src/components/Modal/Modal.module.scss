@@ -33,7 +33,7 @@
 }
 
 .modal {
-  background: var(--note-modal-bg, var(--card));
+  background: var(--note-bg, var(--card));
   border: 1px solid var(--border);
   border-radius: 16px;
   width: 100%;

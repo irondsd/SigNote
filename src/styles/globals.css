@@ -49,6 +49,8 @@
   --note-teal: oklch(0.96 0.03 195);
   --note-peach: oklch(0.96 0.035 35);
   --note-gray: oklch(0.97 0.005 260);
+  --pattern-color: oklch(0 0 0 / 0.08);
+  --pattern-color-soft: oklch(0 0 0 / 0.05);
   --code-bg: oklch(80% 0.00008 270 / 0.2);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -85,6 +87,8 @@
   --note-teal: oklch(0.27 0.055 195);
   --note-peach: oklch(0.29 0.065 35);
   --note-gray: oklch(0.32 0.005 260);
+  --pattern-color: oklch(1 0 0 / 0.08);
+  --pattern-color-soft: oklch(1 0 0 / 0.05);
   --code-bg: oklch(50% 0 270 / 0.2);
   --background: oklch(0% 0 0);
   --foreground: oklch(0.985 0 0);
@@ -122,3 +126,13 @@
     color: var(--color-foreground);
   }
 }
+
+[data-color='yellow'] { --note-bg: var(--note-yellow); }
+[data-color='red'] { --note-bg: var(--note-red); }
+[data-color='blue'] { --note-bg: var(--note-blue); }
+[data-color='green'] { --note-bg: var(--note-green); }
+[data-color='clay'] { --note-bg: var(--note-clay); }
+[data-color='purple'] { --note-bg: var(--note-purple); }
+[data-color='teal'] { --note-bg: var(--note-teal); }
+[data-color='peach'] { --note-bg: var(--note-peach); }
+[data-color='gray'] { --note-bg: var(--note-gray); }

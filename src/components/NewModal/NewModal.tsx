@@ -1,10 +1,7 @@
 'use client';
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { X, Palette } from 'lucide-react';
-import { NOTE_COLORS, type NoteColor, type NotePattern } from '@/config/noteColors';
-import { getPatternStyle } from '@/config/notePatterns';
-import { useIsDark } from '@/hooks/useIsDark';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { NoteStylePicker } from '@/components/NoteStylePicker/NoteStylePicker';
@@ -24,19 +21,6 @@ type NewModalProps = {
   onPatternChange?: (pattern: string | null) => void;
 };
 
-function noteModalStyle(color: string | null): CSSProperties | undefined {
-  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
-  return { '--note-modal-bg': `var(--note-${color})` } as CSSProperties;
-}
-
-function bodyPatternStyle(
-  color: string | null,
-  pattern: string | null,
-  isDark: boolean,
-): CSSProperties | undefined {
-  return getPatternStyle((color as NoteColor) ?? null, (pattern as NotePattern) ?? null, isDark);
-}
-
 export function NewModal({
   heading,
   onClose,
@@ -51,7 +35,6 @@ export function NewModal({
   const [color, setColor] = useState<string | null>(null);
   const [pattern, setPattern] = useState<string | null>(null);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
-  const isDark = useIsDark();
 
   const handleColorChange = (c: string | null) => {
     setColor(c);
@@ -65,14 +48,14 @@ export function NewModal({
 
   return (
     <Backdrop onClose={onBackdropClose ?? onClose}>
-      <Modal style={noteModalStyle(color)} className={s.modal}>
+      <Modal data-color={color || undefined} className={s.modal}>
         <div className={s.header}>
           {heading}
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close" title="Close">
             <X size={18} />
           </Button>
         </div>
-        <div className={s.body} style={bodyPatternStyle(color, pattern, isDark)}>{children}</div>
+        <div className={s.body} data-pattern={pattern || undefined}>{children}</div>
         {toolbar}
         <NoteStylePicker
           isOpen={stylePickerOpen}
