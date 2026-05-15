@@ -27,10 +27,11 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, color, fileIds } = body as {
+  const { title, encryptedBody, color, pattern, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload;
     color?: string | null;
+    pattern?: string | null;
     fileIds?: string[];
   };
 
@@ -38,7 +39,7 @@ export const POST = withSession(async (req, { userId }) => {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const secret = await createSecret(userId, title ?? '', encryptedBody ?? null, color);
+  const secret = await createSecret(userId, title ?? '', encryptedBody ?? null, color, pattern);
 
   if (Array.isArray(fileIds) && fileIds.length) {
     await linkFilesToNote(userId, secret._id.toString(), 'secret', fileIds);

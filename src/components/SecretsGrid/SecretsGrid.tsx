@@ -179,6 +179,7 @@ export function SecretsGrid({
           title={note.title}
           updatedAt={note.updatedAt}
           color={note.color}
+          pattern={note.pattern}
           onClick={onClick}
           decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
           ciphertext={note.encryptedBody?.ciphertext}
@@ -192,6 +193,7 @@ export function SecretsGrid({
           title={note.title}
           updatedAt={note.updatedAt}
           color={note.color}
+          pattern={note.pattern}
           onClick={() => {}}
           decryptedContent={isUnlocked ? decryptedPreviews.get(note._id)?.content : undefined}
           ciphertext={note.encryptedBody?.ciphertext}

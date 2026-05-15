@@ -2,23 +2,44 @@
 
 import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import { NOTE_COLORS, type NoteColor, type NotePattern } from '@/config/noteColors';
+import { getPatternStyle } from '@/config/notePatterns';
+import { useIsDark } from '@/hooks/useIsDark';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './NoteCardBase.module.scss';
 
-function cardStyle(color: string | null | undefined): CSSProperties | undefined {
-  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
+function cardStyle(
+  color: string | null | undefined,
+  pattern: string | null | undefined,
+  isDark: boolean,
+): CSSProperties | undefined {
+  const style: Record<string, string | undefined> = {};
+  let hasSomething = false;
 
-  return {
-    '--note-card-bg': `var(--note-${color})`,
-    border: 'none',
-  } as CSSProperties;
+  if (color && NOTE_COLORS.includes(color as NoteColor)) {
+    style['--note-card-bg'] = `var(--note-${color})`;
+    style['border'] = 'none';
+    hasSomething = true;
+  }
+
+  const patStyle = getPatternStyle(
+    (color as NoteColor) ?? null,
+    (pattern as NotePattern) ?? null,
+    isDark,
+  );
+  if (patStyle) {
+    Object.assign(style, patStyle);
+    hasSomething = true;
+  }
+
+  return hasSomething ? (style as unknown as CSSProperties) : undefined;
 }
 
 type NoteCardBaseProps = {
   title?: string;
   updatedAt: string | Date;
   color?: string | null;
+  pattern?: string | null;
   onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   archived?: boolean;
@@ -30,6 +51,7 @@ export function NoteCardBase({
   title,
   updatedAt,
   color,
+  pattern,
   onClick,
   showArchivedBadge = false,
   archived = false,
@@ -38,6 +60,7 @@ export function NoteCardBase({
 }: NoteCardBaseProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const isDark = useIsDark();
 
   useLayoutEffect(() => {
     const el = contentRef.current;
@@ -49,7 +72,7 @@ export function NoteCardBase({
     <div
       data-testid={testId}
       className={cn(s.card)}
-      style={cardStyle(color)}
+      style={cardStyle(color, pattern, isDark)}
       role="button"
       tabIndex={0}
       onClick={(e) => onClick((e.currentTarget as HTMLElement).getBoundingClientRect())}

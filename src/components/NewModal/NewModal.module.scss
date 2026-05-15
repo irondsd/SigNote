@@ -2,6 +2,11 @@
   max-width: 580px;
 }
 
+.activePickerBtn {
+  background: oklch(0.64 0.17 52 / 0.12);
+  color: oklch(0.64 0.17 52);
+}
+
 .header {
   display: flex;
   align-items: center;

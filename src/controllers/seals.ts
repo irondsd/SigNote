@@ -10,6 +10,7 @@ export const createSeal = async (
   encryptedBody: EncryptedPayload | null = null,
   wrappedNoteKey: EncryptedPayload | null = null,
   color?: string | null,
+  pattern?: string | null,
 ) => {
   const now = new Date();
   const position = await getNextPosition(SealNoteModel, userId);
@@ -21,6 +22,7 @@ export const createSeal = async (
     wrappedNoteKey,
     position,
     ...(color != null && { color }),
+    ...(pattern != null && { pattern }),
     createdAt: now,
     updatedAt: now,
   });
@@ -77,6 +79,10 @@ export const unarchiveSeal = async (id: string) => {
 
 export const updateSealColor = async (id: string, color: string | null) => {
   return SealNoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
+};
+
+export const updateSealPattern = async (id: string, pattern: string | null) => {
+  return SealNoteModel.findByIdAndUpdate(id, { pattern }, { returnDocument: 'after' }).exec();
 };
 
 export const updateSealPosition = async (id: string, position: number) => {

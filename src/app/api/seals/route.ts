@@ -27,11 +27,12 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, wrappedNoteKey, color, fileIds } = body as {
+  const { title, encryptedBody, wrappedNoteKey, color, pattern, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload;
     wrappedNoteKey?: EncryptedPayload;
     color?: string | null;
+    pattern?: string | null;
     fileIds?: string[];
   };
 
@@ -40,7 +41,7 @@ export const POST = withSession(async (req, { userId }) => {
   }
 
   // encryptedBody and wrappedNoteKey are optional for 2-step creation flow
-  const seal = await createSeal(userId, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null, color);
+  const seal = await createSeal(userId, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null, color, pattern);
 
   if (Array.isArray(fileIds) && fileIds.length) {
     await linkFilesToNote(userId, seal._id.toString(), 'seal', fileIds);

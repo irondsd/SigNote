@@ -43,6 +43,8 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
     setEditor,
     color,
     setColor,
+    pattern,
+    setPattern,
     isTitleEmpty,
     isContentEmpty,
     showConfirm,
@@ -81,6 +83,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         createSeal.mutate({
           title: trimmedTitle,
           color,
+          pattern,
           fileIds,
           encryptBody: async (sealId: string) => {
             if (!trimmedContent) return null;
@@ -112,6 +115,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
+        onPatternChange={setPattern}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

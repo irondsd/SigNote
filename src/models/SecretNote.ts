@@ -1,5 +1,5 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteColors';
 import { type EncryptedPayload } from '@/types/crypto';
 
 export type SecretNote = {
@@ -12,6 +12,7 @@ export type SecretNote = {
   deletedAt: Date | null;
   archived: boolean;
   color: NoteColor | null;
+  pattern: NotePattern | null;
 };
 
 export type SecretNoteDocument = HydratedDocument<SecretNote>;
@@ -35,6 +36,7 @@ const secretNoteSchema = new Schema<SecretNote>({
   deletedAt: { type: Date, default: null },
   archived: { type: Boolean, default: false },
   color: { type: String, enum: NOTE_COLORS, default: null },
+  pattern: { type: String, enum: NOTE_PATTERNS, default: null },
 });
 
 // Compound index for userId-filtered queries

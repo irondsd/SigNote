@@ -30,7 +30,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [content, setContent] = useState(decryptedContent);
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
+  const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [showFormatBar, setShowFormatBar] = useState(false);
@@ -140,7 +141,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const handleColorChange = (newColor: string | null) => {
     setColor(newColor);
     updateSecret.mutate({ id: note._id, color: newColor });
-    setColorPickerOpen(false);
+  };
+
+  const handlePatternChange = (newPattern: string | null) => {
+    setPattern(newPattern);
+    updateSecret.mutate({ id: note._id, pattern: newPattern });
   };
 
   // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
@@ -163,9 +168,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         editing={editing}
         onTitleChange={setTitle}
         color={color}
+        pattern={pattern}
         onColorChange={handleColorChange}
-        colorPickerOpen={colorPickerOpen}
-        onColorPickerOpenChange={setColorPickerOpen}
+        onPatternChange={handlePatternChange}
+        stylePickerOpen={stylePickerOpen}
+        onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}

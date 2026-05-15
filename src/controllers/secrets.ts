@@ -9,6 +9,7 @@ export const createSecret = async (
   title: string,
   encryptedBody: EncryptedPayload | null,
   color?: string | null,
+  pattern?: string | null,
 ) => {
   const now = new Date();
   const position = await getNextPosition(SecretNoteModel, userId);
@@ -19,6 +20,7 @@ export const createSecret = async (
     encryptedBody,
     position,
     ...(color != null && { color }),
+    ...(pattern != null && { pattern }),
     createdAt: now,
     updatedAt: now,
   });
@@ -73,6 +75,10 @@ export const unarchiveSecret = async (id: string) => {
 
 export const updateSecretColor = async (id: string, color: string | null) => {
   return SecretNoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
+};
+
+export const updateSecretPattern = async (id: string, pattern: string | null) => {
+  return SecretNoteModel.findByIdAndUpdate(id, { pattern }, { returnDocument: 'after' }).exec();
 };
 
 export const updateSecretPosition = async (id: string, position: number) => {

@@ -26,12 +26,14 @@ export type CachedSecretNote = {
   createdAt: string;
   updatedAt: string;
   color: string | null;
+  pattern: string | null;
 };
 
 type CreateSecretInput = {
   title: string;
   encryptedBody: EncryptedPayload | null;
   color?: string | null;
+  pattern?: string | null;
   fileIds?: string[];
 };
 type UpdateSecretInput = {
@@ -41,6 +43,7 @@ type UpdateSecretInput = {
   archived?: boolean;
   deleted?: boolean;
   color?: string | null;
+  pattern?: string | null;
   fileIds?: string[];
 };
 
@@ -79,6 +82,7 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         color: input.color ?? null,
+        pattern: input.pattern ?? null,
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

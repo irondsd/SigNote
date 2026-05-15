@@ -3,7 +3,7 @@ import { NoteModel } from '@/models/Note';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
 
-export const createNote = async (userId: string, title: string, content: string, color?: string | null) => {
+export const createNote = async (userId: string, title: string, content: string, color?: string | null, pattern?: string | null) => {
   const now = new Date();
   const position = await getNextPosition(NoteModel, userId);
 
@@ -13,6 +13,7 @@ export const createNote = async (userId: string, title: string, content: string,
     content,
     position,
     ...(color != null && { color }),
+    ...(pattern != null && { pattern }),
     createdAt: now,
     updatedAt: now,
   });
@@ -78,6 +79,10 @@ export const unarchiveNote = async (id: string) => {
 
 export const updateNoteColor = async (id: string, color: string | null) => {
   return NoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
+};
+
+export const updateNotePattern = async (id: string, pattern: string | null) => {
+  return NoteModel.findByIdAndUpdate(id, { pattern }, { returnDocument: 'after' }).exec();
 };
 
 export const updateNotePosition = async (id: string, position: number) => {

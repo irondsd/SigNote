@@ -8,6 +8,7 @@ type EncryptedNoteCardProps = {
   title: string;
   updatedAt: string;
   color: string | null | undefined;
+  pattern?: string | null;
   onClick: (rect: DOMRect) => void;
   /** If provided, renders decrypted HTML preview instead of placeholder */
   decryptedContent?: string;
@@ -21,6 +22,7 @@ export function EncryptedNoteCard({
   title,
   updatedAt,
   color,
+  pattern,
   onClick,
   decryptedContent,
   ciphertext,
@@ -46,6 +48,7 @@ export function EncryptedNoteCard({
       title={title}
       updatedAt={updatedAt}
       color={color}
+      pattern={pattern}
       onClick={onClick}
       showArchivedBadge={showArchivedBadge}
       archived={archived}

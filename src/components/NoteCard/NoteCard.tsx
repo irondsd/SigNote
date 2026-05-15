@@ -21,6 +21,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       title={note.title}
       updatedAt={note.updatedAt}
       color={note.color}
+      pattern={note.pattern}
       onClick={onClick}
       showArchivedBadge={showArchivedBadge}
       archived={note.archived}

@@ -36,7 +36,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [title, setTitle] = useState(note.title ?? '');
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
+  const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
@@ -256,7 +257,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const handleColorChange = (newColor: string | null) => {
     setColor(newColor);
     updateSeal.mutate({ id: note._id, color: newColor });
-    setColorPickerOpen(false);
+  };
+
+  const handlePatternChange = (newPattern: string | null) => {
+    setPattern(newPattern);
+    updateSeal.mutate({ id: note._id, pattern: newPattern });
   };
 
   const handleCancel = () => {
@@ -330,9 +335,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         editing={editing}
         onTitleChange={setTitle}
         color={color}
+        pattern={pattern}
         onColorChange={handleColorChange}
-        colorPickerOpen={colorPickerOpen}
-        onColorPickerOpenChange={setColorPickerOpen}
+        onPatternChange={handlePatternChange}
+        stylePickerOpen={stylePickerOpen}
+        onStylePickerOpenChange={setStylePickerOpen}
         showEditButton={isDecrypted}
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}

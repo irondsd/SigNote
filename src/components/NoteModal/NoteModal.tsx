@@ -24,8 +24,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [content, setContent] = useState(note.content ?? '');
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
+  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
   const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -85,7 +86,11 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const handleColorChange = (newColor: string | null) => {
     setColor(newColor);
     updateNote.mutate({ id: note._id.toString(), color: newColor });
-    setColorPickerOpen(false);
+  };
+
+  const handlePatternChange = (newPattern: string | null) => {
+    setPattern(newPattern);
+    updateNote.mutate({ id: note._id.toString(), pattern: newPattern });
   };
 
   return (
@@ -96,9 +101,11 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         editing={editing}
         onTitleChange={setTitle}
         color={color}
+        pattern={pattern}
         onColorChange={handleColorChange}
-        colorPickerOpen={colorPickerOpen}
-        onColorPickerOpenChange={setColorPickerOpen}
+        onPatternChange={handlePatternChange}
+        stylePickerOpen={stylePickerOpen}
+        onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}
         onClose={handleClose}
         disableClose={editing}
