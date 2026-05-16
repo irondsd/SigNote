@@ -43,6 +43,8 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
     setEditor,
     color,
     setColor,
+    pattern,
+    setPattern,
     isTitleEmpty,
     isContentEmpty,
     showConfirm,
@@ -79,7 +81,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         clearDraft();
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
         const fileIds = extractFileIds(trimmedContent);
-        createSecret.mutate({ title: trimmedTitle, encryptedBody, color, fileIds });
+        createSecret.mutate({ title: trimmedTitle, encryptedBody, color, pattern, fileIds });
         onClose();
       });
     } finally {
@@ -105,6 +107,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
+        onPatternChange={setPattern}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

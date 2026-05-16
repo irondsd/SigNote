@@ -8,6 +8,7 @@ type SortableEncryptedCardProps = {
   title: string;
   updatedAt: string;
   color: string | null | undefined;
+  pattern?: string | null;
   onClick: (rect: DOMRect) => void;
   decryptedContent?: string;
   ciphertext?: string;
@@ -21,6 +22,7 @@ export function SortableEncryptedCard({
   title,
   updatedAt,
   color,
+  pattern,
   onClick,
   decryptedContent,
   ciphertext,
@@ -34,6 +36,7 @@ export function SortableEncryptedCard({
         title={title}
         updatedAt={updatedAt}
         color={color}
+        pattern={pattern}
         onClick={onClick}
         decryptedContent={decryptedContent}
         ciphertext={ciphertext}

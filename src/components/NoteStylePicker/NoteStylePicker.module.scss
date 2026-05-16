@@ -1,0 +1,130 @@
+.wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+
+  &.open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.inner {
+  overflow: hidden;
+}
+
+.wrapper:not(.open) .inner {
+  visibility: hidden;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 20px;
+}
+
+.section:first-child {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.colorSwatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 15px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  background: var(--note-bg);
+  filter: saturate(3) brightness(0.9);
+  transition: outline-color 0.12s;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+
+  &.selected {
+    outline-color: var(--primary);
+  }
+
+  &:hover:not(.selected) {
+    outline-color: var(--muted);
+  }
+}
+
+:global(.dark) .colorSwatch {
+  filter: saturate(3);
+}
+
+.defaultSwatch {
+  background: var(--card);
+  border: 1.5px solid var(--border) !important;
+  position: relative;
+  filter: none !important;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+  }
+}
+
+.patternSwatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--foreground);
+  transition: outline-color 0.12s;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+
+  &.selected {
+    outline-color: var(--primary);
+  }
+
+  &:hover:not(.selected) {
+    outline-color: var(--muted);
+  }
+}
+
+.glyphIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.selectionLabel {
+  flex: 1;
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  padding-right: 4px;
+  white-space: nowrap;
+}

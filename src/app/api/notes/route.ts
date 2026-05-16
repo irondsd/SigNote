@@ -27,13 +27,13 @@ export const POST = withSession(async (req, { userId }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, content, color } = body as { title?: string; content?: string; color?: string | null };
+  const { title, content, color, pattern } = body as { title?: string; content?: string; color?: string | null; pattern?: string | null };
 
   if ((title?.length ?? 0) > MAX_TITLE || (content?.length ?? 0) > MAX_CONTENT) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const note = await createNote(userId, title ?? '', content ?? '', color);
+  const note = await createNote(userId, title ?? '', content ?? '', color, pattern);
 
   const fileIds = extractFileIds(content ?? '');
   if (fileIds.length) {

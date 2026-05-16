@@ -9,11 +9,12 @@ import {
   undeleteSecret,
   updateSecret,
   updateSecretColor,
+  updateSecretPattern,
   updateSecretPosition,
 } from '@/controllers/secrets';
 import { linkFilesToNote, softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteColors';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
 
@@ -39,12 +40,13 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, encryptedBody, archived, deleted, color, position, fileIds } = body as {
+  const { title, encryptedBody, archived, deleted, color, pattern, position, fileIds } = body as {
     title?: string;
     encryptedBody?: EncryptedPayload | null;
     archived?: boolean;
     deleted?: boolean;
     color?: string | null;
+    pattern?: string | null;
     position?: number;
     fileIds?: string[];
   };
@@ -65,6 +67,11 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
       return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
     }
     updated = await updateSecretColor(id, color ?? null);
+  } else if ('pattern' in body) {
+    if (pattern !== null && !NOTE_PATTERNS.includes(pattern as NotePattern)) {
+      return NextResponse.json({ error: 'Invalid pattern' }, { status: 400 });
+    }
+    updated = await updateSecretPattern(id, pattern ?? null);
   } else if (typeof position === 'number') {
     if (!Number.isFinite(position)) {
       return NextResponse.json({ error: 'Invalid position' }, { status: 400 });

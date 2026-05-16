@@ -1,24 +1,15 @@
 'use client';
 
-import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './NoteCardBase.module.scss';
-
-function cardStyle(color: string | null | undefined): CSSProperties | undefined {
-  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
-
-  return {
-    '--note-card-bg': `var(--note-${color})`,
-    border: 'none',
-  } as CSSProperties;
-}
 
 type NoteCardBaseProps = {
   title?: string;
   updatedAt: string | Date;
   color?: string | null;
+  pattern?: string | null;
   onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   archived?: boolean;
@@ -30,6 +21,7 @@ export function NoteCardBase({
   title,
   updatedAt,
   color,
+  pattern,
   onClick,
   showArchivedBadge = false,
   archived = false,
@@ -49,7 +41,8 @@ export function NoteCardBase({
     <div
       data-testid={testId}
       className={cn(s.card)}
-      style={cardStyle(color)}
+      data-color={color || undefined}
+      data-pattern={pattern || undefined}
       role="button"
       tabIndex={0}
       onClick={(e) => onClick((e.currentTarget as HTMLElement).getBoundingClientRect())}

@@ -15,6 +15,7 @@ export function useNewNoteState(
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [color, setColor] = useState<string | null>(null);
+  const [pattern, setPattern] = useState<string | null>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isTitleEmpty = !title.trim();
@@ -54,6 +55,8 @@ export function useNewNoteState(
     setEditor,
     color,
     setColor,
+    pattern,
+    setPattern,
     isTitleEmpty,
     isContentEmpty,
     showConfirm,

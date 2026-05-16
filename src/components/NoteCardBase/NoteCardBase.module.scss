@@ -1,3 +1,5 @@
+@use '../../styles/patterns';
+
 @keyframes cardIn {
   from {
     opacity: 0;
@@ -20,7 +22,7 @@
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: var(--note-card-bg, var(--card));
+  background: var(--note-bg, var(--card));
   cursor: pointer;
   text-align: left;
   height: 100%;
@@ -28,12 +30,20 @@
   animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
   transition: transform 0.2s ease;
 
+  &[data-color] {
+    border: none;
+  }
+
+  @include patterns.pattern-base;
+
   &:hover {
     transform: scale(1.02);
   }
 }
 
 .title {
+  position: relative;
+  z-index: 2;
   font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
@@ -46,6 +56,7 @@
 
 .content {
   position: relative;
+  z-index: 2;
   font-size: 13px;
   color: var(--muted-foreground);
   line-height: 1.55;
@@ -64,7 +75,7 @@
     left: 0;
     right: 0;
     height: 32px;
-    background: linear-gradient(to bottom, transparent, var(--note-card-bg, var(--card)));
+    background: linear-gradient(to bottom, transparent, var(--note-bg, var(--card)));
     pointer-events: none;
     opacity: 0;
   }
@@ -167,6 +178,8 @@
 }
 
 .archivedBadge {
+  position: relative;
+  z-index: 2;
   font-size: 10px;
   font-weight: 600;
   color: var(--muted-foreground);
@@ -178,6 +191,8 @@
 }
 
 .date {
+  position: relative;
+  z-index: 2;
   font-size: 11px;
   color: var(--muted-foreground);
   margin-top: auto;

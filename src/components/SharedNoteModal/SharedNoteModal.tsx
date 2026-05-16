@@ -1,11 +1,10 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
-import { Pencil, X, Archive, ArchiveRestore, Trash2, Check } from 'lucide-react';
-import { NOTE_COLORS, type NoteColor } from '@/config/noteColors';
+import type { ReactNode } from 'react';
+import { Pencil, X, Archive, ArchiveRestore, Trash2, Check, Palette } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
-import { NoteColorPicker } from '@/components/NoteColorPicker/NoteColorPicker';
+import { NoteStylePicker } from '@/components/NoteStylePicker/NoteStylePicker';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
@@ -16,9 +15,11 @@ type SharedNoteModalProps = {
   editing: boolean;
   onTitleChange: (v: string) => void;
   color: string | null;
+  pattern: string | null;
   onColorChange: (c: string | null) => void;
-  colorPickerOpen: boolean;
-  onColorPickerOpenChange: (open: boolean) => void;
+  onPatternChange: (p: string | null) => void;
+  stylePickerOpen: boolean;
+  onStylePickerOpenChange: (open: boolean) => void;
   showEditButton?: boolean;
   onEditToggle: () => void;
   onClose: () => void;
@@ -39,22 +40,16 @@ type SharedNoteModalProps = {
   disableSave?: boolean;
 };
 
-function noteModalStyle(color: string | null | undefined): CSSProperties | undefined {
-  if (!color || !NOTE_COLORS.includes(color as NoteColor)) return undefined;
-
-  return {
-    '--note-modal-bg': `var(--note-${color})`,
-  } as CSSProperties;
-}
-
 export function SharedNoteModal({
   title,
   editing,
   onTitleChange,
   color,
+  pattern,
   onColorChange,
-  colorPickerOpen,
-  onColorPickerOpenChange,
+  onPatternChange,
+  stylePickerOpen,
+  onStylePickerOpenChange,
   showEditButton = true,
   onEditToggle,
   onClose,
@@ -76,7 +71,7 @@ export function SharedNoteModal({
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal cardRect={cardRect} className={cn(s.modal)} style={noteModalStyle(color)}>
+      <Modal cardRect={cardRect} className={cn(s.modal)} data-color={color || undefined}>
         <div className={s.header}>
           {editing ? (
             <input
@@ -99,7 +94,7 @@ export function SharedNoteModal({
           </div>
         </div>
 
-        <div className={s.bodyWrap}>
+        <div className={s.bodyWrap} data-pattern={pattern || undefined}>
           <div className={s.body}>{children}</div>
           {!editing && (
             <RelativeDate
@@ -112,6 +107,14 @@ export function SharedNoteModal({
         </div>
 
         {toolbar}
+
+        <NoteStylePicker
+          isOpen={stylePickerOpen}
+          color={color}
+          pattern={pattern}
+          onColorChange={onColorChange}
+          onPatternChange={onPatternChange}
+        />
 
         <div className={s.footer}>
           <div className={s.footerLeft}>{editing ? formatToggle : footerLeft}</div>
@@ -130,13 +133,17 @@ export function SharedNoteModal({
                     <Pencil size={16} />
                   </Button>
                 )}
-                <NoteColorPicker
-                  color={color}
-                  onColorChange={onColorChange}
-                  isOpen={colorPickerOpen}
-                  onOpenChange={onColorPickerOpenChange}
-                  isEditing={editing}
-                />
+                <Button
+                  data-testid="style-picker-btn"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onStylePickerOpenChange(!stylePickerOpen)}
+                  title="Note style"
+                  aria-label="Note style"
+                  className={cn(stylePickerOpen && s.activePickerBtn)}
+                >
+                  <Palette size={16} />
+                </Button>
                 <Button
                   data-testid="archive-btn"
                   variant="ghost"

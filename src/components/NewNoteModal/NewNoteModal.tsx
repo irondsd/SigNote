@@ -32,6 +32,8 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     setEditor,
     color,
     setColor,
+    pattern,
+    setPattern,
     isTitleEmpty,
     isContentEmpty,
     showConfirm,
@@ -56,7 +58,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     }
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     clearDraft();
-    createNote.mutate({ title: title.trim(), content: content.trim(), color });
+    createNote.mutate({ title: title.trim(), content: content.trim(), color, pattern });
     onClose();
   };
 
@@ -78,6 +80,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
+        onPatternChange={setPattern}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>
