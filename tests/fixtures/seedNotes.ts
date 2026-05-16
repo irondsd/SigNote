@@ -1,8 +1,8 @@
 import mongoose from 'mongoose';
 import type { Address } from 'viem';
-import { NoteModel, type NoteDocument } from '../../src/models/Note';
+import { NoteModel, type NoteDocument } from '@/models/Note';
 import { getOrCreateUserId } from './getOrCreateUserId';
-import type { NoteColor } from '../../src/config/noteColors';
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
 const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
@@ -13,6 +13,7 @@ export type SeedNote = {
   content?: string;
   archived?: boolean;
   color?: NoteColor | null;
+  pattern?: NotePattern | null;
   deletedAt?: Date | null;
 };
 
@@ -41,6 +42,7 @@ export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<No
       content: note.content ?? '<p></p>',
       archived: note.archived ?? false,
       color: note.color ?? null,
+      pattern: note.pattern ?? null,
       position,
       createdAt: now,
       updatedAt: now,

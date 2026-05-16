@@ -14,7 +14,7 @@ import {
 } from '@/controllers/secrets';
 import { linkFilesToNote, softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
-import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
 

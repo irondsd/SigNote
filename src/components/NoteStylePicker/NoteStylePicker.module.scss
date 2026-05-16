@@ -1,3 +1,7 @@
+$swatch-size: 28px;
+$swatch-gap: 8px;
+$swatch-border-radius: 8px;
+
 .wrapper {
   display: grid;
   grid-template-rows: 0fr;
@@ -38,7 +42,7 @@
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: $swatch-gap;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -49,9 +53,9 @@
 }
 
 .colorSwatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 15px;
+  width: $swatch-size;
+  height: $swatch-size;
+  border-radius: $swatch-border-radius;
   border: none;
   cursor: pointer;
   padding: 0;
@@ -90,9 +94,9 @@
 }
 
 .patternSwatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: $swatch-size;
+  height: $swatch-size;
+  border-radius: $swatch-border-radius;
   border: none;
   cursor: pointer;
   padding: 0;

@@ -69,7 +69,7 @@ test.describe('create seal', () => {
     await page.getByRole('button', { name: 'New Seal' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
     const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');

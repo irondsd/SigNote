@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import type { Address } from 'viem';
 import { SealNoteModel, type SealNoteDocument } from '../../src/models/SealNote';
 import { getOrCreateUserId } from './getOrCreateUserId';
-import type { NoteColor } from '../../src/config/noteColors';
+import type { NoteColor } from '../../src/config/noteStyles';
 
 const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
 const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';

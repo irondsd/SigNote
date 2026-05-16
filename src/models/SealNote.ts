@@ -1,5 +1,5 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
-import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { type EncryptedPayload } from '@/types/crypto';
 
 export type SealNote = {

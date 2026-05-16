@@ -73,7 +73,7 @@ test.describe('create secret', () => {
     await page.getByRole('button', { name: 'New Secret' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
     const postPromise = page.waitForResponse(

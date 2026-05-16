@@ -56,7 +56,7 @@ test.describe('create note', () => {
     const title = `Color Note ${Date.now()}`;
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTestId('color-palette-btn').click();
+    await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
     const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
@@ -381,7 +381,7 @@ test.describe('note color', () => {
     const patchPromise = page.waitForResponse(
       (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
     );
-    await page.getByTestId('color-palette-btn').click();
+    await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Yellow').click();
     await patchPromise;
 
@@ -412,7 +412,7 @@ test.describe('note color', () => {
     const patchPromise = page.waitForResponse(
       (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
     );
-    await page.getByTestId('color-palette-btn').click();
+    await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Default').click();
     await patchPromise;
 

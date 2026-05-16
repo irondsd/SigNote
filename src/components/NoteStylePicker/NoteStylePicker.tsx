@@ -2,7 +2,7 @@
 
 import { InlineSvg } from '@irondsd/inline-svg';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteColors';
+import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteStyles';
 import s from './NoteStylePicker.module.scss';
 
 type NoteStylePickerProps = {
