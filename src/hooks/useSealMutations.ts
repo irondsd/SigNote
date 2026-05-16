@@ -92,7 +92,12 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
         sealId: string,
       ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
     }) => {
-      const created = await apiCreateSeal({ title: input.title, color: input.color, pattern: input.pattern, fileIds: input.fileIds });
+      const created = await apiCreateSeal({
+        title: input.title,
+        color: input.color,
+        pattern: input.pattern,
+        fileIds: input.fileIds,
+      });
       const encrypted = await input.encryptBody(created._id);
       if (encrypted) {
         return apiPatchSeal(created._id, { ...encrypted, fileIds: input.fileIds });

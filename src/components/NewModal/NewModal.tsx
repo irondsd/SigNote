@@ -55,7 +55,9 @@ export function NewModal({
             <X size={18} />
           </Button>
         </div>
-        <div className={s.body} data-pattern={pattern || undefined}>{children}</div>
+        <div className={s.body} data-pattern={pattern || undefined}>
+          {children}
+        </div>
         {toolbar}
         <NoteStylePicker
           isOpen={stylePickerOpen}
