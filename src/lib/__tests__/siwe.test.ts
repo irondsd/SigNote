@@ -25,7 +25,11 @@ function mockSiweInstance(fields: SiweFields = {}) {
   MockSiweMessage.mockImplementation(() => ({
     domain,
     uri,
-    verify: jest.fn().mockImplementation(() => (verifyThrows ? Promise.reject(new Error('verify failed')) : Promise.resolve(verifyResult))),
+    verify: jest
+      .fn()
+      .mockImplementation(() =>
+        verifyThrows ? Promise.reject(new Error('verify failed')) : Promise.resolve(verifyResult),
+      ),
   }));
 }
 

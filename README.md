@@ -167,7 +167,7 @@ Titles are intentionally left unencrypted to enable full-text indexing while kee
 ### 1. Install dependencies
 
 ```bash
-npm install
+bun install
 ```
 
 ### 2. Create your local environment file
@@ -226,7 +226,7 @@ AWS_S3_ENDPOINT=""   # optional: S3-compatible provider endpoint
 ### 4. Run the app
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Then open [http://localhost:5000](http://localhost:5000).

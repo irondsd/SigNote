@@ -1,6 +1,8 @@
 jest.mock('next-auth', () => ({ getServerSession: jest.fn() }));
 jest.mock('@/config/auth', () => ({ authOptions: {} }));
-jest.mock('@/utils/mongoose', () => ({ getMongoClientFromMongoose: jest.fn().mockResolvedValue({ kind: 'mock-client' }) }));
+jest.mock('@/utils/mongoose', () => ({
+  getMongoClientFromMongoose: jest.fn().mockResolvedValue({ kind: 'mock-client' }),
+}));
 jest.mock('@vercel/functions', () => ({ attachDatabasePool: jest.fn() }));
 
 import jwt from 'jsonwebtoken';
@@ -8,12 +10,7 @@ import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { attachDatabasePool } from '@vercel/functions';
 
-import {
-  issueEraseToken,
-  withEraseAuth,
-  ERASE_ALL_SCOPE,
-  ERASE_ENCRYPTION_SCOPE,
-} from '@/lib/eraseAuth';
+import { issueEraseToken, withEraseAuth, ERASE_ALL_SCOPE, ERASE_ENCRYPTION_SCOPE } from '@/lib/eraseAuth';
 
 const mockGetServerSession = getServerSession as jest.MockedFunction<typeof getServerSession>;
 const mockAttachDatabasePool = attachDatabasePool as jest.MockedFunction<typeof attachDatabasePool>;
@@ -120,9 +117,7 @@ describe('withEraseAuth', () => {
   it('returns 403 when expectedScope is an array and scope is not included', async () => {
     setSession('user-1');
     const token = issueEraseToken('user-1', 'unknown-scope');
-    const res = await withEraseAuth([ERASE_ALL_SCOPE, ERASE_ENCRYPTION_SCOPE], handler)(
-      buildReq(`Bearer ${token}`),
-    );
+    const res = await withEraseAuth([ERASE_ALL_SCOPE, ERASE_ENCRYPTION_SCOPE], handler)(buildReq(`Bearer ${token}`));
     expect(res.status).toBe(403);
   });
 
@@ -147,9 +142,7 @@ describe('withEraseAuth', () => {
   it('accepts an array of expected scopes when scope matches', async () => {
     setSession('user-1');
     const token = issueEraseToken('user-1', ERASE_ENCRYPTION_SCOPE);
-    const res = await withEraseAuth([ERASE_ALL_SCOPE, ERASE_ENCRYPTION_SCOPE], handler)(
-      buildReq(`Bearer ${token}`),
-    );
+    const res = await withEraseAuth([ERASE_ALL_SCOPE, ERASE_ENCRYPTION_SCOPE], handler)(buildReq(`Bearer ${token}`));
     expect(res.status).toBe(200);
   });
 });

@@ -1,6 +1,8 @@
 jest.mock('next-auth', () => ({ getServerSession: jest.fn() }));
 jest.mock('@/config/auth', () => ({ authOptions: {} }));
-jest.mock('@/utils/mongoose', () => ({ getMongoClientFromMongoose: jest.fn().mockResolvedValue({ kind: 'mock-client' }) }));
+jest.mock('@/utils/mongoose', () => ({
+  getMongoClientFromMongoose: jest.fn().mockResolvedValue({ kind: 'mock-client' }),
+}));
 jest.mock('@vercel/functions', () => ({ attachDatabasePool: jest.fn() }));
 
 import { getServerSession } from 'next-auth';

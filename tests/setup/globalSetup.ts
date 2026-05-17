@@ -34,7 +34,7 @@ async function waitForServer(url: string, timeoutMs = 50000): Promise<void> {
 
 export default async function globalSetup() {
   // Build the mock provider bundle
-  execSync('npm run test:bundle', {
+  execSync('bun run test:bundle', {
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'inherit',
   });

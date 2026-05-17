@@ -8,7 +8,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint && npx tsc --noEmit",
-    "format": "prettier --write .",
+    "format": "prettier --write . | grep -v '(unchanged)'",
     "test:bundle": "node tests/provider/bundle.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
