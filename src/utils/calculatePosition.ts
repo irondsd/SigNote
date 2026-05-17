@@ -21,8 +21,7 @@ export function calculatePosition(above: number | null, below: number | null): n
   return (above + below) / 2;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getNextPosition(Model: Model<any>, userId: string): Promise<number> {
+export async function getNextPosition(Model: Model<{ position?: number; userId: string }>, userId: string): Promise<number> {
   const last = await Model.findOne({ userId, deletedAt: null })
     .sort({ position: -1 })
     .select({ position: 1 })

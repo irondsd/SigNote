@@ -69,8 +69,7 @@ export function EraseFlow({
 
       setEraseToken(token);
       setPhase('ready');
-    } catch (err) {
-      console.error('Erase confirm error:', err);
+    } catch {
       setConfirmError('Failed to confirm. Please try again.');
       setPhase('warning');
     }
@@ -87,8 +86,7 @@ export function EraseFlow({
       });
       setSteps((prev) => prev.map((s) => (s.key === step.key ? { ...s, status: 'done' } : s)));
       return true;
-    } catch (err) {
-      console.error(`Erase step ${step.key} failed:`, err);
+    } catch {
       setSteps((prev) => prev.map((s) => (s.key === step.key ? { ...s, status: 'error' } : s)));
       return false;
     }

@@ -3,6 +3,16 @@ import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
+import { commonOps } from './common';
+
+export const secretOps = commonOps(SecretNoteModel);
+export const deleteSecret = secretOps.softDelete;
+export const undeleteSecret = secretOps.restore;
+export const archiveSecret = secretOps.archive;
+export const unarchiveSecret = secretOps.unarchive;
+export const updateSecretColor = secretOps.updateColor;
+export const updateSecretPattern = secretOps.updatePattern;
+export const updateSecretPosition = secretOps.updatePosition;
 
 export const createSecret = async (
   userId: string,
@@ -34,7 +44,6 @@ export const getSecretsByUserId = async (userId: string, archived?: boolean, lim
     return SecretNoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();
   }
 
-  // Content is encrypted ciphertext — full-text search is only possible on title
   return SecretNoteModel.find({
     ...baseQuery,
     title: { $regex: new RegExp(escapeRegExp(normalized), 'i') },
@@ -55,32 +64,4 @@ export const updateSecret = async (id: string, title: string, encryptedBody: Enc
     { title, encryptedBody, updatedAt: new Date() },
     { returnDocument: 'after' },
   ).exec();
-};
-
-export const deleteSecret = async (id: string) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { deletedAt: new Date() }, { returnDocument: 'after' }).exec();
-};
-
-export const undeleteSecret = async (id: string) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { deletedAt: null }, { returnDocument: 'after' }).exec();
-};
-
-export const archiveSecret = async (id: string) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { archived: true }, { returnDocument: 'after' }).exec();
-};
-
-export const unarchiveSecret = async (id: string) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { archived: false }, { returnDocument: 'after' }).exec();
-};
-
-export const updateSecretColor = async (id: string, color: string | null) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
-};
-
-export const updateSecretPattern = async (id: string, pattern: string | null) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { pattern }, { returnDocument: 'after' }).exec();
-};
-
-export const updateSecretPosition = async (id: string, position: number) => {
-  return SecretNoteModel.findByIdAndUpdate(id, { position }, { returnDocument: 'after' }).exec();
 };

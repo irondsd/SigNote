@@ -2,6 +2,16 @@ import { MAX_SEARCH } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
+import { commonOps } from './common';
+
+export const noteOps = commonOps(NoteModel);
+export const deleteNote = noteOps.softDelete;
+export const undeleteNote = noteOps.restore;
+export const archiveNote = noteOps.archive;
+export const unarchiveNote = noteOps.unarchive;
+export const updateNoteColor = noteOps.updateColor;
+export const updateNotePattern = noteOps.updatePattern;
+export const updateNotePosition = noteOps.updatePosition;
 
 export const createNote = async (
   userId: string,
@@ -65,32 +75,4 @@ export const updateNote = async (id: string, title: string, content: string) => 
       returnDocument: 'after',
     },
   ).exec();
-};
-
-export const deleteNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { deletedAt: new Date() }, { returnDocument: 'after' }).exec();
-};
-
-export const undeleteNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { deletedAt: null }, { returnDocument: 'after' }).exec();
-};
-
-export const archiveNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { archived: true }, { returnDocument: 'after' }).exec();
-};
-
-export const unarchiveNote = async (id: string) => {
-  return NoteModel.findByIdAndUpdate(id, { archived: false }, { returnDocument: 'after' }).exec();
-};
-
-export const updateNoteColor = async (id: string, color: string | null) => {
-  return NoteModel.findByIdAndUpdate(id, { color }, { returnDocument: 'after' }).exec();
-};
-
-export const updateNotePattern = async (id: string, pattern: string | null) => {
-  return NoteModel.findByIdAndUpdate(id, { pattern }, { returnDocument: 'after' }).exec();
-};
-
-export const updateNotePosition = async (id: string, position: number) => {
-  return NoteModel.findByIdAndUpdate(id, { position }, { returnDocument: 'after' }).exec();
 };

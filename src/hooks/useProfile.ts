@@ -37,9 +37,8 @@ export const useUpdateDisplayName = () => {
       return api.patch('/api/profile', { json: { displayName } }).json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profile', userId] }),
-    onError: (error) => {
+    onError: () => {
       toast.error('Failed to update display name. Please try again.');
-      console.error('Failed to update display name:', error);
     },
   });
 };

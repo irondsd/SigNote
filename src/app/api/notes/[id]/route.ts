@@ -1,22 +1,12 @@
 import { isValidObjectId } from 'mongoose';
 import { NextResponse } from 'next/server';
 
-import {
-  archiveNote,
-  deleteNote,
-  getNoteById,
-  unarchiveNote,
-  undeleteNote,
-  updateNote,
-  updateNoteColor,
-  updateNotePattern,
-  updateNotePosition,
-} from '@/controllers/notes';
-import { linkFilesToNote, softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
+import { deleteNote, getNoteById, noteOps, updateNote } from '@/controllers/notes';
+import { linkFilesToNote, softDeleteFilesByNoteId } from '@/controllers/files';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
-import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { MAX_CONTENT, MAX_TITLE } from '@/config/constants';
 import { extractFileIds } from '@/lib/fileIds';
+import { handleCommonPatch } from '@/app/api/_shared/noteRouteHelpers';
 
 export const runtime = 'nodejs';
 
@@ -40,51 +30,20 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
-  const { title, content, archived, deleted, color, pattern, position } = body as {
-    title?: string;
-    content?: string;
-    archived?: boolean;
-    deleted?: boolean;
-    color?: string | null;
-    pattern?: string | null;
-    position?: number;
-  };
 
-  let updated;
-  if (typeof deleted === 'boolean') {
-    if (deleted) {
-      updated = await deleteNote(id);
-      await softDeleteFilesByNoteId(id);
-    } else {
-      updated = await undeleteNote(id);
-      await restoreFilesByNoteId(id, userId);
-    }
-  } else if (typeof archived === 'boolean') {
-    updated = archived ? await archiveNote(id) : await unarchiveNote(id);
-  } else if ('color' in body) {
-    if (color !== null && !NOTE_COLORS.includes(color as NoteColor)) {
-      return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
-    }
-    updated = await updateNoteColor(id, color ?? null);
-  } else if ('pattern' in body) {
-    if (pattern !== null && !NOTE_PATTERNS.includes(pattern as NotePattern)) {
-      return NextResponse.json({ error: 'Invalid pattern' }, { status: 400 });
-    }
-    updated = await updateNotePattern(id, pattern ?? null);
-  } else if (typeof position === 'number') {
-    if (!Number.isFinite(position)) {
-      return NextResponse.json({ error: 'Invalid position' }, { status: 400 });
-    }
-    updated = await updateNotePosition(id, position);
-  } else {
-    if ((title?.length ?? 0) > MAX_TITLE || (content?.length ?? 0) > MAX_CONTENT) {
-      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
-    }
-    updated = await updateNote(id, title ?? note.title, content ?? note.content);
-    if (content !== undefined) {
-      const fileIds = extractFileIds(content);
-      if (fileIds.length) await linkFilesToNote(userId, id, 'note', fileIds);
-    }
+  const result = await handleCommonPatch(id, userId, body, noteOps);
+  if (result.handled) {
+    return 'response' in result ? result.response : NextResponse.json(result.updated);
+  }
+
+  const { title, content } = body as { title?: string; content?: string };
+  if ((title?.length ?? 0) > MAX_TITLE || (content?.length ?? 0) > MAX_CONTENT) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+  const updated = await updateNote(id, title ?? note.title, content ?? note.content);
+  if (content !== undefined) {
+    const fileIds = extractFileIds(content);
+    if (fileIds.length) await linkFilesToNote(userId, id, 'note', fileIds);
   }
 
   return NextResponse.json(updated);

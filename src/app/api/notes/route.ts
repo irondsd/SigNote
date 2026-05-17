@@ -3,20 +3,15 @@ import { NextResponse } from 'next/server';
 import { createNote, getNotesByUserId } from '@/controllers/notes';
 import { linkFilesToNote } from '@/controllers/files';
 import { withSession } from '@/lib/routeAuth';
-import { MAX_CONTENT, MAX_SEARCH, MAX_TITLE } from '@/config/constants';
+import { MAX_CONTENT, MAX_TITLE } from '@/config/constants';
 import { extractFileIds } from '@/lib/fileIds';
+import { parseListParams } from '@/app/api/_shared/noteRouteHelpers';
 
 export const runtime = 'nodejs';
 
 export const GET = withSession(async (req, { userId }) => {
-  const archivedParam = req.nextUrl.searchParams.get('archived');
-  const archived = archivedParam === null ? undefined : archivedParam === 'true';
-  const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30));
-  const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
-  const search = (req.nextUrl.searchParams.get('q') || '').trim().slice(0, MAX_SEARCH);
-
+  const { archived, limit, offset, search } = parseListParams(req);
   const notes = await getNotesByUserId(userId, archived, limit, offset, search);
-
   return NextResponse.json(notes);
 });
 
