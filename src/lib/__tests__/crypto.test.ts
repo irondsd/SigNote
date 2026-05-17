@@ -8,9 +8,27 @@ import {
   decryptAesGcm,
   importMEK,
   deriveSecretBodyKey,
+  encryptSecretBody,
+  decryptSecretBody,
+  createKeyCheck,
+  verifyKeyCheck,
+  encryptSealBody,
+  decryptSealBody,
+  encryptFileBytes,
+  decryptFileBytes,
+  deriveDeviceShare,
   getDefaultKdfParams,
+  generateSalt,
+  generateServerShare,
   getEncVersion,
 } from '@/lib/crypto';
+import type { KdfParams } from '@/types/crypto';
+
+async function freshMek(): Promise<CryptoKey> {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return importMEK(bytes as Uint8Array<ArrayBuffer>);
+}
 
 describe('encoding helpers', () => {
   describe('toBase64 / fromBase64', () => {
@@ -133,5 +151,134 @@ describe('utility exports', () => {
 
   it('getEncVersion returns a number', () => {
     expect(getEncVersion()).toBe(1);
+  });
+});
+
+describe('secret body encryption', () => {
+  it('round-trips a string with encryptSecretBody/decryptSecretBody', async () => {
+    const mek = await freshMek();
+    const plaintext = 'top secret 🤐';
+    const encrypted = await encryptSecretBody(mek, plaintext);
+    expect(await decryptSecretBody(mek, encrypted)).toBe(plaintext);
+  });
+
+  it('fails to decrypt secret body with a different MEK', async () => {
+    const mek1 = await freshMek();
+    const mek2 = await freshMek();
+    const encrypted = await encryptSecretBody(mek1, 'hello');
+    await expect(decryptSecretBody(mek2, encrypted)).rejects.toThrow();
+  });
+});
+
+describe('key check', () => {
+  it('verifyKeyCheck returns true with the original MEK', async () => {
+    const mek = await freshMek();
+    const kc = await createKeyCheck(mek);
+    expect(await verifyKeyCheck(mek, kc)).toBe(true);
+  });
+
+  it('verifyKeyCheck returns false with a different MEK', async () => {
+    const mek = await freshMek();
+    const other = await freshMek();
+    const kc = await createKeyCheck(mek);
+    expect(await verifyKeyCheck(other, kc)).toBe(false);
+  });
+
+  it('verifyKeyCheck returns false on a tampered key check payload', async () => {
+    const mek = await freshMek();
+    const kc = await createKeyCheck(mek);
+    const tamperedBytes = fromBase64(kc.ciphertext);
+    tamperedBytes[0] ^= 0x01;
+    const tampered = { ...kc, ciphertext: toBase64(tamperedBytes) };
+    expect(await verifyKeyCheck(mek, tampered)).toBe(false);
+  });
+});
+
+describe('seal body encryption', () => {
+  it('round-trips a string via NEK wrapping', async () => {
+    const mek = await freshMek();
+    const sealId = 'seal-123';
+    const plaintext = 'sealed content';
+    const { encryptedBody, wrappedNoteKey } = await encryptSealBody(mek, plaintext, sealId);
+    const decrypted = await decryptSealBody(mek, encryptedBody, wrappedNoteKey, sealId);
+    expect(decrypted).toBe(plaintext);
+  });
+
+  it('throws on decrypt with the wrong sealId (AAD mismatch)', async () => {
+    const mek = await freshMek();
+    const sealId = 'seal-123';
+    const { encryptedBody, wrappedNoteKey } = await encryptSealBody(mek, 'x', sealId);
+    await expect(decryptSealBody(mek, encryptedBody, wrappedNoteKey, 'seal-different')).rejects.toThrow();
+  });
+
+  it('throws on decrypt with the wrong MEK', async () => {
+    const mek = await freshMek();
+    const other = await freshMek();
+    const sealId = 'seal-123';
+    const { encryptedBody, wrappedNoteKey } = await encryptSealBody(mek, 'x', sealId);
+    await expect(decryptSealBody(other, encryptedBody, wrappedNoteKey, sealId)).rejects.toThrow();
+  });
+});
+
+describe('file bytes encryption', () => {
+  it('round-trips a Uint8Array via encryptFileBytes/decryptFileBytes', async () => {
+    const mek = await freshMek();
+    const plain = new Uint8Array(256);
+    crypto.getRandomValues(plain);
+    const { iv, cipherBytes } = await encryptFileBytes(mek, plain as Uint8Array<ArrayBuffer>);
+    const decrypted = await decryptFileBytes(mek, iv, cipherBytes);
+    expect(decrypted).toEqual(plain);
+  });
+
+  it('throws when ciphertext is tampered', async () => {
+    const mek = await freshMek();
+    const plain = new Uint8Array([1, 2, 3, 4, 5]);
+    const { iv, cipherBytes } = await encryptFileBytes(mek, plain as Uint8Array<ArrayBuffer>);
+    const view = new Uint8Array(cipherBytes);
+    view[0] ^= 0x01;
+    await expect(decryptFileBytes(mek, iv, view.buffer as ArrayBuffer)).rejects.toThrow();
+  });
+});
+
+describe('deriveDeviceShare', () => {
+  const fastParams: KdfParams = {
+    name: 'PBKDF2',
+    hash: 'SHA-256',
+    iterations: 1000,
+    length: 32,
+  };
+  const salt = toBase64(new Uint8Array(32).fill(7));
+
+  it('is deterministic for the same passphrase + salt + params', async () => {
+    const a = await deriveDeviceShare('passphrase-1', salt, fastParams);
+    const b = await deriveDeviceShare('passphrase-1', salt, fastParams);
+    expect(a).toEqual(b);
+  });
+
+  it('produces different bytes for different passphrases', async () => {
+    const a = await deriveDeviceShare('passphrase-1', salt, fastParams);
+    const b = await deriveDeviceShare('passphrase-2', salt, fastParams);
+    expect(a).not.toEqual(b);
+  });
+
+  it('returns kdfParams.length bytes', async () => {
+    const out = await deriveDeviceShare('passphrase', salt, fastParams);
+    expect(out.length).toBe(32);
+  });
+});
+
+describe('salt and server share generators', () => {
+  it('generateSalt returns 32 bytes encoded as base64', () => {
+    const salt = generateSalt();
+    expect(fromBase64(salt).length).toBe(32);
+  });
+
+  it('generateServerShare returns 32 bytes encoded as base64', () => {
+    const share = generateServerShare();
+    expect(fromBase64(share).length).toBe(32);
+  });
+
+  it('generateSalt returns different values across calls', () => {
+    expect(generateSalt()).not.toBe(generateSalt());
   });
 });
