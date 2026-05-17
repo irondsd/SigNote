@@ -15,19 +15,19 @@ import { EncryptedPayload, KdfParams } from '@/types/crypto';
 
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
-function toBase64(buf: ArrayBuffer | Uint8Array): string {
+export function toBase64(buf: ArrayBuffer | Uint8Array): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf instanceof ArrayBuffer ? buf : buf)));
 }
 
-function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
+export function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>;
 }
 
-function encodeUtf8(str: string): Uint8Array<ArrayBuffer> {
+export function encodeUtf8(str: string): Uint8Array<ArrayBuffer> {
   return new TextEncoder().encode(str) as Uint8Array<ArrayBuffer>;
 }
 
-function decodeUtf8(buf: ArrayBuffer): string {
+export function decodeUtf8(buf: ArrayBuffer): string {
   return new TextDecoder().decode(buf);
 }
 
