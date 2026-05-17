@@ -1,8 +1,5 @@
-import { MAX_SEARCH } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
-import { getNextPosition } from '@/utils/calculatePosition';
-import { escapeRegExp } from '@/utils/regexUtils';
-import { commonOps } from './common';
+import { commonOps, createEntity, listByUserId } from './common';
 
 export const noteOps = commonOps(NoteModel);
 export const deleteNote = noteOps.softDelete;
@@ -13,49 +10,16 @@ export const updateNoteColor = noteOps.updateColor;
 export const updateNotePattern = noteOps.updatePattern;
 export const updateNotePosition = noteOps.updatePosition;
 
-export const createNote = async (
+export const createNote = (
   userId: string,
   title: string,
   content: string,
   color?: string | null,
   pattern?: string | null,
-) => {
-  const now = new Date();
-  const position = await getNextPosition(NoteModel, userId);
+) => createEntity(NoteModel, userId, { title, content }, color, pattern);
 
-  const note = await NoteModel.create({
-    userId,
-    title,
-    content,
-    position,
-    ...(color != null && { color }),
-    ...(pattern != null && { pattern }),
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  return note;
-};
-
-export const getNotesByUserId = async (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') => {
-  const baseQuery = { userId, ...(archived !== undefined && { archived }), deletedAt: null };
-  const normalizedSearch = search.trim().slice(0, MAX_SEARCH);
-
-  if (!normalizedSearch) {
-    return NoteModel.find(baseQuery).sort({ position: -1 }).skip(offset).limit(limit).exec();
-  }
-
-  const safeSearchRegex = new RegExp(escapeRegExp(normalizedSearch), 'i');
-
-  return NoteModel.find({
-    ...baseQuery,
-    $or: [{ title: safeSearchRegex }, { content: safeSearchRegex }],
-  })
-    .sort({ updatedAt: -1 })
-    .skip(offset)
-    .limit(limit)
-    .exec();
-};
+export const getNotesByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
+  listByUserId(NoteModel, userId, { archived, limit, offset, search, searchFields: ['title', 'content'] });
 
 export const getNoteById = async (id: string) => {
   return NoteModel.findById(id).exec();

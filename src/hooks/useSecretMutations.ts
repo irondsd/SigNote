@@ -5,16 +5,9 @@ import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
 import { api } from '@/lib/api';
-import {
-  cancelAndSnapshot,
-  insertAtTop,
-  filterOut,
-  patchInPlace,
-  toggleArchive,
-  restoreSnapshots,
-  invalidateSnapshots,
-} from '@/lib/queryCache';
+import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSecretNote = {
   _id: string;
@@ -108,79 +101,6 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
   });
 };
 
-export const useDeleteSecret = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiDeleteSecret,
-    onMutate: async (id) => {
-      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
-      filterOut(qc, snapshots, id);
-      return { snapshots };
-    },
-    onSuccess: () => {
-      posthog.capture('secret_deleted');
-    },
-    onError: (_err, _id, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'secret', operation: 'delete' });
-      toast.error('Failed to delete secret');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUndeleteSecret = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUndeleteSecret,
-    onMutate: async ({ note }) => {
-      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
-      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
-      return { snapshots };
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to restore secret');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUpdateSecret = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUpdateSecret,
-    onMutate: async ({ id, archived, ...rest }) => {
-      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
-      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedSecretNote>;
-      if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, patch);
-      } else {
-        patchInPlace(qc, snapshots, id, patch);
-      }
-      return { snapshots };
-    },
-    onSuccess: (_data, vars) => {
-      if (vars.archived !== undefined) {
-        posthog.capture('secret_archived', { archived: vars.archived });
-      } else if (vars.title !== undefined || vars.encryptedBody !== undefined) {
-        posthog.capture('secret_updated');
-      }
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'secret', operation: 'update' });
-      toast.error('Failed to save secret');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+export const useDeleteSecret = () => useDeleteTier<CachedSecretNote>(ROOT, apiDeleteSecret, 'secret');
+export const useUndeleteSecret = () => useUndeleteTier<CachedSecretNote>(ROOT, apiUndeleteSecret, 'secret');
+export const useUpdateSecret = () => useUpdateTier<CachedSecretNote>(ROOT, apiUpdateSecret, 'secret', 'encryptedBody');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { HARD_LOCK_MS, SLEEP_CHECK_INTERVAL_MS, SLEEP_THRESHOLD_MS } from '@/config/constants';
+import { HARD_LOCK_MS, SLEEP_CHECK_INTERVAL_MS, SLEEP_THRESHOLD_MS, SOFT_LOCK_TS_KEY } from '@/config/constants';
 import { useEncryption } from '@/contexts/EncryptionContext';
 
 const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'] as const;
@@ -11,7 +11,8 @@ export function useAutoLock() {
   const isSoftLocked = lockType === 'soft';
   const isUnlocked = phase === 'unlocked';
 
-  // Soft lock: visibilitychange
+  // Soft lock on tab hidden
+
   useEffect(() => {
     if (!isUnlocked) return;
 
@@ -23,7 +24,8 @@ export function useAutoLock() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isUnlocked, softLock]);
 
-  // Hard lock: inactivity timer
+  // Hard lock after inactivity
+
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -48,12 +50,13 @@ export function useAutoLock() {
     };
   }, [isUnlocked, lock]);
 
-  // Hard lock: escalate soft lock after HARD_LOCK_MS (handles mobile PWA resume + foreground case)
+  // Escalate soft lock to hard lock after HARD_LOCK_MS (handles mobile PWA resume)
+
   useEffect(() => {
     if (!isSoftLocked) return;
 
     const checkEscalation = () => {
-      const ts = sessionStorage.getItem('softLockTs');
+      const ts = sessionStorage.getItem(SOFT_LOCK_TS_KEY);
       if (ts && Date.now() - parseInt(ts, 10) > HARD_LOCK_MS) {
         lock();
       }
@@ -72,7 +75,8 @@ export function useAutoLock() {
     };
   }, [isSoftLocked, lock]);
 
-  // Hard lock: sleep detection
+  // Hard lock on device sleep (detects timer drift)
+
   useEffect(() => {
     if (!isUnlocked) return;
 

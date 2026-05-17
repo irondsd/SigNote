@@ -2,6 +2,12 @@ import { QueryClient, InfiniteData, QueryKey } from '@tanstack/react-query';
 
 export type WithId = { _id: string; archived: boolean };
 
+const VIEW_INDEX = 2;
+
+function isArchivedView(queryKey: QueryKey): boolean {
+  return queryKey[VIEW_INDEX] === 'archived';
+}
+
 export type Snapshot<T> = [QueryKey, InfiniteData<T[]> | undefined];
 
 export async function cancelAndSnapshot<T>(qc: QueryClient, rootKey: string): Promise<Snapshot<T>[]> {
@@ -16,7 +22,7 @@ export function restoreSnapshots<T>(qc: QueryClient, snapshots: Snapshot<T>[]): 
 export function insertAtTop<T extends WithId>(qc: QueryClient, snapshots: Snapshot<T>[], item: T): void {
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
-    if (queryKey[2] === 'archived') return;
+    if (isArchivedView(queryKey)) return;
     const firstPage = data.pages[0] ?? [];
     qc.setQueryData(queryKey, {
       ...data,
@@ -78,8 +84,8 @@ export function toggleArchive<T extends WithId>(
 
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
-    const isArchivedView = queryKey[2] === 'archived';
-    const noteNowBelongsHere = (archived === true) === isArchivedView;
+    const isArchiveQuery = isArchivedView(queryKey);
+    const noteNowBelongsHere = archived === isArchiveQuery;
 
     if (noteNowBelongsHere) {
       const firstPage = data.pages[0] ?? [];

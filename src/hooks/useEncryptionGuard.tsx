@@ -16,92 +16,15 @@ type AdvancedGuardReturn = SimpleGuardReturn & {
 };
 
 /**
- * Simple encryption guard for trivial cases (70% of uses).
- * Call execute() with your action; PassphraseGuard handles modal rendering.
- *
- * @example
- * const guard = useSimpleEncryptionGuard();
- * await guard.execute(async (mek) => saveNote(mek));
- * return <>{guard.PassphraseGuard}</>;
+ * Simple encryption guard — call execute() with your action; PassphraseGuard handles modal rendering.
  */
 export function useSimpleEncryptionGuard(): SimpleGuardReturn {
-  const { mek } = useEncryption();
-  const [showPassphrase, setShowPassphrase] = useState(false);
-  const pendingActionRef = useRef<((mek: CryptoKey) => Promise<void>) | null>(null);
-  const resolvePassphraseRef = useRef<(() => void) | null>(null);
-  const waitingForMekRef = useRef(false);
-
-  const execute = useCallback(
-    async (action: (mek: CryptoKey) => Promise<void>): Promise<void> => {
-      if (!mek) {
-        pendingActionRef.current = action;
-        waitingForMekRef.current = true;
-        setShowPassphrase(true);
-        // Wait for passphrase modal to complete before returning
-        return new Promise<void>((resolve) => {
-          resolvePassphraseRef.current = resolve;
-        });
-      }
-      await action(mek);
-    },
-    [mek],
-  );
-
-  const handlePassphraseSuccess = useCallback(async () => {
-    setShowPassphrase(false);
-    // Don't execute action here - let useEffect handle it when mek becomes available
-  }, []);
-
-  const handlePassphraseClose = useCallback(() => {
-    setShowPassphrase(false);
-    waitingForMekRef.current = false;
-    pendingActionRef.current = null;
-    // Resolve the waiting execute() call (user cancelled)
-    if (resolvePassphraseRef.current) {
-      resolvePassphraseRef.current();
-      resolvePassphraseRef.current = null;
-    }
-  }, []);
-
-  // Execute pending action when mek becomes available
-  useEffect(() => {
-    if (!mek || !waitingForMekRef.current || !pendingActionRef.current) return;
-
-    (async () => {
-      await pendingActionRef.current!(mek);
-      pendingActionRef.current = null;
-      waitingForMekRef.current = false;
-
-      if (resolvePassphraseRef.current) {
-        resolvePassphraseRef.current();
-        resolvePassphraseRef.current = null;
-      }
-    })();
-  }, [mek]);
-
-  const passphraseFinallyGuard = showPassphrase ? (
-    <PassphraseModal onSuccess={handlePassphraseSuccess} onClose={handlePassphraseClose} />
-  ) : null;
-
-  return {
-    execute,
-    PassphraseGuard: passphraseFinallyGuard,
-  };
+  const { execute, PassphraseGuard } = useEncryptionGuard();
+  return { execute, PassphraseGuard };
 }
 
 /**
- * Advanced encryption guard hook for complex cases (30% of uses).
- * Supports post-unlock recovery callbacks (e.g., rehydrate).
- *
- * @example
- * const guard = useEncryptionGuard({ onRehydrate: () => refetchPreviews() });
- * const handleClick = async (note) => {
- *   if (lockType === 'soft') {
- *     await guard.execute(async () => rehydrate());
- *   } else {
- *     guard.execute(async (mek) => openNote(mek));
- *   }
- * };
+ * Encryption guard hook. Supports optional post-unlock recovery callback (e.g., rehydrate).
  */
 export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promise<void> }): AdvancedGuardReturn {
   const { mek } = useEncryption();
@@ -119,7 +42,6 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
         pendingActionRef.current = action;
         waitingForMekRef.current = true;
         setShowPassphrase(true);
-        // Wait for passphrase modal to complete before returning
         return new Promise<void>((resolve) => {
           resolvePassphraseRef.current = resolve;
         });
@@ -133,12 +55,9 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
     setShowPassphrase(false);
     setPending(false);
 
-    // Call rehydrate callback if registered
     if (rehydrateCallbackRef.current) {
       await rehydrateCallbackRef.current();
     }
-
-    // Don't execute action here - let useEffect handle it when mek becomes available
   }, []);
 
   const handlePassphraseClose = useCallback(() => {
@@ -146,14 +65,12 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
     setPending(false);
     waitingForMekRef.current = false;
     pendingActionRef.current = null;
-    // Resolve the waiting execute() call (user cancelled)
     if (resolvePassphraseRef.current) {
       resolvePassphraseRef.current();
       resolvePassphraseRef.current = null;
     }
   }, []);
 
-  // Execute pending action when mek becomes available
   useEffect(() => {
     if (!mek || !waitingForMekRef.current || !pendingActionRef.current) return;
 

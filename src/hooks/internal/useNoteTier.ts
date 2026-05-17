@@ -14,6 +14,12 @@ const INITIAL_PAGE_SIZE = 30;
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 100;
 
+type TierView = 'active' | 'archived' | 'all';
+
+function viewLabel(archived?: boolean): TierView {
+  return archived === undefined ? 'all' : archived ? 'archived' : 'active';
+}
+
 export async function fetchTierPage<T>(
   endpoint: string,
   params: { archived?: boolean; search?: string; pageParam: number },
@@ -62,12 +68,7 @@ export const useNoteTier = <T>(config: TierConfig, params: { archived?: boolean;
   }, [search]);
 
   return useInfiniteQuery({
-    queryKey: [
-      config.key,
-      userId,
-      archived === undefined ? 'all' : archived ? 'archived' : 'active',
-      debouncedSearch.trim(),
-    ],
+    queryKey: [config.key, userId, viewLabel(archived), debouncedSearch.trim()],
     queryFn: ({ pageParam }: { pageParam: number }) =>
       fetchTierPage<T>(config.endpoint, { archived, search: debouncedSearch, pageParam }),
     getNextPageParam,

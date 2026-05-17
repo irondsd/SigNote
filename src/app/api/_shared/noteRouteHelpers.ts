@@ -22,10 +22,7 @@ type CommonOps = {
   updatePosition: (id: string, position: number) => Promise<unknown>;
 };
 
-type PatchResult =
-  | { handled: true; response: NextResponse }
-  | { handled: true; updated: unknown }
-  | { handled: false };
+type PatchResult = { handled: true; response: NextResponse } | { handled: true; updated: unknown } | { handled: false };
 
 export async function handleCommonPatch(
   id: string,

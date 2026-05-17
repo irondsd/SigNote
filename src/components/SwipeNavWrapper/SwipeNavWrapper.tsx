@@ -7,6 +7,8 @@ const PAGES = ['/', '/secrets', '/seals'];
 const THRESHOLD_RATIO = 0.3; // fraction of screen width to commit navigation
 const ANGLE_RATIO = 2.0; // deltaX must be 2× greater than deltaY to count as horizontal (~26°)
 const ANIM_MS = 220;
+const MIN_GESTURE_PX = 5;
+const SNAP_BACK_MS = 200;
 
 // Gesture is 'pending' until direction is determined, then locked to 'swiping' or 'scrolling'
 type GestureState = 'idle' | 'pending' | 'swiping' | 'scrolling';
@@ -100,7 +102,7 @@ export function SwipeNavWrapper({ children, className }: { children: React.React
       }
 
       if (state === 'pending') {
-        if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return; // wait for enough movement
+        if (Math.abs(deltaX) < MIN_GESTURE_PX && Math.abs(deltaY) < MIN_GESTURE_PX) return;
 
         if (Math.abs(deltaX) >= Math.abs(deltaY) * ANGLE_RATIO) {
           // Confirmed horizontal — check if there's a page to go to
@@ -177,7 +179,7 @@ export function SwipeNavWrapper({ children, className }: { children: React.React
 
     const snapBack = (delta: number) => {
       const anim = el.animate([{ transform: `translateX(${delta}px)` }, { transform: 'translateX(0)' }], {
-        duration: 200,
+        duration: SNAP_BACK_MS,
         easing: 'ease-out',
       });
       // Clear the inline style when done, otherwise the element snaps back to

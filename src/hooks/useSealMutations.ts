@@ -5,16 +5,9 @@ import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
 import { api } from '@/lib/api';
-import {
-  cancelAndSnapshot,
-  insertAtTop,
-  filterOut,
-  patchInPlace,
-  toggleArchive,
-  restoreSnapshots,
-  invalidateSnapshots,
-} from '@/lib/queryCache';
+import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSealNote = {
   _id: string;
@@ -143,79 +136,6 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
   });
 };
 
-export const useDeleteSeal = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiDeleteSeal,
-    onMutate: async (id) => {
-      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
-      filterOut(qc, snapshots, id);
-      return { snapshots };
-    },
-    onSuccess: () => {
-      posthog.capture('seal_deleted');
-    },
-    onError: (_err, _id, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'seal', operation: 'delete' });
-      toast.error('Failed to delete seal');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUndeleteSeal = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUndeleteSeal,
-    onMutate: async ({ note }) => {
-      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
-      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
-      return { snapshots };
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to restore seal');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUpdateSeal = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUpdateSeal,
-    onMutate: async ({ id, archived, ...rest }) => {
-      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
-      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedSealNote>;
-      if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, patch);
-      } else {
-        patchInPlace(qc, snapshots, id, patch);
-      }
-      return { snapshots };
-    },
-    onSuccess: (_data, vars) => {
-      if (vars.archived !== undefined) {
-        posthog.capture('seal_archived', { archived: vars.archived });
-      } else if (vars.title !== undefined || vars.encryptedBody !== undefined) {
-        posthog.capture('seal_updated');
-      }
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'seal', operation: 'update' });
-      toast.error('Failed to save seal');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+export const useDeleteSeal = () => useDeleteTier<CachedSealNote>(ROOT, apiDeleteSeal, 'seal');
+export const useUndeleteSeal = () => useUndeleteTier<CachedSealNote>(ROOT, apiUndeleteSeal, 'seal');
+export const useUpdateSeal = () => useUpdateTier<CachedSealNote>(ROOT, apiUpdateSeal, 'seal', 'encryptedBody');

@@ -11,6 +11,7 @@ import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
 import { useInitialNoteId } from '@/hooks/useInitialNoteId';
+import { useDecryptedPreviews } from '@/hooks/useDecryptedPreviews';
 
 type SecretsGridProps = {
   notes: CachedSecretNote[] | undefined;
@@ -34,7 +35,7 @@ export function SecretsGrid({
   const [selected, setSelected] = useState<CachedSecretNote | null>(null);
   const [selectedDecrypted, setSelectedDecrypted] = useState<string>('');
   const pendingNoteRef = useRef<CachedSecretNote | null>(null);
-  const [decryptedPreviews, setDecryptedPreviews] = useState<Map<string, { content: string; iv: string }>>(new Map());
+  const decryptedPreviews = useDecryptedPreviews(notes, mek);
 
   const guard = useEncryptionGuard();
 
@@ -58,97 +59,44 @@ export function SecretsGrid({
     [mek],
   );
 
-  // Decrypt previews when mek becomes available or notes change; clear on lock
-  useEffect(() => {
-    if (!mek || !notes) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing state when mek is revoked is intentional, not cascading
-      setDecryptedPreviews(new Map());
-      return;
+  const decryptAndOpen = useCallback(async (cryptoKey: CryptoKey) => {
+    const noteToOpen = pendingNoteRef.current;
+    pendingNoteRef.current = null;
+    if (noteToOpen && cryptoKey && noteToOpen.encryptedBody) {
+      try {
+        const content = await decryptSecretBody(cryptoKey, noteToOpen.encryptedBody);
+        setSelected(noteToOpen);
+        setSelectedDecrypted(content);
+      } catch {
+        setSelected(noteToOpen);
+        setSelectedDecrypted('');
+      }
+    } else {
+      setSelected(noteToOpen || null);
+      setSelectedDecrypted('');
     }
-
-    // Re-decrypt notes that are new or whose encryptedBody IV has changed (i.e. were auto-saved)
-    const toDecrypt = notes.filter((n) => {
-      if (!n.encryptedBody) return false;
-      const cached = decryptedPreviews.get(n._id);
-      return !cached || cached.iv !== n.encryptedBody.iv;
-    });
-    if (toDecrypt.length === 0) return;
-
-    Promise.all(
-      toDecrypt.map(async (n) => {
-        try {
-          const content = await decryptSecretBody(mek, n.encryptedBody!);
-          return [n._id, content, n.encryptedBody!.iv] as [string, string, string];
-        } catch {
-          return [n._id, '', n.encryptedBody!.iv] as [string, string, string];
-        }
-      }),
-    ).then((results) => {
-      setDecryptedPreviews((prev) => {
-        const next = new Map(prev);
-        results.forEach(([id, content, iv]) => next.set(id, { content, iv }));
-        return next;
-      });
-    });
-  }, [mek, notes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNoteClick = useCallback(
     async (note: CachedSecretNote) => {
       if (!isUnlocked) {
         pendingNoteRef.current = note;
         if (lockType === 'soft') {
-          // For soft lock, try to rehydrate directly (deviceShare still in sessionStorage)
           try {
             await ctxRehydrate();
-            // On success, mek is restored; useEffect below will open the note
           } catch {
-            // If rehydrate fails, fall back to passphrase modal
-            await guard.execute(async (mek) => {
-              const noteToOpen = pendingNoteRef.current;
-              pendingNoteRef.current = null;
-              if (noteToOpen && mek && noteToOpen.encryptedBody) {
-                try {
-                  const content = await decryptSecretBody(mek, noteToOpen.encryptedBody);
-                  setSelected(noteToOpen);
-                  setSelectedDecrypted(content);
-                } catch {
-                  setSelected(noteToOpen);
-                  setSelectedDecrypted('');
-                }
-              } else {
-                setSelected(noteToOpen || null);
-                setSelectedDecrypted('');
-              }
-            });
+            await guard.execute(decryptAndOpen);
           }
         } else {
-          // For hard lock, use guard to show passphrase
-          await guard.execute(async (mek) => {
-            const noteToOpen = pendingNoteRef.current;
-            pendingNoteRef.current = null;
-            if (noteToOpen && mek && noteToOpen.encryptedBody) {
-              try {
-                const content = await decryptSecretBody(mek, noteToOpen.encryptedBody);
-                setSelected(noteToOpen);
-                setSelectedDecrypted(content);
-              } catch {
-                setSelected(noteToOpen);
-                setSelectedDecrypted('');
-              }
-            } else {
-              setSelected(noteToOpen || null);
-              setSelectedDecrypted('');
-            }
-          });
+          await guard.execute(decryptAndOpen);
         }
         return;
       }
       await openDecryptedNote(note);
     },
-    [isUnlocked, lockType, guard, ctxRehydrate, openDecryptedNote],
+    [isUnlocked, lockType, guard, ctxRehydrate, openDecryptedNote, decryptAndOpen],
   );
 
-  // Trigger open after mek becomes available (either from rehydrate or passphrase unlock)
   useEffect(() => {
     const note = pendingNoteRef.current;
     if (!mek || !note) return;

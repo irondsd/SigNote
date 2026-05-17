@@ -14,6 +14,7 @@ export const MAX_SEARCH = 200;
 export const HARD_LOCK_MS = 5 * 60 * 1000; // 5 minutes of inactivity
 export const SLEEP_CHECK_INTERVAL_MS = 10_000; // interval for sleep detection
 export const SLEEP_THRESHOLD_MS = 30_000; // gap that signals device sleep
+export const SOFT_LOCK_TS_KEY = 'softLockTs';
 
 // Encryption constants
 export const ENC_PBKDF2_ITERATIONS = 600_000;

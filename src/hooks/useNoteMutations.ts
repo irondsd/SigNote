@@ -4,16 +4,9 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { api } from '@/lib/api';
-import {
-  cancelAndSnapshot,
-  insertAtTop,
-  filterOut,
-  patchInPlace,
-  toggleArchive,
-  restoreSnapshots,
-  invalidateSnapshots,
-} from '@/lib/queryCache';
+import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedNote = {
   _id: string;
@@ -100,79 +93,6 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
   });
 };
 
-export const useDeleteNote = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiDeleteNote,
-    onMutate: async (id) => {
-      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
-      filterOut(qc, snapshots, id);
-      return { snapshots };
-    },
-    onSuccess: () => {
-      posthog.capture('note_deleted');
-    },
-    onError: (_err, _id, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'note', operation: 'delete' });
-      toast.error('Failed to delete note');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUndeleteNote = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUndeleteNote,
-    onMutate: async ({ note }) => {
-      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
-      insertAtTop(qc, snapshots, { ...note, deletedAt: null });
-      return { snapshots };
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      toast.error('Failed to restore note');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
-
-export const useUpdateNote = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiUpdateNote,
-    onMutate: async ({ id, archived, ...rest }) => {
-      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
-      const patch = { ...rest, updatedAt: new Date().toISOString() } as Partial<CachedNote>;
-      if (archived !== undefined) {
-        toggleArchive(qc, snapshots, id, archived, patch);
-      } else {
-        patchInPlace(qc, snapshots, id, patch);
-      }
-      return { snapshots, archived };
-    },
-    onSuccess: (_data, vars) => {
-      if (vars.archived !== undefined) {
-        posthog.capture('note_archived', { archived: vars.archived });
-      } else if (vars.title !== undefined || vars.content !== undefined) {
-        posthog.capture('note_updated');
-      }
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'note', operation: 'update' });
-      toast.error('Failed to save note');
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+export const useDeleteNote = () => useDeleteTier<CachedNote>(ROOT, apiDeleteNote, 'note');
+export const useUndeleteNote = () => useUndeleteTier<CachedNote>(ROOT, apiUndeleteNote, 'note');
+export const useUpdateNote = () => useUpdateTier<CachedNote>(ROOT, apiUpdateNote, 'note', 'content');

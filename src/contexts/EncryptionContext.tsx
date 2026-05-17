@@ -20,7 +20,7 @@ import {
   verifyKeyCheck,
   xor32,
 } from '@/lib/crypto';
-import { HARD_LOCK_MS } from '@/config/constants';
+import { HARD_LOCK_MS, SOFT_LOCK_TS_KEY } from '@/config/constants';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
-      sessionStorage.removeItem('softLockTs');
+      sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
     },
     [setMek],
   );
@@ -173,24 +173,24 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     clearDeviceShare();
     setLockType('none');
     setLockSerial((s) => s + 1);
-    sessionStorage.removeItem('softLockTs');
+    sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
   }, [setMek]);
 
   const softLock = useCallback(() => {
     posthog.capture('vault_locked', { type: 'soft' });
     setMek(null);
     setLockType('soft');
-    sessionStorage.setItem('softLockTs', Date.now().toString());
+    sessionStorage.setItem(SOFT_LOCK_TS_KEY, Date.now().toString());
   }, [setMek]);
 
   const rehydrate = useCallback(async (): Promise<void> => {
-    const softLockTs = sessionStorage.getItem('softLockTs');
+    const softLockTs = sessionStorage.getItem(SOFT_LOCK_TS_KEY);
     if (softLockTs && Date.now() - parseInt(softLockTs, 10) > HARD_LOCK_MS) {
       clearDeviceShare();
       setMek(null);
       setLockType('none');
       setLockSerial((s) => s + 1);
-      sessionStorage.removeItem('softLockTs');
+      sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
       throw new Error('Session expired');
     }
 
@@ -204,7 +204,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     }
     setMek(key);
     setLockType('none');
-    sessionStorage.removeItem('softLockTs');
+    sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
   }, [setMek]);
 
   const setupProfile = useCallback(
