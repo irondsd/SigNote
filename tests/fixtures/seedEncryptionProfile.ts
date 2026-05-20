@@ -32,7 +32,7 @@ const kdf = {
 export const seedEncryptionProfile = async (
   address: Address,
   passphrase: string,
-): Promise<{ mekBytes: Uint8Array }> => {
+): Promise<{ mekBytes: Uint8Array; deviceShare: Uint8Array }> => {
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
   }
@@ -100,5 +100,5 @@ export const seedEncryptionProfile = async (
     keyCheck,
   });
 
-  return { mekBytes };
+  return { mekBytes, deviceShare };
 };
