@@ -8,7 +8,7 @@
 
 .card {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -40,6 +40,14 @@
   color: var(--foreground);
 }
 
+.intro {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+}
+
 .successText {
   font-size: 14px;
   color: var(--muted-foreground);
@@ -48,9 +56,50 @@
   line-height: 1.6;
 }
 
-.successLink {
+.successText a {
   color: var(--primary);
   text-decoration: underline;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--primary);
+    background: color-mix(in oklch, var(--primary) 4%, transparent);
+  }
+}
+
+.dropzoneActive {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+}
+
+.dropzoneText {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.dropzoneHint {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.fileName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-family: var(--font-mono), monospace;
 }
 
 .form {
@@ -82,42 +131,6 @@
   padding-right: 2.25rem;
 }
 
-.inputIcon {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-}
-
-.iconIdle {
-  color: var(--muted-foreground);
-}
-
-.iconValid {
-  color: #22c55e;
-}
-
-.iconInvalid {
-  color: var(--destructive);
-}
-
-.spinning {
-  color: var(--muted-foreground);
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .error {
   font-size: 13px;
   color: var(--destructive);
@@ -133,4 +146,23 @@
 .submitBtn {
   width: 100%;
   margin-top: 4px;
+}
+
+.crosslinks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.crosslinks a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
 }

@@ -195,6 +195,12 @@ export default function ChangePassphrasePage() {
           <p className={s.successText}>
             Your encryption keys have been updated. Your old passphrase will no longer work.
           </p>
+          <p className={s.successText}>
+            Your previous recovery backup is no longer valid.{' '}
+            <Link href="/backup-recovery" className={s.successLink}>
+              Back up again →
+            </Link>
+          </p>
           <Button asChild variant="outline" className={s.submitBtn}>
             <Link href="/secrets">Back to Secrets</Link>
           </Button>

@@ -15,6 +15,8 @@ import {
   Trash2,
   ShieldOff,
   ShieldCheck,
+  Download,
+  LifeBuoy,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -285,6 +287,66 @@ function ProfilePageContent() {
                       <Button variant="outline" size="sm" disabled>
                         <KeyRound size={14} />
                         Change
+                      </Button>
+                    </span>
+                  }
+                  side="left"
+                >
+                  No encryption profile set up
+                </TooltipOrPopover>
+              )}
+            </div>
+
+            <div className={s.divider} />
+
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>Backup recovery file</span>
+                <span className={s.actionDesc}>
+                  Download a recovery file so you can regain access if you forget your passphrase.
+                </span>
+              </div>
+              {profile?.hasEncryptionProfile ? (
+                <Button variant="outline" size="sm" onClick={() => router.push('/backup-recovery')}>
+                  <Download size={14} />
+                  Backup
+                </Button>
+              ) : (
+                <TooltipOrPopover
+                  trigger={
+                    <span tabIndex={0} className={s.tooltipWrapper}>
+                      <Button variant="outline" size="sm" disabled>
+                        <Download size={14} />
+                        Backup
+                      </Button>
+                    </span>
+                  }
+                  side="left"
+                >
+                  No encryption profile set up
+                </TooltipOrPopover>
+              )}
+            </div>
+
+            <div className={s.divider} />
+
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>Recover access</span>
+                <span className={s.actionDesc}>Lost your passphrase? Use a recovery file to regain access.</span>
+              </div>
+              {profile?.hasEncryptionProfile ? (
+                <Button variant="outline" size="sm" onClick={() => router.push('/recover')}>
+                  <LifeBuoy size={14} />
+                  Recover
+                </Button>
+              ) : (
+                <TooltipOrPopover
+                  trigger={
+                    <span tabIndex={0} className={s.tooltipWrapper}>
+                      <Button variant="outline" size="sm" disabled>
+                        <LifeBuoy size={14} />
+                        Recover
                       </Button>
                     </span>
                   }

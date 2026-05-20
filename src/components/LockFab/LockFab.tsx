@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Lock, LockOpen } from 'lucide-react';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -8,9 +9,12 @@ import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import s from './LockFab.module.scss';
 import { cn } from '@/utils/cn';
 
+const HIDDEN_ON_ROUTES = ['/backup-recovery'];
+
 export function LockFab() {
   const { data: session } = useSession();
   const { phase, lockType, lock, rehydrate } = useEncryption();
+  const pathname = usePathname();
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [rehydrating, setRehydrating] = useState(false);
 
@@ -18,6 +22,7 @@ export function LockFab() {
   const isUnlocked = phase === 'unlocked';
 
   if (!isAuthenticated || (phase !== 'locked' && phase !== 'unlocked')) return null;
+  if (HIDDEN_ON_ROUTES.includes(pathname)) return null;
 
   const handleLock = () => {
     if (!isUnlocked) {

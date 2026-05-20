@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { X, Eye, EyeOff } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -22,6 +23,7 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasFailed, setHasFailed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,7 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
     } catch {
       posthog.capture('vault_unlock_failed');
       setError('Incorrect passphrase. Please try again.');
+      setHasFailed(true);
       setLoading(false);
     }
   };
@@ -89,6 +92,14 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
           </div>
 
           {error && <p className={s.error}>{error}</p>}
+          {hasFailed && (
+            <p className={s.recoverLink}>
+              Forgot your passphrase?{' '}
+              <Link href="/recover" onClick={onClose}>
+                Recover →
+              </Link>
+            </p>
+          )}
 
           <div className={s.actions}>
             <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
