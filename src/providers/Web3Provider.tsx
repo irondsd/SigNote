@@ -7,12 +7,13 @@ import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+import { getSiteUrl } from '@/config/meta';
 
 type Web3ProviderProps = {
   children: ReactNode;
 };
 
-const appInfo = { appName: 'Next Web3 Starter' };
+const appInfo = { appName: 'SigNote', learnMoreUrl: `https://${getSiteUrl()}/docs/about` };
 
 export const Web3Provider: FC<Web3ProviderProps> = ({ children }) => {
   const { resolvedTheme } = useTheme();
