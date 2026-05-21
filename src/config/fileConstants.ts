@@ -8,6 +8,7 @@ export const ALLOWED_MIME_TYPES = new Set([
   'image/webp',
   'image/svg+xml',
   'application/pdf',
+  'application/json',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
