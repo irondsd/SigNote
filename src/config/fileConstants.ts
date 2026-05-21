@@ -10,13 +10,13 @@ export const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'application/json',
   'application/msword',
+  'application/zip',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
   'text/csv',
   'text/markdown',
-  'application/zip',
 ]);
 
 export function isImageMime(mime: string) {
