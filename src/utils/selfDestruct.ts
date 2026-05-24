@@ -1,3 +1,13 @@
+/** Format a Date as "HH:MM" in local time, zero-padded. */
+export function toTimeString(d: Date): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** True iff two dates fall on the same calendar day in local time. */
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 export function formatRemaining(expiresAt: Date | string): string {
   const target = new Date(expiresAt).getTime();
   const diff = target - Date.now();

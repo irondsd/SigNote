@@ -6,6 +6,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { isSameDay, toTimeString } from '@/utils/selfDestruct';
 import s from './SelfDestructPicker.module.scss';
 import { cn } from '@/utils/cn';
 
@@ -33,14 +34,6 @@ type SelfDestructPickerProps = {
   onRemove: () => void;
   onCancel: () => void;
 };
-
-function toTimeString(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
 
 export function SelfDestructPicker({
   expiresAt,

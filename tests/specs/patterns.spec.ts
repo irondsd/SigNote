@@ -65,6 +65,22 @@ test.describe('note patterns', () => {
     await card.click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
+    // The modal animates in (≈350ms transform) — wait for it to settle so the
+    // style-picker button isn't a moving target.
+    await page.getByTestId('note-modal').evaluate(async (el) => {
+      let prev = -1;
+      let stable = 0;
+      for (let i = 0; i < 180; i++) {
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        const animating = el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
+        const h = el.getBoundingClientRect().height;
+        if (!animating && Math.abs(h - prev) < 0.5) stable++;
+        else stable = 0;
+        prev = h;
+        if (stable >= 6) return;
+      }
+    });
+
     const patchPromise = page.waitForResponse(
       (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
     );

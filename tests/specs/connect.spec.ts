@@ -29,23 +29,25 @@ test.describe('connect wallet', () => {
       await siweBtn.waitFor({ state: 'visible' });
       await siweBtn.click();
 
-      // Race: modal appears → click Browser Wallet, OR auto-connect completes without modal
+      // Race: the RainbowKit modal may appear (click Browser Wallet) OR
+      // auto-connect may complete and surface the address directly. Use
+      // Promise.race with an explicit timeout per leg so a flaky modal init
+      // can't cause both to reject with `AggregateError`.
       const walletAddress = page.getByTestId('display-name').first();
-      await Promise.any([
-        page.waitForFunction(() => {
-          const modal = document.querySelector('[aria-labelledby="rk_connect_title"]');
-          const buttons = modal?.querySelectorAll('button');
-          for (const btn of buttons || []) {
-            if (btn.textContent?.includes('Browser Wallet')) {
-              btn.scrollIntoView();
-              btn.click();
-              return true;
-            }
-          }
-          return false;
-        }),
-        walletAddress.waitFor({ state: 'visible' }),
+      const rkModal = page.locator('[aria-labelledby="rk_connect_title"]');
+      const winner = await Promise.race([
+        rkModal
+          .waitFor({ state: 'visible', timeout: 20_000 })
+          .then(() => 'modal' as const)
+          .catch(() => null),
+        walletAddress
+          .waitFor({ state: 'visible', timeout: 20_000 })
+          .then(() => 'connected' as const)
+          .catch(() => null),
       ]);
+      if (winner === 'modal') {
+        await rkModal.getByRole('button', { name: /browser wallet/i }).click();
+      }
 
       // Wait for the full SIWE flow to complete:
       // eth_requestAccounts → nonce fetch → personal_sign → signIn → session update

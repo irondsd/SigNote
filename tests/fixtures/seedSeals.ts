@@ -14,6 +14,9 @@ export type SeedSeal = {
   content?: string;
   archived?: boolean;
   color?: NoteColor | null;
+  pinned?: boolean;
+  expiresAt?: Date | null;
+  burnAfterReading?: boolean;
 };
 
 function toBase64(buf: ArrayBuffer | Uint8Array): string {
@@ -119,6 +122,9 @@ export const seedSeals = async (
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
+      pinned: seal.pinned ?? false,
+      expiresAt: seal.expiresAt ?? null,
+      burnAfterReading: seal.burnAfterReading ?? false,
     });
 
     created.push(doc);
