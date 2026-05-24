@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Clock, Eye, Flame, Hourglass } from 'lucide-react';
+import { ArrowLeft, Ban, Clock, Eye, Flame, Hourglass } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { formatExpiry, formatRemaining } from '@/utils/selfDestruct';
 import s from './SelfDestructPicker.module.scss';
 import { cn } from '@/utils/cn';
 
@@ -226,7 +225,7 @@ export function SelfDestructPicker({
         {customDate && !burn ? (
           <button
             type="button"
-            className={cn(s.customChip, active === 'custom' && s.active)}
+            className={cn(s.customChip, active !== 'custom' && s.inactive)}
             onClick={() => {
               setActive('custom');
               setShowCalendar(true);
@@ -279,26 +278,10 @@ export function SelfDestructPicker({
       </label>
 
       {armed && (
-        <div className={s.armedBanner}>
-          <div className={s.armedBannerHead}>
-            <span className={s.armedBannerIcon}>
-              <Flame size={16} />
-            </span>
-            <div className={s.armedBannerBody}>
-              <div className={s.armedBannerTitle}>
-                {burnAfterReading ? 'Burn after reading is on' : 'Self-destruct timer is set'}
-              </div>
-              <div className={s.armedBannerSub}>
-                {burnAfterReading
-                  ? 'This note will be deleted after the next view.'
-                  : `Deletes in ${formatRemaining(expiresAt!)} (${formatExpiry(expiresAt!)}).`}
-              </div>
-            </div>
-          </div>
-          <Button variant="destructive" size="xs" onClick={onRemove} className={s.armedBannerAction}>
-            Disable
-          </Button>
-        </div>
+        <Button variant="destructive" size="lg" onClick={onRemove} className="m-2">
+          <Ban size={16} />
+          Turn off self-destruct
+        </Button>
       )}
 
       <div className={s.footerRow}>
