@@ -134,6 +134,9 @@ export function SecretsGrid({
           showArchivedBadge={showBadge}
           archived={note.archived}
           isDragDisabled={dragDisabled}
+          pinned={note.pinned}
+          hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+          burnAfterReading={note.burnAfterReading}
         />
       )}
       renderOverlayCard={(note, showBadge) => (
@@ -147,6 +150,9 @@ export function SecretsGrid({
           ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
+          pinned={note.pinned}
+          hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+          burnAfterReading={note.burnAfterReading}
         />
       )}
     >

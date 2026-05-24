@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
@@ -8,6 +8,7 @@ import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
@@ -30,6 +31,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
+  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
+  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -93,6 +97,33 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     updateNote.mutate({ id: note._id.toString(), pattern: newPattern });
   };
 
+  const handleTogglePinned = (next: boolean) => {
+    setPinned(next);
+    updateNote.mutate({ id: note._id.toString(), pinned: next });
+  };
+
+  // Only arm if burn-after-reading was already on when the modal opened.
+  // Toggling it on in this session takes effect on the *next* read.
+  const initialBurnRef = useRef(note.burnAfterReading ?? false);
+  const burnArmedRef = useRef(false);
+  useEffect(() => {
+    if (burnArmedRef.current) return;
+    if (initialBurnRef.current && !expiresAt) {
+      burnArmedRef.current = true;
+      updateNote.mutate({ id: note._id.toString(), expiresAt: new Date().toISOString(), burnAfterReading: true });
+    }
+  }, [expiresAt, note._id, updateNote]);
+
+  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
+    setExpiresAt(next.expiresAt);
+    setBurnAfterReading(next.burnAfterReading);
+    updateNote.mutate({
+      id: note._id.toString(),
+      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
+      burnAfterReading: next.burnAfterReading,
+    });
+  };
+
   return (
     <>
       <SharedNoteModal
@@ -119,6 +150,20 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         disableSave={isUploading}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        pinned={pinned}
+        expiresAt={expiresAt}
+        // Banner only reflects burn-after-reading that was already armed at
+        // open — turning it on in this session takes effect on the *next* read.
+        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        moreActions={
+          <NoteActionsMenu
+            pinned={pinned}
+            onTogglePinned={handleTogglePinned}
+            expiresAt={expiresAt}
+            burnAfterReading={burnAfterReading}
+            onSetExpiry={handleSetExpiry}
+          />
+        }
       >
         <TiptapEditor
           key={editing ? 'editing' : 'viewing'}

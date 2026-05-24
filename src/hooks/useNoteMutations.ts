@@ -19,6 +19,9 @@ export type CachedNote = {
   updatedAt: string;
   color: string | null;
   pattern: string | null;
+  pinned: boolean;
+  expiresAt: string | null;
+  burnAfterReading: boolean;
 };
 
 type CreateNoteInput = { title: string; content: string; color?: string | null; pattern?: string | null };
@@ -30,6 +33,9 @@ type UpdateNoteInput = {
   deleted?: boolean;
   color?: string | null;
   pattern?: string | null;
+  pinned?: boolean;
+  expiresAt?: string | null;
+  burnAfterReading?: boolean;
 };
 
 const ROOT = 'notes';
@@ -68,6 +74,9 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
         updatedAt: new Date().toISOString(),
         color: input.color ?? null,
         pattern: input.pattern ?? null,
+        pinned: false,
+        expiresAt: null,
+        burnAfterReading: false,
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

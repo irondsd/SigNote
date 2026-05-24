@@ -16,6 +16,7 @@ import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
@@ -46,6 +47,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
+  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
+  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -264,6 +268,33 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     updateSeal.mutate({ id: note._id, pattern: newPattern });
   };
 
+  const handleTogglePinned = (next: boolean) => {
+    setPinned(next);
+    updateSeal.mutate({ id: note._id, pinned: next });
+  };
+
+  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
+    setExpiresAt(next.expiresAt);
+    setBurnAfterReading(next.burnAfterReading);
+    updateSeal.mutate({
+      id: note._id,
+      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
+      burnAfterReading: next.burnAfterReading,
+    });
+  };
+
+  // Seals: burn after reading arms only AFTER decrypt, and only if it was
+  // already on when the modal opened (toggling on takes effect next read).
+  const initialBurnRef = useRef(note.burnAfterReading ?? false);
+  const burnArmedRef = useRef(false);
+  useEffect(() => {
+    if (burnArmedRef.current) return;
+    if (initialBurnRef.current && !expiresAt && isDecrypted) {
+      burnArmedRef.current = true;
+      updateSeal.mutate({ id: note._id, expiresAt: new Date().toISOString(), burnAfterReading: true });
+    }
+  }, [expiresAt, isDecrypted, note._id, updateSeal]);
+
   const handleCancel = () => {
     setTitle(note.title ?? '');
     setDecryptedContent(originalDecryptedRef.current);
@@ -360,6 +391,20 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           ) : undefined
         }
         footerLeft={isDecrypted ? timerButtons : decryptButton}
+        pinned={pinned}
+        expiresAt={expiresAt}
+        // Banner only reflects burn-after-reading that was already armed at
+        // open — turning it on in this session takes effect on the *next* read.
+        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        moreActions={
+          <NoteActionsMenu
+            pinned={pinned}
+            onTogglePinned={handleTogglePinned}
+            expiresAt={expiresAt}
+            burnAfterReading={burnAfterReading}
+            onSetExpiry={handleSetExpiry}
+          />
+        }
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>

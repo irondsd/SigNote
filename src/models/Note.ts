@@ -12,6 +12,9 @@ export type Note = {
   archived: boolean;
   color: NoteColor | null;
   pattern: NotePattern | null;
+  pinned: boolean;
+  expiresAt: Date | null;
+  burnAfterReading: boolean;
 };
 
 export type NoteDocument = HydratedDocument<Note>;
@@ -27,6 +30,9 @@ const noteSchema = new Schema<Note>({
   archived: { type: Boolean, default: false },
   color: { type: String, enum: NOTE_COLORS, default: null },
   pattern: { type: String, enum: NOTE_PATTERNS, default: null },
+  pinned: { type: Boolean, default: false },
+  expiresAt: { type: Date, default: null },
+  burnAfterReading: { type: Boolean, default: false },
 });
 
 // Compound index for userId-filtered queries (the most common access pattern)
@@ -34,6 +40,9 @@ noteSchema.index({ userId: 1, deletedAt: 1 });
 
 // TTL index to automatically delete soft-deleted notes after 1 hour
 noteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
+
+// TTL index — self-destruct deletes the doc after 1 hour
+noteSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 
 // Full-text index for search with title relevance boost
 noteSchema.index(

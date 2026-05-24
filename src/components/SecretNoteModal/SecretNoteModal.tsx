@@ -12,6 +12,7 @@ import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
@@ -37,6 +38,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
+  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
+  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -148,6 +152,32 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     updateSecret.mutate({ id: note._id, pattern: newPattern });
   };
 
+  const handleTogglePinned = (next: boolean) => {
+    setPinned(next);
+    updateSecret.mutate({ id: note._id, pinned: next });
+  };
+
+  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
+    setExpiresAt(next.expiresAt);
+    setBurnAfterReading(next.burnAfterReading);
+    updateSecret.mutate({
+      id: note._id,
+      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
+      burnAfterReading: next.burnAfterReading,
+    });
+  };
+
+  // Only arm if burn-after-reading was already on when the modal opened.
+  const initialBurnRef = useRef(note.burnAfterReading ?? false);
+  const burnArmedRef = useRef(false);
+  useEffect(() => {
+    if (burnArmedRef.current) return;
+    if (initialBurnRef.current && !expiresAt) {
+      burnArmedRef.current = true;
+      updateSecret.mutate({ id: note._id, expiresAt: new Date().toISOString(), burnAfterReading: true });
+    }
+  }, [expiresAt, note._id, updateSecret]);
+
   // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
   useEffect(() => {
     const action = pendingActionRef.current;
@@ -187,6 +217,20 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         disableSave={isUploading}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        pinned={pinned}
+        expiresAt={expiresAt}
+        // Banner only reflects burn-after-reading that was already armed at
+        // open — turning it on in this session takes effect on the *next* read.
+        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        moreActions={
+          <NoteActionsMenu
+            pinned={pinned}
+            onTogglePinned={handleTogglePinned}
+            expiresAt={expiresAt}
+            burnAfterReading={burnAfterReading}
+            onSetExpiry={handleSetExpiry}
+          />
+        }
       >
         <FileEncryptionProvider mek={mek}>
           <TiptapEditor

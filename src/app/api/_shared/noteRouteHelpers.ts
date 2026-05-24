@@ -20,6 +20,8 @@ type CommonOps = {
   updateColor: (id: string, color: string | null) => Promise<unknown>;
   updatePattern: (id: string, pattern: string | null) => Promise<unknown>;
   updatePosition: (id: string, position: number) => Promise<unknown>;
+  setPinned: (id: string, pinned: boolean) => Promise<unknown>;
+  setExpiry: (id: string, expiresAt: Date | null, burnAfterReading: boolean) => Promise<unknown>;
 };
 
 type PatchResult = { handled: true; response: NextResponse } | { handled: true; updated: unknown } | { handled: false };
@@ -30,7 +32,7 @@ export async function handleCommonPatch(
   body: Record<string, unknown>,
   ops: CommonOps,
 ): Promise<PatchResult> {
-  const { deleted, archived, color, pattern, position } = body;
+  const { deleted, archived, color, pattern, position, pinned, expiresAt, burnAfterReading } = body;
 
   if (typeof deleted === 'boolean') {
     let updated;
@@ -70,6 +72,25 @@ export async function handleCommonPatch(
       return { handled: true, response: NextResponse.json({ error: 'Invalid position' }, { status: 400 }) };
     }
     const updated = await ops.updatePosition(id, position);
+    return { handled: true, updated };
+  }
+
+  if (typeof pinned === 'boolean') {
+    const updated = await ops.setPinned(id, pinned);
+    return { handled: true, updated };
+  }
+
+  if ('expiresAt' in body || 'burnAfterReading' in body) {
+    let parsed: Date | null = null;
+    if (expiresAt !== null && expiresAt !== undefined) {
+      const d = new Date(expiresAt as string);
+      if (Number.isNaN(d.getTime())) {
+        return { handled: true, response: NextResponse.json({ error: 'Invalid expiresAt' }, { status: 400 }) };
+      }
+      parsed = d;
+    }
+    const burn = typeof burnAfterReading === 'boolean' ? burnAfterReading : false;
+    const updated = await ops.setExpiry(id, parsed, burn);
     return { handled: true, updated };
   }
 

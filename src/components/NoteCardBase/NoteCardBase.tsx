@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Flame, Pin } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './NoteCardBase.module.scss';
@@ -14,6 +15,8 @@ type NoteCardBaseProps = {
   showArchivedBadge?: boolean;
   archived?: boolean;
   content?: React.ReactNode;
+  pinned?: boolean;
+  hasExpiry?: boolean;
   'data-testid'?: string;
 };
 
@@ -26,6 +29,8 @@ export function NoteCardBase({
   showArchivedBadge = false,
   archived = false,
   content,
+  pinned = false,
+  hasExpiry = false,
   'data-testid': testId,
 }: NoteCardBaseProps) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -50,6 +55,20 @@ export function NoteCardBase({
         (e.key === 'Enter' || e.key === ' ') && onClick((e.currentTarget as HTMLElement).getBoundingClientRect())
       }
     >
+      {(pinned || hasExpiry) && (
+        <div className={s.indicators}>
+          {pinned && (
+            <span className={s.pinIndicator} data-testid="pin-flag" aria-label="Pinned">
+              <Pin size={12} />
+            </span>
+          )}
+          {hasExpiry && (
+            <span className={s.expiryIndicator} data-testid="expiry-flag" aria-label="Self-destructs">
+              <Flame size={12} />
+            </span>
+          )}
+        </div>
+      )}
       {title && <h3 className={s.title}>{title}</h3>}
       {content != null && (
         <div ref={contentRef} className={cn(s.content, isOverflowing && s.contentFaded)}>
