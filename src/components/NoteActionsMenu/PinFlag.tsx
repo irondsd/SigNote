@@ -35,6 +35,16 @@ export function PinFlag({ compact = false, onUnpin }: PinFlagProps) {
 
   const iconSize = compact ? 11 : 12;
 
+  const handleClick = () => {
+    const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
+    if (!canHover && !active) {
+      setActive(true);
+      return;
+    }
+    onUnpin();
+    setActive(false);
+  };
+
   return (
     <button
       ref={ref}
@@ -44,17 +54,9 @@ export function PinFlag({ compact = false, onUnpin }: PinFlagProps) {
       data-interactive="true"
       data-active={active || undefined}
       data-testid="pin-flag"
-      aria-label="Unpin note"
+      aria-label={active ? 'Unpin note' : 'Pinned — tap to unpin'}
       title="Unpin"
-      onClick={() => {
-        onUnpin();
-        setActive(false);
-      }}
-      onPointerEnter={(e) => {
-        if (e.pointerType === 'touch') {
-          setActive(true);
-        }
-      }}
+      onClick={handleClick}
       onFocus={() => setActive(true)}
       onBlur={() => setActive(false)}
     >

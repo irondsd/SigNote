@@ -19,14 +19,13 @@ button.flag {
   background: transparent;
   border: none;
   margin: 0;
-  height: 30px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--primary-400);
   transition:
-    background-color 200ms ease-out,
-    transform 200ms ease-out;
+    background-color 150ms ease-out,
+    transform 150ms ease-out;
 
   &:focus {
     outline: none;
@@ -74,7 +73,7 @@ button.flag {
 .iconActive {
   position: absolute;
   inset: 0;
-  transition: opacity 200ms ease-out;
+  transition: opacity 150ms ease-out;
 }
 
 .iconDefault {
@@ -93,7 +92,7 @@ button.flag {
 .textDefault,
 .textActive {
   grid-area: 1 / 1;
-  transition: opacity 200ms ease-out;
+  transition: opacity 150ms ease-out;
 }
 
 .textDefault {
