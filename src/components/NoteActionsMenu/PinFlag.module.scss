@@ -13,3 +13,93 @@
     gap: 0;
   }
 }
+
+button.flag {
+  appearance: none;
+  background: transparent;
+  border: none;
+  margin: 0;
+  height: 30px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--primary-400);
+  transition:
+    background-color 200ms ease-out,
+    transform 200ms ease-out;
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible,
+  &[data-active] {
+    background-color: color-mix(in srgb, var(--primary-400) 14%, transparent);
+    transform: scale(1.02);
+
+    .iconDefault,
+    .textDefault {
+      opacity: 0;
+    }
+    .iconActive,
+    .textActive {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: color-mix(in srgb, var(--primary-400) 14%, transparent);
+      transform: scale(1.02);
+
+      .iconDefault,
+      .textDefault {
+        opacity: 0;
+      }
+      .iconActive,
+      .textActive {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.iconSlot {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.iconDefault,
+.iconActive {
+  position: absolute;
+  inset: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.iconDefault {
+  opacity: 1;
+}
+
+.iconActive {
+  opacity: 0;
+}
+
+.textSlot {
+  position: relative;
+  display: inline-grid;
+}
+
+.textDefault,
+.textActive {
+  grid-area: 1 / 1;
+  transition: opacity 200ms ease-out;
+}
+
+.textDefault {
+  opacity: 1;
+}
+
+.textActive {
+  opacity: 0;
+}
