@@ -152,6 +152,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         pinned={pinned}
+        onUnpin={() => handleTogglePinned(false)}
         expiresAt={expiresAt}
         burnAfterReading={wasInitiallyBurning && burnAfterReading}
         moreActions={

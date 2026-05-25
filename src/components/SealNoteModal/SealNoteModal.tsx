@@ -394,6 +394,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         }
         footerLeft={isDecrypted ? timerButtons : decryptButton}
         pinned={pinned}
+        onUnpin={() => handleTogglePinned(false)}
         expiresAt={expiresAt}
         burnAfterReading={wasInitiallyBurning && burnAfterReading}
         moreActions={

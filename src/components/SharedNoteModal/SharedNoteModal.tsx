@@ -41,6 +41,7 @@ type SharedNoteModalProps = {
   footerLeft?: ReactNode;
   disableSave?: boolean;
   pinned?: boolean;
+  onUnpin?: () => void;
   expiresAt?: Date | string | null;
   burnAfterReading?: boolean;
   moreActions?: ReactNode;
@@ -75,6 +76,7 @@ export function SharedNoteModal({
   footerLeft,
   disableSave = false,
   pinned = false,
+  onUnpin,
   expiresAt = null,
   burnAfterReading = false,
   moreActions,
@@ -97,7 +99,7 @@ export function SharedNoteModal({
               {title || 'Untitled'}
             </h2>
           )}
-          {pinned && <PinFlag />}
+          {pinned && <PinFlag onUnpin={onUnpin} />}
           <div className={s.headerActions}>
             <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close" aria-label="Close">
               <X size={18} />
