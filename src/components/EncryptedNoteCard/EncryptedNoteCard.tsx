@@ -16,6 +16,9 @@ type EncryptedNoteCardProps = {
   ciphertext?: string;
   showArchivedBadge?: boolean;
   archived?: boolean;
+  pinned?: boolean;
+  hasExpiry?: boolean;
+  burnAfterReading?: boolean;
 };
 
 export function EncryptedNoteCard({
@@ -28,18 +31,22 @@ export function EncryptedNoteCard({
   ciphertext,
   showArchivedBadge = false,
   archived = false,
+  pinned = false,
+  hasExpiry = false,
+  burnAfterReading = false,
 }: EncryptedNoteCardProps) {
-  const content = decryptedContent ? (
+  const showPlaceholder = burnAfterReading || !decryptedContent;
+  const content = showPlaceholder ? (
+    <EncryptedPlaceholder rows={4} ciphertext={ciphertext} />
+  ) : (
     <div
       dangerouslySetInnerHTML={{
-        __html: DOMPurify.sanitize(decryptedContent, {
+        __html: DOMPurify.sanitize(decryptedContent!, {
           ADD_TAGS: ['div'],
           ADD_ATTR: ['data-type', 'data-file-id', 'data-filename', 'data-size', 'data-mime-type'],
         }),
       }}
     />
-  ) : (
-    <EncryptedPlaceholder rows={4} ciphertext={ciphertext} />
   );
 
   return (
@@ -52,6 +59,8 @@ export function EncryptedNoteCard({
       onClick={onClick}
       showArchivedBadge={showArchivedBadge}
       archived={archived}
+      pinned={pinned}
+      hasExpiry={hasExpiry}
       content={content}
     />
   );

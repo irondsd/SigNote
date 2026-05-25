@@ -15,6 +15,9 @@ type SortableEncryptedCardProps = {
   showArchivedBadge?: boolean;
   archived?: boolean;
   isDragDisabled?: boolean;
+  pinned?: boolean;
+  hasExpiry?: boolean;
+  burnAfterReading?: boolean;
 };
 
 export function SortableEncryptedCard({
@@ -29,6 +32,9 @@ export function SortableEncryptedCard({
   showArchivedBadge,
   archived,
   isDragDisabled = false,
+  pinned,
+  hasExpiry,
+  burnAfterReading,
 }: SortableEncryptedCardProps) {
   return (
     <SortableWrapper id={id} isDragDisabled={isDragDisabled}>
@@ -42,6 +48,9 @@ export function SortableEncryptedCard({
         ciphertext={ciphertext}
         showArchivedBadge={showArchivedBadge}
         archived={archived}
+        pinned={pinned}
+        hasExpiry={hasExpiry}
+        burnAfterReading={burnAfterReading}
       />
     </SortableWrapper>
   );

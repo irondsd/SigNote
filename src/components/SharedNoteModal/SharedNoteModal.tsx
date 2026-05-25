@@ -8,6 +8,8 @@ import { NoteStylePicker } from '@/components/NoteStylePicker/NoteStylePicker';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
+import { PinFlag } from '@/components/NoteActionsMenu/PinFlag';
+import { SelfDestructBanner } from '@/components/NoteActionsMenu/SelfDestructBanner';
 import s from './SharedNoteModal.module.scss';
 
 type SharedNoteModalProps = {
@@ -38,6 +40,10 @@ type SharedNoteModalProps = {
   formatToggle?: ReactNode;
   footerLeft?: ReactNode;
   disableSave?: boolean;
+  pinned?: boolean;
+  expiresAt?: Date | string | null;
+  burnAfterReading?: boolean;
+  moreActions?: ReactNode;
 };
 
 export function SharedNoteModal({
@@ -68,6 +74,10 @@ export function SharedNoteModal({
   formatToggle,
   footerLeft,
   disableSave = false,
+  pinned = false,
+  expiresAt = null,
+  burnAfterReading = false,
+  moreActions,
 }: SharedNoteModalProps) {
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
@@ -87,6 +97,7 @@ export function SharedNoteModal({
               {title || 'Untitled'}
             </h2>
           )}
+          {pinned && <PinFlag />}
           <div className={s.headerActions}>
             <Button variant="ghost" size="icon-sm" onClick={onClose} title="Close" aria-label="Close">
               <X size={18} />
@@ -95,6 +106,9 @@ export function SharedNoteModal({
         </div>
 
         <div className={s.bodyWrap} data-pattern={pattern || undefined}>
+          {(expiresAt || burnAfterReading) && (
+            <SelfDestructBanner expiresAt={expiresAt} burnAfterReading={burnAfterReading} />
+          )}
           <div className={s.body}>{children}</div>
           {!editing && (
             <RelativeDate
@@ -154,6 +168,7 @@ export function SharedNoteModal({
                 >
                   {isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
                 </Button>
+                {moreActions}
                 <Button
                   data-testid="delete-btn"
                   variant="destructive"

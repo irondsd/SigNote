@@ -1,5 +1,5 @@
 import { NoteModel } from '@/models/Note';
-import { commonOps, createEntity, listByUserId } from './common';
+import { commonOps, createEntity, getByIdActive, listByUserId } from './common';
 
 export const noteOps = commonOps(NoteModel);
 export const deleteNote = noteOps.softDelete;
@@ -21,9 +21,7 @@ export const createNote = (
 export const getNotesByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
   listByUserId(NoteModel, userId, { archived, limit, offset, search, searchFields: ['title', 'content'] });
 
-export const getNoteById = async (id: string) => {
-  return NoteModel.findById(id).exec();
-};
+export const getNoteById = (id: string) => getByIdActive(NoteModel, id);
 
 export const updateNote = async (id: string, title: string, content: string) => {
   const now = new Date();

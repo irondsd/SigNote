@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
+import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -12,6 +13,7 @@ import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { encryptSecretBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
+import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
@@ -37,6 +39,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
+  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
+  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -148,6 +153,33 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     updateSecret.mutate({ id: note._id, pattern: newPattern });
   };
 
+  const handleTogglePinned = (next: boolean) => {
+    setPinned(next);
+    updateSecret.mutate({ id: note._id, pinned: next });
+  };
+
+  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
+    setExpiresAt(next.expiresAt);
+    setBurnAfterReading(next.burnAfterReading);
+    updateSecret.mutate({
+      id: note._id,
+      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
+      burnAfterReading: next.burnAfterReading,
+    });
+  };
+
+  const { wasInitiallyBurning } = useBurnArming({
+    initialBurn: note.burnAfterReading ?? false,
+    expiresAt,
+    isReady: true,
+    onArm: () =>
+      updateSecret.mutate({
+        id: note._id,
+        expiresAt: new Date().toISOString(),
+        burnAfterReading: true,
+      }),
+  });
+
   // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
   useEffect(() => {
     const action = pendingActionRef.current;
@@ -187,6 +219,18 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         disableSave={isUploading}
         toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
+        pinned={pinned}
+        expiresAt={expiresAt}
+        burnAfterReading={wasInitiallyBurning && burnAfterReading}
+        moreActions={
+          <NoteActionsMenu
+            pinned={pinned}
+            onTogglePinned={handleTogglePinned}
+            expiresAt={expiresAt}
+            burnAfterReading={burnAfterReading}
+            onSetExpiry={handleSetExpiry}
+          />
+        }
       >
         <FileEncryptionProvider mek={mek}>
           <TiptapEditor

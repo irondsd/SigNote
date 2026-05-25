@@ -12,6 +12,12 @@ export function parseListParams(req: NextRequest) {
   return { archived, limit, offset, search };
 }
 
+type PinExpiryUpdate = {
+  pinned?: boolean;
+  expiresAt?: Date | null;
+  burnAfterReading?: boolean;
+};
+
 type CommonOps = {
   softDelete: (id: string) => Promise<unknown>;
   restore: (id: string) => Promise<unknown>;
@@ -20,6 +26,7 @@ type CommonOps = {
   updateColor: (id: string, color: string | null) => Promise<unknown>;
   updatePattern: (id: string, pattern: string | null) => Promise<unknown>;
   updatePosition: (id: string, position: number) => Promise<unknown>;
+  applyPatch: (id: string, update: PinExpiryUpdate) => Promise<unknown>;
 };
 
 type PatchResult = { handled: true; response: NextResponse } | { handled: true; updated: unknown } | { handled: false };
@@ -30,7 +37,7 @@ export async function handleCommonPatch(
   body: Record<string, unknown>,
   ops: CommonOps,
 ): Promise<PatchResult> {
-  const { deleted, archived, color, pattern, position } = body;
+  const { deleted, archived, color, pattern, position, pinned, expiresAt, burnAfterReading } = body;
 
   if (typeof deleted === 'boolean') {
     let updated;
@@ -70,6 +77,63 @@ export async function handleCommonPatch(
       return { handled: true, response: NextResponse.json({ error: 'Invalid position' }, { status: 400 }) };
     }
     const updated = await ops.updatePosition(id, position);
+    return { handled: true, updated };
+  }
+
+  // Pin / expiry / burn collapse into a single applyPatch so a caller can
+  // touch any combination in one request. Mutual-exclusion rule: turning
+  // burnAfterReading on clears expiresAt and vice versa.
+  const wantsPin = 'pinned' in body;
+  const wantsExpiry = 'expiresAt' in body || 'burnAfterReading' in body;
+  if (wantsPin || wantsExpiry) {
+    const update: PinExpiryUpdate = {};
+
+    if (wantsPin) {
+      if (typeof pinned !== 'boolean') {
+        return { handled: true, response: NextResponse.json({ error: 'pinned must be boolean' }, { status: 400 }) };
+      }
+      update.pinned = pinned;
+    }
+
+    if (wantsExpiry) {
+      const hasBurn = 'burnAfterReading' in body;
+      const hasExpiry = 'expiresAt' in body;
+
+      if (hasBurn && typeof burnAfterReading !== 'boolean') {
+        return {
+          handled: true,
+          response: NextResponse.json({ error: 'burnAfterReading must be boolean' }, { status: 400 }),
+        };
+      }
+
+      let parsedExpiry: Date | null = null;
+      if (hasExpiry && expiresAt !== null && expiresAt !== undefined) {
+        const d = new Date(expiresAt as string);
+        if (Number.isNaN(d.getTime())) {
+          return { handled: true, response: NextResponse.json({ error: 'Invalid expiresAt' }, { status: 400 }) };
+        }
+        parsedExpiry = d;
+      }
+      const burnValue = burnAfterReading === true;
+
+      // Mutex applies only to partial updates (one field without the other).
+      // When both fields are explicit, trust the caller — this is the arming
+      // path (sends expiresAt=now AND burnAfterReading=true) and the picker
+      // (always sends both fields together).
+      if (hasBurn && hasExpiry) {
+        update.burnAfterReading = burnValue;
+        update.expiresAt = parsedExpiry;
+      } else if (hasBurn) {
+        update.burnAfterReading = burnValue;
+        if (burnValue) update.expiresAt = null;
+      } else {
+        // hasExpiry only
+        update.expiresAt = parsedExpiry;
+        if (parsedExpiry) update.burnAfterReading = false;
+      }
+    }
+
+    const updated = await ops.applyPatch(id, update);
     return { handled: true, updated };
   }
 

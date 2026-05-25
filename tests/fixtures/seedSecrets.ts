@@ -14,6 +14,9 @@ export type SeedSecret = {
   content?: string;
   archived?: boolean;
   color?: NoteColor | null;
+  pinned?: boolean;
+  expiresAt?: Date | null;
+  burnAfterReading?: boolean;
 };
 
 function toBase64(buf: ArrayBuffer | Uint8Array): string {
@@ -81,6 +84,9 @@ export const seedSecrets = async (
       createdAt: now,
       updatedAt: now,
       deletedAt: null,
+      pinned: secret.pinned ?? false,
+      expiresAt: secret.expiresAt ?? null,
+      burnAfterReading: secret.burnAfterReading ?? false,
     });
     created.push(doc);
     position += POSITION_STEP;

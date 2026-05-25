@@ -14,6 +14,9 @@ export type SealNote = {
   archived: boolean;
   color: NoteColor | null;
   pattern: NotePattern | null;
+  pinned: boolean;
+  expiresAt: Date | null;
+  burnAfterReading: boolean;
 };
 
 export type SealNoteDocument = HydratedDocument<SealNote>;
@@ -39,13 +42,25 @@ const sealNoteSchema = new Schema<SealNote>({
   archived: { type: Boolean, default: false },
   color: { type: String, enum: NOTE_COLORS, default: null },
   pattern: { type: String, enum: NOTE_PATTERNS, default: null },
+  pinned: { type: Boolean, default: false },
+  expiresAt: { type: Date, default: null },
+  burnAfterReading: { type: Boolean, default: false },
 });
 
 // Compound index for userId-filtered queries
 sealNoteSchema.index({ userId: 1, deletedAt: 1 });
 
+// Covers the default list sort path: userId + archived prefix, pinned/position sort suffix.
+sealNoteSchema.index({ userId: 1, archived: 1, pinned: -1, position: -1 });
+
+// Covers the search-result sort path (pinned + updatedAt).
+sealNoteSchema.index({ userId: 1, archived: 1, pinned: -1, updatedAt: -1 });
+
 // TTL index — auto-delete soft-deleted notes after 1 hour
 sealNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
+
+// TTL index — self-destruct deletes the doc after 1 hour
+sealNoteSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 
 // Text search on title only (body is encrypted)
 sealNoteSchema.index({ title: 'text' }, { name: 'SealNoteTextIndex' });
