@@ -1,6 +1,6 @@
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, listByUserId } from './common';
+import { commonOps, createEntity, getByIdActive, listByUserId } from './common';
 
 export const sealOps = commonOps(SealNoteModel);
 export const deleteSeal = sealOps.softDelete;
@@ -23,9 +23,7 @@ export const createSeal = (
 export const getSealsByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
   listByUserId(SealNoteModel, userId, { archived, limit, offset, search });
 
-export const getSealById = async (id: string) => {
-  return SealNoteModel.findById(id).exec();
-};
+export const getSealById = (id: string) => getByIdActive(SealNoteModel, id);
 
 type UpdateSealInput = {
   title?: string;

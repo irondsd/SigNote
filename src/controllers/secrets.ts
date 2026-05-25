@@ -1,6 +1,6 @@
 import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, listByUserId } from './common';
+import { commonOps, createEntity, getByIdActive, listByUserId } from './common';
 
 export const secretOps = commonOps(SecretNoteModel);
 export const deleteSecret = secretOps.softDelete;
@@ -22,9 +22,7 @@ export const createSecret = (
 export const getSecretsByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
   listByUserId(SecretNoteModel, userId, { archived, limit, offset, search });
 
-export const getSecretById = async (id: string) => {
-  return SecretNoteModel.findById(id).exec();
-};
+export const getSecretById = (id: string) => getByIdActive(SecretNoteModel, id);
 
 export const updateSecret = async (id: string, title: string, encryptedBody: EncryptedPayload | null) => {
   return SecretNoteModel.findByIdAndUpdate(

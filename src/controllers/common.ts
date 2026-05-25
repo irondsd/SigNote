@@ -29,10 +29,20 @@ export function commonOps<T extends CommonFields>(model: Model<T>) {
     updateColor: (id: string, color: string | null) => exec(id, { color } as Update),
     updatePattern: (id: string, pattern: string | null) => exec(id, { pattern } as Update),
     updatePosition: (id: string, position: number) => exec(id, { position } as Update),
-    setPinned: (id: string, pinned: boolean) => exec(id, { pinned } as Update),
-    setExpiry: (id: string, expiresAt: Date | null, burnAfterReading: boolean) =>
-      exec(id, { expiresAt, burnAfterReading } as Update),
+    // Use $set explicitly so null values are stored as null (not stripped
+    // back to schema defaults by Mongoose's plain-object update shorthand).
+    applyPatch: (id: string, update: Partial<CommonFields>) => exec(id, { $set: update } as Update),
   };
+}
+
+// Lenient grace matches the TTL `expireAfterSeconds: 3600` on `expiresAt`: while
+// the doc is still physically in Mongo, the in-modal user can PATCH expiresAt=null
+// to cancel the deletion. Strict-future filtering happens in `listByUserId`.
+export function getByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
+  const graceCutoff = new Date(Date.now() - 3600_000);
+  return model
+    .findOne({ _id: id, $or: [{ expiresAt: null }, { expiresAt: { $gt: graceCutoff } }] })
+    .exec();
 }
 
 export async function createEntity<T extends CommonFields>(

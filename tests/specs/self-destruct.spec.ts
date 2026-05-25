@@ -2,8 +2,11 @@ import { test, expect, type Page } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
+import { seedSeals } from '../fixtures/seedSeals';
+import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
+import { SealsPage } from '../pages/SealsPage';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -270,7 +273,11 @@ test.describe('burn-after-reading arming', () => {
       })
       .toBe(false);
 
-    await page.reload();
+    // Navigate to `/` (not reload) — `page.reload()` preserves the
+    // `?id=<noteId>` URL param set on card click, which after re-fetch would
+    // make `useInitialNoteId` re-open the modal and re-fire the arming hook
+    // with a fresh expiresAt, racing the list-query filter.
+    await page.goto('/');
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
     await expect(notesPage.noteCard(title)).toHaveCount(0);
   });
@@ -298,12 +305,26 @@ test.describe('burn-after-reading arming', () => {
       data: { expiresAt: null, burnAfterReading: false },
     });
     expect(clearRes.ok()).toBe(true);
+    // Verify the clear response itself confirms both fields landed.
+    const clearBody = (await clearRes.json()) as { expiresAt: string | null; burnAfterReading: boolean };
+    expect(clearBody.expiresAt).toBeNull();
+    expect(clearBody.burnAfterReading).toBe(false);
 
-    await page.reload();
+    // Navigate to `/` (not reload) so the URL `?id=` param is dropped —
+    // otherwise reload reopens the modal via `useInitialNoteId`.
+    await page.goto('/');
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
-    // Note is still here.
-    await expect(notesPage.noteCard(title)).toBeVisible();
+    // Note is still here. List refetch can lag the page load — poll the API
+    // first to confirm the DB state, then assert the UI matches.
+    await expect
+      .poll(async () => {
+        const res = await page.request.get('/api/notes');
+        const notes = (await res.json()) as { _id: string }[];
+        return notes.some((n) => n._id === seeded._id.toString());
+      })
+      .toBe(true);
+    await expect(notesPage.noteCard(title)).toBeVisible({ timeout: 10000 });
 
     // And the DB reflects the cleared state.
     const updated = await fetchNote(page, seeded._id.toString());
@@ -338,15 +359,16 @@ test.describe('burn-after-reading arming', () => {
 
 test.describe('secrets tier — burn-after-reading', () => {
   test('burn-after-reading secret shows the encrypted placeholder, not its preview', async ({ page }) => {
-    const secretsPage = new SecretsPage(page);
-    const { address, mekBytes } = await secretsPage.signInDirectly();
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const tag = `secret-burn-${Date.now()}`;
-    await seedSecrets(address, mekBytes, [
+    await seedSecrets(account.address, mekBytes, [
       { title: `${tag} plain`, content: 'plaintext body' },
       { title: `${tag} burn`, content: 'should not show', burnAfterReading: true },
     ]);
 
-    await secretsPage.goto();
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
     await expect(secretsPage.secretCard(`${tag} plain`)).toBeVisible();
 
@@ -356,14 +378,15 @@ test.describe('secrets tier — burn-after-reading', () => {
   });
 
   test('opening a burn-after-reading secret arms expiresAt → gone after reload', async ({ page }) => {
-    const secretsPage = new SecretsPage(page);
-    const { address, mekBytes } = await secretsPage.signInDirectly();
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `secret-arm-${Date.now()}`;
-    const [seeded] = await seedSecrets(address, mekBytes, [
+    const [seeded] = await seedSecrets(account.address, mekBytes, [
       { title, content: 'secret body', burnAfterReading: true },
     ]);
 
-    await secretsPage.goto();
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
     const armPatch = page.waitForResponse(
@@ -377,5 +400,84 @@ test.describe('secrets tier — burn-after-reading', () => {
     // Title is plaintext on secrets — no unlock needed to verify it's gone.
     await page.reload();
     await expect(secretsPage.secretCard(title)).toHaveCount(0);
+  });
+});
+
+// ─── Seals tier — preview hiding, decrypt-then-arm, no-decrypt-no-arm ────────
+
+test.describe('seals tier — burn-after-reading', () => {
+  test('burn-after-reading seal shows the expiry flag on the card', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    const tag = `seal-burn-${Date.now()}`;
+    await seedSeals(account.address, mekBytes, [
+      { title: `${tag} plain`, content: 'visible after decrypt' },
+      { title: `${tag} burn`, content: 'should not show', burnAfterReading: true },
+    ]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+    await expect(sealsPage.sealCard(`${tag} plain`)).toBeVisible();
+
+    // Seals never show plaintext on the card (always ciphertext placeholder),
+    // so visually the burn case looks like the normal case. The expiry flag
+    // is what differentiates them.
+    await expect(sealsPage.sealCard(`${tag} burn`).getByTestId('expiry-flag')).toBeVisible();
+    await expect(sealsPage.sealCard(`${tag} plain`).getByTestId('expiry-flag')).toHaveCount(0);
+  });
+
+  test('opening WITHOUT decrypting does NOT arm a burn-after-reading seal', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    const title = `seal-noarm-${Date.now()}`;
+    const [seeded] = await seedSeals(account.address, mekBytes, [
+      { title, content: 'seal body', burnAfterReading: true },
+    ]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+    await expect(sealsPage.sealCard(title)).toBeVisible();
+
+    await sealsPage.sealCard(title).click();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+    // Close without decrypting.
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('note-title')).toHaveCount(0);
+
+    // Outcome check via API: the doc must still exist with no expiresAt set.
+    const res = await page.request.get('/api/seals');
+    const seals = (await res.json()) as { _id: string; expiresAt: string | null }[];
+    const found = seals.find((s) => s._id === seeded._id.toString());
+    expect(found).toBeDefined();
+    expect(found?.expiresAt).toBeNull();
+  });
+
+  test('opening AND decrypting a burn-after-reading seal arms expiresAt → gone after reload', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    const title = `seal-arm-${Date.now()}`;
+    const [seeded] = await seedSeals(account.address, mekBytes, [
+      { title, content: 'seal body', burnAfterReading: true },
+    ]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+    await sealsPage.sealCard(title).click();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+
+    const armPatch = page.waitForResponse(
+      (r) => r.url().includes(`/api/seals/${seeded._id.toString()}`) && r.request().method() === 'PATCH',
+    );
+    await page.getByTestId('decrypt-btn').click();
+    await armPatch;
+
+    // Banner appears after arming.
+    await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
+
+    await page.reload();
+    await expect(sealsPage.sealCard(title)).toHaveCount(0);
   });
 });

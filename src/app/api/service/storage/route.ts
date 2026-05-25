@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { cleanupDeletedFiles, cleanupOrphanedFiles } from '@/controllers/files';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('Authorization');
-  const cronSecret = process.env.CRON_SECRET;
+function safeBearerMatch(authHeader: string | null, secret: string | undefined): boolean {
+  if (!authHeader || !secret) return false;
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+export async function GET(req: NextRequest) {
+  if (!safeBearerMatch(req.headers.get('Authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

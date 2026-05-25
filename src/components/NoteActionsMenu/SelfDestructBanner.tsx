@@ -17,8 +17,23 @@ export function SelfDestructBanner({ className, expiresAt, burnAfterReading }: S
 
   useEffect(() => {
     if (!expiresAt) return;
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
+    let timer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+    const schedule = () => {
+      if (cancelled) return;
+      const remaining = new Date(expiresAt).getTime() - Date.now();
+      // Sub-minute window: tick every second so the user sees the countdown.
+      const delay = remaining > 60_000 ? 60_000 : 1000;
+      timer = setTimeout(() => {
+        tick();
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [expiresAt]);
 
   if (burnAfterReading && !expiresAt) {

@@ -61,6 +61,16 @@ describe('formatRemaining', () => {
     expect(formatRemaining(new Date(Date.now()))).toBe('now');
   });
 
+  it('returns seconds when remaining < 1 minute', () => {
+    const target = new Date(Date.now() + 30_000);
+    expect(formatRemaining(target)).toBe('30s');
+  });
+
+  it('floors up sub-second remaining to "1s" instead of "0s"', () => {
+    const target = new Date(Date.now() + 500);
+    expect(formatRemaining(target)).toBe('1s');
+  });
+
   it('returns minutes for < 1 hour', () => {
     const target = new Date(Date.now() + 5 * 60_000);
     expect(formatRemaining(target)).toBe('5m');

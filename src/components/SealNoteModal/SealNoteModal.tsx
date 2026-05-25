@@ -5,6 +5,7 @@ import { LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
+import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
@@ -283,17 +284,18 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     });
   };
 
-  // Seals: burn after reading arms only AFTER decrypt, and only if it was
-  // already on when the modal opened (toggling on takes effect next read).
-  const initialBurnRef = useRef(note.burnAfterReading ?? false);
-  const burnArmedRef = useRef(false);
-  useEffect(() => {
-    if (burnArmedRef.current) return;
-    if (initialBurnRef.current && !expiresAt && isDecrypted) {
-      burnArmedRef.current = true;
-      updateSeal.mutate({ id: note._id, expiresAt: new Date().toISOString(), burnAfterReading: true });
-    }
-  }, [expiresAt, isDecrypted, note._id, updateSeal]);
+  // Seals: arm only AFTER decrypt — the user hasn't "read" until then.
+  const { wasInitiallyBurning } = useBurnArming({
+    initialBurn: note.burnAfterReading ?? false,
+    expiresAt,
+    isReady: isDecrypted,
+    onArm: () =>
+      updateSeal.mutate({
+        id: note._id,
+        expiresAt: new Date().toISOString(),
+        burnAfterReading: true,
+      }),
+  });
 
   const handleCancel = () => {
     setTitle(note.title ?? '');
@@ -393,9 +395,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         footerLeft={isDecrypted ? timerButtons : decryptButton}
         pinned={pinned}
         expiresAt={expiresAt}
-        // Banner only reflects burn-after-reading that was already armed at
-        // open — turning it on in this session takes effect on the *next* read.
-        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        burnAfterReading={wasInitiallyBurning && burnAfterReading}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}

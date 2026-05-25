@@ -187,4 +187,47 @@ test.describe('pin', () => {
     // Order can lag the UI by a refetch; poll until the grid re-sorts.
     await expect.poll(async () => (await taggedTitles(notesPage, tag))[0]).toBe(`${tag} A`);
   });
+
+  test('pinned note keeps the flag and shows at top of the archive view', async ({ page }) => {
+    const { account } = makeAccount();
+    const tag = `pin-arch-${Date.now()}`;
+    await seedNotes(account.address, [
+      { title: `${tag} arch-pinned`, archived: true, pinned: true },
+      { title: `${tag} arch-plain`, archived: true },
+    ]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await page.goto('/archive');
+
+    await expect(notesPage.noteCard(`${tag} arch-pinned`)).toBeVisible();
+    await expect(notesPage.noteCard(`${tag} arch-pinned`).getByTestId('pin-flag')).toBeVisible();
+
+    expect((await taggedTitles(notesPage, tag))[0]).toBe(`${tag} arch-pinned`);
+  });
+
+  test('pin survives an archive → unarchive cycle', async ({ page }) => {
+    const { account } = makeAccount();
+    const tag = `pin-cycle-${Date.now()}`;
+    const [seeded] = await seedNotes(account.address, [{ title: `${tag} A`, pinned: true }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await expect(notesPage.noteCard(`${tag} A`)).toBeVisible();
+
+    // Archive + unarchive via API — we're testing pin persistence, not the
+    // archive UI (covered by notes.spec.ts).
+    const archiveRes = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
+      data: { archived: true },
+    });
+    expect(archiveRes.ok()).toBe(true);
+    const restoreRes = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
+      data: { archived: false },
+    });
+    expect(restoreRes.ok()).toBe(true);
+
+    await page.reload();
+    await expect(notesPage.noteCard(`${tag} A`)).toBeVisible();
+    await expect(notesPage.noteCard(`${tag} A`).getByTestId('pin-flag')).toBeVisible();
+  });
 });

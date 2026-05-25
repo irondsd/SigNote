@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
+import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -167,16 +168,17 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     });
   };
 
-  // Only arm if burn-after-reading was already on when the modal opened.
-  const initialBurnRef = useRef(note.burnAfterReading ?? false);
-  const burnArmedRef = useRef(false);
-  useEffect(() => {
-    if (burnArmedRef.current) return;
-    if (initialBurnRef.current && !expiresAt) {
-      burnArmedRef.current = true;
-      updateSecret.mutate({ id: note._id, expiresAt: new Date().toISOString(), burnAfterReading: true });
-    }
-  }, [expiresAt, note._id, updateSecret]);
+  const { wasInitiallyBurning } = useBurnArming({
+    initialBurn: note.burnAfterReading ?? false,
+    expiresAt,
+    isReady: true,
+    onArm: () =>
+      updateSecret.mutate({
+        id: note._id,
+        expiresAt: new Date().toISOString(),
+        burnAfterReading: true,
+      }),
+  });
 
   // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
   useEffect(() => {
@@ -219,9 +221,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         pinned={pinned}
         expiresAt={expiresAt}
-        // Banner only reflects burn-after-reading that was already armed at
-        // open — turning it on in this session takes effect on the *next* read.
-        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        burnAfterReading={wasInitiallyBurning && burnAfterReading}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}

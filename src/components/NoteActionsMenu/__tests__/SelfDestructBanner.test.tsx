@@ -50,4 +50,38 @@ describe('<SelfDestructBanner>', () => {
     render(<SelfDestructBanner expiresAt={null} burnAfterReading className="extra-class" />);
     expect(screen.getByTestId('self-destruct-banner')).toHaveClass('extra-class');
   });
+
+  it('ticks every second when remaining is under a minute', () => {
+    const target = new Date(Date.now() + 30_000); // +30s
+    render(<SelfDestructBanner expiresAt={target} burnAfterReading={false} />);
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/30s/);
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/29s/);
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/28s/);
+  });
+
+  it('switches from minute-cadence to second-cadence as the deadline approaches', () => {
+    // Start at +90s so the first tick is 60s away (minute cadence).
+    const target = new Date(Date.now() + 90_000);
+    render(<SelfDestructBanner expiresAt={target} burnAfterReading={false} />);
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/1m/);
+
+    // Advance 60s — banner should re-tick (now 30s remaining) and reschedule at 1s.
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/30s/);
+
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(screen.getByTestId('self-destruct-banner')).toHaveTextContent(/29s/);
+  });
 });

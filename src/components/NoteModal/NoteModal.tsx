@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
+import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
@@ -102,17 +103,17 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     updateNote.mutate({ id: note._id.toString(), pinned: next });
   };
 
-  // Only arm if burn-after-reading was already on when the modal opened.
-  // Toggling it on in this session takes effect on the *next* read.
-  const initialBurnRef = useRef(note.burnAfterReading ?? false);
-  const burnArmedRef = useRef(false);
-  useEffect(() => {
-    if (burnArmedRef.current) return;
-    if (initialBurnRef.current && !expiresAt) {
-      burnArmedRef.current = true;
-      updateNote.mutate({ id: note._id.toString(), expiresAt: new Date().toISOString(), burnAfterReading: true });
-    }
-  }, [expiresAt, note._id, updateNote]);
+  const { wasInitiallyBurning } = useBurnArming({
+    initialBurn: note.burnAfterReading ?? false,
+    expiresAt,
+    isReady: true,
+    onArm: () =>
+      updateNote.mutate({
+        id: note._id.toString(),
+        expiresAt: new Date().toISOString(),
+        burnAfterReading: true,
+      }),
+  });
 
   const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
     setExpiresAt(next.expiresAt);
@@ -152,9 +153,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         formatToggle={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         pinned={pinned}
         expiresAt={expiresAt}
-        // Banner only reflects burn-after-reading that was already armed at
-        // open — turning it on in this session takes effect on the *next* read.
-        burnAfterReading={initialBurnRef.current && burnAfterReading}
+        burnAfterReading={wasInitiallyBurning && burnAfterReading}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}

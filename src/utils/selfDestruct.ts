@@ -12,6 +12,10 @@ export function formatRemaining(expiresAt: Date | string): string {
   const target = new Date(expiresAt).getTime();
   const diff = target - Date.now();
   if (diff <= 0) return 'now';
+  if (diff < 60_000) {
+    const secs = Math.max(1, Math.ceil(diff / 1000));
+    return `${secs}s`;
+  }
   const minutes = Math.floor(diff / 60_000);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);

@@ -50,6 +50,12 @@ const sealNoteSchema = new Schema<SealNote>({
 // Compound index for userId-filtered queries
 sealNoteSchema.index({ userId: 1, deletedAt: 1 });
 
+// Covers the default list sort path: userId + archived prefix, pinned/position sort suffix.
+sealNoteSchema.index({ userId: 1, archived: 1, pinned: -1, position: -1 });
+
+// Covers the search-result sort path (pinned + updatedAt).
+sealNoteSchema.index({ userId: 1, archived: 1, pinned: -1, updatedAt: -1 });
+
 // TTL index — auto-delete soft-deleted notes after 1 hour
 sealNoteSchema.index({ deletedAt: 1 }, { expireAfterSeconds: 3600, sparse: true });
 
