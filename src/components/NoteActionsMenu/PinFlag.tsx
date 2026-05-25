@@ -12,6 +12,7 @@ type PinFlagProps = {
 export function PinFlag({ compact = false, onUnpin }: PinFlagProps) {
   const [active, setActive] = useState(false);
   const ref = useRef<HTMLButtonElement | null>(null);
+  const lastPointerTypeRef = useRef<string>('mouse');
 
   useEffect(() => {
     if (!active) return;
@@ -35,9 +36,12 @@ export function PinFlag({ compact = false, onUnpin }: PinFlagProps) {
 
   const iconSize = compact ? 11 : 12;
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    lastPointerTypeRef.current = e.pointerType;
+  };
+
   const handleClick = () => {
-    const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
-    if (!canHover && !active) {
+    if (lastPointerTypeRef.current === 'touch' && !active) {
       setActive(true);
       return;
     }
@@ -56,9 +60,8 @@ export function PinFlag({ compact = false, onUnpin }: PinFlagProps) {
       data-testid="pin-flag"
       aria-label={active ? 'Unpin note' : 'Pinned — tap to unpin'}
       title="Unpin"
+      onPointerDown={handlePointerDown}
       onClick={handleClick}
-      onFocus={() => setActive(true)}
-      onBlur={() => setActive(false)}
     >
       <span className={s.iconSlot} style={{ width: iconSize, height: iconSize }}>
         <Pin size={iconSize} className={s.iconDefault} />
