@@ -15,5 +15,13 @@ declare module 'next-auth/adapters' {
 declare module 'next-auth' {
   interface Account {
     userId?: string;
+    displayName?: string;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    sid?: string;
+    provider?: 'google' | 'siwe';
   }
 }

@@ -1,0 +1,118 @@
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
+  transition: border-color 0.2s ease;
+
+  &[data-current] {
+    border-color: var(--primary-400, var(--primary));
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+
+    .actionCol {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+    }
+  }
+}
+
+.iconCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.deviceIcon {
+  flex-shrink: 0;
+}
+
+.body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.muted {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.currentBadge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.actionCol {
+  display: flex;
+  align-items: center;
+
+  @media (max-width: 600px) {
+    button {
+      width: 100%;
+    }
+  }
+}

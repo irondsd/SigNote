@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Download,
   LifeBuoy,
+  MonitorSmartphone,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -228,6 +229,29 @@ function ProfilePageContent() {
 
         {/* Sign-in Methods */}
         <SignInMethods />
+
+        {/* Active sessions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sessions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>Active sessions</span>
+                <span className={s.actionDesc}>
+                  See where you&apos;re signed in and sign out of devices you no longer use.
+                </span>
+              </div>
+              <Link href="/sessions">
+                <Button variant="outline" size="sm" data-testid="manage-sessions-btn">
+                  <MonitorSmartphone size={14} />
+                  Manage
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Security */}
         <Card>

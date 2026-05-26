@@ -1,0 +1,57 @@
+.container {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  flex: 1;
+}
+
+.content {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--muted-foreground);
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  text-align: center;
+  padding: 24px 0;
+  margin: 0;
+}
