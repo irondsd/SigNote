@@ -2,11 +2,21 @@
 
 import React, { useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import s from './SearchResults.module.scss';
+import { InlineSvg } from '@irondsd/inline-svg';
+
+const TIER_ICONS = {
+  notes: 'notes.svg',
+  secrets: 'secrets.svg',
+  seals: 'seals.svg',
+} as const;
 
 type StripShellProps = {
+  tier: 'notes' | 'secrets' | 'seals';
   title: string;
   totalCount: number;
+  showSeeAll?: boolean;
   seeAllHref?: string;
   onLoadMore?: () => void;
   hasMore?: boolean;
@@ -14,8 +24,19 @@ type StripShellProps = {
   children: ReactNode;
 };
 
-export function StripShell({ title, totalCount, seeAllHref, onLoadMore, hasMore, isLoadingMore, children }: StripShellProps) {
+export function StripShell({
+  tier,
+  title,
+  totalCount,
+  showSeeAll,
+  seeAllHref,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
+  children,
+}: StripShellProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const TierIcon = TIER_ICONS[tier];
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || !onLoadMore) return;
@@ -32,22 +53,20 @@ export function StripShell({ title, totalCount, seeAllHref, onLoadMore, hasMore,
   return (
     <section className={s.section}>
       <header className={s.sectionHeader}>
-        <h2 className={s.sectionTitle}>
-          {title}
-          <span className={s.sectionCount}>({totalCount})</span>
-        </h2>
-        {seeAllHref && (
+        <span className={s.tierBadge}>
+          {/* <TierIcon size={14} strokeWidth={1.9} /> */}
+          <InlineSvg src={`/icons/${TierIcon}`} className={'w-4 h-4'} />
+        </span>
+        <h2 className={s.sectionTitle}>{title}</h2>
+        <span className={s.sectionCount}>{totalCount}</span>
+        {showSeeAll && seeAllHref && (
           <Link href={seeAllHref} className={s.seeAll}>
-            See all →
+            See all <ArrowRight size={13} strokeWidth={1.9} />
           </Link>
         )}
       </header>
       <div className={s.strip}>
-        {React.Children.map(children, (child) =>
-          child ? (
-            <div className={s.stripItem}>{child}</div>
-          ) : null,
-        )}
+        {React.Children.map(children, (child) => (child ? <div className={s.stripItem}>{child}</div> : null))}
         {hasMore && <div ref={sentinelRef} className={s.sentinel} />}
         {isLoadingMore && <div className={s.stripSpinner} />}
       </div>

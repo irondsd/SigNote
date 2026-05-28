@@ -11,6 +11,7 @@ type SealsStripProps = {
   totalCount: number;
   cap?: number;
   query: string;
+  showSeeAll?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -22,6 +23,7 @@ export function SealsStrip({
   totalCount,
   cap,
   query,
+  showSeeAll,
   onLoadMore,
   hasMore,
   isLoadingMore,
@@ -33,9 +35,11 @@ export function SealsStrip({
   return (
     <>
       <StripShell
+        tier="seals"
         title="Seals"
         totalCount={totalCount}
-        seeAllHref={cap && totalCount > cap ? `/search?q=${encodeURIComponent(query)}&tier=seals` : undefined}
+        showSeeAll={showSeeAll}
+        seeAllHref={`/search?q=${encodeURIComponent(query)}&tiers=seals`}
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}

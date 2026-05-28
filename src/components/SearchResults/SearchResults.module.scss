@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .section {
@@ -12,36 +14,55 @@
 
 .sectionHeader {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 2px;
+  align-items: center;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.tierBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  flex-shrink: 0;
 }
 
 .sectionTitle {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   color: var(--muted-foreground);
   margin: 0;
 }
 
 .sectionCount {
-  font-weight: 500;
-  margin-left: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--muted-foreground);
-  opacity: 0.7;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
 }
 
 .seeAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
   font-size: 13px;
   font-weight: 500;
   color: var(--primary);
   text-decoration: none;
+  padding: 4px 7px;
+  border-radius: 7px;
+  transition: background 0.12s;
 
   &:hover {
-    text-decoration: underline;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
   }
 }
 
@@ -54,7 +75,6 @@
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
 
-  // Slim scrollbar styling
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 
@@ -76,7 +96,6 @@
   scroll-snap-align: start;
   display: flex;
 
-  // Ensure cards inside fill the wrapper width
   & > * {
     width: 100%;
   }

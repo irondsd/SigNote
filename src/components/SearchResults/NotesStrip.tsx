@@ -11,6 +11,7 @@ type NotesStripProps = {
   totalCount: number;
   cap?: number;
   query: string;
+  showSeeAll?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -22,6 +23,7 @@ export function NotesStrip({
   totalCount,
   cap,
   query,
+  showSeeAll,
   onLoadMore,
   hasMore,
   isLoadingMore,
@@ -34,9 +36,11 @@ export function NotesStrip({
   return (
     <>
       <StripShell
+        tier="notes"
         title="Notes"
         totalCount={totalCount}
-        seeAllHref={cap && totalCount > cap ? `/search?q=${encodeURIComponent(query)}&tiers=notes` : undefined}
+        showSeeAll={showSeeAll}
+        seeAllHref={`/search?q=${encodeURIComponent(query)}&tiers=notes`}
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}

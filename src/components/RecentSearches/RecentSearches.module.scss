@@ -1,0 +1,102 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 680px;
+  margin: 12px auto 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-foreground);
+}
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 999px;
+  font-size: 13.5px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+
+  &:hover {
+    background: var(--accent);
+    border-color: var(--border);
+  }
+}
+
+.pillIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.tierGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tierCard {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: background 0.12s;
+
+  &:hover {
+    background: var(--accent);
+  }
+}
+
+.tierIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.tierLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--foreground);
+}

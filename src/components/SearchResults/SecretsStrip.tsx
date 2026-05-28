@@ -15,6 +15,7 @@ type SecretsStripProps = {
   totalCount: number;
   cap?: number;
   query: string;
+  showSeeAll?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -26,6 +27,7 @@ export function SecretsStrip({
   totalCount,
   cap,
   query,
+  showSeeAll,
   onLoadMore,
   hasMore,
   isLoadingMore,
@@ -108,9 +110,11 @@ export function SecretsStrip({
   return (
     <>
       <StripShell
+        tier="secrets"
         title="Secrets"
         totalCount={totalCount}
-        seeAllHref={cap && totalCount > cap ? `/search?q=${encodeURIComponent(query)}&tiers=secrets` : undefined}
+        showSeeAll={showSeeAll}
+        seeAllHref={`/search?q=${encodeURIComponent(query)}&tiers=secrets`}
         onLoadMore={onLoadMore}
         hasMore={hasMore}
         isLoadingMore={isLoadingMore}

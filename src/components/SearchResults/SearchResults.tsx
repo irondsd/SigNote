@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useNotes } from '@/hooks/useNotes';
 import { useSecrets } from '@/hooks/useSecrets';
@@ -21,11 +21,12 @@ type SearchResultsProps = {
   tiers: TierSet;
   onItemClick?: () => void;
   onClear?: () => void;
+  onCountsChange?: (counts: Partial<Record<'notes' | 'secrets' | 'seals', number>>) => void;
 };
 
 const OVERLAY_CAP = 5;
 
-export function SearchResults({ query, mode, tiers, onItemClick, onClear }: SearchResultsProps) {
+export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCountsChange }: SearchResultsProps) {
   const { data: session } = useSession();
   const { phase } = useEncryption();
   const isAuthenticated = !!session?.user?.id;
@@ -52,13 +53,20 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear }: Sear
     [vaultAvailable, sealsQuery.data?.pages],
   );
 
-  if (!enabled) {
-    return <div className={s.hint}>Type to search across notes, secrets, and seals.</div>;
-  }
-
   const visibleNotes = showNotes ? notes : [];
   const visibleSecrets = showSecrets ? secrets : [];
   const visibleSeals = showSeals ? seals : [];
+
+  useEffect(() => {
+    if (!onCountsChange || !enabled) return;
+    onCountsChange({
+      notes: showNotes ? visibleNotes.length : 0,
+      secrets: showSecrets ? visibleSecrets.length : 0,
+      seals: showSeals ? visibleSeals.length : 0,
+    });
+  }, [onCountsChange, enabled, showNotes, showSecrets, showSeals, visibleNotes.length, visibleSecrets.length, visibleSeals.length]);
+
+  if (!enabled) return null;
 
   const anyLoading =
     (showNotes && notesQuery.isLoading) ||
@@ -71,6 +79,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear }: Sear
   }
 
   const cap = mode === 'overlay' ? OVERLAY_CAP : undefined;
+  const showSeeAll = mode === 'overlay';
 
   return (
     <div className={s.results}>
@@ -80,6 +89,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear }: Sear
           totalCount={visibleNotes.length}
           cap={cap}
           query={trimmed}
+          showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => notesQuery.fetchNextPage() : undefined}
           hasMore={mode === 'page' ? notesQuery.hasNextPage : false}
@@ -92,6 +102,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear }: Sear
           totalCount={visibleSecrets.length}
           cap={cap}
           query={trimmed}
+          showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => secretsQuery.fetchNextPage() : undefined}
           hasMore={mode === 'page' ? secretsQuery.hasNextPage : false}
@@ -104,6 +115,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear }: Sear
           totalCount={visibleSeals.length}
           cap={cap}
           query={trimmed}
+          showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => sealsQuery.fetchNextPage() : undefined}
           hasMore={mode === 'page' ? sealsQuery.hasNextPage : false}

@@ -1,12 +1,12 @@
 'use client';
 
-import { Suspense, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Suspense, useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Search, X } from 'lucide-react';
 import { TierToggle, type TierSet } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
+import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
+import { useRecentSearches } from '@/hooks/useRecentSearches';
 import s from './page.module.scss';
 
 const ALL_TIERS: TierSet = new Set(['notes', 'secrets', 'seals']);
@@ -29,10 +29,22 @@ function SearchPageContent() {
   const q = searchParams.get('q') ?? '';
   const tiers = useMemo(() => parseTiers(searchParams.get('tiers')), [searchParams]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [counts, setCounts] = useState<Partial<Record<'notes' | 'secrets' | 'seals', number>>>({});
+  const { recents, save: saveRecent } = useRecentSearches();
+
+  // Local input state keeps typing instant; URL updates are debounced so we
+  // don't fire a router.replace (full route re-render) on every keystroke.
+  const [inputValue, setInputValue] = useState(q);
 
   useEffect(() => {
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
+
+  // Sync local input when the query changes externally (recents pick, clear,
+  // browser back/forward).
+  useEffect(() => {
+    setInputValue(q);
+  }, [q]);
 
   const updateParams = useCallback(
     (updates: { q?: string; tiers?: TierSet }) => {
@@ -51,35 +63,79 @@ function SearchPageContent() {
     [router, searchParams],
   );
 
+  // Debounce the URL update while typing.
+  useEffect(() => {
+    if (inputValue === q) return;
+    const t = setTimeout(() => updateParams({ q: inputValue }), 200);
+    return () => clearTimeout(t);
+  }, [inputValue, q, updateParams]);
+
+  const hasQuery = q.trim().length > 0;
+
   return (
     <div className={s.page}>
       <div className={s.header}>
-        <h1 className={s.title}>Search</h1>
+        <div className={s.titleRow}>
+          <h1 className={s.title}>Search</h1>
+        </div>
+
         <div className={s.inputWrap}>
-          <Input
+          <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
+          <input
             ref={inputRef}
-            value={q}
-            onChange={(e) => updateParams({ q: e.target.value })}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && inputValue.trim()) {
+                const trimmed = inputValue.trim();
+                saveRecent(trimmed);
+                updateParams({ q: trimmed });
+              }
+            }}
             placeholder="Search notes, secrets, and seals"
             aria-label="Search"
             className={s.input}
           />
-          {q && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => updateParams({ q: '' })}
+          {inputValue && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputValue('');
+                updateParams({ q: '' });
+              }}
               className={s.clearBtn}
               aria-label="Clear search"
-              title="Clear search"
             >
-              <X size={16} />
-            </Button>
+              <X size={15} strokeWidth={2} />
+            </button>
           )}
         </div>
-        <TierToggle active={tiers} onChange={(next) => updateParams({ tiers: next })} />
+
+        <div className={s.filterRow}>
+          <TierToggle
+            active={tiers}
+            onChange={(next) => updateParams({ tiers: next })}
+            counts={hasQuery ? counts : undefined}
+            showCounts={hasQuery}
+          />
+        </div>
       </div>
-      <SearchResults query={q} mode="page" tiers={tiers} onClear={() => updateParams({ q: '' })} />
+
+      {!hasQuery ? (
+        <div className={s.body}>
+          <RecentSearches recents={recents} onPick={(term) => updateParams({ q: term })} />
+        </div>
+      ) : (
+        <div className={s.body}>
+          <SearchResults
+            query={q}
+            mode="page"
+            tiers={tiers}
+            onClear={() => updateParams({ q: '' })}
+            onCountsChange={setCounts}
+          />
+        </div>
+      )}
     </div>
   );
 }

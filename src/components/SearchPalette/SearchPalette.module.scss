@@ -1,3 +1,4 @@
+// Outer container — covers content area (right of sidebar)
 .overlay {
   position: fixed;
   top: 0;
@@ -5,80 +6,188 @@
   bottom: 0;
   left: 0;
   z-index: 80;
-  background: color-mix(in srgb, var(--background) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  flex-direction: column;
-  animation: fadeIn 0.15s ease both;
-  overflow-y: auto;
+  backdrop-filter: blur(4px);
 
   @media (min-width: 768px) {
     left: 240px;
   }
 }
 
-.topBar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: color-mix(in srgb, var(--background) 88%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+// Dim backdrop behind the panel
+.dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 28, 23, 0.12);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  animation: fadeIn 0.15s ease both;
+  cursor: default;
 }
 
-.topRow {
+// Floating frosted glass panel
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 1500px;
+  margin: auto;
+  background: color-mix(in srgb, var(--background) 75%, transparent);
+  backdrop-filter: blur(4px) saturate(1.4);
+  -webkit-backdrop-filter: blur(4px) saturate(1.4);
+  animation: slideIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+
+  @media (min-width: 768px) {
+    inset: 16px;
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.14),
+      0 4px 14px rgba(0, 0, 0, 0.06);
+  }
+}
+
+// Non-scrolling top section: header + input + filter
+.panelTop {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.panelHeader {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  padding: 14px 18px 10px;
 }
 
 .title {
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.4px;
-  margin: 0;
   color: var(--foreground);
+  margin: 0;
 }
 
-.backBtn {
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
-}
-
-.inputWrap {
-  position: relative;
-}
-
-.input {
-  width: 100%;
-  padding-right: 36px;
-}
-
-.clearBtn {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
 
   &:hover {
-    background: transparent;
+    background: var(--accent);
+    color: var(--foreground);
   }
 }
 
-.body {
-  flex: 1;
-  padding: 20px 16px 32px;
+.inputRow {
+  padding: 0 18px 12px;
+}
 
-  > * {
-    max-width: 1200px;
-    margin: 0 auto;
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+
+  &:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+}
+
+.inputIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--foreground);
+  font-family: inherit;
+
+  &::placeholder {
+    color: var(--muted-foreground);
+  }
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+}
+
+.kbd {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 6px;
+  background: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.filterRow {
+  padding: 0 18px 14px;
+}
+
+// Scrollable results / recents area
+.panelBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px 28px;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
   }
 }
 
@@ -88,5 +197,16 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
