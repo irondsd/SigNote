@@ -60,6 +60,10 @@
   background: var(--accent);
   color: var(--foreground);
   font-weight: 600;
+
+  svg {
+    color: var(--primary);
+  }
 }
 
 .spacer {
