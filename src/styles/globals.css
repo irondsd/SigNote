@@ -74,7 +74,7 @@
   --primary-400: oklch(0.56 0.15 49);
   --primary-500: oklch(0.47 0.12 46);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: oklch(97% 0.007 88);
 }
 
 .dark {
