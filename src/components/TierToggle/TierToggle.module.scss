@@ -1,0 +1,33 @@
+.toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+  user-select: none;
+
+  &:hover {
+    background: var(--accent);
+  }
+
+  &.active {
+    background: var(--foreground);
+    color: var(--background);
+    border-color: var(--foreground);
+  }
+}

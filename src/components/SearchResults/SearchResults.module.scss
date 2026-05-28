@@ -1,0 +1,117 @@
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.sectionCount {
+  font-weight: 500;
+  margin-left: 6px;
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.seeAll {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 4px 12px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+
+  // Slim scrollbar styling
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+.stripItem {
+  flex: 0 0 260px;
+  max-width: 260px;
+  scroll-snap-align: start;
+  display: flex;
+
+  // Ensure cards inside fill the wrapper width
+  & > * {
+    width: 100%;
+  }
+
+  @media (max-width: 480px) {
+    flex: 0 0 80vw;
+    max-width: 80vw;
+  }
+}
+
+.hint {
+  padding: 32px 8px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+
+.sentinel {
+  flex: 0 0 1px;
+  align-self: stretch;
+}
+
+.stripSpinner {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

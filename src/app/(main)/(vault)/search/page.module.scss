@@ -1,0 +1,42 @@
+@use '../../../../styles/mixins';
+
+.page {
+  padding: 0 16px 32px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  margin: 0;
+  color: var(--foreground);
+  @include mixins.unselectable-text();
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.clearBtn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+
+  &:hover {
+    background: transparent;
+  }
+}
