@@ -42,8 +42,8 @@ beforeEach(() => {
   mockUpsertSession.mockClear();
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setToken(token: Record<string, unknown> | null) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockGetToken.mockResolvedValue(token as any);
 }
 

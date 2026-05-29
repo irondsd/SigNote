@@ -8,7 +8,6 @@ import { SealsGrid } from '@/components/SealsGrid/SealsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { NewSealModal } from '@/components/NewSealModal/NewSealModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
@@ -21,10 +20,8 @@ import s from './page.module.scss';
 function SealsPageContent() {
   const { data: session, status } = useSession();
   const { phase } = useEncryption();
-  const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSeals({
-    archived: search ? undefined : false,
-    search,
+    archived: false,
   });
   const [showNewSeal, setShowNewSeal] = useState(false);
   const [saveErrorContent, setSaveErrorContent] = useState<{ title: string; content: string } | null>(null);
@@ -44,9 +41,6 @@ function SealsPageContent() {
     <div className={s.page}>
       <PageHeader
         title="Seals"
-        search={search}
-        onSearchChange={setSearch}
-        placeholder="Search seals"
         showSearch={isAuthenticated && (phase === 'locked' || phase === 'unlocked')}
         actions={
           isAuthenticated && (phase === 'locked' || phase === 'unlocked') ? (
@@ -74,19 +68,13 @@ function SealsPageContent() {
       ) : phase === 'setup' ? (
         <EncryptionSetup />
       ) : notes.length === 0 ? (
-        search ? (
-          <EmptyResults onClear={() => setSearch('')} />
-        ) : (
-          <EmptyState onNewNote={handleNewSeal} />
-        )
+        <EmptyState onNewNote={handleNewSeal} />
       ) : (
         <SealsGrid
           notes={notes}
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}
-          showArchivedBadge={!!search}
-          isDragDisabled={!!search}
         />
       )}
 

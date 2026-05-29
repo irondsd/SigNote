@@ -8,7 +8,6 @@ import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 import s from './page.module.scss';
 import { Button } from '@/components/ui/button';
@@ -17,10 +16,8 @@ import { PageHeader } from '@/components/PageHeader/PageHeader';
 
 function NotesPage() {
   const { data: session, status } = useSession();
-  const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useNotes({
-    archived: search ? undefined : false,
-    search,
+    archived: false,
   });
   const [showNewNote, setShowNewNote] = useState(false);
   const [saveErrorContent, setSaveErrorContent] = useState<{ title: string; content: string } | null>(null);
@@ -37,9 +34,6 @@ function NotesPage() {
     <div className={s.page}>
       <PageHeader
         title="Notes"
-        search={search}
-        onSearchChange={setSearch}
-        placeholder="Search notes"
         showSearch={isAuthenticated}
         actions={
           isAuthenticated ? (
@@ -64,19 +58,13 @@ function NotesPage() {
         </div>
       ) : isAuthenticated ? (
         notes.length === 0 ? (
-          search ? (
-            <EmptyResults onClear={() => setSearch('')} />
-          ) : (
-            <EmptyState onNewNote={() => setShowNewNote(true)} />
-          )
+          <EmptyState onNewNote={() => setShowNewNote(true)} />
         ) : (
           <NotesGrid
             notes={notes}
             onLoadMore={() => fetchNextPage()}
             hasMore={hasNextPage ?? false}
             isLoadingMore={isFetchingNextPage}
-            showArchivedBadge={!!search}
-            isDragDisabled={!!search}
           />
         )
       ) : (

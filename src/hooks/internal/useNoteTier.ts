@@ -8,8 +8,11 @@ export { fetchTierPage, buildTierPrefetchOptions } from './tierPagination';
 
 const SEARCH_DEBOUNCE_MS = 100;
 
-export const useNoteTier = <T>(config: TierConfig, params: { archived?: boolean; search?: string }) => {
-  const { archived, search = '' } = params;
+export const useNoteTier = <T>(
+  config: TierConfig,
+  params: { archived?: boolean; search?: string; enabled?: boolean },
+) => {
+  const { archived, search = '', enabled = true } = params;
   const { data: session } = useSession();
   const userId = session?.user?.id;
   const [debouncedSearch, setDebouncedSearch] = useState(search);
@@ -25,6 +28,6 @@ export const useNoteTier = <T>(config: TierConfig, params: { archived?: boolean;
       fetchTierPage<T>(config.endpoint, { archived, search: debouncedSearch, pageParam }),
     getNextPageParam,
     initialPageParam: 0,
-    enabled: userId !== undefined,
+    enabled: userId !== undefined && enabled,
   });
 };

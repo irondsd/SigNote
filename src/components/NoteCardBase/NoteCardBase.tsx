@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Flame, Pin } from 'lucide-react';
+import { Archive, Flame, Pin } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import s from './NoteCardBase.module.scss';
@@ -75,12 +75,15 @@ export function NoteCardBase({
           {content}
         </div>
       )}
-      {showArchivedBadge && archived && (
-        <span data-testid="archived-badge" className={s.archivedBadge}>
-          Archived
-        </span>
-      )}
-      <RelativeDate updatedAt={updatedAt} className={s.date} />
+      <div className={s.footer}>
+        {showArchivedBadge && archived && (
+          <span data-testid="archived-badge" className={s.archivedBadge}>
+            <Archive size={11} strokeWidth={1.9} />
+            Archived
+          </span>
+        )}
+        <RelativeDate updatedAt={updatedAt} className={s.date} />
+      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export function ThemeToggle() {
     <div className={s.toggle}>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-md"
         className={theme === 'light' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('light')}
         title="Light theme"
@@ -22,7 +22,7 @@ export function ThemeToggle() {
       </Button>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-md"
         className={theme === 'system' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('system')}
         title="System theme"
@@ -32,7 +32,7 @@ export function ThemeToggle() {
       </Button>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-md"
         className={theme === 'dark' ? 'bg-background text-foreground shadow-sm' : ''}
         onClick={() => setTheme('dark')}
         title="Dark theme"

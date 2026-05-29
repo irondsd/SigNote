@@ -57,9 +57,13 @@
 }
 
 .active {
-  background: var(--accent);
+  background: var(--code-bg);
   color: var(--foreground);
   font-weight: 600;
+
+  svg {
+    color: var(--primary);
+  }
 }
 
 .spacer {
@@ -75,8 +79,8 @@
 .themeRow {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0 4px;
+  justify-content: center;
+  padding: 8px 0;
 }
 
 .label {

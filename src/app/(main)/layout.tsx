@@ -6,20 +6,25 @@ import { SwipeNavWrapper } from '@/components/SwipeNavWrapper/SwipeNavWrapper';
 import { DraftRestoreProvider } from '@/contexts/DraftRestoreContext';
 import { OfflineBanner } from '@/components/OfflineBanner/OfflineBanner';
 import { OfflineManager } from '@/components/OfflineManager/OfflineManager';
+import { SearchPaletteProvider } from '@/contexts/SearchPaletteContext';
+import { SearchPalette } from '@/components/SearchPalette/SearchPalette';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <DraftRestoreProvider>
-      <OfflineManager />
-      <div className={s.shell}>
-        <Sidebar />
-        <div className={s.content}>
-          <MobileHeader />
-          <OfflineBanner />
-          <SwipeNavWrapper className={s.main}>{children}</SwipeNavWrapper>
+      <SearchPaletteProvider>
+        <OfflineManager />
+        <div className={s.shell}>
+          <Sidebar />
+          <div className={s.content}>
+            <MobileHeader />
+            <OfflineBanner />
+            <SwipeNavWrapper className={s.main}>{children}</SwipeNavWrapper>
+            <SearchPalette />
+          </div>
+          <DraftToast />
         </div>
-        <DraftToast />
-      </div>
+      </SearchPaletteProvider>
     </DraftRestoreProvider>
   );
 }

@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { clearSession } from '../utils/clearSession';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -180,12 +181,21 @@ test.describe('pin', () => {
       })
       .toBe(true);
 
-    // Reload and verify the UI reflects the same.
+    // Drop the persisted react-query cache before reloading. The app persists the
+    // notes cache to IndexedDB with a 60s staleTime, so a plain reload rehydrates the
+    // pre-pin page and skips refetching. Clearing it forces a fresh server fetch that
+    // reflects the persisted pin — which is what this test is actually asserting.
+    await clearSession(page);
     await page.reload();
+    // Wait for BOTH cards to render before reading order — otherwise the poll can
+    // sample a half-painted grid (only A present) and pass/fail on a transient state.
     await expect(notesPage.noteCard(`${tag} A`)).toBeVisible();
+    await expect(notesPage.noteCard(`${tag} B`)).toBeVisible();
     await expect(notesPage.noteCard(`${tag} A`).getByTestId('pin-flag')).toBeVisible();
     // Order can lag the UI by a refetch; poll until the grid re-sorts.
-    await expect.poll(async () => (await taggedTitles(notesPage, tag))[0]).toBe(`${tag} A`);
+    await expect
+      .poll(async () => (await taggedTitles(notesPage, tag))[0], { timeout: 15000 })
+      .toBe(`${tag} A`);
   });
 
   test('pinned note keeps the flag and shows at top of the archive view', async ({ page }) => {

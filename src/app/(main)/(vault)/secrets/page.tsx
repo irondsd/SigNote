@@ -8,7 +8,6 @@ import { SecretsGrid } from '@/components/SecretsGrid/SecretsGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
-import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
 import { NewSecretModal } from '@/components/NewSecretModal/NewSecretModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
@@ -21,10 +20,8 @@ import s from './page.module.scss';
 function SecretsPageContent() {
   const { data: session, status } = useSession();
   const { phase } = useEncryption();
-  const [search, setSearch] = useState('');
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useSecrets({
-    archived: search ? undefined : false,
-    search,
+    archived: false,
   });
   const [showNewSecret, setShowNewSecret] = useState(false);
   const [saveErrorContent, setSaveErrorContent] = useState<{ title: string; content: string } | null>(null);
@@ -44,9 +41,6 @@ function SecretsPageContent() {
     <div className={s.page}>
       <PageHeader
         title="Secrets"
-        search={search}
-        onSearchChange={setSearch}
-        placeholder="Search secrets"
         showSearch={isAuthenticated && (phase === 'locked' || phase === 'unlocked')}
         actions={
           isAuthenticated && (phase === 'locked' || phase === 'unlocked') ? (
@@ -74,19 +68,13 @@ function SecretsPageContent() {
       ) : phase === 'setup' ? (
         <EncryptionSetup displayName={session?.user?.name ?? undefined} />
       ) : notes.length === 0 ? (
-        search ? (
-          <EmptyResults onClear={() => setSearch('')} />
-        ) : (
-          <EmptyState onNewNote={handleNewSecret} />
-        )
+        <EmptyState onNewNote={handleNewSecret} />
       ) : (
         <SecretsGrid
           notes={notes}
           onLoadMore={() => fetchNextPage()}
           hasMore={hasNextPage ?? false}
           isLoadingMore={isFetchingNextPage}
-          showArchivedBadge={!!search}
-          isDragDisabled={!!search}
         />
       )}
 
