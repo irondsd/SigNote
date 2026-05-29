@@ -50,15 +50,27 @@
 
 // Non-scrolling top section: header + input + filter
 .panelTop {
+  position: relative;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
 
+// Mirrors the search page `.header` so chrome aligns with the page.
 .panelHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 20px;
+
+  @media (min-width: 768px) {
+    padding: 28px;
+  }
+}
+
+.titleRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 18px 10px;
 }
 
 .title {
@@ -70,6 +82,10 @@
 }
 
 .closeBtn {
+  position: absolute;
+  top: 18px;
+  right: 16px;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,10 +105,11 @@
     background: var(--accent);
     color: var(--foreground);
   }
-}
 
-.inputRow {
-  padding: 0 18px 12px;
+  @media (min-width: 768px) {
+    top: 24px;
+    right: 24px;
+  }
 }
 
 .inputWrap {
@@ -169,7 +186,7 @@
 }
 
 .filterRow {
-  padding: 0 18px 14px;
+  display: flex;
 }
 
 // Scrollable results / recents area
@@ -177,7 +194,11 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px 18px 28px;
+  padding: 20px 18px 32px;
+
+  @media (min-width: 768px) {
+    padding: 24px 28px 40px;
+  }
 
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
@@ -208,5 +229,59 @@
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+// Exit toward the search page: chrome dissolves, then crossfades into the
+// identical page underneath. Mobile has no inset/radius so it just fades.
+.panelExiting {
+  animation: panelFadeOut 0.28s ease forwards;
+}
+
+.dimExiting {
+  animation: fadeOut 0.2s ease forwards;
+}
+
+@media (min-width: 768px) {
+  .panelExiting {
+    animation: panelExpand 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+}
+
+@keyframes panelExpand {
+  0% {
+    inset: 16px;
+    border-radius: 18px;
+    opacity: 1;
+  }
+  70% {
+    inset: 0;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 1;
+  }
+  100% {
+    inset: 0;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 0;
+  }
+}
+
+@keyframes panelFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

@@ -9,6 +9,7 @@ import { TierToggle, type TierSet } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
+import { cn } from '@/utils/cn';
 import s from './SearchPalette.module.scss';
 
 const ALL_TIERS: TierSet = new Set(['notes', 'secrets', 'seals']);
@@ -20,12 +21,18 @@ export function SearchPalette() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [tiers, setTiers] = useState<TierSet>(new Set(ALL_TIERS));
   const [counts, setCounts] = useState<Partial<Record<'notes' | 'secrets' | 'seals', number>>>({});
+  // `exiting` keeps the panel mounted while it animates into the page (the
+  // context clears `isOpen`/`query` on the route change); `exitQuery` freezes
+  // the displayed content so it doesn't flash empty mid-animation.
+  const [exiting, setExiting] = useState(false);
+  const [exitQuery, setExitQuery] = useState('');
   const { recents, save: saveRecent } = useRecentSearches();
 
   useEffect(() => {
     if (!isOpen) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on palette open
     setTiers(new Set(ALL_TIERS));
+    router.prefetch('/search');
     requestAnimationFrame(() => inputRef.current?.focus());
 
     const contentEl = overlayRef.current?.parentElement;
@@ -35,7 +42,7 @@ export function SearchPalette() {
         contentEl.style.overflow = '';
       };
     }
-  }, [isOpen]);
+  }, [isOpen, router]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -53,41 +60,60 @@ export function SearchPalette() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleKeyDown]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !exiting) return null;
 
   const submit = () => {
     const q = query.trim();
     if (!q) return;
     saveRecent(q);
     const tiersParam = tiers.size < ALL_TIERS.size ? `&tiers=${[...tiers].join(',')}` : '';
-    router.push(`/search?q=${encodeURIComponent(q)}${tiersParam}`);
-    close();
+    const url = `/search?q=${encodeURIComponent(q)}${tiersParam}`;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      router.push(url);
+      close();
+      return;
+    }
+
+    // Hand off to the page: snapshot the query so content stays put, navigate
+    // underneath, animate the panel out, then unmount once it lands.
+    setExitQuery(q);
+    setExiting(true);
+    router.push(url);
+    setTimeout(() => {
+      setExiting(false);
+      close();
+    }, 320);
   };
 
-  const hasQuery = query.trim().length > 0;
+  // While exiting, the context has cleared `query`; render from the snapshot.
+  const activeQuery = exiting ? exitQuery : query;
+  const hasQuery = activeQuery.trim().length > 0;
 
   return (
     <div ref={overlayRef} className={s.overlay} role="dialog" aria-modal="true" aria-label="Search">
       {/* dim backdrop — click to close */}
-      <div className={s.dim} onClick={close} aria-hidden="true" />
+      <div className={cn(s.dim, exiting && s.dimExiting)} onClick={close} aria-hidden="true" />
 
       {/* floating frosted glass panel */}
-      <div className={s.panel}>
+      <div className={cn(s.panel, exiting && s.panelExiting)}>
         {/* sticky top: header + input + filter */}
         <div className={s.panelTop}>
-          <div className={s.panelHeader}>
-            <button type="button" className={s.closeBtn} onClick={close} aria-label="Close search">
-              <X size={20} strokeWidth={1.9} />
-            </button>
-            <h2 className={s.title}>Search</h2>
-          </div>
+          <button type="button" className={s.closeBtn} onClick={close} aria-label="Close search">
+            <X size={20} strokeWidth={1.9} />
+          </button>
 
-          <div className={s.inputRow}>
+          <div className={s.panelHeader}>
+            <div className={s.titleRow}>
+              <h2 className={s.title}>Search</h2>
+            </div>
+
             <div className={s.inputWrap}>
               <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
               <input
                 ref={inputRef}
-                value={query}
+                value={activeQuery}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -99,22 +125,22 @@ export function SearchPalette() {
                 aria-label="Search"
                 className={s.input}
               />
-              {query && (
+              {activeQuery && (
                 <button type="button" onClick={() => setQuery('')} className={s.clearBtn} aria-label="Clear search">
                   <X size={15} strokeWidth={2} />
                 </button>
               )}
-              {query && <kbd className={s.kbd}>↵</kbd>}
+              {activeQuery && <kbd className={s.kbd}>↵</kbd>}
             </div>
-          </div>
 
-          <div className={s.filterRow}>
-            <TierToggle
-              active={tiers}
-              onChange={setTiers}
-              counts={hasQuery ? counts : undefined}
-              showCounts={hasQuery}
-            />
+            <div className={s.filterRow}>
+              <TierToggle
+                active={tiers}
+                onChange={setTiers}
+                counts={hasQuery ? counts : undefined}
+                showCounts={hasQuery}
+              />
+            </div>
           </div>
         </div>
 
@@ -132,7 +158,7 @@ export function SearchPalette() {
           ) : (
             <EncryptionProvider>
               <SearchResults
-                query={query}
+                query={activeQuery}
                 mode="overlay"
                 tiers={tiers}
                 onClear={() => setQuery('')}
