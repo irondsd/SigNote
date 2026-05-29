@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X, Search } from 'lucide-react';
 import { useSearchPalette } from '@/contexts/SearchPaletteContext';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
-import { TierToggle, type TierSet } from '@/components/TierToggle/TierToggle';
+import { TierToggle, type TierSet, type TierCounts } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
@@ -20,7 +20,7 @@ export function SearchPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [tiers, setTiers] = useState<TierSet>(new Set(ALL_TIERS));
-  const [counts, setCounts] = useState<Partial<Record<'notes' | 'secrets' | 'seals', number>>>({});
+  const [counts, setCounts] = useState<TierCounts>({});
   // `exiting` keeps the panel mounted while it animates into the page (the
   // context clears `isOpen`/`query` on the route change); `exitQuery` freezes
   // the displayed content so it doesn't flash empty mid-animation.

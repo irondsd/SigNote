@@ -206,6 +206,25 @@ test.describe('search overlay - tier filter', () => {
     await tierSegment(dialog, /Notes/).click();
     await expect(noteCardIn(dialog, `${tag} note`)).toHaveCount(0);
   });
+
+  test('a deselected tier shows no count badge', async ({ page }) => {
+    const { account } = makeAccount();
+    const tag = `cntbadge${Date.now()}`;
+    await seedNotes(account.address, [{ title: `${tag} note` }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+
+    const dialog = await openSearch(page);
+    await searchInput(dialog).fill(tag);
+
+    // Active Notes tier shows its match count…
+    await expect(tierSegment(dialog, /Notes/)).toContainText('1');
+
+    // …but once deselected it must not display a "0" (or any) count badge.
+    await tierSegment(dialog, /Notes/).click();
+    await expect(tierSegment(dialog, /Notes/)).not.toContainText(/\d/);
+  });
 });
 
 // ─── Group 5: Browse a tier ─────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
-import { TierToggle, type TierSet } from '@/components/TierToggle/TierToggle';
+import { TierToggle, type TierSet, type TierCounts } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
@@ -29,7 +29,7 @@ function SearchPageContent() {
   const q = searchParams.get('q') ?? '';
   const tiers = useMemo(() => parseTiers(searchParams.get('tiers')), [searchParams]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [counts, setCounts] = useState<Partial<Record<'notes' | 'secrets' | 'seals', number>>>({});
+  const [counts, setCounts] = useState<TierCounts>({});
   const { recents, save: saveRecent } = useRecentSearches();
 
   // Local input state keeps typing instant; URL updates are debounced so we

@@ -54,11 +54,13 @@ export function StripShell({
     <section className={s.section}>
       <header className={s.sectionHeader}>
         <span className={s.tierBadge}>
-          {/* <TierIcon size={14} strokeWidth={1.9} /> */}
           <InlineSvg src={`/icons/${TierIcon}`} className={'w-4 h-4'} />
         </span>
         <h2 className={s.sectionTitle}>{title}</h2>
-        <span className={s.sectionCount}>{totalCount}</span>
+        <span className={s.sectionCount}>
+          {totalCount}
+          {hasMore ? '+' : ''}
+        </span>
         {showSeeAll && seeAllHref && (
           <Link href={seeAllHref} className={s.seeAll}>
             See all <ArrowRight size={13} strokeWidth={1.9} />

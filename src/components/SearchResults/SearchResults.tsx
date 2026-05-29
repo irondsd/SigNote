@@ -7,7 +7,7 @@ import { useSecrets } from '@/hooks/useSecrets';
 import { useSeals } from '@/hooks/useSeals';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { EmptyResults } from '@/components/EmptyResults/EmptyResults';
-import type { TierSet } from '@/components/TierToggle/TierToggle';
+import type { TierSet, TierCounts } from '@/components/TierToggle/TierToggle';
 import { NotesStrip } from './NotesStrip';
 import { SecretsStrip } from './SecretsStrip';
 import { SealsStrip } from './SealsStrip';
@@ -21,13 +21,13 @@ type SearchResultsProps = {
   tiers: TierSet;
   onItemClick?: () => void;
   onClear?: () => void;
-  onCountsChange?: (counts: Partial<Record<'notes' | 'secrets' | 'seals', number>>) => void;
+  onCountsChange?: (counts: TierCounts) => void;
 };
 
 const OVERLAY_CAP = 5;
 
 export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCountsChange }: SearchResultsProps) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { phase } = useEncryption();
   const isAuthenticated = !!session?.user?.id;
   const vaultAvailable = isAuthenticated && (phase === 'locked' || phase === 'unlocked');
@@ -63,19 +63,38 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCoun
 
   useEffect(() => {
     if (!onCountsChange || !enabled) return;
-    onCountsChange({
-      notes: showNotes ? visibleNotes.length : 0,
-      secrets: showSecrets ? visibleSecrets.length : 0,
-      seals: showSeals ? visibleSeals.length : 0,
-    });
-  }, [onCountsChange, enabled, showNotes, showSecrets, showSeals, visibleNotes.length, visibleSecrets.length, visibleSeals.length]);
+    // Only report active tiers — a deselected tier should show no badge, not "0".
+    // `more` flags the count as a lower bound when further pages exist (the API has
+    // no total), surfaced as a "+" suffix.
+    const next: TierCounts = {};
+    if (showNotes) next.notes = { count: visibleNotes.length, more: !!notesQuery.hasNextPage };
+    if (showSecrets) next.secrets = { count: visibleSecrets.length, more: !!secretsQuery.hasNextPage };
+    if (showSeals) next.seals = { count: visibleSeals.length, more: !!sealsQuery.hasNextPage };
+    onCountsChange(next);
+  }, [
+    onCountsChange,
+    enabled,
+    showNotes,
+    showSecrets,
+    showSeals,
+    visibleNotes.length,
+    visibleSecrets.length,
+    visibleSeals.length,
+    notesQuery.hasNextPage,
+    secretsQuery.hasNextPage,
+    sealsQuery.hasNextPage,
+  ]);
 
   if (!enabled) return null;
 
-  const anyLoading =
-    (showNotes && notesQuery.isLoading) ||
-    (showSecrets && vaultAvailable && secretsQuery.isLoading) ||
-    (showSeals && vaultAvailable && sealsQuery.isLoading);
+  // Treat prerequisite-pending states as loading so the empty state can't flash before
+  // the queries are even enabled. Notes wait on the session; vault tiers wait on `phase`
+  // (which already subsumes session loading). A disabled query reports isLoading === false,
+  // which is why these guards are needed beyond `isLoading` alone.
+  const notesLoading = showNotes && (sessionStatus === 'loading' || notesQuery.isLoading);
+  const secretsLoading = showSecrets && (phase === 'loading' || (vaultAvailable && secretsQuery.isLoading));
+  const sealsLoading = showSeals && (phase === 'loading' || (vaultAvailable && sealsQuery.isLoading));
+  const anyLoading = notesLoading || secretsLoading || sealsLoading;
   const totalCount = visibleNotes.length + visibleSecrets.length + visibleSeals.length;
 
   if (!anyLoading && totalCount === 0) {
@@ -96,7 +115,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCoun
           showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => notesQuery.fetchNextPage() : undefined}
-          hasMore={mode === 'page' ? notesQuery.hasNextPage : false}
+          hasMore={!!notesQuery.hasNextPage}
           isLoadingMore={mode === 'page' ? notesQuery.isFetchingNextPage : false}
         />
       )}
@@ -109,7 +128,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCoun
           showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => secretsQuery.fetchNextPage() : undefined}
-          hasMore={mode === 'page' ? secretsQuery.hasNextPage : false}
+          hasMore={!!secretsQuery.hasNextPage}
           isLoadingMore={mode === 'page' ? secretsQuery.isFetchingNextPage : false}
         />
       )}
@@ -122,7 +141,7 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCoun
           showSeeAll={showSeeAll}
           onItemClick={onItemClick}
           onLoadMore={mode === 'page' ? () => sealsQuery.fetchNextPage() : undefined}
-          hasMore={mode === 'page' ? sealsQuery.hasNextPage : false}
+          hasMore={!!sealsQuery.hasNextPage}
           isLoadingMore={mode === 'page' ? sealsQuery.isFetchingNextPage : false}
         />
       )}
