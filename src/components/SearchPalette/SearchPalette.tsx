@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Search } from 'lucide-react';
 import { useSearchPalette } from '@/contexts/SearchPaletteContext';
+import { EncryptionProvider } from '@/contexts/EncryptionContext';
 import { TierToggle, type TierSet } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
@@ -99,12 +100,7 @@ export function SearchPalette() {
                 className={s.input}
               />
               {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className={s.clearBtn}
-                  aria-label="Clear search"
-                >
+                <button type="button" onClick={() => setQuery('')} className={s.clearBtn} aria-label="Clear search">
                   <X size={15} strokeWidth={2} />
                 </button>
               )}
@@ -134,13 +130,15 @@ export function SearchPalette() {
               onNavigate={close}
             />
           ) : (
-            <SearchResults
-              query={query}
-              mode="overlay"
-              tiers={tiers}
-              onClear={() => setQuery('')}
-              onCountsChange={setCounts}
-            />
+            <EncryptionProvider>
+              <SearchResults
+                query={query}
+                mode="overlay"
+                tiers={tiers}
+                onClear={() => setQuery('')}
+                onCountsChange={setCounts}
+              />
+            </EncryptionProvider>
           )}
         </div>
       </div>
