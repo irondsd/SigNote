@@ -39,9 +39,13 @@ export function SearchResults({ query, mode, tiers, onItemClick, onClear, onCoun
   const showSecrets = tiers.has('secrets');
   const showSeals = tiers.has('seals');
 
-  const notesQuery = useNotes({ archived: undefined, search: enabled && showNotes ? trimmed : '' });
-  const secretsQuery = useSecrets({ archived: undefined, search: enabled && showSecrets ? trimmed : '' });
-  const sealsQuery = useSeals({ archived: undefined, search: enabled && showSeals ? trimmed : '' });
+  // Keep `search` constant per tier and toggle `enabled` instead of repointing the
+  // query to an empty search. Switching to '' would fetch (and cache) the entire tier,
+  // which then briefly flashes when the tier is re-enabled before the debounced search
+  // key catches up. Disabled queries simply retain their cached results.
+  const notesQuery = useNotes({ archived: undefined, search: trimmed, enabled: enabled && showNotes });
+  const secretsQuery = useSecrets({ archived: undefined, search: trimmed, enabled: enabled && showSecrets });
+  const sealsQuery = useSeals({ archived: undefined, search: trimmed, enabled: enabled && showSeals });
 
   const notes = useMemo(() => notesQuery.data?.pages.flatMap((p) => p) ?? [], [notesQuery.data?.pages]);
   const secrets = useMemo(
