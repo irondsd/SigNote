@@ -130,7 +130,17 @@ export function SearchPalette() {
                   <X size={15} strokeWidth={2} />
                 </button>
               )}
-              {activeQuery && <kbd className={s.kbd}>↵</kbd>}
+              {activeQuery && (
+                <button
+                  type="button"
+                  className={s.kbd}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={submit}
+                  aria-label="Go to search results"
+                >
+                  ↵
+                </button>
+              )}
             </div>
 
             <div className={s.filterRow}>
@@ -161,6 +171,9 @@ export function SearchPalette() {
                 query={activeQuery}
                 mode="overlay"
                 tiers={tiers}
+                // Opening a result means the user found what they searched for,
+                // so save the query even though they never pressed enter.
+                onItemClick={() => saveRecent(activeQuery)}
                 onClear={() => setQuery('')}
                 onCountsChange={setCounts}
               />
