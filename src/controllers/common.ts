@@ -40,9 +40,7 @@ export function commonOps<T extends CommonFields>(model: Model<T>) {
 // to cancel the deletion. Strict-future filtering happens in `listByUserId`.
 export function getByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
   const graceCutoff = new Date(Date.now() - 3600_000);
-  return model
-    .findOne({ _id: id, $or: [{ expiresAt: null }, { expiresAt: { $gt: graceCutoff } }] })
-    .exec();
+  return model.findOne({ _id: id, $or: [{ expiresAt: null }, { expiresAt: { $gt: graceCutoff } }] }).exec();
 }
 
 export async function createEntity<T extends CommonFields>(

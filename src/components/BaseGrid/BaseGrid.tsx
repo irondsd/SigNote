@@ -22,6 +22,7 @@ import s from './BaseGrid.module.scss';
 
 type BaseItem = {
   position: number;
+  pinned?: boolean;
 };
 
 type BaseGridProps<T extends BaseItem> = {
@@ -93,9 +94,28 @@ export function BaseGrid<T extends BaseItem>({
       const newIndex = notes.findIndex((n) => getId(n) === over.id);
       if (oldIndex === -1 || newIndex === -1) return;
 
+      // Pinned notes are forced to the top of the list (sort: pinned desc, position desc),
+      // so the array is only monotonic by position *within* a pinned group. Compute the
+      // drop neighbors from same-group items only — otherwise a pinned note's position can
+      // leak in as a neighbor and produce a midpoint that lands the note in the wrong place.
+      const dragged = notes[oldIndex];
       const withoutDragged = notes.filter((_, i) => i !== oldIndex);
-      const above = newIndex > 0 ? withoutDragged[newIndex - 1].position : null;
-      const below = newIndex < withoutDragged.length ? withoutDragged[newIndex].position : null;
+      const sameGroup = (item: T) => Boolean(item.pinned) === Boolean(dragged.pinned);
+
+      let above: number | null = null;
+      for (let i = newIndex - 1; i >= 0; i--) {
+        if (sameGroup(withoutDragged[i])) {
+          above = withoutDragged[i].position;
+          break;
+        }
+      }
+      let below: number | null = null;
+      for (let i = newIndex; i < withoutDragged.length; i++) {
+        if (sameGroup(withoutDragged[i])) {
+          below = withoutDragged[i].position;
+          break;
+        }
+      }
       const newPosition = calculatePosition(above, below);
 
       reorderMutation.mutate({ id: active.id as string, position: newPosition, oldIndex, newIndex });
