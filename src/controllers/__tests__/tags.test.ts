@@ -126,7 +126,7 @@ describe('deleteTagAndDetach', () => {
     await deleteTagAndDetach(wid);
 
     expect(await TagModel.findById(wid)).toBeNull();
-    expect((await NoteModel.findById(note._id))?.tags).toEqual([kid]);
+    expect((await NoteModel.findById(note._id))?.tags.map(String)).toEqual([kid]);
     expect((await SecretNoteModel.findById(secret._id))?.tags).toEqual([]);
   });
 });

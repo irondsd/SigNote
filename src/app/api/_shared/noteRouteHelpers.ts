@@ -1,3 +1,4 @@
+import { isValidObjectId } from 'mongoose';
 import { type NextRequest, NextResponse } from 'next/server';
 import { MAX_SEARCH } from '@/config/constants';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
@@ -11,11 +12,12 @@ export function parseListParams(req: NextRequest) {
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
   const search = (req.nextUrl.searchParams.get('q') || '').trim().slice(0, MAX_SEARCH);
   const tagsParam = req.nextUrl.searchParams.get('tags');
+
   const tagIds = tagsParam
     ? tagsParam
         .split(',')
         .map((t) => t.trim())
-        .filter(Boolean)
+        .filter((t) => isValidObjectId(t))
     : undefined;
   const tagMode: 'or' | 'and' = req.nextUrl.searchParams.get('tagMode') === 'and' ? 'and' : 'or';
   return { archived, limit, offset, search, tagIds, tagMode };

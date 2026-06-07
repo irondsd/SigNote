@@ -35,7 +35,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
   const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
-  const [tags, setTags] = useState<string[]>(note.tags ?? []);
+  const [tags, setTags] = useState<string[]>(() => (note.tags ?? []).map(String));
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);

@@ -1,4 +1,4 @@
-import { type Model, type UpdateQuery, type HydratedDocument } from 'mongoose';
+import { type Model, type UpdateQuery, type HydratedDocument, type Types } from 'mongoose';
 import { MAX_SEARCH } from '@/config/constants';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
@@ -12,7 +12,7 @@ type CommonFields = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
-  tags: string[];
+  tags: Types.ObjectId[];
 };
 
 export function commonOps<T extends CommonFields>(model: Model<T>) {

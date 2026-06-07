@@ -1,4 +1,4 @@
-import { type HydratedDocument, model, models, Schema } from 'mongoose';
+import { type HydratedDocument, model, models, Schema, type Types } from 'mongoose';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { type EncryptedPayload } from '@/types/crypto';
 
@@ -16,7 +16,7 @@ export type SecretNote = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
-  tags: string[];
+  tags: Types.ObjectId[];
 };
 
 export type SecretNoteDocument = HydratedDocument<SecretNote>;
@@ -44,7 +44,7 @@ const secretNoteSchema = new Schema<SecretNote>({
   pinned: { type: Boolean, default: false },
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
-  tags: { type: [String], default: [] },
+  tags: { type: [{ type: Schema.Types.ObjectId, ref: 'Tag' }], default: [] },
 });
 
 // Compound index for userId-filtered queries

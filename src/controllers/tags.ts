@@ -1,4 +1,4 @@
-import { isValidObjectId } from 'mongoose';
+import { isValidObjectId, type Types } from 'mongoose';
 import { TagModel, type TagDocument } from '@/models/Tag';
 import { NoteModel } from '@/models/Note';
 import { SecretNoteModel } from '@/models/SecretNote';
@@ -38,12 +38,15 @@ export async function getTagUsageCounts(userId: string): Promise<Record<string, 
   const counts: Record<string, number> = {};
   await Promise.all(
     TIER_MODELS.map(async (model) => {
-      const rows = await model.aggregate<{ _id: string; n: number }>([
+      const rows = await model.aggregate<{ _id: Types.ObjectId; n: number }>([
         { $match: { userId, deletedAt: null } },
         { $unwind: '$tags' },
         { $group: { _id: '$tags', n: { $sum: 1 } } },
       ]);
-      for (const row of rows) counts[row._id] = (counts[row._id] || 0) + row.n;
+      for (const row of rows) {
+        const id = String(row._id);
+        counts[id] = (counts[id] || 0) + row.n;
+      }
     }),
   );
   return counts;

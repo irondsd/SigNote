@@ -38,9 +38,11 @@ export function useTags() {
     return map;
   }, [tags]);
 
+  // Accepts string ids or Mongoose ObjectIds (server document types expose the
+  // latter even though the client only ever holds JSON strings at runtime).
   const resolve = useCallback(
-    (ids: string[] | undefined | null): ClientTag[] =>
-      (ids ?? []).map((id) => byId.get(id)).filter((t): t is ClientTag => t !== undefined),
+    (ids: ReadonlyArray<string | { toString(): string }> | undefined | null): ClientTag[] =>
+      (ids ?? []).map((id) => byId.get(String(id))).filter((t): t is ClientTag => t !== undefined),
     [byId],
   );
 
