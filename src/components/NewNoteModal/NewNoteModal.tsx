@@ -44,6 +44,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
   } = useNewNoteState('note', onClose, initialContent);
 
   const [isUploading, setIsUploading] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
   const createNote = useCreateNote({ onError: onSaveError });
 
   const handleSave = () => {
@@ -58,7 +59,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     }
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     clearDraft();
-    createNote.mutate({ title: title.trim(), content: content.trim(), color, pattern });
+    createNote.mutate({ title: title.trim(), content: content.trim(), color, pattern, tags });
     onClose();
   };
 
@@ -81,6 +82,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         onPatternChange={setPattern}
+        onTagsChange={setTags}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

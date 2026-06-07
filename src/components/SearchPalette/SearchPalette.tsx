@@ -1,18 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Search } from 'lucide-react';
+import { X, Search, Tag as TagIcon } from 'lucide-react';
 import { useSearchPalette } from '@/contexts/SearchPaletteContext';
 import { EncryptionProvider } from '@/contexts/EncryptionContext';
 import { TierToggle, type TierSet, type TierCounts } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
+import { Tag } from '@/components/Tag/Tag';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
+import { useTags } from '@/hooks/useTags';
 import { cn } from '@/utils/cn';
 import s from './SearchPalette.module.scss';
 
 const ALL_TIERS: TierSet = new Set(['notes', 'secrets', 'seals']);
+const MAX_POPULAR_TAGS = 8;
 
 export function SearchPalette() {
   const { isOpen, query, close, setQuery } = useSearchPalette();
@@ -27,6 +30,25 @@ export function SearchPalette() {
   const [exiting, setExiting] = useState(false);
   const [exitQuery, setExitQuery] = useState('');
   const { recents, save: saveRecent } = useRecentSearches();
+  const { tags, counts: tagCounts } = useTags();
+
+  const popularTags = useMemo(
+    () => [...tags].sort((a, b) => (tagCounts[b._id] ?? 0) - (tagCounts[a._id] ?? 0)).slice(0, MAX_POPULAR_TAGS),
+    [tags, tagCounts],
+  );
+
+  const goToTag = useCallback(
+    (id: string) => {
+      const q = query.trim();
+      if (q) saveRecent(q);
+      const params = new URLSearchParams({ tag: id });
+      if (q) params.set('q', q);
+      if (tiers.size < ALL_TIERS.size) params.set('tiers', [...tiers].join(','));
+      router.push(`/search?${params.toString()}`);
+      close();
+    },
+    [query, tiers, router, saveRecent, close],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -157,20 +179,36 @@ export function SearchPalette() {
         {/* scrollable results / recents */}
         <div className={s.panelBody}>
           {!hasQuery ? (
-            <RecentSearches
-              recents={recents}
-              onPick={(q) => {
-                setQuery(q);
-                inputRef.current?.focus();
-              }}
-              onNavigate={close}
-            />
+            <>
+              <RecentSearches
+                recents={recents}
+                onPick={(q) => {
+                  setQuery(q);
+                  inputRef.current?.focus();
+                }}
+                onNavigate={close}
+              />
+              {popularTags.length > 0 && (
+                <div className={s.tagFilterSection}>
+                  <div className={s.tagFilterLabel}>
+                    <TagIcon size={14} />
+                    <span>Filter by tag</span>
+                  </div>
+                  <div className={s.tagFilterChips}>
+                    {popularTags.map((t) => (
+                      <Tag key={t._id} tag={t} size="md" variant="soft" dot onClick={() => goToTag(t._id)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <EncryptionProvider>
               <SearchResults
                 query={activeQuery}
                 mode="overlay"
                 tiers={tiers}
+                onSelectTag={goToTag}
                 // Opening a result means the user found what they searched for,
                 // so save the query even though they never pressed enter.
                 onItemClick={() => saveRecent(activeQuery)}

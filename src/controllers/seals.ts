@@ -11,6 +11,8 @@ export const updateSealColor = sealOps.updateColor;
 export const updateSealPattern = sealOps.updatePattern;
 export const updateSealPosition = sealOps.updatePosition;
 
+export const updateSealTags = sealOps.updateTags;
+
 export const createSeal = (
   userId: string,
   title: string,
@@ -18,10 +20,18 @@ export const createSeal = (
   wrappedNoteKey: EncryptedPayload | null = null,
   color?: string | null,
   pattern?: string | null,
-) => createEntity(SealNoteModel, userId, { title, encryptedBody, wrappedNoteKey }, color, pattern);
+  tags?: string[],
+) => createEntity(SealNoteModel, userId, { title, encryptedBody, wrappedNoteKey }, color, pattern, tags);
 
-export const getSealsByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
-  listByUserId(SealNoteModel, userId, { archived, limit, offset, search });
+export const getSealsByUserId = (
+  userId: string,
+  archived?: boolean,
+  limit = 30,
+  offset = 0,
+  search = '',
+  tagIds?: string[],
+  tagMode: 'or' | 'and' = 'or',
+) => listByUserId(SealNoteModel, userId, { archived, limit, offset, search, tagIds, tagMode });
 
 export const getSealById = (id: string) => getByIdActive(SealNoteModel, id);
 

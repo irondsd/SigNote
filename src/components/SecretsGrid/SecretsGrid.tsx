@@ -137,6 +137,7 @@ export function SecretsGrid({
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
           burnAfterReading={note.burnAfterReading}
+          tagIds={note.tags}
         />
       )}
       renderOverlayCard={(note, showBadge) => (
@@ -153,6 +154,7 @@ export function SecretsGrid({
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
           burnAfterReading={note.burnAfterReading}
+          tagIds={note.tags}
         />
       )}
     >

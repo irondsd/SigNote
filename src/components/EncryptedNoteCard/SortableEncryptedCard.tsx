@@ -18,6 +18,7 @@ type SortableEncryptedCardProps = {
   pinned?: boolean;
   hasExpiry?: boolean;
   burnAfterReading?: boolean;
+  tagIds?: string[];
 };
 
 export function SortableEncryptedCard({
@@ -35,6 +36,7 @@ export function SortableEncryptedCard({
   pinned,
   hasExpiry,
   burnAfterReading,
+  tagIds,
 }: SortableEncryptedCardProps) {
   return (
     <SortableWrapper id={id} isDragDisabled={isDragDisabled}>
@@ -51,6 +53,7 @@ export function SortableEncryptedCard({
         pinned={pinned}
         hasExpiry={hasExpiry}
         burnAfterReading={burnAfterReading}
+        tagIds={tagIds}
       />
     </SortableWrapper>
   );

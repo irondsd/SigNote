@@ -17,6 +17,7 @@ export type SealNote = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
+  tags: string[];
 };
 
 export type SealNoteDocument = HydratedDocument<SealNote>;
@@ -45,10 +46,14 @@ const sealNoteSchema = new Schema<SealNote>({
   pinned: { type: Boolean, default: false },
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
+  tags: { type: [String], default: [] },
 });
 
 // Compound index for userId-filtered queries
 sealNoteSchema.index({ userId: 1, deletedAt: 1 });
+
+// Multikey index for filtering by tag id.
+sealNoteSchema.index({ userId: 1, tags: 1 });
 
 // Covers the default list sort path: userId + archived prefix, pinned/position sort suffix.
 sealNoteSchema.index({ userId: 1, archived: 1, pinned: -1, position: -1 });

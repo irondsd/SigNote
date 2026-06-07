@@ -6,7 +6,9 @@ import { Search, X } from 'lucide-react';
 import { TierToggle, type TierSet, type TierCounts } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
+import { Tag } from '@/components/Tag/Tag';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
+import { useTags } from '@/hooks/useTags';
 import s from './page.module.scss';
 
 const ALL_TIERS: TierSet = new Set(['notes', 'secrets', 'seals']);
@@ -27,10 +29,13 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = searchParams.get('q') ?? '';
+  const tag = searchParams.get('tag') ?? '';
   const tiers = useMemo(() => parseTiers(searchParams.get('tiers')), [searchParams]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [counts, setCounts] = useState<TierCounts>({});
   const { recents, save: saveRecent } = useRecentSearches();
+  const { byId } = useTags();
+  const tagObj = tag ? byId.get(tag) : undefined;
 
   // Local input state keeps typing instant; URL updates are debounced so we
   // don't fire a router.replace (full route re-render) on every keystroke.
@@ -47,7 +52,7 @@ function SearchPageContent() {
   }, [q]);
 
   const updateParams = useCallback(
-    (updates: { q?: string; tiers?: TierSet }) => {
+    (updates: { q?: string; tiers?: TierSet; tag?: string | null }) => {
       const params = new URLSearchParams(searchParams.toString());
       if ('q' in updates) {
         if (updates.q) params.set('q', updates.q);
@@ -57,6 +62,10 @@ function SearchPageContent() {
         const encoded = encodeTiers(updates.tiers!);
         if (encoded) params.set('tiers', encoded);
         else params.delete('tiers');
+      }
+      if ('tag' in updates) {
+        if (updates.tag) params.set('tag', updates.tag);
+        else params.delete('tag');
       }
       router.replace(`/search${params.toString() ? `?${params.toString()}` : ''}`);
     },
@@ -71,6 +80,7 @@ function SearchPageContent() {
   }, [inputValue, q, updateParams]);
 
   const hasQuery = q.trim().length > 0;
+  const hasFilter = hasQuery || !!tag;
 
   return (
     <div className={s.page}>
@@ -81,6 +91,9 @@ function SearchPageContent() {
 
         <div className={s.inputWrap}>
           <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
+          {tagObj && (
+            <Tag tag={tagObj} size="sm" variant="soft" dot onRemove={() => updateParams({ tag: null })} />
+          )}
           <input
             ref={inputRef}
             value={inputValue}
@@ -92,7 +105,7 @@ function SearchPageContent() {
                 updateParams({ q: trimmed });
               }
             }}
-            placeholder="Search notes, secrets, and seals"
+            placeholder={tagObj ? '' : 'Search notes, secrets, and seals'}
             aria-label="Search"
             className={s.input}
           />
@@ -115,13 +128,13 @@ function SearchPageContent() {
           <TierToggle
             active={tiers}
             onChange={(next) => updateParams({ tiers: next })}
-            counts={hasQuery ? counts : undefined}
-            showCounts={hasQuery}
+            counts={hasFilter ? counts : undefined}
+            showCounts={hasFilter}
           />
         </div>
       </div>
 
-      {!hasQuery ? (
+      {!hasFilter ? (
         <div className={s.body}>
           <RecentSearches recents={recents} onPick={(term) => updateParams({ q: term })} />
         </div>
@@ -131,6 +144,8 @@ function SearchPageContent() {
             query={q}
             mode="page"
             tiers={tiers}
+            tagId={tag || undefined}
+            onSelectTag={(id) => updateParams({ tag: id })}
             onClear={() => updateParams({ q: '' })}
             onCountsChange={setCounts}
           />

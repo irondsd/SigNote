@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { MAX_SEARCH } from '@/config/constants';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
+import { getOwnedTagIds } from '@/controllers/tags';
 
 export function parseListParams(req: NextRequest) {
   const archivedParam = req.nextUrl.searchParams.get('archived');
@@ -9,7 +10,15 @@ export function parseListParams(req: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '30', 10) || 30));
   const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
   const search = (req.nextUrl.searchParams.get('q') || '').trim().slice(0, MAX_SEARCH);
-  return { archived, limit, offset, search };
+  const tagsParam = req.nextUrl.searchParams.get('tags');
+  const tagIds = tagsParam
+    ? tagsParam
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : undefined;
+  const tagMode: 'or' | 'and' = req.nextUrl.searchParams.get('tagMode') === 'and' ? 'and' : 'or';
+  return { archived, limit, offset, search, tagIds, tagMode };
 }
 
 type PinExpiryUpdate = {
@@ -26,6 +35,7 @@ type CommonOps = {
   updateColor: (id: string, color: string | null) => Promise<unknown>;
   updatePattern: (id: string, pattern: string | null) => Promise<unknown>;
   updatePosition: (id: string, position: number) => Promise<unknown>;
+  updateTags: (id: string, tags: string[]) => Promise<unknown>;
   applyPatch: (id: string, update: PinExpiryUpdate) => Promise<unknown>;
 };
 
@@ -37,7 +47,7 @@ export async function handleCommonPatch(
   body: Record<string, unknown>,
   ops: CommonOps,
 ): Promise<PatchResult> {
-  const { deleted, archived, color, pattern, position, pinned, expiresAt, burnAfterReading } = body;
+  const { deleted, archived, color, pattern, position, pinned, expiresAt, burnAfterReading, tags } = body;
 
   if (typeof deleted === 'boolean') {
     let updated;
@@ -69,6 +79,19 @@ export async function handleCommonPatch(
       return { handled: true, response: NextResponse.json({ error: 'Invalid pattern' }, { status: 400 }) };
     }
     const updated = await ops.updatePattern(id, (pattern as string) ?? null);
+    return { handled: true, updated };
+  }
+
+  if ('tags' in body) {
+    if (!Array.isArray(tags)) {
+      return { handled: true, response: NextResponse.json({ error: 'Invalid tags' }, { status: 400 }) };
+    }
+    // Drop ids the user doesn't own (foreign / deleted) before persisting.
+    const ownedTagIds = await getOwnedTagIds(
+      userId,
+      tags.filter((t): t is string => typeof t === 'string'),
+    );
+    const updated = await ops.updateTags(id, ownedTagIds);
     return { handled: true, updated };
   }
 

@@ -24,6 +24,7 @@ export type CachedSealNote = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  tags: string[];
 };
 
 type CreateSealInput = {
@@ -33,6 +34,7 @@ type CreateSealInput = {
   color?: string | null;
   pattern?: string | null;
   fileIds?: string[];
+  tags?: string[];
 };
 
 type UpdateSealInput = {
@@ -48,6 +50,7 @@ type UpdateSealInput = {
   pinned?: boolean;
   expiresAt?: string | null;
   burnAfterReading?: boolean;
+  tags?: string[];
 };
 
 const ROOT = 'seals';
@@ -87,6 +90,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
       color?: string | null;
       pattern?: string | null;
       fileIds?: string[];
+      tags?: string[];
       encryptBody: (
         sealId: string,
       ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
@@ -96,6 +100,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
         color: input.color,
         pattern: input.pattern,
         fileIds: input.fileIds,
+        tags: input.tags,
       });
       const encrypted = await input.encryptBody(created._id);
       if (encrypted) {
@@ -121,6 +126,7 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
         pinned: false,
         expiresAt: null,
         burnAfterReading: false,
+        tags: input.tags ?? [],
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

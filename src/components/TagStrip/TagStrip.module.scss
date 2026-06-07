@@ -1,0 +1,224 @@
+/* ── the "Tags" strip line in the note modal ── */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  min-height: 44px;
+}
+
+.stripLabel {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.addChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 2px 10px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--foreground);
+    border-color: var(--muted-foreground);
+  }
+}
+
+.addChipActive {
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  color: var(--primary);
+  border-color: transparent;
+}
+
+/* ── the command palette popover ── */
+.palette {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 0;
+  overflow: hidden;
+  z-index: 200;
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inputIcon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--foreground);
+
+  &::placeholder {
+    color: var(--muted-foreground);
+  }
+}
+
+.kbd {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-family: var(--font-mono, monospace);
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+.groups {
+  padding: 6px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.groupLabel {
+  padding: 8px 12px 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: calc(100% - 12px);
+  margin: 0 6px;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: var(--accent);
+  }
+}
+
+.rowActive {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+
+  &:hover {
+    background: color-mix(in oklab, var(--primary) 16%, transparent);
+  }
+}
+
+.rowCount {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowHint {
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+
+.rowEnter {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.createIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.createText {
+  font-size: 13px;
+  color: var(--foreground);
+}
+
+.autoHint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 16px 8px;
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+
+  b {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+}
+
+.autoDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--note-bg, var(--muted-foreground));
+  filter: saturate(2.5) brightness(0.92);
+}
+
+.paletteEmpty {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+
+.manageRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+
+  &:hover {
+    background: var(--accent);
+  }
+
+  svg {
+    color: var(--muted-foreground);
+  }
+}
+
+.manageChevron {
+  margin-left: auto;
+}

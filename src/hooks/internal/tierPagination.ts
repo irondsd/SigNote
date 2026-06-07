@@ -26,13 +26,17 @@ export function getNextPageParam<T>(lastPage: T[], allPages: T[][]): number | un
 
 export async function fetchTierPage<T>(
   endpoint: string,
-  params: { archived?: boolean; search?: string; pageParam: number },
+  params: { archived?: boolean; search?: string; tags?: string[]; tagMode?: 'or' | 'and'; pageParam: number },
 ): Promise<T[]> {
-  const { archived, search = '', pageParam } = params;
+  const { archived, search = '', tags, tagMode = 'or', pageParam } = params;
   const searchParams = new URLSearchParams();
   if (archived !== undefined) searchParams.set('archived', String(archived));
   const normalizedSearch = search.trim();
   if (normalizedSearch) searchParams.set('q', normalizedSearch);
+  if (tags && tags.length > 0) {
+    searchParams.set('tags', tags.join(','));
+    if (tagMode === 'and') searchParams.set('tagMode', 'and');
+  }
   const isFirstPage = pageParam === 0;
   const limit = isFirstPage ? INITIAL_PAGE_SIZE : PAGE_SIZE;
   const offset = isFirstPage ? 0 : INITIAL_PAGE_SIZE + (pageParam - 1) * PAGE_SIZE;

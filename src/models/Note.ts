@@ -15,6 +15,7 @@ export type Note = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
+  tags: string[];
 };
 
 export type NoteDocument = HydratedDocument<Note>;
@@ -33,10 +34,14 @@ const noteSchema = new Schema<Note>({
   pinned: { type: Boolean, default: false },
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
+  tags: { type: [String], default: [] },
 });
 
 // Compound index for userId-filtered queries (the most common access pattern)
 noteSchema.index({ userId: 1, deletedAt: 1 });
+
+// Multikey index for filtering by tag id.
+noteSchema.index({ userId: 1, tags: 1 });
 
 // Covers the default list sort path: userId + archived prefix, pinned/position sort suffix.
 noteSchema.index({ userId: 1, archived: 1, pinned: -1, position: -1 });

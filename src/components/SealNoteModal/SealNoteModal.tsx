@@ -51,6 +51,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
   const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
+  const [tags, setTags] = useState<string[]>(note.tags ?? []);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -269,6 +270,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     updateSeal.mutate({ id: note._id, pattern: newPattern });
   };
 
+  const handleTagsChange = (ids: string[]) => {
+    setTags(ids);
+    updateSeal.mutate({ id: note._id, tags: ids });
+  };
+
   const handleTogglePinned = (next: boolean) => {
     setPinned(next);
     updateSeal.mutate({ id: note._id, pinned: next });
@@ -371,6 +377,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         pattern={pattern}
         onColorChange={handleColorChange}
         onPatternChange={handlePatternChange}
+        tags={tags}
+        onTagsChange={handleTagsChange}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         showEditButton={isDecrypted}

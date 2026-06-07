@@ -227,8 +227,23 @@
   padding: 2px 7px 2px 5px;
 }
 
+.tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tagsMore {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+}
+
 .date {
   font-size: 11px;
   color: var(--muted-foreground);
   margin-left: auto;
+  flex: 0 0 auto;
 }

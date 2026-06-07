@@ -30,6 +30,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -81,7 +82,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         clearDraft();
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
         const fileIds = extractFileIds(trimmedContent);
-        createSecret.mutate({ title: trimmedTitle, encryptedBody, color, pattern, fileIds });
+        createSecret.mutate({ title: trimmedTitle, encryptedBody, color, pattern, fileIds, tags });
         onClose();
       });
     } finally {
@@ -108,6 +109,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         onPatternChange={setPattern}
+        onTagsChange={setTags}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

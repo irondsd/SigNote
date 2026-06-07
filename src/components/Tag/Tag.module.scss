@@ -1,0 +1,135 @@
+/* Tag chip. Color reuses the note palette: `data-color` sets `--note-bg`
+   globally (see globals.css), and every chip shade is *derived* from it — no
+   new CSS color variables. Backgrounds are semi-transparent so chips sit
+   cleanly over any note color/pattern. */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  white-space: nowrap;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  // Neutral fallback when a tag has no color set.
+  background: var(--muted);
+  color: var(--muted-foreground);
+  --tag-dot: var(--muted-foreground);
+}
+
+/* sizes (matches the design's xs / sm / md) */
+.xs {
+  height: 18px;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  gap: 4px;
+}
+.sm {
+  height: 22px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  gap: 5px;
+}
+.md {
+  height: 26px;
+  padding: 3px 10px;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.dot {
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--tag-dot);
+}
+.xs .dot {
+  width: 5px;
+  height: 5px;
+}
+.sm .dot {
+  width: 6px;
+  height: 6px;
+}
+.md .dot {
+  width: 7px;
+  height: 7px;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-right: -2px;
+  color: currentColor;
+  opacity: 0.55;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.interactive {
+  cursor: pointer;
+}
+.selected {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* ── derived hue shades (light) ── */
+.tag[data-color] {
+  --tag-fg: oklch(from var(--note-bg) 0.4 0.12 h);
+  --tag-dot: oklch(from var(--note-bg) 0.55 0.14 h);
+  --tag-border: color-mix(in oklab, var(--note-bg) 70%, transparent);
+  --tag-solid: oklch(from var(--note-bg) 0.55 0.14 h);
+}
+/* gray stays neutral — don't force chroma onto it */
+.tag[data-color='gray'] {
+  --tag-fg: var(--muted-foreground);
+  --tag-dot: var(--muted-foreground);
+  --tag-border: var(--border);
+  --tag-solid: oklch(from var(--note-bg) 0.45 0.01 h);
+}
+
+.soft[data-color] {
+  background: color-mix(in oklab, var(--note-bg) 55%, transparent);
+  color: var(--tag-fg);
+  border-color: var(--tag-border);
+}
+.outline[data-color] {
+  background: transparent;
+  color: var(--tag-fg);
+  border-color: var(--tag-border);
+}
+.solid[data-color] {
+  background: var(--tag-solid);
+  color: oklch(0.99 0 0);
+  border-color: transparent;
+  --tag-dot: oklch(1 0 0 / 0.85);
+}
+
+/* ── dark mode: lighten text/dot, firm up the translucent fill ── */
+:global(.dark) .tag[data-color] {
+  --tag-fg: oklch(from var(--note-bg) 0.86 0.1 h);
+  --tag-dot: oklch(from var(--note-bg) 0.78 0.13 h);
+  --tag-border: color-mix(in oklab, var(--note-bg) 85%, transparent);
+  --tag-solid: oklch(from var(--note-bg) 0.62 0.14 h);
+}
+:global(.dark) .tag[data-color='gray'] {
+  --tag-fg: var(--muted-foreground);
+  --tag-dot: var(--muted-foreground);
+}
+:global(.dark) .soft[data-color] {
+  background: color-mix(in oklab, var(--note-bg) 70%, transparent);
+}

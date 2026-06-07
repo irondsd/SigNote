@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import type { NoteDocument } from '@/models/Note';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
+import { useTags } from '@/hooks/useTags';
 
 const PURIFY_CONFIG = {
   ADD_TAGS: ['div'],
@@ -18,6 +19,7 @@ type NoteCardProps = {
 
 export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardProps) {
   const hidePreview = note.burnAfterReading;
+  const { resolve } = useTags();
   return (
     <NoteCardBase
       title={note.title}
@@ -29,6 +31,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       archived={note.archived}
       pinned={note.pinned}
       hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+      tags={resolve(note.tags)}
       data-testid="note-card"
       content={
         hidePreview ? (

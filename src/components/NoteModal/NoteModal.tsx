@@ -35,6 +35,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
   const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
+  const [tags, setTags] = useState<string[]>(note.tags ?? []);
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -98,6 +99,11 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     updateNote.mutate({ id: note._id.toString(), pattern: newPattern });
   };
 
+  const handleTagsChange = (ids: string[]) => {
+    setTags(ids);
+    updateNote.mutate({ id: note._id.toString(), tags: ids });
+  };
+
   const handleTogglePinned = (next: boolean) => {
     setPinned(next);
     updateNote.mutate({ id: note._id.toString(), pinned: next });
@@ -136,6 +142,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         pattern={pattern}
         onColorChange={handleColorChange}
         onPatternChange={handlePatternChange}
+        tags={tags}
+        onTagsChange={handleTagsChange}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}
