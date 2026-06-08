@@ -70,4 +70,31 @@ test.describe('tags', () => {
     // The manager exposes a per-row rename affordance.
     await expect(row.getByRole('button', { name: `Rename ${tagName}` })).toBeVisible();
   });
+
+  test('search palette: clicking a tag tokenises it and filters results in place', async ({ page }) => {
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly();
+
+    // Seed a tag and a note carrying it, directly via the API (shares the session).
+    const tagName = `flt${Date.now()}`;
+    const tagRes = await page.request.post('/api/tags', { data: { name: tagName } });
+    const tagId = (await tagRes.json())._id as string;
+    const noteTitle = `Filterable ${Date.now()}`;
+    const noteRes = await page.request.post('/api/notes', { data: { title: noteTitle, content: '<p>body</p>' } });
+    const noteId = (await noteRes.json())._id as string;
+    await page.request.patch(`/api/notes/${noteId}`, { data: { tags: [tagId] } });
+
+    // Reload so the notes/tags caches are fresh, then open the search palette.
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Search' }).first().click();
+
+    // The tag shows under "Filter by tag"; clicking it filters in place (no nav).
+    const dialog = page.getByRole('dialog', { name: 'Search' });
+    await dialog.getByText(tagName, { exact: true }).click();
+
+    // It becomes a token in the input and the tagged note appears in results.
+    await expect(dialog.getByRole('textbox')).toHaveValue('');
+    await expect(dialog.getByText(noteTitle, { exact: true })).toBeVisible();
+    await expect(page).toHaveURL('/'); // stayed on the page, filtered in place
+  });
 });

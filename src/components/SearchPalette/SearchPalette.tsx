@@ -24,36 +24,37 @@ export function SearchPalette() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [tiers, setTiers] = useState<TierSet>(new Set(ALL_TIERS));
   const [counts, setCounts] = useState<TierCounts>({});
+  // Active tag token shown inside the input; filters results in place.
+  const [tagId, setTagId] = useState('');
   // `exiting` keeps the panel mounted while it animates into the page (the
   // context clears `isOpen`/`query` on the route change); `exitQuery` freezes
   // the displayed content so it doesn't flash empty mid-animation.
   const [exiting, setExiting] = useState(false);
   const [exitQuery, setExitQuery] = useState('');
   const { recents, save: saveRecent } = useRecentSearches();
-  const { tags, counts: tagCounts } = useTags();
+  const { tags, counts: tagCounts, byId } = useTags();
 
   const popularTags = useMemo(
     () => [...tags].sort((a, b) => (tagCounts[b._id] ?? 0) - (tagCounts[a._id] ?? 0)).slice(0, MAX_POPULAR_TAGS),
     [tags, tagCounts],
   );
 
-  const goToTag = useCallback(
+  // Picking a tag adds it as a token and clears the text used to find it (typing
+  // "work" to locate the tag shouldn't then also require "work" in the body).
+  const selectTag = useCallback(
     (id: string) => {
-      const q = query.trim();
-      if (q) saveRecent(q);
-      const params = new URLSearchParams({ tag: id });
-      if (q) params.set('q', q);
-      if (tiers.size < ALL_TIERS.size) params.set('tiers', [...tiers].join(','));
-      router.push(`/search?${params.toString()}`);
-      close();
+      setQuery('');
+      setTagId(id);
+      requestAnimationFrame(() => inputRef.current?.focus());
     },
-    [query, tiers, router, saveRecent, close],
+    [setQuery],
   );
 
   useEffect(() => {
     if (!isOpen) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset on palette open
     setTiers(new Set(ALL_TIERS));
+    setTagId('');
     router.prefetch('/search');
     requestAnimationFrame(() => inputRef.current?.focus());
 
@@ -86,10 +87,13 @@ export function SearchPalette() {
 
   const submit = () => {
     const q = query.trim();
-    if (!q) return;
-    saveRecent(q);
-    const tiersParam = tiers.size < ALL_TIERS.size ? `&tiers=${[...tiers].join(',')}` : '';
-    const url = `/search?q=${encodeURIComponent(q)}${tiersParam}`;
+    if (!q && !tagId) return;
+    if (q) saveRecent(q);
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (tagId) params.set('tag', tagId);
+    if (tiers.size < ALL_TIERS.size) params.set('tiers', [...tiers].join(','));
+    const url = `/search?${params.toString()}`;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
@@ -112,6 +116,8 @@ export function SearchPalette() {
   // While exiting, the context has cleared `query`; render from the snapshot.
   const activeQuery = exiting ? exitQuery : query;
   const hasQuery = activeQuery.trim().length > 0;
+  const activeTag = tagId ? byId.get(tagId) : undefined;
+  const hasFilter = hasQuery || !!tagId;
 
   return (
     <div ref={overlayRef} className={s.overlay} role="dialog" aria-modal="true" aria-label="Search">
@@ -133,6 +139,9 @@ export function SearchPalette() {
 
             <div className={s.inputWrap}>
               <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
+              {activeTag && (
+                <Tag tag={activeTag} size="sm" variant="soft" dot onRemove={() => setTagId('')} />
+              )}
               <input
                 ref={inputRef}
                 value={activeQuery}
@@ -141,9 +150,11 @@ export function SearchPalette() {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     submit();
+                  } else if (e.key === 'Backspace' && !activeQuery && tagId) {
+                    setTagId('');
                   }
                 }}
-                placeholder="Search notes, secrets, and seals"
+                placeholder={activeTag ? '' : 'Search notes, secrets, and seals'}
                 aria-label="Search"
                 className={s.input}
               />
@@ -169,8 +180,8 @@ export function SearchPalette() {
               <TierToggle
                 active={tiers}
                 onChange={setTiers}
-                counts={hasQuery ? counts : undefined}
-                showCounts={hasQuery}
+                counts={hasFilter ? counts : undefined}
+                showCounts={hasFilter}
               />
             </div>
           </div>
@@ -178,7 +189,7 @@ export function SearchPalette() {
 
         {/* scrollable results / recents */}
         <div className={s.panelBody}>
-          {!hasQuery ? (
+          {!hasFilter ? (
             <>
               <RecentSearches
                 recents={recents}
@@ -196,7 +207,7 @@ export function SearchPalette() {
                   </div>
                   <div className={s.tagFilterChips}>
                     {popularTags.map((t) => (
-                      <Tag key={t._id} tag={t} size="md" variant="soft" dot onClick={() => goToTag(t._id)} />
+                      <Tag key={t._id} tag={t} size="md" variant="soft" dot onClick={() => selectTag(t._id)} />
                     ))}
                   </div>
                 </div>
@@ -208,11 +219,15 @@ export function SearchPalette() {
                 query={activeQuery}
                 mode="overlay"
                 tiers={tiers}
-                onSelectTag={goToTag}
+                tagId={tagId || undefined}
+                onSelectTag={selectTag}
                 // Opening a result means the user found what they searched for,
                 // so save the query even though they never pressed enter.
-                onItemClick={() => saveRecent(activeQuery)}
-                onClear={() => setQuery('')}
+                onItemClick={() => activeQuery.trim() && saveRecent(activeQuery)}
+                onClear={() => {
+                  setQuery('');
+                  setTagId('');
+                }}
                 onCountsChange={setCounts}
               />
             </EncryptionProvider>

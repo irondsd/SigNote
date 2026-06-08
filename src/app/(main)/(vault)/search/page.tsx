@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, X } from 'lucide-react';
+import { Search, X, Tag as TagIcon } from 'lucide-react';
 import { TierToggle, type TierSet, type TierCounts } from '@/components/TierToggle/TierToggle';
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
@@ -13,6 +13,7 @@ import s from './page.module.scss';
 
 const ALL_TIERS: TierSet = new Set(['notes', 'secrets', 'seals']);
 const VALID = new Set(['notes', 'secrets', 'seals']);
+const MAX_POPULAR_TAGS = 8;
 
 function parseTiers(raw: string | null): TierSet {
   if (!raw) return new Set(ALL_TIERS);
@@ -34,8 +35,13 @@ function SearchPageContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [counts, setCounts] = useState<TierCounts>({});
   const { recents, save: saveRecent } = useRecentSearches();
-  const { byId } = useTags();
+  const { tags, counts: tagCounts, byId } = useTags();
   const tagObj = tag ? byId.get(tag) : undefined;
+
+  const popularTags = useMemo(
+    () => [...tags].sort((a, b) => (tagCounts[b._id] ?? 0) - (tagCounts[a._id] ?? 0)).slice(0, MAX_POPULAR_TAGS),
+    [tags, tagCounts],
+  );
 
   // Local input state keeps typing instant; URL updates are debounced so we
   // don't fire a router.replace (full route re-render) on every keystroke.
@@ -137,6 +143,29 @@ function SearchPageContent() {
       {!hasFilter ? (
         <div className={s.body}>
           <RecentSearches recents={recents} onPick={(term) => updateParams({ q: term })} />
+          {popularTags.length > 0 && (
+            <div className={s.tagFilterSection}>
+              <div className={s.tagFilterLabel}>
+                <TagIcon size={14} />
+                <span>Filter by tag</span>
+              </div>
+              <div className={s.tagFilterChips}>
+                {popularTags.map((t) => (
+                  <Tag
+                    key={t._id}
+                    tag={t}
+                    size="md"
+                    variant="soft"
+                    dot
+                    onClick={() => {
+                      setInputValue('');
+                      updateParams({ tag: t._id, q: '' });
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className={s.body}>
@@ -145,8 +174,14 @@ function SearchPageContent() {
             mode="page"
             tiers={tiers}
             tagId={tag || undefined}
-            onSelectTag={(id) => updateParams({ tag: id })}
-            onClear={() => updateParams({ q: '' })}
+            onSelectTag={(id) => {
+              setInputValue('');
+              updateParams({ tag: id, q: '' });
+            }}
+            onClear={() => {
+              setInputValue('');
+              updateParams({ q: '', tag: null });
+            }}
             onCountsChange={setCounts}
           />
         </div>

@@ -110,3 +110,27 @@
     padding: 24px 28px 40px;
   }
 }
+
+.tagFilterSection {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.tagFilterLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.tagFilterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
