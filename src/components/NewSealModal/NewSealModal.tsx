@@ -30,6 +30,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
   const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -47,6 +48,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
     setPattern,
     isTitleEmpty,
     isContentEmpty,
+    isDirty,
     showConfirm,
     onCancelClose,
     handleClose,
@@ -85,6 +87,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
           color,
           pattern,
           fileIds,
+          tags,
           encryptBody: async (sealId: string) => {
             if (!trimmedContent) return null;
             return encryptSealBody(mek, trimmedContent, sealId);
@@ -116,6 +119,8 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
         onColorChange={setColor}
         onPatternChange={setPattern}
+        onTagsChange={setTags}
+        isDirty={isDirty}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

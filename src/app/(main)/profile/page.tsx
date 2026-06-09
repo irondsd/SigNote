@@ -18,12 +18,14 @@ import {
   Download,
   LifeBuoy,
   MonitorSmartphone,
+  Tag as TagIcon,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
+import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
@@ -57,6 +59,7 @@ function ProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile, isLoading } = useProfile();
+  const { tags, isLoading: tagsLoading } = useTags();
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -246,6 +249,29 @@ function ProfilePageContent() {
               <Link href="/sessions">
                 <Button variant="outline" size="sm" data-testid="manage-sessions-btn">
                   <MonitorSmartphone size={14} />
+                  Manage
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tags */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tags</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>
+                  Existing tags: <strong data-testid="tags-count">{tagsLoading ? '…' : tags.length}</strong>
+                </span>
+                <span className={s.actionDesc}>Rename, recolor or remove the tags you use to organize your notes.</span>
+              </div>
+              <Link href="/tags">
+                <Button variant="outline" size="sm" data-testid="manage-tags-btn">
+                  <TagIcon size={14} />
                   Manage
                 </Button>
               </Link>

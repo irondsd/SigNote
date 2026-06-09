@@ -1,4 +1,4 @@
-import { type Model, type UpdateQuery, type HydratedDocument } from 'mongoose';
+import { type Model, type UpdateQuery, type HydratedDocument, type Types } from 'mongoose';
 import { MAX_SEARCH } from '@/config/constants';
 import { getNextPosition } from '@/utils/calculatePosition';
 import { escapeRegExp } from '@/utils/regexUtils';
@@ -12,6 +12,7 @@ type CommonFields = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
+  tags: Types.ObjectId[];
 };
 
 export function commonOps<T extends CommonFields>(model: Model<T>) {
@@ -29,6 +30,7 @@ export function commonOps<T extends CommonFields>(model: Model<T>) {
     updateColor: (id: string, color: string | null) => exec(id, { color } as Update),
     updatePattern: (id: string, pattern: string | null) => exec(id, { pattern } as Update),
     updatePosition: (id: string, position: number) => exec(id, { position } as Update),
+    updateTags: (id: string, tags: string[]) => exec(id, { tags } as Update),
     // Use $set explicitly so null values are stored as null (not stripped
     // back to schema defaults by Mongoose's plain-object update shorthand).
     applyPatch: (id: string, update: Partial<CommonFields>) => exec(id, { $set: update } as Update),
@@ -49,6 +51,7 @@ export async function createEntity<T extends CommonFields>(
   data: Record<string, unknown>,
   color?: string | null,
   pattern?: string | null,
+  tags?: string[],
 ) {
   const now = new Date();
   const position = await getNextPosition(model as unknown as Model<{ position?: number; userId: string }>, userId);
@@ -59,6 +62,7 @@ export async function createEntity<T extends CommonFields>(
     position,
     ...(color != null && { color }),
     ...(pattern != null && { pattern }),
+    ...(Array.isArray(tags) && tags.length > 0 && { tags }),
     createdAt: now,
     updatedAt: now,
   } as unknown as T);
@@ -67,13 +71,22 @@ export async function createEntity<T extends CommonFields>(
 export async function listByUserId<T extends CommonFields>(
   model: Model<T>,
   userId: string,
-  opts: { archived?: boolean; limit?: number; offset?: number; search?: string; searchFields?: string[] } = {},
+  opts: {
+    archived?: boolean;
+    limit?: number;
+    offset?: number;
+    search?: string;
+    searchFields?: string[];
+    tagIds?: string[];
+    tagMode?: 'or' | 'and';
+  } = {},
 ) {
-  const { archived, limit = 30, offset = 0, search = '', searchFields = ['title'] } = opts;
+  const { archived, limit = 30, offset = 0, search = '', searchFields = ['title'], tagIds, tagMode = 'or' } = opts;
   const baseQuery = {
     userId,
     ...(archived !== undefined && { archived }),
     deletedAt: null,
+    ...(tagIds && tagIds.length > 0 && { tags: tagMode === 'and' ? { $all: tagIds } : { $in: tagIds } }),
     $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
   };
   const normalized = search.trim().slice(0, MAX_SEARCH);

@@ -23,6 +23,7 @@ export type CachedSecretNote = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  tags: string[];
 };
 
 type CreateSecretInput = {
@@ -31,6 +32,7 @@ type CreateSecretInput = {
   color?: string | null;
   pattern?: string | null;
   fileIds?: string[];
+  tags?: string[];
 };
 type UpdateSecretInput = {
   id: string;
@@ -44,6 +46,7 @@ type UpdateSecretInput = {
   pinned?: boolean;
   expiresAt?: string | null;
   burnAfterReading?: boolean;
+  tags?: string[];
 };
 
 const ROOT = 'secrets';
@@ -85,6 +88,7 @@ export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
         pinned: false,
         expiresAt: null,
         burnAfterReading: false,
+        tags: input.tags ?? [],
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

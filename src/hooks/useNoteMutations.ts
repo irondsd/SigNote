@@ -22,9 +22,16 @@ export type CachedNote = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  tags: string[];
 };
 
-type CreateNoteInput = { title: string; content: string; color?: string | null; pattern?: string | null };
+type CreateNoteInput = {
+  title: string;
+  content: string;
+  color?: string | null;
+  pattern?: string | null;
+  tags?: string[];
+};
 type UpdateNoteInput = {
   id: string;
   title?: string;
@@ -36,6 +43,7 @@ type UpdateNoteInput = {
   pinned?: boolean;
   expiresAt?: string | null;
   burnAfterReading?: boolean;
+  tags?: string[];
 };
 
 const ROOT = 'notes';
@@ -77,6 +85,7 @@ export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) =>
         pinned: false,
         expiresAt: null,
         burnAfterReading: false,
+        tags: input.tags ?? [],
       };
       insertAtTop(qc, snapshots, tempNote);
       return { snapshots, tempId };

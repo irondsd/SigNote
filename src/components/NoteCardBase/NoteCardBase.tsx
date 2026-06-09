@@ -4,7 +4,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Archive, Flame, Pin } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
+import { Tag, type TagLike } from '@/components/Tag/Tag';
 import s from './NoteCardBase.module.scss';
+
+const MAX_CARD_TAGS = 3;
 
 type NoteCardBaseProps = {
   title?: string;
@@ -17,6 +20,7 @@ type NoteCardBaseProps = {
   content?: React.ReactNode;
   pinned?: boolean;
   hasExpiry?: boolean;
+  tags?: TagLike[];
   'data-testid'?: string;
 };
 
@@ -31,6 +35,7 @@ export function NoteCardBase({
   content,
   pinned = false,
   hasExpiry = false,
+  tags,
   'data-testid': testId,
 }: NoteCardBaseProps) {
   const contentRef = useRef<HTMLDivElement>(null);
@@ -81,6 +86,14 @@ export function NoteCardBase({
             <Archive size={11} strokeWidth={1.9} />
             Archived
           </span>
+        )}
+        {tags && tags.length > 0 && (
+          <div className={s.tags} data-testid="card-tags">
+            {tags.slice(0, MAX_CARD_TAGS).map((t) => (
+              <Tag key={t.name} tag={t} size="xs" variant="soft" />
+            ))}
+            {tags.length > MAX_CARD_TAGS && <span className={s.tagsMore}>+{tags.length - MAX_CARD_TAGS}</span>}
+          </div>
         )}
         <RelativeDate updatedAt={updatedAt} className={s.date} />
       </div>

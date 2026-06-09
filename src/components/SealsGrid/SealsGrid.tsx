@@ -59,6 +59,7 @@ export function SealsGrid({
           isDragDisabled={dragDisabled}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+          tagIds={note.tags}
         />
       )}
       renderOverlayCard={(note, showBadge) => (
@@ -73,6 +74,7 @@ export function SealsGrid({
           archived={note.archived}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+          tagIds={note.tags}
         />
       )}
     >

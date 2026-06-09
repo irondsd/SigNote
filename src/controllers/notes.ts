@@ -10,16 +10,35 @@ export const updateNoteColor = noteOps.updateColor;
 export const updateNotePattern = noteOps.updatePattern;
 export const updateNotePosition = noteOps.updatePosition;
 
+export const updateNoteTags = noteOps.updateTags;
+
 export const createNote = (
   userId: string,
   title: string,
   content: string,
   color?: string | null,
   pattern?: string | null,
-) => createEntity(NoteModel, userId, { title, content }, color, pattern);
+  tags?: string[],
+) => createEntity(NoteModel, userId, { title, content }, color, pattern, tags);
 
-export const getNotesByUserId = (userId: string, archived?: boolean, limit = 30, offset = 0, search = '') =>
-  listByUserId(NoteModel, userId, { archived, limit, offset, search, searchFields: ['title', 'content'] });
+export const getNotesByUserId = (
+  userId: string,
+  archived?: boolean,
+  limit = 30,
+  offset = 0,
+  search = '',
+  tagIds?: string[],
+  tagMode: 'or' | 'and' = 'or',
+) =>
+  listByUserId(NoteModel, userId, {
+    archived,
+    limit,
+    offset,
+    search,
+    searchFields: ['title', 'content'],
+    tagIds,
+    tagMode,
+  });
 
 export const getNoteById = (id: string) => getByIdActive(NoteModel, id);
 

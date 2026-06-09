@@ -42,6 +42,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
   const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
+  const [tags, setTags] = useState<string[]>(note.tags ?? []);
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -153,6 +154,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     updateSecret.mutate({ id: note._id, pattern: newPattern });
   };
 
+  const handleTagsChange = (ids: string[]) => {
+    setTags(ids);
+    updateSecret.mutate({ id: note._id, tags: ids });
+  };
+
   const handleTogglePinned = (next: boolean) => {
     setPinned(next);
     updateSecret.mutate({ id: note._id, pinned: next });
@@ -203,6 +209,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         pattern={pattern}
         onColorChange={handleColorChange}
         onPatternChange={handlePatternChange}
+        tags={tags}
+        onTagsChange={handleTagsChange}
+        isDirty={isDirty}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}

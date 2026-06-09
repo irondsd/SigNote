@@ -1,4 +1,4 @@
-import { type HydratedDocument, model, models, Schema } from 'mongoose';
+import { type HydratedDocument, model, models, ObjectId, Schema } from 'mongoose';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 
 export type Note = {
@@ -15,6 +15,7 @@ export type Note = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
+  tags: ObjectId[];
 };
 
 export type NoteDocument = HydratedDocument<Note>;
@@ -33,10 +34,14 @@ const noteSchema = new Schema<Note>({
   pinned: { type: Boolean, default: false },
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
+  tags: { type: [{ type: Schema.Types.ObjectId, ref: 'Tag' }], default: [] },
 });
 
 // Compound index for userId-filtered queries (the most common access pattern)
 noteSchema.index({ userId: 1, deletedAt: 1 });
+
+// Multikey index for filtering by tag id.
+noteSchema.index({ userId: 1, tags: 1 });
 
 // Covers the default list sort path: userId + archived prefix, pinned/position sort suffix.
 noteSchema.index({ userId: 1, archived: 1, pinned: -1, position: -1 });

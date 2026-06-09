@@ -3,6 +3,7 @@
 import DOMPurify from 'dompurify';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
+import { useTags } from '@/hooks/useTags';
 
 type EncryptedNoteCardProps = {
   title: string;
@@ -19,6 +20,7 @@ type EncryptedNoteCardProps = {
   pinned?: boolean;
   hasExpiry?: boolean;
   burnAfterReading?: boolean;
+  tagIds?: string[];
 };
 
 export function EncryptedNoteCard({
@@ -34,7 +36,9 @@ export function EncryptedNoteCard({
   pinned = false,
   hasExpiry = false,
   burnAfterReading = false,
+  tagIds,
 }: EncryptedNoteCardProps) {
+  const { resolve } = useTags();
   const showPlaceholder = burnAfterReading || !decryptedContent;
   const content = showPlaceholder ? (
     <EncryptedPlaceholder rows={4} ciphertext={ciphertext} />
@@ -61,6 +65,7 @@ export function EncryptedNoteCard({
       archived={archived}
       pinned={pinned}
       hasExpiry={hasExpiry}
+      tags={resolve(tagIds)}
       content={content}
     />
   );

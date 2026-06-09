@@ -1,10 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Pencil, X, Archive, ArchiveRestore, Trash2, Check, Palette } from 'lucide-react';
+import { Pencil, X, Archive, ArchiveRestore, Trash2, Check, Palette, Tag as TagIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Button } from '@/components/ui/button';
 import { NoteStylePicker } from '@/components/NoteStylePicker/NoteStylePicker';
+import { TagStrip } from '@/components/TagStrip/TagStrip';
+import { useTagStripPref } from '@/hooks/useTagStripPref';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
@@ -45,6 +47,9 @@ type SharedNoteModalProps = {
   expiresAt?: Date | string | null;
   burnAfterReading?: boolean;
   moreActions?: ReactNode;
+  tags?: string[];
+  onTagsChange?: (ids: string[]) => void;
+  isDirty?: boolean;
 };
 
 export function SharedNoteModal({
@@ -80,7 +85,14 @@ export function SharedNoteModal({
   expiresAt = null,
   burnAfterReading = false,
   moreActions,
+  tags,
+  onTagsChange,
+  isDirty,
 }: SharedNoteModalProps) {
+  // The "Tags" strip toggles like the formatting toolbar; its open/closed state
+  // is remembered across modals, defaulting to open when the note already has
+  // tags (only until the user toggles it once).
+  const { open: tagStripOpen, toggle: toggleTagStrip } = useTagStripPref((tags?.length ?? 0) > 0);
   return (
     <Backdrop onClose={onClose} disableClose={disableClose}>
       <Modal cardRect={cardRect} className={cn(s.modal)} data-color={color || undefined}>
@@ -132,6 +144,8 @@ export function SharedNoteModal({
           onPatternChange={onPatternChange}
         />
 
+        {onTagsChange && tagStripOpen && <TagStrip value={tags ?? []} onChange={onTagsChange} isDirty={isDirty} />}
+
         <div className={s.footer}>
           <div className={s.footerLeft}>{editing ? formatToggle : footerLeft}</div>
           <div className={s.actions}>
@@ -147,6 +161,19 @@ export function SharedNoteModal({
                     aria-label="Edit"
                   >
                     <Pencil size={16} />
+                  </Button>
+                )}
+                {onTagsChange && (
+                  <Button
+                    data-testid="tag-toggle-btn"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={toggleTagStrip}
+                    title="Tags"
+                    aria-label="Tags"
+                    className={cn(tagStripOpen && s.activePickerBtn)}
+                  >
+                    <TagIcon size={16} />
                   </Button>
                 )}
                 <Button
