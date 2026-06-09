@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Tag as TagIcon, Settings, ChevronRight, CornerDownLeft } from 'lucide-react';
+import { Plus, Tag as TagIcon, Settings, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tag } from '@/components/Tag/Tag';
@@ -23,14 +23,14 @@ function PaletteRow({
   count,
   active,
   hint,
-  showEnter,
+  onMouseEnter,
   onClick,
 }: {
   tag: ClientTag;
   count?: number;
   active?: boolean;
   hint?: string;
-  showEnter?: boolean;
+  onMouseEnter?: () => void;
   onClick: () => void;
 }) {
   return (
@@ -38,11 +38,11 @@ function PaletteRow({
       type="button"
       className={cn(s.row, active && s.rowActive)}
       onMouseDown={(e) => e.preventDefault()}
+      onMouseEnter={onMouseEnter}
       onClick={onClick}
     >
       <Tag tag={tag} size="xs" variant="soft" dot />
       {hint ? <span className={s.rowHint}>{hint}</span> : <span className={s.rowCount}>{count ?? 0}</span>}
-      {showEnter && <CornerDownLeft size={12} className={s.rowEnter} />}
     </button>
   );
 }
@@ -60,11 +60,30 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
   const available = useMemo(() => tags.filter((t) => !value.includes(t._id)), [tags, value]);
   const matching = q ? available.filter((t) => t.name.includes(q)) : available;
   const exact = tags.find((t) => t.name === q);
-  const recent = useMemo(
-    () => [...available].sort((a, b) => (counts[b._id] ?? 0) - (counts[a._id] ?? 0)).slice(0, 3),
-    [available, counts],
-  );
-  const rest = available.filter((t) => !recent.includes(t));
+  // `tags` arrives sorted most-recently-used first, so the top 3 available are
+  // the "Recent" group and everything after is "All tags".
+  const recent = useMemo(() => available.slice(0, 3), [available]);
+  const rest = useMemo(() => available.slice(3), [available]);
+
+  // Flattened, in-display-order list of selectable tags. Arrow keys and Enter
+  // operate on this so the highlighted row always matches what gets added.
+  const orderedTags = q ? matching : [...recent, ...rest];
+  const showCreate = !!q && !exact;
+  const optionCount = orderedTags.length + (showCreate ? 1 : 0);
+  const createIndex = showCreate ? orderedTags.length : -1;
+
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Reset the highlight to the top whenever the query (and thus the option
+  // list) changes — adjusting state during render rather than in an effect.
+  const [prevQ, setPrevQ] = useState(q);
+  if (q !== prevQ) {
+    setPrevQ(q);
+    setSelectedIndex(0);
+  }
+
+  // Clamp to the current option list so a stale index never highlights nothing.
+  const activeIndex = Math.min(selectedIndex, Math.max(optionCount - 1, 0));
 
   const add = (id: string) => {
     if (!value.includes(id)) onChange([...value, id]);
@@ -78,11 +97,21 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
     add(tag._id);
   };
 
+  const activate = (index: number) => {
+    if (index === createIndex) void createAndAdd();
+    else if (orderedTags[index]) add(orderedTags[index]._id);
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (matching.length > 0) add(matching[0]._id);
-      else if (q && !exact) void createAndAdd();
+      setSelectedIndex(Math.min(activeIndex + 1, optionCount - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(Math.max(activeIndex - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      activate(activeIndex);
     }
   };
 
@@ -132,8 +161,8 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
                         key={t._id}
                         tag={t}
                         count={counts[t._id]}
-                        active={i === 0}
-                        showEnter={i === 0}
+                        active={activeIndex === i}
+                        onMouseEnter={() => setSelectedIndex(i)}
                         onClick={() => add(t._id)}
                       />
                     ))}
@@ -142,8 +171,15 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
                 {rest.length > 0 && (
                   <>
                     <div className={s.groupLabel}>All tags</div>
-                    {rest.map((t) => (
-                      <PaletteRow key={t._id} tag={t} count={counts[t._id]} onClick={() => add(t._id)} />
+                    {rest.map((t, i) => (
+                      <PaletteRow
+                        key={t._id}
+                        tag={t}
+                        count={counts[t._id]}
+                        active={activeIndex === recent.length + i}
+                        onMouseEnter={() => setSelectedIndex(recent.length + i)}
+                        onClick={() => add(t._id)}
+                      />
                     ))}
                   </>
                 )}
@@ -156,19 +192,20 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
                   <PaletteRow
                     key={t._id}
                     tag={t}
-                    active={i === 0}
+                    active={activeIndex === i}
                     hint={`· ${counts[t._id] ?? 0} notes`}
-                    showEnter={i === 0}
+                    onMouseEnter={() => setSelectedIndex(i)}
                     onClick={() => add(t._id)}
                   />
                 ))}
-                {!exact && (
+                {showCreate && (
                   <>
                     {matching.length === 0 && <div className={s.groupLabel}>No matching tag</div>}
                     <button
                       type="button"
-                      className={cn(s.row, matching.length === 0 && s.rowActive)}
+                      className={cn(s.row, activeIndex === createIndex && s.rowActive)}
                       onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setSelectedIndex(createIndex)}
                       onClick={() => void createAndAdd()}
                     >
                       <Plus size={15} className={s.createIcon} strokeWidth={2.4} />
@@ -179,7 +216,6 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
                         variant="soft"
                         dot
                       />
-                      {matching.length === 0 && <CornerDownLeft size={12} className={s.rowEnter} />}
                     </button>
                     {matching.length === 0 && (
                       <div className={s.autoHint}>

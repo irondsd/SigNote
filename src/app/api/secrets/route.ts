@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { createSecret, getSecretsByUserId } from '@/controllers/secrets';
 import { linkFilesToNote } from '@/controllers/files';
-import { getOwnedTagIds } from '@/controllers/tags';
+import { getOwnedTagIds, touchTags } from '@/controllers/tags';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
@@ -38,6 +38,7 @@ export const POST = withSession(async (req, { userId }) => {
 
   const tagIds = Array.isArray(tags) ? await getOwnedTagIds(userId, tags.filter((t) => typeof t === 'string')) : undefined;
   const secret = await createSecret(userId, title ?? '', encryptedBody ?? null, color, pattern, tagIds);
+  if (tagIds?.length) await touchTags(tagIds);
 
   if (Array.isArray(fileIds) && fileIds.length) {
     await linkFilesToNote(userId, secret._id.toString(), 'secret', fileIds);

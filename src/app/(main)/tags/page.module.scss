@@ -1,82 +1,112 @@
-.page {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 24px 18px 48px;
-
-  @media (min-width: 768px) {
-    padding: 30px 28px 56px;
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
   }
 }
 
-.header {
-  margin-bottom: 18px;
+.container {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  flex: 1;
 }
 
-.title {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.content {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
   color: var(--foreground);
+  margin: 0;
 }
 
-.subtitle {
-  margin-top: 4px;
-  font-size: 12.5px;
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro {
+  font-size: 13px;
   color: var(--muted-foreground);
+  margin: 0;
 }
 
-.table {
-  border: 1px solid var(--border);
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── tag item card ───────────────────────────────────────────── */
+.card {
+  width: 100%;
   border-radius: 12px;
+  border: 1px solid var(--border);
   background: var(--card);
+  animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
+  transition: border-color 0.2s ease;
 }
 
-.tableHead {
+.cardMain {
   display: grid;
-  grid-template-columns: 1fr 132px 96px 72px;
-  gap: 12px;
-  padding: 10px 18px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--muted-foreground);
-  border-bottom: 1px solid var(--border);
-  background: var(--muted);
-  border-radius: 12px 12px 0 0;
-}
-
-.row {
-  border-bottom: 1px solid var(--border);
-}
-
-.rowMain {
-  display: grid;
-  grid-template-columns: 1fr 132px 96px 72px;
+  grid-template-columns: 1fr 140px 92px auto;
+  grid-template-areas: 'tag color count actions';
   align-items: center;
-  gap: 12px;
-  padding: 11px 18px;
-}
+  gap: 16px;
+  padding: 12px 16px;
 
-.right {
-  text-align: right;
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'tag actions'
+      'color count';
+    row-gap: 10px;
+  }
 }
 
 .cellTag {
+  grid-area: tag;
   display: flex;
   align-items: center;
   min-width: 0;
 }
 
-.cellCount {
-  font-size: 12px;
-  color: var(--muted-foreground);
+.cellColor {
+  grid-area: color;
+  min-width: 0;
 }
 
-.cellActions {
+.cellCount {
+  grid-area: count;
+  font-size: 12px;
+  color: var(--muted-foreground);
+
+  @media (max-width: 560px) {
+    justify-self: start;
+    align-self: center;
+  }
+}
+
+.actionCol {
+  grid-area: actions;
   display: flex;
+  align-items: center;
   gap: 2px;
-  justify-content: flex-end;
+  justify-self: end;
 }
 
 .deleteBtn {
@@ -117,7 +147,7 @@
   min-width: 60px;
 }
 
-/* color cell */
+/* color picker chip */
 .colorBtn {
   display: inline-flex;
   align-items: center;
@@ -186,8 +216,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 12px;
-  padding: 10px 18px 13px;
+  padding: 11px 16px 13px;
+  border-top: 1px solid var(--border);
   background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  border-radius: 0 0 12px 12px;
 }
 
 .confirmText {
@@ -233,20 +265,20 @@
 }
 
 .empty {
-  padding: 22px 18px;
   font-size: 13px;
   color: var(--muted-foreground);
   text-align: center;
+  padding: 24px 0;
+  margin: 0;
 }
 
-/* new tag row */
+/* ── new tag row ─────────────────────────────────────────────── */
 .newRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 18px;
-  background: var(--muted);
-  border-radius: 0 0 12px 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .newField {

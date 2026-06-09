@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/lib/api';
 import type { TagColor } from '@/config/noteStyles';
 
-export type ClientTag = { _id: string; name: string; color: TagColor };
+export type ClientTag = { _id: string; name: string; color: TagColor; createdAt: string };
 export type TagsResponse = { tags: ClientTag[]; counts: Record<string, number> };
 
 const EMPTY_TAGS: ClientTag[] = [];

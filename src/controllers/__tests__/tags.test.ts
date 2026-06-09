@@ -9,9 +9,11 @@ import {
   deleteTagAndDetach,
   getOwnedTagIds,
   getTagUsageCounts,
+  listTags,
   recolorTag,
   renameTag,
   tagNameTaken,
+  touchTags,
 } from '../tags';
 import { getNotesByUserId } from '../notes';
 
@@ -90,6 +92,34 @@ describe('getOwnedTagIds', () => {
       a._id.toString(),
     ]);
     expect(result).toEqual([b._id.toString(), a._id.toString()]);
+  });
+});
+
+describe('listTags / touchTags ordering', () => {
+  it('lists most-recently-used first, with never-used tags last alphabetically', async () => {
+    const apple = await createTag(userId, 'apple');
+    const banana = await createTag(userId, 'banana');
+    await createTag(userId, 'cherry'); // never used → null lastUsedAt
+
+    // Explicit timestamps keep ordering independent of DB write timing.
+    await TagModel.updateOne({ _id: banana._id }, { lastUsedAt: new Date('2024-01-01') });
+    await TagModel.updateOne({ _id: apple._id }, { lastUsedAt: new Date('2024-06-01') });
+
+    const ordered = await listTags(userId);
+    expect(ordered.map((t) => t.name)).toEqual(['apple', 'banana', 'cherry']);
+  });
+
+  it('stamps lastUsedAt on the given tags', async () => {
+    const tag = await createTag(userId, 'work');
+    expect(tag.lastUsedAt).toBeNull();
+    await touchTags([tag._id.toString()]);
+    const fresh = await TagModel.findById(tag._id);
+    expect(fresh?.lastUsedAt).toBeInstanceOf(Date);
+  });
+
+  it('ignores invalid ids and never throws', async () => {
+    await expect(touchTags(['not-an-objectid'])).resolves.toBeUndefined();
+    await expect(touchTags([])).resolves.toBeUndefined();
   });
 });
 

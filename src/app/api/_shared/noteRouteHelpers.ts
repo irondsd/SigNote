@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { MAX_SEARCH } from '@/config/constants';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
-import { getOwnedTagIds } from '@/controllers/tags';
+import { getOwnedTagIds, touchTags } from '@/controllers/tags';
 
 export function parseListParams(req: NextRequest) {
   const archivedParam = req.nextUrl.searchParams.get('archived');
@@ -94,6 +94,7 @@ export async function handleCommonPatch(
       tags.filter((t): t is string => typeof t === 'string'),
     );
     const updated = await ops.updateTags(id, ownedTagIds);
+    await touchTags(ownedTagIds);
     return { handled: true, updated };
   }
 

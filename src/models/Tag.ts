@@ -5,6 +5,9 @@ export type Tag = {
   userId: string;
   name: string;
   color: TagColor;
+  // Bumped whenever the tag is applied to a note; drives the picker's default
+  // "most recently used first" ordering. Null until the tag is first used.
+  lastUsedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -16,6 +19,7 @@ const tagSchema = new Schema<Tag>({
   // Stored lowercased/trimmed; uniqueness is enforced per user below.
   name: { type: String, required: true },
   color: { type: String, enum: TAG_COLORS, required: true },
+  lastUsedAt: { type: Date, default: null },
   createdAt: { type: Date, required: true, default: () => new Date() },
   updatedAt: { type: Date, required: true, default: () => new Date() },
 });

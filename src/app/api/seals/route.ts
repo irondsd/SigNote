@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { createSeal, getSealsByUserId } from '@/controllers/seals';
 import { linkFilesToNote } from '@/controllers/files';
-import { getOwnedTagIds } from '@/controllers/tags';
+import { getOwnedTagIds, touchTags } from '@/controllers/tags';
 import { withSession } from '@/lib/routeAuth';
 import { type EncryptedPayload } from '@/types/crypto';
 import { MAX_CIPHER, MAX_TITLE } from '@/config/constants';
@@ -40,6 +40,7 @@ export const POST = withSession(async (req, { userId }) => {
   const tagIds = Array.isArray(tags) ? await getOwnedTagIds(userId, tags.filter((t) => typeof t === 'string')) : undefined;
   // encryptedBody and wrappedNoteKey are optional for 2-step creation flow
   const seal = await createSeal(userId, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null, color, pattern, tagIds);
+  if (tagIds?.length) await touchTags(tagIds);
 
   if (Array.isArray(fileIds) && fileIds.length) {
     await linkFilesToNote(userId, seal._id.toString(), 'seal', fileIds);

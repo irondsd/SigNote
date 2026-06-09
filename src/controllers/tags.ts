@@ -15,7 +15,21 @@ export function isValidTagColor(color: unknown): color is TagColor {
   return typeof color === 'string' && (TAG_COLORS as readonly string[]).includes(color);
 }
 
-export const listTags = (userId: string) => TagModel.find({ userId }).sort({ name: 1 }).exec();
+// Default ordering is most-recently-used first (never-used tags fall to the
+// bottom, alphabetised). The tags management page re-sorts by creation date.
+export const listTags = (userId: string) => TagModel.find({ userId }).sort({ lastUsedAt: -1, name: 1 }).exec();
+
+// Bump lastUsedAt for the given tags so they float to the top of the picker.
+// Fire-and-forget at call sites; never throws.
+export async function touchTags(ids: string[]): Promise<void> {
+  const validIds = ids.filter((id) => isValidObjectId(id));
+  if (validIds.length === 0) return;
+  try {
+    await TagModel.updateMany({ _id: { $in: validIds } }, { lastUsedAt: new Date() }).exec();
+  } catch {
+    // Usage tracking is best-effort; a failure here must not fail the note save.
+  }
+}
 
 export const getTagById = (id: string) => TagModel.findById(id).exec();
 

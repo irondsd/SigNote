@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/Tag/Tag';
@@ -60,12 +61,14 @@ function ColorButton({ value, onChange }: { value: TagColor; onChange: (c: TagCo
 function TagRow({
   tag,
   count,
+  index,
   onRename,
   onRecolor,
   onDelete,
 }: {
   tag: ClientTag;
   count: number;
+  index: number;
   onRename: (name: string) => void;
   onRecolor: (color: TagColor) => void;
   onDelete: () => void;
@@ -88,8 +91,8 @@ function TagRow({
   };
 
   return (
-    <div className={s.row} data-testid="tag-row">
-      <div className={s.rowMain}>
+    <div className={s.card} data-testid="tag-row" style={{ '--animation-index': index } as React.CSSProperties}>
+      <div className={s.cardMain}>
         <div className={s.cellTag}>
           {renaming ? (
             <span data-color={tag.color} className={s.renamePill}>
@@ -116,12 +119,23 @@ function TagRow({
             <Tag tag={tag} size="sm" variant="soft" dot />
           )}
         </div>
-        <div>
+
+        <div className={s.cellColor}>
           <ColorButton value={tag.color} onChange={onRecolor} />
         </div>
-        <div className={s.cellCount}>{count} notes</div>
-        <div className={s.cellActions}>
-          <Button variant="ghost" size="icon-sm" asChild title="Find notes" aria-label={`Find notes tagged ${tag.name}`}>
+
+        <div className={s.cellCount}>
+          {count} {count === 1 ? 'note' : 'notes'}
+        </div>
+
+        <div className={s.actionCol}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            asChild
+            title="Find notes"
+            aria-label={`Find notes tagged ${tag.name}`}
+          >
             <Link href={`/search?tag=${tag._id}`}>
               <Search size={14} />
             </Link>
@@ -175,6 +189,10 @@ export default function TagsPage() {
   const { create, update, remove } = useTagMutations();
   const [newName, setNewName] = useState('');
 
+  // The picker orders tags by recent use; here a stable creation-date order
+  // makes more sense for managing them.
+  const sortedTags = useMemo(() => [...tags].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [tags]);
+
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
   }, [status, router]);
@@ -191,58 +209,61 @@ export default function TagsPage() {
   };
 
   return (
-    <div className={s.page}>
-      <header className={s.header}>
-        <h1 className={s.title}>Tags</h1>
-        <p className={s.subtitle}>
-          {tags.length} {tags.length === 1 ? 'tag' : 'tags'} · rename, recolor or remove
-        </p>
-      </header>
+    <div className={s.container}>
+      <div className={s.content}>
+        <Card>
+          <CardHeader>
+            <h1 className={s.cardTitle}>Tags</h1>
+          </CardHeader>
+          <CardContent className={s.body}>
+            <p className={s.intro}>
+              {tags.length} {tags.length === 1 ? 'tag' : 'tags'} · rename, recolor or remove the ones you no longer
+              need.
+            </p>
 
-      <div className={s.table}>
-        <div className={s.tableHead}>
-          <span>Tag</span>
-          <span>Color</span>
-          <span>Used by</span>
-          <span className={s.right}>Actions</span>
-        </div>
+            {!isLoading && sortedTags.length > 0 && (
+              <div className={s.list}>
+                {sortedTags.map((t, i) => (
+                  <TagRow
+                    key={t._id}
+                    tag={t}
+                    count={counts[t._id] ?? 0}
+                    index={i}
+                    onRename={(name) => update.mutate({ id: t._id, name })}
+                    onRecolor={(color) => update.mutate({ id: t._id, color })}
+                    onDelete={() => remove.mutate(t._id)}
+                  />
+                ))}
+              </div>
+            )}
 
-        {tags.map((t) => (
-          <TagRow
-            key={t._id}
-            tag={t}
-            count={counts[t._id] ?? 0}
-            onRename={(name) => update.mutate({ id: t._id, name })}
-            onRecolor={(color) => update.mutate({ id: t._id, color })}
-            onDelete={() => remove.mutate(t._id)}
-          />
-        ))}
+            {!isLoading && tags.length === 0 && <p className={s.empty}>No tags yet — create one below.</p>}
 
-        {!isLoading && tags.length === 0 && <div className={s.empty}>No tags yet — create one below.</div>}
-
-        <div className={s.newRow}>
-          <span data-color={newColor} className={s.newField}>
-            <span className={s.newDot} />
-            <input
-              className={s.newInput}
-              placeholder="New tag name…"
-              value={newName}
-              maxLength={50}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleCreate();
-                }
-              }}
-            />
-            {newName.trim() && <span className={s.newHint}>color auto-assigned</span>}
-          </span>
-          <Button size="sm" onClick={handleCreate} disabled={!newName.trim() || create.isPending}>
-            <Plus size={14} />
-            Add tag
-          </Button>
-        </div>
+            <div className={s.newRow}>
+              <span data-color={newColor} className={s.newField}>
+                <span className={s.newDot} />
+                <input
+                  className={s.newInput}
+                  placeholder="New tag name…"
+                  value={newName}
+                  maxLength={50}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreate();
+                    }
+                  }}
+                />
+                {newName.trim() && <span className={s.newHint}>color auto-assigned</span>}
+              </span>
+              <Button size="sm" onClick={handleCreate} disabled={!newName.trim() || create.isPending}>
+                <Plus size={14} />
+                Add tag
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
