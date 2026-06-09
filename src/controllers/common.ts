@@ -91,8 +91,16 @@ export async function listByUserId<T extends CommonFields>(
   };
   const normalized = search.trim().slice(0, MAX_SEARCH);
 
+  // Never ship embedded version history on list reads — it would bloat every
+  // card payload proportionally to history depth. History is fetched explicitly.
   if (!normalized) {
-    return model.find(baseQuery).sort({ pinned: -1, position: -1 }).skip(offset).limit(limit).exec();
+    return model
+      .find(baseQuery)
+      .select('-versions')
+      .sort({ pinned: -1, position: -1 })
+      .skip(offset)
+      .limit(limit)
+      .exec();
   }
 
   const regex = new RegExp(escapeRegExp(normalized), 'i');
@@ -101,6 +109,7 @@ export async function listByUserId<T extends CommonFields>(
     .find({
       $and: [baseQuery, { $or: searchFields.map((field) => ({ [field]: regex })) }],
     })
+    .select('-versions')
     .sort({ pinned: -1, updatedAt: -1 })
     .skip(offset)
     .limit(limit)

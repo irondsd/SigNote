@@ -1,5 +1,15 @@
-import { type HydratedDocument, model, models, ObjectId, Schema } from 'mongoose';
+import { type HydratedDocument, model, models, ObjectId, Schema, type Types } from 'mongoose';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
+
+// A snapshot of a note's title + content at the moment before an edit. Kept in
+// an embedded, capped array on the parent note. Only title/content are tracked;
+// metadata (color, pattern, pin, etc.) is never versioned.
+export type NoteVersion = {
+  _id: Types.ObjectId;
+  title: string;
+  content: string;
+  createdAt: Date;
+};
 
 export type Note = {
   userId: string;
@@ -16,9 +26,17 @@ export type Note = {
   expiresAt: Date | null;
   burnAfterReading: boolean;
   tags: ObjectId[];
+  versions: NoteVersion[];
 };
 
 export type NoteDocument = HydratedDocument<Note>;
+
+// Keep the auto `_id` on each version: it backs restore-by-id and React keys.
+const noteVersionSchema = new Schema<NoteVersion>({
+  title: { type: String, required: true, default: '' },
+  content: { type: String, required: true, default: '' },
+  createdAt: { type: Date, required: true, default: () => new Date() },
+});
 
 const noteSchema = new Schema<Note>({
   userId: { type: String, required: true },
@@ -35,6 +53,7 @@ const noteSchema = new Schema<Note>({
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
   tags: { type: [{ type: Schema.Types.ObjectId, ref: 'Tag' }], default: [] },
+  versions: { type: [noteVersionSchema], default: [] },
 });
 
 // Compound index for userId-filtered queries (the most common access pattern)

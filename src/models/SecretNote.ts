@@ -2,6 +2,16 @@ import { type HydratedDocument, model, models, Schema, type Types } from 'mongoo
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { type EncryptedPayload } from '@/types/crypto';
 
+// A snapshot of a secret's title + encrypted body before an edit. Each version's
+// ciphertext carries its own IV (independent of the head), which is exactly what
+// AES-GCM requires. The shared session key decrypts every version.
+export type SecretNoteVersion = {
+  _id: Types.ObjectId;
+  title: string;
+  encryptedBody: EncryptedPayload | null;
+  createdAt: Date;
+};
+
 export type SecretNote = {
   userId: string;
   title: string; // plaintext
@@ -17,6 +27,7 @@ export type SecretNote = {
   expiresAt: Date | null;
   burnAfterReading: boolean;
   tags: Types.ObjectId[];
+  versions: SecretNoteVersion[];
 };
 
 export type SecretNoteDocument = HydratedDocument<SecretNote>;
@@ -29,6 +40,12 @@ const encryptedPayloadSchema = new Schema<EncryptedPayload>(
   },
   { _id: false },
 );
+
+const secretNoteVersionSchema = new Schema<SecretNoteVersion>({
+  title: { type: String, required: true, default: '' },
+  encryptedBody: { type: encryptedPayloadSchema, default: null },
+  createdAt: { type: Date, required: true, default: () => new Date() },
+});
 
 const secretNoteSchema = new Schema<SecretNote>({
   userId: { type: String, required: true },
@@ -45,6 +62,7 @@ const secretNoteSchema = new Schema<SecretNote>({
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
   tags: { type: [{ type: Schema.Types.ObjectId, ref: 'Tag' }], default: [] },
+  versions: { type: [secretNoteVersionSchema], default: [] },
 });
 
 // Compound index for userId-filtered queries
