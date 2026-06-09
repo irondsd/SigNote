@@ -48,6 +48,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
     setPattern,
     isTitleEmpty,
     isContentEmpty,
+    isDirty,
     showConfirm,
     onCancelClose,
     handleClose,
@@ -119,6 +120,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
         onColorChange={setColor}
         onPatternChange={setPattern}
         onTagsChange={setTags}
+        isDirty={isDirty}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

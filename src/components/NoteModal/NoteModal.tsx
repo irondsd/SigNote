@@ -144,6 +144,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         onPatternChange={handlePatternChange}
         tags={tags}
         onTagsChange={handleTagsChange}
+        isDirty={isDirty}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}

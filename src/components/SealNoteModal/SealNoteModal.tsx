@@ -379,6 +379,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onPatternChange={handlePatternChange}
         tags={tags}
         onTagsChange={handleTagsChange}
+        isDirty={isDirty}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         showEditButton={isDecrypted}

@@ -36,6 +36,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     setPattern,
     isTitleEmpty,
     isContentEmpty,
+    isDirty,
     showConfirm,
     onCancelClose,
     handleClose,
@@ -83,6 +84,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
         onColorChange={setColor}
         onPatternChange={setPattern}
         onTagsChange={setTags}
+        isDirty={isDirty}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

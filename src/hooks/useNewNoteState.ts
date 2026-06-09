@@ -59,6 +59,7 @@ export function useNewNoteState(
     setPattern,
     isTitleEmpty,
     isContentEmpty,
+    isDirty,
     showConfirm,
     onCancelClose,
     handleClose,

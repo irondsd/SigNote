@@ -211,6 +211,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onPatternChange={handlePatternChange}
         tags={tags}
         onTagsChange={handleTagsChange}
+        isDirty={isDirty}
         stylePickerOpen={stylePickerOpen}
         onStylePickerOpenChange={setStylePickerOpen}
         onEditToggle={() => setEditing(!editing)}

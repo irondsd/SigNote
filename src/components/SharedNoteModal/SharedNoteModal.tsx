@@ -49,6 +49,7 @@ type SharedNoteModalProps = {
   moreActions?: ReactNode;
   tags?: string[];
   onTagsChange?: (ids: string[]) => void;
+  isDirty?: boolean;
 };
 
 export function SharedNoteModal({
@@ -86,6 +87,7 @@ export function SharedNoteModal({
   moreActions,
   tags,
   onTagsChange,
+  isDirty,
 }: SharedNoteModalProps) {
   // The "Tags" strip toggles like the formatting toolbar; its open/closed state
   // is remembered across modals, defaulting to open when the note already has
@@ -142,7 +144,7 @@ export function SharedNoteModal({
           onPatternChange={onPatternChange}
         />
 
-        {onTagsChange && tagStripOpen && <TagStrip value={tags ?? []} onChange={onTagsChange} />}
+        {onTagsChange && tagStripOpen && <TagStrip value={tags ?? []} onChange={onTagsChange} isDirty={isDirty} />}
 
         <div className={s.footer}>
           <div className={s.footerLeft}>{editing ? formatToggle : footerLeft}</div>

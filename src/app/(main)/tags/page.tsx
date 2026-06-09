@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/Tag/Tag';
@@ -120,6 +121,11 @@ function TagRow({
         </div>
         <div className={s.cellCount}>{count} notes</div>
         <div className={s.cellActions}>
+          <Button variant="ghost" size="icon-sm" asChild title="Find notes" aria-label={`Find notes tagged ${tag.name}`}>
+            <Link href={`/search?tag=${tag._id}`}>
+              <Search size={14} />
+            </Link>
+          </Button>
           <Button variant="ghost" size="icon-sm" onClick={startRename} title="Rename" aria-label={`Rename ${tag.name}`}>
             <Pencil size={14} />
           </Button>

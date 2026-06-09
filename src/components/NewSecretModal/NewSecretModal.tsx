@@ -48,6 +48,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
     setPattern,
     isTitleEmpty,
     isContentEmpty,
+    isDirty,
     showConfirm,
     onCancelClose,
     handleClose,
@@ -110,6 +111,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         onColorChange={setColor}
         onPatternChange={setPattern}
         onTagsChange={setTags}
+        isDirty={isDirty}
         footerActions={
           <>
             <Button variant="ghost" size="sm" onClick={handleClose}>

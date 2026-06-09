@@ -8,10 +8,11 @@ import s from './TagStrip.module.scss';
 type TagStripProps = {
   value: string[];
   onChange: (ids: string[]) => void;
+  isDirty?: boolean;
 };
 
 /** The "Tags" line in the note modal — toggled open/closed by the footer tag button. */
-export function TagStrip({ value, onChange }: TagStripProps) {
+export function TagStrip({ value, onChange, isDirty }: TagStripProps) {
   const { resolve } = useTags();
   const selected = resolve(value);
 
@@ -28,7 +29,7 @@ export function TagStrip({ value, onChange }: TagStripProps) {
             onRemove={() => onChange(value.filter((id) => id !== t._id))}
           />
         ))}
-        <AddTagButton value={value} onChange={onChange} />
+        <AddTagButton value={value} onChange={onChange} isDirty={isDirty} />
       </div>
     </div>
   );

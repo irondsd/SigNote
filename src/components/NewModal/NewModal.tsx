@@ -22,6 +22,7 @@ type NewModalProps = {
   onColorChange?: (color: string | null) => void;
   onPatternChange?: (pattern: string | null) => void;
   onTagsChange?: (ids: string[]) => void;
+  isDirty?: boolean;
 };
 
 export function NewModal({
@@ -35,6 +36,7 @@ export function NewModal({
   onColorChange,
   onPatternChange,
   onTagsChange,
+  isDirty,
 }: NewModalProps) {
   const [color, setColor] = useState<string | null>(null);
   const [pattern, setPattern] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function NewModal({
           onColorChange={handleColorChange}
           onPatternChange={handlePatternChange}
         />
-        {onTagsChange && tagStripOpen && <TagStrip value={tags} onChange={handleTagsChange} />}
+        {onTagsChange && tagStripOpen && <TagStrip value={tags} onChange={handleTagsChange} isDirty={isDirty} />}
         <div className={s.footer}>
           <div className={s.footerLeft}>
             {footerLeft}
