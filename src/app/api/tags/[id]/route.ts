@@ -4,12 +4,13 @@ import { NextResponse } from 'next/server';
 import {
   deleteTagAndDetach,
   getTagById,
+  isDuplicateKeyError,
   isValidTagColor,
   normalizeTagName,
-  recolorTag,
-  renameTag,
   tagNameTaken,
+  updateTag,
 } from '@/controllers/tags';
+import type { TagColor } from '@/config/noteStyles';
 import { assertOwner, RouteAuthError, withSession } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
@@ -26,23 +27,36 @@ export const PATCH = withSession(async (req, { userId, params: { id } }) => {
   }
   const { name, color } = body as { name?: string; color?: string };
 
+  const patch: { name?: string; color?: TagColor } = {};
+
   if (name !== undefined) {
     const normalized = normalizeTagName(name);
     if (!normalized) return NextResponse.json({ error: 'Tag name is required' }, { status: 400 });
     if (await tagNameTaken(userId, normalized, id)) {
       return NextResponse.json({ error: 'A tag with that name already exists' }, { status: 409 });
     }
-    const updated = await renameTag(id, normalized);
-    return NextResponse.json(updated);
+    patch.name = normalized;
   }
 
   if (color !== undefined) {
     if (!isValidTagColor(color)) return NextResponse.json({ error: 'Invalid color' }, { status: 400 });
-    const updated = await recolorTag(id, color);
-    return NextResponse.json(updated);
+    patch.color = color;
   }
 
-  return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
+
+  try {
+    const updated = await updateTag(id, patch);
+    return NextResponse.json(updated);
+  } catch (err) {
+    // A concurrent rename can win the uniqueness race after the tagNameTaken check.
+    if (isDuplicateKeyError(err)) {
+      return NextResponse.json({ error: 'A tag with that name already exists' }, { status: 409 });
+    }
+    throw err;
+  }
 });
 
 export const DELETE = withSession(async (_req, { userId, params: { id } }) => {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
 
   const [isUploading, setIsUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const bumpTagCounts = useTagCountBump();
   const createNote = useCreateNote({ onError: onSaveError });
 
   const handleSave = () => {
@@ -61,6 +63,7 @@ export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteMo
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     clearDraft();
     createNote.mutate({ title: title.trim(), content: content.trim(), color, pattern, tags });
+    bumpTagCounts(tags, []);
     onClose();
   };
 

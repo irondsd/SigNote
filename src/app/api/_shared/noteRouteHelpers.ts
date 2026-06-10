@@ -1,6 +1,6 @@
 import { isValidObjectId } from 'mongoose';
 import { type NextRequest, NextResponse } from 'next/server';
-import { MAX_SEARCH } from '@/config/constants';
+import { MAX_SEARCH, MAX_TAGS_PER_NOTE } from '@/config/constants';
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { softDeleteFilesByNoteId, restoreFilesByNoteId } from '@/controllers/files';
 import { getOwnedTagIds, touchTags } from '@/controllers/tags';
@@ -21,6 +21,23 @@ export function parseListParams(req: NextRequest) {
     : undefined;
   const tagMode: 'or' | 'and' = req.nextUrl.searchParams.get('tagMode') === 'and' ? 'and' : 'or';
   return { archived, limit, offset, search, tagIds, tagMode };
+}
+
+// Validate and sanitize a create-payload tag list: enforce the per-note cap,
+// then keep only ids the user owns. Shared by the notes/secrets/seals POST routes.
+export async function resolveCreateTags(
+  userId: string,
+  tags: unknown,
+): Promise<{ tagIds?: string[]; error?: NextResponse }> {
+  if (!Array.isArray(tags)) return {};
+  if (tags.length > MAX_TAGS_PER_NOTE) {
+    return { error: NextResponse.json({ error: `Too many tags (max ${MAX_TAGS_PER_NOTE})` }, { status: 400 }) };
+  }
+  const tagIds = await getOwnedTagIds(
+    userId,
+    tags.filter((t): t is string => typeof t === 'string'),
+  );
+  return { tagIds };
 }
 
 type PinExpiryUpdate = {
@@ -87,6 +104,12 @@ export async function handleCommonPatch(
   if ('tags' in body) {
     if (!Array.isArray(tags)) {
       return { handled: true, response: NextResponse.json({ error: 'Invalid tags' }, { status: 400 }) };
+    }
+    if (tags.length > MAX_TAGS_PER_NOTE) {
+      return {
+        handled: true,
+        response: NextResponse.json({ error: `Too many tags (max ${MAX_TAGS_PER_NOTE})` }, { status: 400 }),
+      };
     }
     // Drop ids the user doesn't own (foreign / deleted) before persisting.
     const ownedTagIds = await getOwnedTagIds(

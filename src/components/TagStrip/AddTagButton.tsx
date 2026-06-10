@@ -10,6 +10,7 @@ import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmD
 import { useTags, type ClientTag } from '@/hooks/useTags';
 import { useTagMutations } from '@/hooks/useTagMutations';
 import { autoTagColor } from '@/config/noteStyles';
+import { MAX_TAGS_PER_NOTE } from '@/config/constants';
 import s from './TagStrip.module.scss';
 
 type AddTagButtonProps = {
@@ -85,14 +86,17 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
   // Clamp to the current option list so a stale index never highlights nothing.
   const activeIndex = Math.min(selectedIndex, Math.max(optionCount - 1, 0));
 
+  const atLimit = value.length >= MAX_TAGS_PER_NOTE;
+
   const add = (id: string) => {
+    if (atLimit) return;
     if (!value.includes(id)) onChange([...value, id]);
     setQuery('');
   };
 
   const createAndAdd = async () => {
     const name = query.trim();
-    if (!name) return;
+    if (!name || atLimit) return;
     const tag = await create.mutateAsync({ name });
     add(tag._id);
   };
@@ -151,7 +155,9 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
           </div>
 
           <div className={s.groups}>
-            {!q ? (
+            {atLimit ? (
+              <div className={s.paletteEmpty}>Tag limit reached — a note can have up to {MAX_TAGS_PER_NOTE} tags</div>
+            ) : !q ? (
               <>
                 {recent.length > 0 && (
                   <>

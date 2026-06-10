@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
 import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -45,6 +46,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const deleteNote = useDeleteNote();
   const undeleteNote = useUndeleteNote();
   const updateNote = useUpdateNote();
+  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
     deleteNote.mutate(note._id.toString());
@@ -100,6 +102,10 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateNote.mutate({ id: note._id.toString(), tags: ids });
   };

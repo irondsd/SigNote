@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSeal } from '@/hooks/useSealMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
@@ -31,6 +32,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const bumpTagCounts = useTagCountBump();
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -93,6 +95,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
             return encryptSealBody(mek, trimmedContent, sealId);
           },
         });
+        bumpTagCounts(tags, []);
         onClose();
       });
     } finally {

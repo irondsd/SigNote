@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
@@ -21,6 +22,28 @@ async function apiUpdateTag({ id, ...patch }: { id: string; name?: string; color
 
 async function apiDeleteTag(id: string): Promise<unknown> {
   return api.delete(`/api/tags/${id}`).json();
+}
+
+/**
+ * Optimistically adjust the per-tag usage counts in the tags cache when a
+ * note gains or loses tags. Purely cosmetic — keeps the picker/manager counts
+ * in step without forcing a refetch; the next natural refetch corrects drift.
+ */
+export function useTagCountBump() {
+  const qc = useQueryClient();
+  return useCallback(
+    (added: string[], removed: string[]) => {
+      if (added.length === 0 && removed.length === 0) return;
+      qc.setQueriesData<TagsResponse>({ queryKey: TAGS_KEY }, (old) => {
+        if (!old) return old;
+        const counts = { ...old.counts };
+        for (const id of added) counts[id] = (counts[id] ?? 0) + 1;
+        for (const id of removed) counts[id] = Math.max(0, (counts[id] ?? 0) - 1);
+        return { ...old, counts };
+      });
+    },
+    [qc],
+  );
 }
 
 export function useTagMutations() {

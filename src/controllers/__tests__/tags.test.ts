@@ -9,11 +9,12 @@ import {
   deleteTagAndDetach,
   getOwnedTagIds,
   getTagUsageCounts,
+  isDuplicateKeyError,
   listTags,
-  recolorTag,
-  renameTag,
+  normalizeTagName,
   tagNameTaken,
   touchTags,
+  updateTag,
 } from '../tags';
 import { getNotesByUserId } from '../notes';
 
@@ -22,6 +23,9 @@ let mongo: MongoMemoryServer;
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
+  // Build the { userId, name } unique index up front — the concurrent-create
+  // race test relies on it existing.
+  await TagModel.init();
 });
 
 afterAll(async () => {
@@ -60,15 +64,62 @@ describe('createTag', () => {
     const tag = await createTag(userId, 'blue-things', 'blue');
     expect(tag.color).toBe('blue');
   });
+
+  it('survives a concurrent create of the same name (unique-index race)', async () => {
+    const results = await Promise.all([
+      createTag(userId, 'race'),
+      createTag(userId, 'race'),
+      createTag(userId, 'race'),
+    ]);
+    const ids = new Set(results.map((t) => t._id.toString()));
+    expect(ids.size).toBe(1);
+    expect(await TagModel.countDocuments({ userId })).toBe(1);
+  });
 });
 
-describe('rename / recolor / uniqueness', () => {
+describe('normalizeTagName', () => {
+  it('trims, lowercases and truncates to 50 characters', () => {
+    expect(normalizeTagName('  Work  ')).toBe('work');
+    expect(normalizeTagName('x'.repeat(60))).toBe('x'.repeat(50));
+  });
+
+  it('truncates by code points so an emoji is never cut in half', () => {
+    // 49 chars + emoji = 50 code points but 51 UTF-16 units; a naive slice
+    // would leave a lone surrogate at the end.
+    const name = normalizeTagName('a'.repeat(49) + '🔥');
+    expect(name.endsWith('🔥')).toBe(true);
+    expect([...name].length).toBe(50);
+  });
+});
+
+describe('updateTag / uniqueness', () => {
   it('renames and recolors', async () => {
     const tag = await createTag(userId, 'draft', 'gray');
-    const renamed = await renameTag(tag._id.toString(), 'Final');
+    const renamed = await updateTag(tag._id.toString(), { name: 'final' });
     expect(renamed?.name).toBe('final');
-    const recolored = await recolorTag(tag._id.toString(), 'green');
+    const recolored = await updateTag(tag._id.toString(), { color: 'green' });
     expect(recolored?.color).toBe('green');
+  });
+
+  it('applies name and color together in one write', async () => {
+    const tag = await createTag(userId, 'draft', 'gray');
+    const updated = await updateTag(tag._id.toString(), { name: 'shipped', color: 'blue' });
+    expect(updated?.name).toBe('shipped');
+    expect(updated?.color).toBe('blue');
+  });
+
+  it('renaming onto a taken name throws a recognizable duplicate-key error', async () => {
+    await createTag(userId, 'work');
+    const play = await createTag(userId, 'play');
+    let caught: unknown;
+    try {
+      await updateTag(play._id.toString(), { name: 'work' });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeDefined();
+    expect(isDuplicateKeyError(caught)).toBe(true);
+    expect(isDuplicateKeyError(new Error('boom'))).toBe(false);
   });
 
   it('detects a name already taken by another tag', async () => {
@@ -140,6 +191,32 @@ describe('getTagUsageCounts', () => {
     const counts = await getTagUsageCounts(userId);
     expect(counts[wid]).toBe(3); // 2 notes + 1 secret
     expect(counts[hid]).toBe(2); // 1 note + 1 seal
+  });
+
+  it('excludes expired docs, matching what tag-filtered lists return', async () => {
+    const work = await createTag(userId, 'work');
+    const wid = work._id.toString();
+
+    await NoteModel.create({ userId, title: 'live', content: '', position: 1, tags: [wid] });
+    await NoteModel.create({
+      userId,
+      title: 'expired',
+      content: '',
+      position: 2,
+      tags: [wid],
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+    await NoteModel.create({
+      userId,
+      title: 'expires later',
+      content: '',
+      position: 3,
+      tags: [wid],
+      expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+
+    const counts = await getTagUsageCounts(userId);
+    expect(counts[wid]).toBe(2); // live + future expiry; past expiry dropped
   });
 });
 

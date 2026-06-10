@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -63,6 +64,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const deleteSecret = useDeleteSecret();
   const undeleteSecret = useUndeleteSecret();
   const updateSecret = useUpdateSecret();
+  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
     deleteSecret.mutate(note._id);
@@ -155,6 +157,10 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateSecret.mutate({ id: note._id, tags: ids });
   };

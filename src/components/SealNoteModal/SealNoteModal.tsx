@@ -5,6 +5,7 @@ import { LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -62,6 +63,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
   const updateSeal = useUpdateSeal();
+  const bumpTagCounts = useTagCountBump();
 
   const isDecrypted = decryptedContent !== null;
   const isDirty =
@@ -271,6 +273,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateSeal.mutate({ id: note._id, tags: ids });
   };
