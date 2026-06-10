@@ -40,9 +40,21 @@ export function commonOps<T extends CommonFields>(model: Model<T>) {
 // Lenient grace matches the TTL `expireAfterSeconds: 3600` on `expiresAt`: while
 // the doc is still physically in Mongo, the in-modal user can PATCH expiresAt=null
 // to cancel the deletion. Strict-future filtering happens in `listByUserId`.
+const activeByIdFilter = (id: string) => ({
+  _id: id,
+  $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date(Date.now() - 3600_000) } }],
+});
+
+// Head reads never carry embedded version history — it can be megabytes deep.
+// History is served only via getVersionsByIdActive.
 export function getByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
-  const graceCutoff = new Date(Date.now() - 3600_000);
-  return model.findOne({ _id: id, $or: [{ expiresAt: null }, { expiresAt: { $gt: graceCutoff } }] }).exec();
+  return model.findOne(activeByIdFilter(id)).select('-versions').exec();
+}
+
+// Counterpart for the /versions endpoints: history plus the userId needed for
+// the route-level ownership check, nothing else.
+export function getVersionsByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
+  return model.findOne(activeByIdFilter(id)).select('userId versions').exec();
 }
 
 export async function createEntity<T extends CommonFields>(

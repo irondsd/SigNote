@@ -5,9 +5,9 @@ import { NoteModel } from '@/models/Note';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { createNote, getNoteById, getNotesByUserId, restoreNoteVersion, updateNote } from '../notes';
-import { createSecret, getSecretById, restoreSecretVersion, updateSecret } from '../secrets';
-import { createSeal, getSealById, restoreSealVersion, updateSeal } from '../seals';
+import { createNote, getNoteById, getNotesByUserId, getNoteVersions, restoreNoteVersion, updateNote } from '../notes';
+import { createSecret, getSecretVersions, restoreSecretVersion, updateSecret } from '../secrets';
+import { createSeal, getSealVersions, restoreSealVersion, updateSeal } from '../seals';
 
 let mongo: MongoMemoryServer;
 
@@ -44,9 +44,13 @@ describe('note versioning', () => {
 
     expect(updated?.title).toBe('v1');
     expect(updated?.content).toBe('body1');
-    expect(updated?.versions).toHaveLength(1);
-    expect(updated?.versions[0].title).toBe('v0');
-    expect(updated?.versions[0].content).toBe('body0');
+    // Write responses never ship history.
+    expect(updated?.versions).toBeUndefined();
+
+    const versions = (await getNoteVersions(id))!.versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0].title).toBe('v0');
+    expect(versions[0].content).toBe('body0');
   });
 
   it('treats an identical edit as a no-op (no version, no updatedAt bump)', async () => {
@@ -56,8 +60,9 @@ describe('note versioning', () => {
 
     const updated = await updateNote(id, 'same', 'body');
 
-    expect(updated?.versions).toHaveLength(0);
     expect(updated?.updatedAt.getTime()).toBe(before);
+    expect(updated?.versions).toBeUndefined();
+    expect((await getNoteVersions(id))!.versions).toHaveLength(0);
   });
 
   it('collapses edits inside the compression window into one version', async () => {
@@ -68,8 +73,9 @@ describe('note versioning', () => {
     const second = await updateNote(id, 'v2', 'body2'); // within window → suppressed
 
     expect(second?.title).toBe('v2');
-    expect(second?.versions).toHaveLength(1);
-    expect(second?.versions[0].content).toBe('body0'); // still the original snapshot
+    const versions = (await getNoteVersions(id))!.versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0].content).toBe('body0'); // still the original snapshot
   });
 
   it('records a new version once the window has elapsed', async () => {
@@ -78,11 +84,12 @@ describe('note versioning', () => {
 
     await updateNote(id, 'v1', 'body1'); // snapshot of v0
     await ageVersions(NoteModel, id);
-    const third = await updateNote(id, 'v2', 'body2'); // window elapsed → snapshot of v1
+    await updateNote(id, 'v2', 'body2'); // window elapsed → snapshot of v1
 
-    expect(third?.versions).toHaveLength(2);
-    expect(third?.versions[0].content).toBe('body0');
-    expect(third?.versions[1].content).toBe('body1');
+    const versions = (await getNoteVersions(id))!.versions;
+    expect(versions).toHaveLength(2);
+    expect(versions[0].content).toBe('body0');
+    expect(versions[1].content).toBe('body1');
   });
 
   it('caps history at MAX_VERSIONS, dropping the oldest', async () => {
@@ -94,12 +101,12 @@ describe('note versioning', () => {
       await ageVersions(NoteModel, id);
     }
 
-    const doc = await getNoteById(id);
-    expect(doc?.versions).toHaveLength(MAX_VERSIONS);
+    const versions = (await getNoteVersions(id))!.versions;
+    expect(versions).toHaveLength(MAX_VERSIONS);
     // Oldest retained snapshot should NOT be the very first content anymore.
-    expect(doc?.versions.some((v: { content: string }) => v.content === 'c0')).toBe(false);
+    expect(versions.some((v: { content: string }) => v.content === 'c0')).toBe(false);
     // Newest retained snapshot is the head state just before the final edit.
-    expect(doc?.versions[doc.versions.length - 1].content).toBe(`c${MAX_VERSIONS + 4}`);
+    expect(versions[versions.length - 1].content).toBe(`c${MAX_VERSIONS + 4}`);
   });
 
   it('restores a version: head matches, pre-restore head snapshotted, version retained', async () => {
@@ -109,17 +116,20 @@ describe('note versioning', () => {
     await ageVersions(NoteModel, id);
     await updateNote(id, 'v2', 'body2'); // versions: [body0, body1], head = v2
 
-    const target = (await getNoteById(id))!.versions[0]; // body0
+    const target = (await getNoteVersions(id))!.versions[0]; // body0
     const restored = await restoreNoteVersion(id, target._id.toString());
 
     expect(restored?.title).toBe('v0');
     expect(restored?.content).toBe('body0');
+    expect(restored?.versions).toBeUndefined();
+
+    const versions = (await getNoteVersions(id))!.versions;
     // pre-restore head (v2) is appended as a new version
-    expect(restored?.versions[restored.versions.length - 1].content).toBe('body2');
+    expect(versions[versions.length - 1].content).toBe('body2');
     // restored version row is left in place
-    expect(
-      restored?.versions.some((v: { _id: mongoose.Types.ObjectId }) => v._id.toString() === target._id.toString()),
-    ).toBe(true);
+    expect(versions.some((v: { _id: mongoose.Types.ObjectId }) => v._id.toString() === target._id.toString())).toBe(
+      true,
+    );
   });
 
   it('returns null restoring an unknown version id', async () => {
@@ -128,13 +138,18 @@ describe('note versioning', () => {
     expect(await restoreNoteVersion(note._id.toString(), fakeId)).toBeNull();
   });
 
+  it('returns null restoring a malformed version id', async () => {
+    const note = await createNote(userId, 'v0', 'body0');
+    expect(await restoreNoteVersion(note._id.toString(), 'not-an-objectid')).toBeNull();
+  });
+
   it('returns null restoring on a missing note', async () => {
     const fakeNote = new mongoose.Types.ObjectId().toString();
     const fakeVersion = new mongoose.Types.ObjectId().toString();
     expect(await restoreNoteVersion(fakeNote, fakeVersion)).toBeNull();
   });
 
-  it('strips versions from list reads but keeps them on getById', async () => {
+  it('strips versions from list and head reads; exposes them via getNoteVersions', async () => {
     const note = await createNote(userId, 'v0', 'body0');
     const id = note._id.toString();
     await updateNote(id, 'v1', 'body1');
@@ -143,7 +158,9 @@ describe('note versioning', () => {
     expect(list[0].versions).toBeUndefined();
 
     const single = await getNoteById(id);
-    expect(single?.versions).toHaveLength(1);
+    expect(single?.versions).toBeUndefined();
+
+    expect((await getNoteVersions(id))!.versions).toHaveLength(1);
   });
 });
 
@@ -156,16 +173,20 @@ describe('secret versioning', () => {
 
     expect(updated?.title).toBe('s1');
     expect(updated?.encryptedBody?.ciphertext).toBe('c1');
-    expect(updated?.versions).toHaveLength(1);
-    expect(updated?.versions[0].title).toBe('s0');
-    expect(updated?.versions[0].encryptedBody?.ciphertext).toBe('c0');
+    expect(updated?.versions).toBeUndefined();
+
+    const versions = (await getSecretVersions(id))!.versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0].title).toBe('s0');
+    expect(versions[0].encryptedBody?.ciphertext).toBe('c0');
   });
 
   it('no-ops on identical title + ciphertext', async () => {
     const secret = await createSecret(userId, 's', pay('c'));
     const id = secret._id.toString();
     const updated = await updateSecret(id, 's', pay('c'));
-    expect(updated?.versions).toHaveLength(0);
+    expect(updated?.versions).toBeUndefined();
+    expect((await getSecretVersions(id))!.versions).toHaveLength(0);
   });
 
   it('restores a prior encrypted version', async () => {
@@ -173,12 +194,15 @@ describe('secret versioning', () => {
     const id = secret._id.toString();
     await updateSecret(id, 's1', pay('c1'));
 
-    const target = (await getSecretById(id))!.versions[0];
+    const target = (await getSecretVersions(id))!.versions[0];
     const restored = await restoreSecretVersion(id, target._id.toString());
 
     expect(restored?.title).toBe('s0');
     expect(restored?.encryptedBody?.ciphertext).toBe('c0');
-    expect(restored?.versions[restored.versions.length - 1].encryptedBody?.ciphertext).toBe('c1');
+    expect(restored?.versions).toBeUndefined();
+
+    const versions = (await getSecretVersions(id))!.versions;
+    expect(versions[versions.length - 1].encryptedBody?.ciphertext).toBe('c1');
   });
 });
 
@@ -190,12 +214,15 @@ describe('seal versioning', () => {
     const updated = await updateSeal(id, { title: 'l1', encryptedBody: pay('c1') });
 
     expect(updated?.title).toBe('l1');
-    expect(updated?.versions).toHaveLength(1);
-    expect(updated?.versions[0].encryptedBody?.ciphertext).toBe('c0');
-    // version subdoc carries no wrappedNoteKey
-    expect((updated?.versions[0] as Record<string, unknown>).wrappedNoteKey).toBeUndefined();
+    expect(updated?.versions).toBeUndefined();
     // head keeps its wrapped key
     expect(updated?.wrappedNoteKey?.ciphertext).toBe('wrap');
+
+    const versions = (await getSealVersions(id))!.versions;
+    expect(versions).toHaveLength(1);
+    expect(versions[0].encryptedBody?.ciphertext).toBe('c0');
+    // version subdoc carries no wrappedNoteKey
+    expect((versions[0] as Record<string, unknown>).wrappedNoteKey).toBeUndefined();
   });
 
   it('does not version a wrappedNoteKey-only change', async () => {
@@ -205,7 +232,7 @@ describe('seal versioning', () => {
     const updated = await updateSeal(id, { wrappedNoteKey: pay('wrap1') });
 
     expect(updated?.wrappedNoteKey?.ciphertext).toBe('wrap1');
-    expect(updated?.versions).toHaveLength(0);
+    expect((await getSealVersions(id))!.versions).toHaveLength(0);
   });
 
   it('restores a seal version, leaving wrappedNoteKey on the head intact', async () => {
@@ -213,11 +240,14 @@ describe('seal versioning', () => {
     const id = seal._id.toString();
     await updateSeal(id, { title: 'l1', encryptedBody: pay('c1') });
 
-    const target = (await getSealById(id))!.versions[0];
+    const target = (await getSealVersions(id))!.versions[0];
     const restored = await restoreSealVersion(id, target._id.toString());
 
     expect(restored?.encryptedBody?.ciphertext).toBe('c0');
     expect(restored?.wrappedNoteKey?.ciphertext).toBe('wrap');
-    expect(restored?.versions[restored.versions.length - 1].encryptedBody?.ciphertext).toBe('c1');
+    expect(restored?.versions).toBeUndefined();
+
+    const versions = (await getSealVersions(id))!.versions;
+    expect(versions[versions.length - 1].encryptedBody?.ciphertext).toBe('c1');
   });
 });

@@ -1,6 +1,7 @@
+import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
-import { NoteModel, type NoteVersion } from '@/models/Note';
-import { commonOps, createEntity, getByIdActive, listByUserId } from './common';
+import { NoteModel } from '@/models/Note';
+import { commonOps, createEntity, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
 import { buildVersionPush } from './versions';
 
 export const noteOps = commonOps(NoteModel);
@@ -43,13 +44,21 @@ export const getNotesByUserId = (
   });
 
 export const getNoteById = (id: string) => getByIdActive(NoteModel, id);
+export const getNoteVersions = (id: string) => getVersionsByIdActive(NoteModel, id);
 
 export const updateNote = async (id: string, title: string, content: string) => {
-  const doc = await NoteModel.findById(id).exec();
+  // $slice keeps every other field but loads only the newest version — all the
+  // no-op check and the compression-window decision need.
+  const doc = await NoteModel.findById(id)
+    .select({ versions: { $slice: -1 } })
+    .exec();
   if (!doc) return null;
 
-  // No-op edit: don't touch updatedAt or record a version.
-  if (doc.title === title && doc.content === content) return doc;
+  // No-op edit: don't touch updatedAt or record a version. Re-read without the
+  // version slice so the response carries no history, same as a real update.
+  if (doc.title === title && doc.content === content) {
+    return NoteModel.findById(id).select('-versions').exec();
+  }
 
   const now = new Date();
   const versionPush = buildVersionPush(doc, {
@@ -61,7 +70,7 @@ export const updateNote = async (id: string, title: string, content: string) => 
   return NoteModel.findByIdAndUpdate(
     id,
     { $set: { title, content, updatedAt: now }, ...versionPush },
-    { returnDocument: 'after' },
+    { returnDocument: 'after', projection: { versions: 0 } },
   ).exec();
 };
 
@@ -72,10 +81,15 @@ export const updateNote = async (id: string, title: string, content: string) => 
  * left in place — restore is "edit head to match vN", not "move vN to head".
  */
 export const restoreNoteVersion = async (id: string, versionId: string) => {
-  const doc = await NoteModel.findById(id).exec();
+  if (!isValidObjectId(versionId)) return null;
+
+  // $elemMatch loads only the targeted version alongside the head fields.
+  const doc = await NoteModel.findById(id)
+    .select({ title: 1, content: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
+    .exec();
   if (!doc) return null;
 
-  const version = doc.versions.find((v: NoteVersion) => v._id.toString() === versionId);
+  const version = doc.versions?.[0];
   if (!version) return null;
 
   const now = new Date();
@@ -91,6 +105,6 @@ export const restoreNoteVersion = async (id: string, versionId: string) => {
         },
       },
     },
-    { returnDocument: 'after' },
+    { returnDocument: 'after', projection: { versions: 0 } },
   ).exec();
 };

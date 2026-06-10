@@ -1,7 +1,8 @@
+import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
-import { SealNoteModel, type SealNoteVersion } from '@/models/SealNote';
+import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, getByIdActive, listByUserId } from './common';
+import { commonOps, createEntity, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
 import { buildVersionPush } from './versions';
 
 const clonePayload = (p: EncryptedPayload | null): EncryptedPayload | null =>
@@ -44,6 +45,7 @@ export const getSealsByUserId = (
 ) => listByUserId(SealNoteModel, userId, { archived, limit, offset, search, tagIds, tagMode });
 
 export const getSealById = (id: string) => getByIdActive(SealNoteModel, id);
+export const getSealVersions = (id: string) => getVersionsByIdActive(SealNoteModel, id);
 
 type UpdateSealInput = {
   title?: string;
@@ -52,7 +54,11 @@ type UpdateSealInput = {
 };
 
 export const updateSeal = async (id: string, data: UpdateSealInput) => {
-  const doc = await SealNoteModel.findById(id).exec();
+  // $slice keeps every other field but loads only the newest version — all the
+  // change detection and the compression-window decision need.
+  const doc = await SealNoteModel.findById(id)
+    .select({ versions: { $slice: -1 } })
+    .exec();
   if (!doc) return null;
 
   const now = new Date();
@@ -69,7 +75,7 @@ export const updateSeal = async (id: string, data: UpdateSealInput) => {
   return SealNoteModel.findByIdAndUpdate(
     id,
     { $set: { ...data, updatedAt: now }, ...versionPush },
-    { returnDocument: 'after' },
+    { returnDocument: 'after', projection: { versions: 0 } },
   ).exec();
 };
 
@@ -78,10 +84,15 @@ export const updateSeal = async (id: string, data: UpdateSealInput) => {
  * untouched — the per-note NEK never rotates and decrypts every version body.
  */
 export const restoreSealVersion = async (id: string, versionId: string) => {
-  const doc = await SealNoteModel.findById(id).exec();
+  if (!isValidObjectId(versionId)) return null;
+
+  // $elemMatch loads only the targeted version alongside the head fields.
+  const doc = await SealNoteModel.findById(id)
+    .select({ title: 1, encryptedBody: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
+    .exec();
   if (!doc) return null;
 
-  const version = doc.versions.find((v: SealNoteVersion) => v._id.toString() === versionId);
+  const version = doc.versions?.[0];
   if (!version) return null;
 
   const now = new Date();
@@ -97,6 +108,6 @@ export const restoreSealVersion = async (id: string, versionId: string) => {
         },
       },
     },
-    { returnDocument: 'after' },
+    { returnDocument: 'after', projection: { versions: 0 } },
   ).exec();
 };
