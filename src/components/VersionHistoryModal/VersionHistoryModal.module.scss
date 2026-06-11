@@ -1,0 +1,341 @@
+@use '../../styles/mixins';
+@use '../../styles/patterns';
+
+// Amber selection wash, matching .activePickerBtn in SharedNoteModal.
+$amber: oklch(0.64 0.17 52);
+
+.modal {
+  flex-direction: row;
+  max-width: 856px;
+  width: 100%;
+  height: min(620px, 90dvh);
+}
+
+// ── Note column ──────────────────────────────────────────────
+
+.noteColumn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// Both headers share one fixed height so their bottom borders line up
+// across the note column and the sidebar.
+$header-height: 56px;
+
+.header {
+  height: $header-height;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--card-foreground);
+  line-height: 1.3;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bodyWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  @include patterns.pattern-base;
+}
+
+.body {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+
+  @include mixins.custom-scrollbar();
+
+  &.past {
+    opacity: 0.7;
+  }
+}
+
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.actionIcons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.latestNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  padding-right: 4px;
+
+  svg {
+    color: var(--primary);
+  }
+}
+
+// ── Versions sidebar ─────────────────────────────────────────
+
+.sidebar {
+  width: 272px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--background);
+}
+
+.sidebarHeader {
+  height: $header-height;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebarTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--card-foreground);
+  white-space: nowrap;
+
+  svg {
+    color: var(--muted-foreground);
+  }
+}
+
+.countBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  line-height: 1.6;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+
+  @include mixins.custom-scrollbar();
+}
+
+// ── Timeline rows ────────────────────────────────────────────
+
+.row {
+  display: flex;
+  gap: 10px;
+  padding: 9px 10px 9px 8px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover:not(.active) {
+    background: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+  }
+}
+
+.active {
+  background: color-mix(in oklab, $amber 12%, transparent);
+  border-color: color-mix(in oklab, $amber 35%, transparent);
+
+  .rel {
+    color: var(--primary);
+  }
+}
+
+// Each row paints its own segment of the continuous timeline line; rows are
+// adjacent, so the segments connect. First/last rows stop at their dot.
+.rail {
+  position: relative;
+  width: 16px;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: -9px;
+    bottom: -9px;
+    width: 2px;
+    background: var(--border);
+  }
+}
+
+.row:first-child .rail::before {
+  top: 11px;
+}
+
+.row:last-child .rail::before {
+  bottom: calc(100% - 11px);
+}
+
+.dot {
+  position: absolute;
+  top: 7px;
+  left: 3.5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--muted-foreground);
+  z-index: 2;
+}
+
+.dotActive {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--card-foreground);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.currentPill {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary);
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, $amber 35%, transparent);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.abs {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: -0.01em;
+}
+
+.meta {
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+.skeletonRow {
+  height: 56px;
+  margin: 0 0 6px;
+  border-radius: 9px;
+  background: var(--accent);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted-foreground);
+  line-height: 1.45;
+  flex-shrink: 0;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+}
+
+// ── Mobile: timeline stacks below the note ───────────────────
+
+@media (max-width: 767px) {
+  .modal {
+    flex-direction: column;
+    height: auto;
+    max-height: 100%;
+  }
+
+  .noteColumn {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  // Two rows plus the start of a third, then scroll.
+  .list {
+    flex: none;
+    max-height: 150px;
+  }
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, MoreVertical, Pin, PinOff, Timer } from 'lucide-react';
+import { ChevronRight, History, MoreVertical, Pin, PinOff, Timer } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { MenuItem } from './MenuItem';
@@ -14,6 +14,10 @@ type NoteActionsMenuProps = {
   expiresAt: Date | string | null;
   burnAfterReading: boolean;
   onSetExpiry: (next: { expiresAt: Date | null; burnAfterReading: boolean }) => void;
+  /** Opens the version history panel; the item is hidden when omitted. */
+  onVersionHistory?: () => void;
+  /** Fired on first open so the parent can prefetch the version list. */
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function NoteActionsMenu({
@@ -22,6 +26,8 @@ export function NoteActionsMenu({
   expiresAt,
   burnAfterReading,
   onSetExpiry,
+  onVersionHistory,
+  onOpenChange,
 }: NoteActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<'main' | 'expiry'>('main');
@@ -53,6 +59,7 @@ export function NoteActionsMenu({
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
+        onOpenChange?.(v);
         if (!v) setPane('main');
       }}
     >
@@ -87,6 +94,17 @@ export function NoteActionsMenu({
               trailing={<ChevronRight size={14} />}
               onClick={() => setPane('expiry')}
             />
+            {onVersionHistory && (
+              <MenuItem
+                data-testid="version-history-item"
+                icon={<History size={16} />}
+                label="Version history"
+                onClick={() => {
+                  onVersionHistory();
+                  close();
+                }}
+              />
+            )}
           </div>
         ) : (
           <SelfDestructPicker

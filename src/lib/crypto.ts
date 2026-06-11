@@ -226,6 +226,29 @@ export async function encryptSealBody(mek: CryptoKey, plaintext: string, sealId:
   return { encryptedBody, wrappedNoteKey };
 }
 
+/**
+ * Re-encrypts a seal body under its *existing* NEK. Edits must use this rather
+ * than encryptSealBody: version history stores ciphertext-only snapshots and
+ * relies on the head's wrappedNoteKey decrypting every historical body, so the
+ * NEK must never rotate once a seal has one.
+ */
+export async function encryptSealBodyWithExistingKey(
+  mek: CryptoKey,
+  plaintext: string,
+  sealId: string,
+  wrappedNoteKey: EncryptedPayload,
+): Promise<SealEncryptResult> {
+  const aad = getSealKeyString(sealId);
+
+  const sealWrapKey = await deriveSealWrapKey(mek, sealId);
+  const nekBytes = await decryptBytesAesGcm(sealWrapKey, wrappedNoteKey, aad);
+  const nekKey = await crypto.subtle.importKey('raw', nekBytes, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+
+  const encryptedBody = await encryptAesGcm(nekKey, plaintext, aad);
+
+  return { encryptedBody, wrappedNoteKey };
+}
+
 export async function decryptSealBody(
   mek: CryptoKey,
   encryptedBody: EncryptedPayload,

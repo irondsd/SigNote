@@ -2,7 +2,7 @@ import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
 import { buildVersionPush } from './versions';
 
 const clonePayload = (p: EncryptedPayload | null): EncryptedPayload | null =>
@@ -46,6 +46,7 @@ export const getSealsByUserId = (
 
 export const getSealById = (id: string) => getByIdActive(SealNoteModel, id);
 export const getSealVersions = (id: string) => getVersionsByIdActive(SealNoteModel, id);
+export const deleteSealVersion = (id: string, versionId: string) => deleteVersionById(SealNoteModel, id, versionId);
 
 type UpdateSealInput = {
   title?: string;
@@ -67,9 +68,15 @@ export const updateSeal = async (id: string, data: UpdateSealInput) => {
 
   // Only title/body changes are versioned. A wrappedNoteKey-only change (rare)
   // still writes through but records no version.
+  // The snapshot is stamped with when its content was *saved* (the head's
+  // updatedAt), not when this edit displaced it.
   const titleOrBodyChanged = nextTitle !== doc.title || !samePayload(doc.encryptedBody, nextBody);
   const versionPush = titleOrBodyChanged
-    ? buildVersionPush(doc, { title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: now })
+    ? buildVersionPush(doc, {
+        title: doc.title,
+        encryptedBody: clonePayload(doc.encryptedBody),
+        createdAt: doc.updatedAt,
+      })
     : {};
 
   return SealNoteModel.findByIdAndUpdate(
@@ -88,7 +95,12 @@ export const restoreSealVersion = async (id: string, versionId: string) => {
 
   // $elemMatch loads only the targeted version alongside the head fields.
   const doc = await SealNoteModel.findById(id)
-    .select({ title: 1, encryptedBody: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
+    .select({
+      title: 1,
+      encryptedBody: 1,
+      updatedAt: 1,
+      versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } },
+    })
     .exec();
   if (!doc) return null;
 
@@ -103,7 +115,8 @@ export const restoreSealVersion = async (id: string, versionId: string) => {
       $set: { title: version.title, encryptedBody: clonePayload(version.encryptedBody), updatedAt: now },
       $push: {
         versions: {
-          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: now }],
+          // Stamped with when the pre-restore head was saved, not restore time.
+          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: doc.updatedAt }],
           $slice: -MAX_VERSIONS,
         },
       },

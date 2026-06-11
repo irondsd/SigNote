@@ -1,7 +1,7 @@
 import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
-import { commonOps, createEntity, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
 import { buildVersionPush } from './versions';
 
 export const noteOps = commonOps(NoteModel);
@@ -45,6 +45,7 @@ export const getNotesByUserId = (
 
 export const getNoteById = (id: string) => getByIdActive(NoteModel, id);
 export const getNoteVersions = (id: string) => getVersionsByIdActive(NoteModel, id);
+export const deleteNoteVersion = (id: string, versionId: string) => deleteVersionById(NoteModel, id, versionId);
 
 export const updateNote = async (id: string, title: string, content: string) => {
   // $slice keeps every other field but loads only the newest version — all the
@@ -61,10 +62,12 @@ export const updateNote = async (id: string, title: string, content: string) => 
   }
 
   const now = new Date();
+  // The snapshot is stamped with when its content was *saved* (the head's
+  // updatedAt), not when this edit displaced it.
   const versionPush = buildVersionPush(doc, {
     title: doc.title,
     content: doc.content,
-    createdAt: now,
+    createdAt: doc.updatedAt,
   });
 
   return NoteModel.findByIdAndUpdate(
@@ -85,7 +88,7 @@ export const restoreNoteVersion = async (id: string, versionId: string) => {
 
   // $elemMatch loads only the targeted version alongside the head fields.
   const doc = await NoteModel.findById(id)
-    .select({ title: 1, content: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
+    .select({ title: 1, content: 1, updatedAt: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
     .exec();
   if (!doc) return null;
 
@@ -100,7 +103,8 @@ export const restoreNoteVersion = async (id: string, versionId: string) => {
       $set: { title: version.title, content: version.content, updatedAt: now },
       $push: {
         versions: {
-          $each: [{ title: doc.title, content: doc.content, createdAt: now }],
+          // Stamped with when the pre-restore head was saved, not restore time.
+          $each: [{ title: doc.title, content: doc.content, createdAt: doc.updatedAt }],
           $slice: -MAX_VERSIONS,
         },
       },

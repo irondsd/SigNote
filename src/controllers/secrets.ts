@@ -2,7 +2,7 @@ import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
 import { buildVersionPush } from './versions';
 
 // Plain-object copy of an encrypted payload (strips mongoose subdoc internals so
@@ -47,6 +47,7 @@ export const getSecretsByUserId = (
 
 export const getSecretById = (id: string) => getByIdActive(SecretNoteModel, id);
 export const getSecretVersions = (id: string) => getVersionsByIdActive(SecretNoteModel, id);
+export const deleteSecretVersion = (id: string, versionId: string) => deleteVersionById(SecretNoteModel, id, versionId);
 
 export const updateSecret = async (id: string, title: string, encryptedBody: EncryptedPayload | null) => {
   // $slice keeps every other field but loads only the newest version — all the
@@ -64,10 +65,12 @@ export const updateSecret = async (id: string, title: string, encryptedBody: Enc
   }
 
   const now = new Date();
+  // The snapshot is stamped with when its content was *saved* (the head's
+  // updatedAt), not when this edit displaced it.
   const versionPush = buildVersionPush(doc, {
     title: doc.title,
     encryptedBody: clonePayload(doc.encryptedBody),
-    createdAt: now,
+    createdAt: doc.updatedAt,
   });
 
   return SecretNoteModel.findByIdAndUpdate(
@@ -83,7 +86,12 @@ export const restoreSecretVersion = async (id: string, versionId: string) => {
 
   // $elemMatch loads only the targeted version alongside the head fields.
   const doc = await SecretNoteModel.findById(id)
-    .select({ title: 1, encryptedBody: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
+    .select({
+      title: 1,
+      encryptedBody: 1,
+      updatedAt: 1,
+      versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } },
+    })
     .exec();
   if (!doc) return null;
 
@@ -98,7 +106,8 @@ export const restoreSecretVersion = async (id: string, versionId: string) => {
       $set: { title: version.title, encryptedBody: clonePayload(version.encryptedBody), updatedAt: now },
       $push: {
         versions: {
-          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: now }],
+          // Stamped with when the pre-restore head was saved, not restore time.
+          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: doc.updatedAt }],
           $slice: -MAX_VERSIONS,
         },
       },

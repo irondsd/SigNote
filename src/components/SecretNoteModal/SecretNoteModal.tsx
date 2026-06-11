@@ -1,22 +1,38 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
-import { useDeleteSecret, useUndeleteSecret, useUpdateSecret, type CachedSecretNote } from '@/hooks/useSecretMutations';
+import {
+  useCreateSecret,
+  useDeleteSecret,
+  useUndeleteSecret,
+  useUpdateSecret,
+  type CachedSecretNote,
+} from '@/hooks/useSecretMutations';
+import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
+import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
+import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
-import { encryptSecretBody } from '@/lib/crypto';
+import { decryptSecretBody, encryptSecretBody } from '@/lib/crypto';
+import type { EncryptedPayload } from '@/types/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+
+const VersionHistoryModal = dynamic(
+  () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
+  { ssr: false },
+);
 
 type SecretNoteModalProps = {
   note: CachedSecretNote;
@@ -63,6 +79,41 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const deleteSecret = useDeleteSecret();
   const undeleteSecret = useUndeleteSecret();
   const updateSecret = useUpdateSecret();
+  const createSecret = useCreateSecret();
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Once history has been opened, returning to the note modal must not replay
+  // the entrance animation — it's the same surface switching modes.
+  const [historyWasOpen, setHistoryWasOpen] = useState(false);
+  const [menuOpened, setMenuOpened] = useState(false);
+  const versionsQuery = useVersions<EncryptedVersion>('secrets', note._id, { enabled: menuOpened || historyOpen });
+  const decryptVersionBody = useCallback(
+    (payload: EncryptedPayload) =>
+      mek ? decryptSecretBody(mek, payload) : Promise.reject(new Error('Vault is locked')),
+    [mek],
+  );
+  const versions = useDecryptedVersions(versionsQuery.data, mek ? decryptVersionBody : null);
+
+  const openHistory = () => {
+    void guard.execute(async () => {
+      setHistoryOpen(true);
+      setHistoryWasOpen(true);
+    });
+  };
+
+  const handleRestored = (v: DisplayVersion) => {
+    setTitle(v.title);
+    setContent(v.content);
+    savedContentRef.current = v.content;
+    setUpdatedAt(new Date().toISOString());
+  };
+
+  const handleDuplicate = (v: { title: string; content: string }) => {
+    void guard.execute(async (currentMek) => {
+      const encryptedBody = v.content.trim() ? await encryptSecretBody(currentMek, v.content) : null;
+      createSecret.mutate({ title: v.title, encryptedBody, color, pattern });
+    });
+  };
 
   const handleDelete = () => {
     deleteSecret.mutate(note._id);
@@ -199,9 +250,29 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     })();
   }, [mek, performSave]);
 
+  if (historyOpen) {
+    return (
+      <>
+        <VersionHistoryModal
+          tier="secrets"
+          noteId={note._id}
+          color={color}
+          pattern={pattern}
+          current={{ _id: CURRENT_VERSION_ID, title, content, createdAt: updatedAt }}
+          versions={versions}
+          onClose={() => setHistoryOpen(false)}
+          onRestored={handleRestored}
+          onDuplicate={handleDuplicate}
+        />
+        {guard.PassphraseGuard}
+      </>
+    );
+  }
+
   return (
     <>
       <SharedNoteModal
+        animateIn={!historyWasOpen}
         title={title}
         editing={editing}
         onTitleChange={setTitle}
@@ -239,6 +310,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            onVersionHistory={openHistory}
+            onOpenChange={(open) => open && setMenuOpened(true)}
           />
         }
       >

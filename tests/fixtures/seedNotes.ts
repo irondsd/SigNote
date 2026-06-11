@@ -18,6 +18,7 @@ export type SeedNote = {
   pinned?: boolean;
   expiresAt?: Date | null;
   burnAfterReading?: boolean;
+  versions?: { title: string; content: string; createdAt?: Date }[];
 };
 
 export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<NoteDocument[]> => {
@@ -53,6 +54,7 @@ export const seedNotes = async (address: Address, notes: SeedNote[]): Promise<No
       pinned: note.pinned ?? false,
       expiresAt: note.expiresAt ?? null,
       burnAfterReading: note.burnAfterReading ?? false,
+      versions: note.versions ?? [],
     });
     created.push(doc);
     position += POSITION_STEP;

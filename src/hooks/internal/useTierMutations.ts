@@ -14,6 +14,7 @@ import {
   type WithId,
   type Snapshot,
 } from '@/lib/queryCache';
+import { versionsKey, type VersionTier } from '@/hooks/useVersions';
 
 type DeleteFn = (id: string) => Promise<unknown>;
 type UndeleteFn<T> = (args: { id: string; note: T }) => Promise<unknown>;
@@ -91,6 +92,13 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, t
       posthog.capture('mutation_failed', { tier: tierName, operation: 'update' });
       toast.error(`Failed to save ${tierName}`);
     },
-    onSettled: settledHandler<T>(qc, root),
+    onSettled: (data: unknown, err: unknown, vars: UpdateInput, context?: { snapshots: Snapshot<T>[] }) => {
+      // A title/content edit may have pushed a version snapshot server-side —
+      // drop the cached timeline so an open/reopened history panel refetches.
+      if (vars.title !== undefined || vars[contentField] !== undefined) {
+        void qc.invalidateQueries({ queryKey: versionsKey(root as VersionTier, vars.id) });
+      }
+      return settledHandler<T>(qc, root)(data, err, vars, context);
+    },
   });
 }

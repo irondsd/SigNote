@@ -57,6 +57,18 @@ export function getVersionsByIdActive<T extends CommonFields>(model: Model<T>, i
   return model.findOne(activeByIdFilter(id)).select('userId versions').exec();
 }
 
+// Removes one version row by its subdocument id. Idempotent: pulling an id
+// that's already gone still resolves to the head. Null only when the parent
+// note itself is missing/expired.
+export function deleteVersionById<T extends CommonFields>(model: Model<T>, id: string, versionId: string) {
+  return model
+    .findOneAndUpdate(activeByIdFilter(id), { $pull: { versions: { _id: versionId } } } as UpdateQuery<T>, {
+      returnDocument: 'after',
+      projection: { versions: 0 },
+    })
+    .exec();
+}
+
 export async function createEntity<T extends CommonFields>(
   model: Model<T>,
   userId: string,

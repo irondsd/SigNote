@@ -1,10 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
-import { useDeleteSeal, useUndeleteSeal, useUpdateSeal, type CachedSealNote } from '@/hooks/useSealMutations';
+import {
+  useCreateSeal,
+  useDeleteSeal,
+  useUndeleteSeal,
+  useUpdateSeal,
+  type CachedSealNote,
+} from '@/hooks/useSealMutations';
+import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
+import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
+import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -13,7 +23,8 @@ import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlace
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
-import { decryptSealBody, encryptSealBody } from '@/lib/crypto';
+import { decryptSealBody, encryptSealBody, encryptSealBodyWithExistingKey } from '@/lib/crypto';
+import type { EncryptedPayload } from '@/types/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
@@ -25,6 +36,11 @@ import { DecryptTimer } from './DecryptTimer';
 import s from './SealNoteModal.module.scss';
 
 const DECRYPT_FOR_SECONDS = 60;
+
+const VersionHistoryModal = dynamic(
+  () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
+  { ssr: false },
+);
 
 type SealNoteModalProps = {
   note: CachedSealNote;
@@ -62,6 +78,22 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
   const updateSeal = useUpdateSeal();
+  const createSeal = useCreateSeal();
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Once history has been opened, returning to the note modal must not replay
+  // the entrance animation — it's the same surface switching modes.
+  const [historyWasOpen, setHistoryWasOpen] = useState(false);
+  const [menuOpened, setMenuOpened] = useState(false);
+  const versionsQuery = useVersions<EncryptedVersion>('seals', note._id, { enabled: menuOpened || historyOpen });
+  const decryptVersionBody = useCallback(
+    (payload: EncryptedPayload) =>
+      mek && note.wrappedNoteKey
+        ? decryptSealBody(mek, payload, note.wrappedNoteKey, note._id)
+        : Promise.reject(new Error('Vault is locked')),
+    [mek, note.wrappedNoteKey, note._id],
+  );
+  const versions = useDecryptedVersions(versionsQuery.data, mek ? decryptVersionBody : null);
 
   const isDecrypted = decryptedContent !== null;
   const isDirty =
@@ -121,9 +153,37 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const handleEncrypt = useCallback(() => {
     setDecryptedContent(null);
     setEditing(false);
+    setHistoryOpen(false);
     setTimeLeft(null);
     totalTimeRef.current = DECRYPT_FOR_SECONDS;
   }, []);
+
+  // History needs the head readable for the "Current" entry, so decrypt first.
+  const openHistory = () => {
+    void guard.execute(async (currentMek) => {
+      if (decryptedContent === null) await performDecrypt(currentMek);
+      setHistoryOpen(true);
+      setHistoryWasOpen(true);
+    });
+  };
+
+  const handleRestored = (v: DisplayVersion) => {
+    setTitle(v.title);
+    setDecryptedContent(v.content);
+    originalDecryptedRef.current = v.content;
+    setUpdatedAt(new Date().toISOString());
+  };
+
+  const handleDuplicate = (v: { title: string; content: string }) => {
+    void guard.execute(async (currentMek) => {
+      createSeal.mutate({
+        title: v.title,
+        color,
+        pattern,
+        encryptBody: async (sealId) => (v.content.trim() ? encryptSealBody(currentMek, v.content, sealId) : null),
+      });
+    });
+  };
 
   // Hard lock event: close modal if not editing.
   // Uses lockSerial (increments on each lock() call) snapshotted at mount so that
@@ -141,9 +201,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     }
   }, [phase, lockType, editing, isDecrypted, handleEncrypt]);
 
-  // Auto-encrypt countdown
+  // Auto-encrypt countdown (paused while editing or reviewing history)
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0 || editing) return;
+    if (timeLeft === null || timeLeft <= 0 || editing || historyOpen) return;
     const id = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null || prev <= 1) {
@@ -154,7 +214,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [timeLeft, editing, handleEncrypt]);
+  }, [timeLeft, editing, historyOpen, handleEncrypt]);
 
   const performSave = useCallback(
     async (currentMek: CryptoKey) => {
@@ -173,12 +233,17 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         let wrappedNoteKey = note.wrappedNoteKey;
 
         if (decryptedContent.trim()) {
-          const encrypted = await encryptSealBody(currentMek, decryptedContent, note._id);
+          // Reuse the existing NEK: version snapshots store ciphertext only and
+          // are decrypted with the head's wrappedNoteKey, so it must not rotate.
+          const encrypted = note.wrappedNoteKey
+            ? await encryptSealBodyWithExistingKey(currentMek, decryptedContent, note._id, note.wrappedNoteKey)
+            : await encryptSealBody(currentMek, decryptedContent, note._id);
           encryptedBody = encrypted.encryptedBody;
           wrappedNoteKey = encrypted.wrappedNoteKey;
         } else {
+          // Keep the wrapped key even when the body empties — historical
+          // versions are still encrypted under this NEK.
           encryptedBody = null;
-          wrappedNoteKey = null;
         }
 
         const fileIds = extractFileIds(decryptedContent);
@@ -367,9 +432,29 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     </Button>
   ) : null;
 
+  if (historyOpen) {
+    return (
+      <>
+        <VersionHistoryModal
+          tier="seals"
+          noteId={note._id}
+          color={color}
+          pattern={pattern}
+          current={{ _id: CURRENT_VERSION_ID, title, content: decryptedContent ?? '', createdAt: updatedAt }}
+          versions={versions}
+          onClose={() => setHistoryOpen(false)}
+          onRestored={handleRestored}
+          onDuplicate={handleDuplicate}
+        />
+        {guard.PassphraseGuard}
+      </>
+    );
+  }
+
   return (
     <>
       <SharedNoteModal
+        animateIn={!historyWasOpen}
         title={title}
         editing={editing}
         onTitleChange={setTitle}
@@ -413,6 +498,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            onVersionHistory={openHistory}
+            onOpenChange={(open) => open && setMenuOpened(true)}
           />
         }
       >
@@ -428,14 +515,17 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                     try {
                       await guard.execute(async (mek) => {
                         if (html.trim()) {
-                          const encrypted = await encryptSealBody(mek, html, note._id);
+                          // Same NEK-reuse rule as performSave: history depends on it.
+                          const encrypted = note.wrappedNoteKey
+                            ? await encryptSealBodyWithExistingKey(mek, html, note._id, note.wrappedNoteKey)
+                            : await encryptSealBody(mek, html, note._id);
                           updateSeal.mutate({
                             id: note._id,
                             encryptedBody: encrypted.encryptedBody,
                             wrappedNoteKey: encrypted.wrappedNoteKey,
                           });
                         } else {
-                          updateSeal.mutate({ id: note._id, encryptedBody: null, wrappedNoteKey: null });
+                          updateSeal.mutate({ id: note._id, encryptedBody: null });
                         }
                       });
                     } catch {

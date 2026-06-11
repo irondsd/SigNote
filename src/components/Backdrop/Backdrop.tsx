@@ -8,9 +8,10 @@ type BackdropProps = {
   className?: string;
   children: ReactNode;
   disableClose?: boolean;
+  animate?: boolean;
 };
 
-export function Backdrop({ onClose, className, children, disableClose }: BackdropProps) {
+export function Backdrop({ onClose, className, children, disableClose, animate = true }: BackdropProps) {
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [vpStyle, setVpStyle] = useState<CSSProperties>({});
 
@@ -49,7 +50,7 @@ export function Backdrop({ onClose, className, children, disableClose }: Backdro
   return createPortal(
     <div
       className={cn(s.backdrop, keyboardOpen && s.keyboardOpen, className)}
-      style={vpStyle}
+      style={animate ? vpStyle : { ...vpStyle, animation: 'none' }}
       onClick={disableClose ? undefined : onClose}
       data-backdrop="true"
     >
