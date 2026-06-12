@@ -19,11 +19,7 @@ import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 import { attachDatabasePool } from '@vercel/functions';
 
-import {
-  findSessionForValidation,
-  touchSession,
-  upsertSessionIfMissing,
-} from '@/controllers/authSessions';
+import { findSessionForValidation, touchSession, upsertSessionIfMissing } from '@/controllers/authSessions';
 import { RouteAuthError, assertOwner, withSession, type AuthedContext } from '@/lib/routeAuth';
 
 type Handler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;

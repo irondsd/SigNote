@@ -97,10 +97,7 @@ export const listUserSessions = async (userId: string) => {
 export const revokeSession = async (sessionId: string, userId: string): Promise<boolean> => {
   const _id = toObjectId(sessionId);
   if (!_id) return false;
-  const res = await AuthSessionModel.updateOne(
-    { _id, userId, revokedAt: null },
-    { $set: { revokedAt: new Date() } },
-  );
+  const res = await AuthSessionModel.updateOne({ _id, userId, revokedAt: null }, { $set: { revokedAt: new Date() } });
   return res.matchedCount > 0;
 };
 

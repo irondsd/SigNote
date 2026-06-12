@@ -51,14 +51,18 @@ async function closeModal(page: Page) {
 /** From inside the picker, choose a preset and commit. */
 async function setPreset(page: Page, label: '1 hour' | '24 hours' | '7 days' | '30 days') {
   await page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).click();
-  const patch = page.waitForResponse((r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH');
+  const patch = page.waitForResponse(
+    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+  );
   await page.getByRole('button', { name: /set timer|update timer/i }).click();
   await patch;
 }
 
 /** From inside the picker, click Turn off self-destruct. */
 async function turnOffFromPicker(page: Page) {
-  const patch = page.waitForResponse((r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH');
+  const patch = page.waitForResponse(
+    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+  );
   await page.getByRole('button', { name: /turn off self-destruct/i }).click();
   await patch;
 }
@@ -70,7 +74,9 @@ async function toggleBurnSwitch(page: Page) {
 
 /** Save with "Set timer" / "Update timer", waiting for the PATCH. */
 async function commitFromPicker(page: Page) {
-  const patch = page.waitForResponse((r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH');
+  const patch = page.waitForResponse(
+    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+  );
   await page.getByRole('button', { name: /set timer|update timer/i }).click();
   await patch;
 }
@@ -212,9 +218,7 @@ test.describe('timer set & disable via picker', () => {
   test('Turn off self-destruct clears both fields for a timer-armed note', async ({ page }) => {
     const { account } = makeAccount();
     const title = `disable-timer-${Date.now()}`;
-    const [seeded] = await seedNotes(account.address, [
-      { title, expiresAt: new Date(Date.now() + 60 * 60_000) },
-    ]);
+    const [seeded] = await seedNotes(account.address, [{ title, expiresAt: new Date(Date.now() + 60 * 60_000) }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
@@ -335,9 +339,7 @@ test.describe('burn-after-reading arming', () => {
   test('user can spare a timer-armed note before its expiry by disabling it', async ({ page }) => {
     const { account } = makeAccount();
     const title = `timer-spare-${Date.now()}`;
-    const [seeded] = await seedNotes(account.address, [
-      { title, expiresAt: new Date(Date.now() + 60 * 60_000) },
-    ]);
+    const [seeded] = await seedNotes(account.address, [{ title, expiresAt: new Date(Date.now() + 60 * 60_000) }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);

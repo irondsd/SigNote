@@ -139,9 +139,7 @@ export function SearchPalette() {
 
             <div className={s.inputWrap}>
               <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
-              {activeTag && (
-                <Tag tag={activeTag} size="sm" variant="soft" dot onRemove={() => setTagId('')} />
-              )}
+              {activeTag && <Tag tag={activeTag} size="sm" variant="soft" dot onRemove={() => setTagId('')} />}
               <input
                 ref={inputRef}
                 value={activeQuery}

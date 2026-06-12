@@ -59,7 +59,9 @@ describe('recoveryBackup', () => {
     });
 
     it('rejects wrong type', () => {
-      const r = parseBackupText(JSON.stringify({ type: 'something-else', version: 1, userId: 'x', deviceShare: 'y', createdAt: 'z' }));
+      const r = parseBackupText(
+        JSON.stringify({ type: 'something-else', version: 1, userId: 'x', deviceShare: 'y', createdAt: 'z' }),
+      );
       expect(r).toEqual({ ok: false, reason: 'wrong-type' });
     });
 

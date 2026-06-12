@@ -53,9 +53,7 @@ export function useTagMutations() {
   const restoreTags = (snapshots: ReturnType<typeof snapshotTags>) =>
     snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
   const patchTagsCache = (updater: (tags: ClientTag[]) => ClientTag[]) =>
-    qc.setQueriesData<TagsResponse>({ queryKey: TAGS_KEY }, (old) =>
-      old ? { ...old, tags: updater(old.tags) } : old,
-    );
+    qc.setQueriesData<TagsResponse>({ queryKey: TAGS_KEY }, (old) => (old ? { ...old, tags: updater(old.tags) } : old));
 
   const create = useMutation({
     mutationFn: apiCreateTag,
@@ -63,9 +61,7 @@ export function useTagMutations() {
       posthog.capture('tag_created');
       // Insert immediately so chips/lookup reflect the new tag before refetch.
       patchTagsCache((tags) =>
-        tags.some((t) => t._id === tag._id)
-          ? tags
-          : [...tags, tag].sort((a, b) => a.name.localeCompare(b.name)),
+        tags.some((t) => t._id === tag._id) ? tags : [...tags, tag].sort((a, b) => a.name.localeCompare(b.name)),
       );
     },
     onError: () => toast.error('Failed to create tag'),

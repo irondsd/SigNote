@@ -99,10 +99,7 @@ export async function createTag(userId: string, rawName: string, color?: string 
 // Rename and/or recolor in a single write. The name must be pre-normalized and
 // pre-checked for uniqueness by the caller; a concurrent rename can still lose
 // the race and throw a duplicate-key error (see isDuplicateKeyError).
-export async function updateTag(
-  id: string,
-  patch: { name?: string; color?: TagColor },
-): Promise<TagDocument | null> {
+export async function updateTag(id: string, patch: { name?: string; color?: TagColor }): Promise<TagDocument | null> {
   return TagModel.findByIdAndUpdate(id, { ...patch, updatedAt: new Date() }, { returnDocument: 'after' }).exec();
 }
 
@@ -116,6 +113,8 @@ export async function deleteTagAndDetach(id: string): Promise<void> {
 
 // Whether another tag (besides `excludeId`) already uses this name for the user.
 export async function tagNameTaken(userId: string, name: string, excludeId: string): Promise<boolean> {
-  const existing = await TagModel.findOne({ userId, name: normalizeTagName(name) }).select('_id').exec();
+  const existing = await TagModel.findOne({ userId, name: normalizeTagName(name) })
+    .select('_id')
+    .exec();
   return existing !== null && existing._id.toString() !== excludeId;
 }

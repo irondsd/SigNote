@@ -290,7 +290,10 @@ test.describe('tag management UI', () => {
     const patched = page.waitForResponse(
       (r) => /\/api\/notes\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH' && r.ok(),
     );
-    await page.getByTestId('tag-strip').getByRole('button', { name: `Remove ${name}` }).click();
+    await page
+      .getByTestId('tag-strip')
+      .getByRole('button', { name: `Remove ${name}` })
+      .click();
     await patched;
 
     await page.getByRole('button', { name: 'Close' }).click();

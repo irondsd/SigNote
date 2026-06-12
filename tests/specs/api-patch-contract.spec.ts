@@ -30,9 +30,7 @@ test.describe('PATCH /api/notes/[id] — pin/expiry contract', () => {
 
   test('setting expiresAt clears burnAfterReading', async ({ page }) => {
     const { account } = makeAccount();
-    const [seeded] = await seedNotes(account.address, [
-      { title: `mutex-2-${Date.now()}`, burnAfterReading: true },
-    ]);
+    const [seeded] = await seedNotes(account.address, [{ title: `mutex-2-${Date.now()}`, burnAfterReading: true }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);

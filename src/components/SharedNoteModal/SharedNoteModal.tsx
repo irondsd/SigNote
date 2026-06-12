@@ -50,6 +50,8 @@ type SharedNoteModalProps = {
   tags?: string[];
   onTagsChange?: (ids: string[]) => void;
   isDirty?: boolean;
+  /** false suppresses entrance animations — when remounting as a return from version history. */
+  animateIn?: boolean;
 };
 
 export function SharedNoteModal({
@@ -88,14 +90,15 @@ export function SharedNoteModal({
   tags,
   onTagsChange,
   isDirty,
+  animateIn = true,
 }: SharedNoteModalProps) {
   // The "Tags" strip toggles like the formatting toolbar; its open/closed state
   // is remembered across modals, defaulting to open when the note already has
   // tags (only until the user toggles it once).
   const { open: tagStripOpen, toggle: toggleTagStrip } = useTagStripPref((tags?.length ?? 0) > 0);
   return (
-    <Backdrop onClose={onClose} disableClose={disableClose}>
-      <Modal cardRect={cardRect} className={cn(s.modal)} data-color={color || undefined}>
+    <Backdrop onClose={onClose} disableClose={disableClose} animate={animateIn}>
+      <Modal cardRect={cardRect} animate={animateIn} className={cn(s.modal)} data-color={color || undefined}>
         <div className={s.header}>
           {editing ? (
             <input

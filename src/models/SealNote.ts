@@ -2,6 +2,16 @@ import { type HydratedDocument, model, models, Schema, type Types } from 'mongoo
 import { NOTE_COLORS, NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
 import { type EncryptedPayload } from '@/types/crypto';
 
+// A snapshot of a seal's title + encrypted body before an edit. No per-version
+// wrappedNoteKey: the per-note NEK never rotates, so the head's wrapped key
+// decrypts every historical body.
+export type SealNoteVersion = {
+  _id: Types.ObjectId;
+  title: string;
+  encryptedBody: EncryptedPayload | null;
+  createdAt: Date;
+};
+
 export type SealNote = {
   userId: string;
   title: string; // plaintext
@@ -18,6 +28,7 @@ export type SealNote = {
   expiresAt: Date | null;
   burnAfterReading: boolean;
   tags: Types.ObjectId[];
+  versions: SealNoteVersion[];
 };
 
 export type SealNoteDocument = HydratedDocument<SealNote>;
@@ -30,6 +41,12 @@ const encryptedPayloadSchema = new Schema<EncryptedPayload>(
   },
   { _id: false },
 );
+
+const sealNoteVersionSchema = new Schema<SealNoteVersion>({
+  title: { type: String, required: true, default: '' },
+  encryptedBody: { type: encryptedPayloadSchema, default: null },
+  createdAt: { type: Date, required: true, default: () => new Date() },
+});
 
 const sealNoteSchema = new Schema<SealNote>({
   userId: { type: String, required: true },
@@ -47,6 +64,7 @@ const sealNoteSchema = new Schema<SealNote>({
   expiresAt: { type: Date, default: null },
   burnAfterReading: { type: Boolean, default: false },
   tags: { type: [{ type: Schema.Types.ObjectId, ref: 'Tag' }], default: [] },
+  versions: { type: [sealNoteVersionSchema], default: [] },
 });
 
 // Compound index for userId-filtered queries

@@ -1,10 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
-import { useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
+import {
+  useCreateNote,
+  useDeleteNote,
+  useUndeleteNote,
+  useUpdateNote,
+  type CachedNote,
+} from '@/hooks/useNoteMutations';
+import { useVersions, type PlainVersion } from '@/hooks/useVersions';
+import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
 import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
@@ -14,6 +23,11 @@ import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+
+const VersionHistoryModal = dynamic(
+  () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
+  { ssr: false },
+);
 
 type NoteModalProps = {
   note: NoteDocument;
@@ -37,6 +51,16 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
   const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
   const [tags, setTags] = useState<string[]>(() => (note.tags ?? []).map(String));
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Once history has been opened, returning to the note modal must not replay
+  // the open-from-card entrance — it's the same surface switching modes.
+  const [historyWasOpen, setHistoryWasOpen] = useState(false);
+  const [menuOpened, setMenuOpened] = useState(false);
+
+  const openHistory = () => {
+    setHistoryOpen(true);
+    setHistoryWasOpen(true);
+  };
 
   const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -46,6 +70,17 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const deleteNote = useDeleteNote();
   const undeleteNote = useUndeleteNote();
   const updateNote = useUpdateNote();
+  const createNote = useCreateNote();
+
+  const noteId = note._id.toString();
+  const versionsQuery = useVersions<PlainVersion>('notes', noteId, { enabled: menuOpened || historyOpen });
+  const versions: DisplayVersion[] | undefined = versionsQuery.data;
+
+  const handleRestored = (v: DisplayVersion) => {
+    setTitle(v.title);
+    setContent(v.content);
+    setUpdatedAt(new Date().toISOString());
+  };
   const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
@@ -137,10 +172,27 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     });
   };
 
+  if (historyOpen) {
+    return (
+      <VersionHistoryModal
+        tier="notes"
+        noteId={noteId}
+        color={color}
+        pattern={pattern}
+        current={{ _id: CURRENT_VERSION_ID, title, content, createdAt: updatedAt }}
+        versions={versions}
+        onClose={() => setHistoryOpen(false)}
+        onRestored={handleRestored}
+        onDuplicate={(v) => createNote.mutate({ title: v.title, content: v.content, color, pattern })}
+      />
+    );
+  }
+
   return (
     <>
       <SharedNoteModal
-        cardRect={cardRect}
+        cardRect={historyWasOpen ? undefined : cardRect}
+        animateIn={!historyWasOpen}
         title={title}
         editing={editing}
         onTitleChange={setTitle}
@@ -177,6 +229,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            onVersionHistory={openHistory}
+            onOpenChange={(open) => open && setMenuOpened(true)}
           />
         }
       >

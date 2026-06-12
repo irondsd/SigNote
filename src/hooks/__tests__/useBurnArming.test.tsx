@@ -26,8 +26,7 @@ describe('useBurnArming', () => {
   it('waits for isReady before firing', () => {
     const onArm = jest.fn();
     const { rerender } = renderHook(
-      ({ isReady }: { isReady: boolean }) =>
-        useBurnArming({ initialBurn: true, expiresAt: null, isReady, onArm }),
+      ({ isReady }: { isReady: boolean }) => useBurnArming({ initialBurn: true, expiresAt: null, isReady, onArm }),
       { initialProps: { isReady: false } },
     );
     expect(onArm).not.toHaveBeenCalled();
@@ -38,9 +37,7 @@ describe('useBurnArming', () => {
 
   it('does not re-fire on subsequent re-renders', () => {
     const onArm = jest.fn();
-    const { rerender } = renderHook(() =>
-      useBurnArming({ initialBurn: true, expiresAt: null, isReady: true, onArm }),
-    );
+    const { rerender } = renderHook(() => useBurnArming({ initialBurn: true, expiresAt: null, isReady: true, onArm }));
     expect(onArm).toHaveBeenCalledTimes(1);
     rerender();
     rerender();

@@ -40,9 +40,33 @@ export function commonOps<T extends CommonFields>(model: Model<T>) {
 // Lenient grace matches the TTL `expireAfterSeconds: 3600` on `expiresAt`: while
 // the doc is still physically in Mongo, the in-modal user can PATCH expiresAt=null
 // to cancel the deletion. Strict-future filtering happens in `listByUserId`.
+const activeByIdFilter = (id: string) => ({
+  _id: id,
+  $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date(Date.now() - 3600_000) } }],
+});
+
+// Head reads never carry embedded version history — it can be megabytes deep.
+// History is served only via getVersionsByIdActive.
 export function getByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
-  const graceCutoff = new Date(Date.now() - 3600_000);
-  return model.findOne({ _id: id, $or: [{ expiresAt: null }, { expiresAt: { $gt: graceCutoff } }] }).exec();
+  return model.findOne(activeByIdFilter(id)).select('-versions').exec();
+}
+
+// Counterpart for the /versions endpoints: history plus the userId needed for
+// the route-level ownership check, nothing else.
+export function getVersionsByIdActive<T extends CommonFields>(model: Model<T>, id: string) {
+  return model.findOne(activeByIdFilter(id)).select('userId versions').exec();
+}
+
+// Removes one version row by its subdocument id. Idempotent: pulling an id
+// that's already gone still resolves to the head. Null only when the parent
+// note itself is missing/expired.
+export function deleteVersionById<T extends CommonFields>(model: Model<T>, id: string, versionId: string) {
+  return model
+    .findOneAndUpdate(activeByIdFilter(id), { $pull: { versions: { _id: versionId } } } as UpdateQuery<T>, {
+      returnDocument: 'after',
+      projection: { versions: 0 },
+    })
+    .exec();
 }
 
 export async function createEntity<T extends CommonFields>(
@@ -91,8 +115,16 @@ export async function listByUserId<T extends CommonFields>(
   };
   const normalized = search.trim().slice(0, MAX_SEARCH);
 
+  // Never ship embedded version history on list reads — it would bloat every
+  // card payload proportionally to history depth. History is fetched explicitly.
   if (!normalized) {
-    return model.find(baseQuery).sort({ pinned: -1, position: -1 }).skip(offset).limit(limit).exec();
+    return model
+      .find(baseQuery)
+      .select('-versions')
+      .sort({ pinned: -1, position: -1 })
+      .skip(offset)
+      .limit(limit)
+      .exec();
   }
 
   const regex = new RegExp(escapeRegExp(normalized), 'i');
@@ -101,6 +133,7 @@ export async function listByUserId<T extends CommonFields>(
     .find({
       $and: [baseQuery, { $or: searchFields.map((field) => ({ [field]: regex })) }],
     })
+    .select('-versions')
     .sort({ pinned: -1, updatedAt: -1 })
     .skip(offset)
     .limit(limit)

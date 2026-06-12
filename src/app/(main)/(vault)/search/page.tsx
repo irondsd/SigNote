@@ -97,9 +97,7 @@ function SearchPageContent() {
 
         <div className={s.inputWrap}>
           <Search size={19} strokeWidth={1.9} className={s.inputIcon} />
-          {tagObj && (
-            <Tag tag={tagObj} size="sm" variant="soft" dot onRemove={() => updateParams({ tag: null })} />
-          )}
+          {tagObj && <Tag tag={tagObj} size="sm" variant="soft" dot onRemove={() => updateParams({ tag: null })} />}
           <input
             ref={inputRef}
             value={inputValue}

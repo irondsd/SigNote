@@ -101,11 +101,12 @@ export async function deleteFilesByUserId(userId: string) {
   await FileAttachmentModel.updateMany({ userId, deletedAt: null }, { $set: { deletedAt: new Date() } });
 }
 
-const TIER_MODELS: Record<NoteTier, { find: (filter: object) => { distinct: (field: string) => Promise<unknown[]> } }> = {
-  note: NoteModel,
-  secret: SecretNoteModel,
-  seal: SealNoteModel,
-};
+const TIER_MODELS: Record<NoteTier, { find: (filter: object) => { distinct: (field: string) => Promise<unknown[]> } }> =
+  {
+    note: NoteModel,
+    secret: SecretNoteModel,
+    seal: SealNoteModel,
+  };
 
 /**
  * Find live file attachments whose linked note no longer exists in the

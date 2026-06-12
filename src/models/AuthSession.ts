@@ -43,5 +43,4 @@ authSessionSchema.index({ userId: 1, updatedAt: -1 });
 // TTL — auto-remove the row once it expires (covers both natural expiry and post-revoke cleanup)
 authSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export const AuthSessionModel =
-  models.AuthSession || model<AuthSession>('AuthSession', authSessionSchema);
+export const AuthSessionModel = models.AuthSession || model<AuthSession>('AuthSession', authSessionSchema);

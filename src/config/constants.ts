@@ -11,6 +11,12 @@ export const MAX_CIPHER = MAX_CONTENT * 1.5; // Allow for some overhead from enc
 export const MAX_SEARCH = 200;
 export const MAX_TAGS_PER_NOTE = 10;
 
+// Version history (embedded per-note snapshots of title + body)
+export const MAX_VERSIONS = 10;
+// Edits landing within this window of the latest version collapse into the same
+// version (the previous snapshot is suppressed) so an autosave burst counts once.
+export const VERSION_COMPRESSION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
 // Auto-lock timing
 export const HARD_LOCK_MS = 5 * 60 * 1000; // 5 minutes of inactivity
 export const SLEEP_CHECK_INTERVAL_MS = 10_000; // interval for sleep detection

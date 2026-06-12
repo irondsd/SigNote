@@ -6,10 +6,11 @@ type ModalProps = {
   children: ReactNode;
   className?: string;
   cardRect?: DOMRect;
+  animate?: boolean;
   'data-color'?: string;
 };
 
-export function Modal({ children, className, cardRect, 'data-color': dataColor }: ModalProps) {
+export function Modal({ children, className, cardRect, animate = true, 'data-color': dataColor }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -56,6 +57,7 @@ export function Modal({ children, className, cardRect, 'data-color': dataColor }
       data-testid="note-modal"
       className={cn(s.modal, className)}
       data-color={dataColor}
+      style={animate ? undefined : { animation: 'none' }}
       onClick={(e) => e.stopPropagation()}
     >
       {children}

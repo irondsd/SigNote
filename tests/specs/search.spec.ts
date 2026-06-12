@@ -304,11 +304,7 @@ test.describe('search results page', () => {
   test('the tier filter shows result counts', async ({ page }) => {
     const { account } = makeAccount();
     const tag = `cnt${Date.now()}`;
-    await seedNotes(account.address, [
-      { title: `${tag} a` },
-      { title: `${tag} b` },
-      { title: `${tag} c` },
-    ]);
+    await seedNotes(account.address, [{ title: `${tag} a` }, { title: `${tag} b` }, { title: `${tag} c` }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);

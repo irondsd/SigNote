@@ -55,9 +55,12 @@ export default function SessionsPage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Sign out of {otherSessionCount} other session{otherSessionCount === 1 ? '' : 's'}?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      Sign out of {otherSessionCount} other session{otherSessionCount === 1 ? '' : 's'}?
+                    </AlertDialogTitle>
                     <AlertDialogDescription>
-                      Every other device signed in to your account will be signed out on their next request. This one stays.
+                      Every other device signed in to your account will be signed out on their next request. This one
+                      stays.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
