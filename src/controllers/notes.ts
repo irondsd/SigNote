@@ -1,7 +1,14 @@
 import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { NoteModel } from '@/models/Note';
-import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import {
+  commonOps,
+  createEntity,
+  deleteVersionById,
+  getByIdActive,
+  getVersionsByIdActive,
+  listByUserId,
+} from './common';
 import { buildVersionPush } from './versions';
 
 export const noteOps = commonOps(NoteModel);

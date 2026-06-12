@@ -44,7 +44,9 @@
   color: var(--foreground);
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
 
   &:hover {
     background: var(--accent);

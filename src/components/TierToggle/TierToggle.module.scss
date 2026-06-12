@@ -30,7 +30,9 @@
     color: var(--muted-foreground);
     opacity: 0.55;
     flex-shrink: 0;
-    transition: color 0.15s, opacity 0.15s;
+    transition:
+      color 0.15s,
+      opacity 0.15s;
   }
 
   &:hover:not(.active) {
@@ -59,7 +61,9 @@
   border-radius: 999px;
   background: transparent;
   color: var(--muted-foreground);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .countActive {

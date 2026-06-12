@@ -537,4 +537,3 @@ test.describe('date update after save', () => {
     await expect(page.getByTestId('note-date')).toContainText('Updated seconds ago');
   });
 });
-

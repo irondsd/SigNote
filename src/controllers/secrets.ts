@@ -2,7 +2,14 @@ import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { SecretNoteModel } from '@/models/SecretNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import {
+  commonOps,
+  createEntity,
+  deleteVersionById,
+  getByIdActive,
+  getVersionsByIdActive,
+  listByUserId,
+} from './common';
 import { buildVersionPush } from './versions';
 
 // Plain-object copy of an encrypted payload (strips mongoose subdoc internals so

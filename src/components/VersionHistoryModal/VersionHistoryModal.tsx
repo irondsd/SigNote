@@ -127,10 +127,7 @@ export function VersionHistoryModal({
   const handleDelete = (v: DisplayVersion) => {
     if (selectedId === v._id) setSelectedId(CURRENT_VERSION_ID);
     setPreviewId(null);
-    deleteVersion.mutate(
-      { id: noteId, versionId: v._id },
-      { onError: () => toast.error('Failed to delete version') },
-    );
+    deleteVersion.mutate({ id: noteId, versionId: v._id }, { onError: () => toast.error('Failed to delete version') });
   };
 
   const handleCopy = async (v: DisplayVersion) => {
@@ -277,7 +274,9 @@ export function VersionHistoryModal({
                         {isCurrent && <span className={s.currentPill}>Current</span>}
                       </span>
                       <span className={s.abs}>{formatAbsolute(v.createdAt)}</span>
-                      <span className={s.meta}>{isOrigin && !isCurrent ? `Version ${number} · Created` : `Version ${number}`}</span>
+                      <span className={s.meta}>
+                        {isOrigin && !isCurrent ? `Version ${number} · Created` : `Version ${number}`}
+                      </span>
                     </span>
                   </div>
                 );

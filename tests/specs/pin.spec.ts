@@ -50,9 +50,7 @@ async function openMoreActionsAndClickPinToggle(notesPage: NotesPage, title: str
   await page.getByTestId('more-actions-btn').click();
 
   // Wait for the PATCH that the menu item click will trigger.
-  const patchPromise = page.waitForResponse(
-    (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-  );
+  const patchPromise = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
   await page.getByRole('button', { name: /(pin to top|unpin from top)/i }).click();
   await patchPromise;
 
@@ -82,10 +80,7 @@ test.describe('pin', () => {
   test('seeded pinned note shows the pin flag, unpinned does not', async ({ page }) => {
     const { account } = makeAccount();
     const tag = `pin-flag-${Date.now()}`;
-    await seedNotes(account.address, [
-      { title: `${tag} unpinned` },
-      { title: `${tag} pinned`, pinned: true },
-    ]);
+    await seedNotes(account.address, [{ title: `${tag} unpinned` }, { title: `${tag} pinned`, pinned: true }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
@@ -193,9 +188,7 @@ test.describe('pin', () => {
     await expect(notesPage.noteCard(`${tag} B`)).toBeVisible();
     await expect(notesPage.noteCard(`${tag} A`).getByTestId('pin-flag')).toBeVisible();
     // Order can lag the UI by a refetch; poll until the grid re-sorts.
-    await expect
-      .poll(async () => (await taggedTitles(notesPage, tag))[0], { timeout: 15000 })
-      .toBe(`${tag} A`);
+    await expect.poll(async () => (await taggedTitles(notesPage, tag))[0], { timeout: 15000 }).toBe(`${tag} A`);
   });
 
   test('pinned note keeps the flag and shows at top of the archive view', async ({ page }) => {

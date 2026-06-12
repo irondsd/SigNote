@@ -58,9 +58,7 @@ export function NotesStrip({
           />
         ))}
       </StripShell>
-      {selected && (
-        <NoteModal note={selected} cardRect={cardRect ?? undefined} onClose={() => setSelected(null)} />
-      )}
+      {selected && <NoteModal note={selected} cardRect={cardRect ?? undefined} onClose={() => setSelected(null)} />}
     </>
   );
 }

@@ -134,11 +134,7 @@ describe('authSessions controller', () => {
       const mine1 = insertParams();
       const mine2 = insertParams();
       const theirs = insertParams({ userId: otherUserId });
-      await Promise.all([
-        upsertSessionIfMissing(mine1),
-        upsertSessionIfMissing(mine2),
-        upsertSessionIfMissing(theirs),
-      ]);
+      await Promise.all([upsertSessionIfMissing(mine1), upsertSessionIfMissing(mine2), upsertSessionIfMissing(theirs)]);
 
       // Revoke one of mine, expire another
       await revokeSession(mine2.sid, userId);

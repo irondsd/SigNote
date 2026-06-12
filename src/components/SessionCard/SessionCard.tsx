@@ -42,8 +42,7 @@ const renderDeviceIcon = (deviceType: SessionRow['deviceType'], className: strin
 const renderProviderIcon = (provider: SessionRow['provider']) =>
   provider === 'siwe' ? <Wallet size={12} strokeWidth={1.6} /> : <KeyRound size={12} strokeWidth={1.6} />;
 
-const providerLabelFor = (provider: SessionRow['provider']) =>
-  provider === 'siwe' ? 'Ethereum wallet' : 'Google';
+const providerLabelFor = (provider: SessionRow['provider']) => (provider === 'siwe' ? 'Ethereum wallet' : 'Google');
 
 export function SessionCard({ session, onRevoke, isRevoking }: SessionCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);

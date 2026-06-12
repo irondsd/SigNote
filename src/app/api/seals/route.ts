@@ -40,7 +40,15 @@ export const POST = withSession(async (req, { userId }) => {
   const { tagIds, error: tagError } = await resolveCreateTags(userId, tags);
   if (tagError) return tagError;
   // encryptedBody and wrappedNoteKey are optional for 2-step creation flow
-  const seal = await createSeal(userId, title ?? '', encryptedBody ?? null, wrappedNoteKey ?? null, color, pattern, tagIds);
+  const seal = await createSeal(
+    userId,
+    title ?? '',
+    encryptedBody ?? null,
+    wrappedNoteKey ?? null,
+    color,
+    pattern,
+    tagIds,
+  );
   if (tagIds?.length) await touchTags(tagIds);
 
   if (Array.isArray(fileIds) && fileIds.length) {

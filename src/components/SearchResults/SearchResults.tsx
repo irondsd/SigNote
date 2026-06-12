@@ -80,11 +80,11 @@ export function SearchResults({
 
   const notes = useMemo(() => notesQuery.data?.pages.flatMap((p) => p) ?? [], [notesQuery.data?.pages]);
   const secrets = useMemo(
-    () => (vaultAvailable ? secretsQuery.data?.pages.flatMap((p) => p) ?? [] : []),
+    () => (vaultAvailable ? (secretsQuery.data?.pages.flatMap((p) => p) ?? []) : []),
     [vaultAvailable, secretsQuery.data?.pages],
   );
   const seals = useMemo(
-    () => (vaultAvailable ? sealsQuery.data?.pages.flatMap((p) => p) ?? [] : []),
+    () => (vaultAvailable ? (sealsQuery.data?.pages.flatMap((p) => p) ?? []) : []),
     [vaultAvailable, sealsQuery.data?.pages],
   );
 

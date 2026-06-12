@@ -11,7 +11,10 @@ type RevokeResponse = { revoked: boolean; wasCurrent: boolean };
 type RevokeAllResponse = { revoked: number };
 
 const findCacheKeys = (qc: ReturnType<typeof useQueryClient>) =>
-  qc.getQueryCache().findAll({ queryKey: SESSIONS_QUERY_KEY }).map((q) => q.queryKey);
+  qc
+    .getQueryCache()
+    .findAll({ queryKey: SESSIONS_QUERY_KEY })
+    .map((q) => q.queryKey);
 
 export const useRevokeSession = () => {
   const qc = useQueryClient();
@@ -25,7 +28,11 @@ export const useRevokeSession = () => {
       await Promise.all(keys.map((k) => qc.cancelQueries({ queryKey: k })));
       const snapshots = keys.map((key) => ({ key, data: qc.getQueryData<SessionRow[]>(key) }));
       for (const { key, data } of snapshots) {
-        if (data) qc.setQueryData<SessionRow[]>(key, data.filter((s) => s._id !== id));
+        if (data)
+          qc.setQueryData<SessionRow[]>(
+            key,
+            data.filter((s) => s._id !== id),
+          );
       }
       return { snapshots };
     },
@@ -60,7 +67,11 @@ export const useRevokeAllOtherSessions = () => {
       await Promise.all(keys.map((k) => qc.cancelQueries({ queryKey: k })));
       const snapshots = keys.map((key) => ({ key, data: qc.getQueryData<SessionRow[]>(key) }));
       for (const { key, data } of snapshots) {
-        if (data) qc.setQueryData<SessionRow[]>(key, data.filter((s) => s.current));
+        if (data)
+          qc.setQueryData<SessionRow[]>(
+            key,
+            data.filter((s) => s.current),
+          );
       }
       return { snapshots };
     },

@@ -2,7 +2,14 @@ import { isValidObjectId, Types } from 'mongoose';
 import { MAX_VERSIONS } from '@/config/constants';
 import { SealNoteModel } from '@/models/SealNote';
 import { type EncryptedPayload } from '@/types/crypto';
-import { commonOps, createEntity, deleteVersionById, getByIdActive, getVersionsByIdActive, listByUserId } from './common';
+import {
+  commonOps,
+  createEntity,
+  deleteVersionById,
+  getByIdActive,
+  getVersionsByIdActive,
+  listByUserId,
+} from './common';
 import { buildVersionPush } from './versions';
 
 const clonePayload = (p: EncryptedPayload | null): EncryptedPayload | null =>

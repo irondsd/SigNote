@@ -184,7 +184,14 @@ describe('getTagUsageCounts', () => {
     await NoteModel.create({ userId, title: 'n1', content: '', position: 1, tags: [wid, hid] });
     await NoteModel.create({ userId, title: 'n2', content: '', position: 2, tags: [wid] });
     await SecretNoteModel.create({ userId, title: 's1', encryptedBody: null, position: 1, tags: [wid] });
-    await SealNoteModel.create({ userId, title: 'l1', encryptedBody: null, wrappedNoteKey: null, position: 1, tags: [hid] });
+    await SealNoteModel.create({
+      userId,
+      title: 'l1',
+      encryptedBody: null,
+      wrappedNoteKey: null,
+      position: 1,
+      tags: [hid],
+    });
     // soft-deleted note should not count
     await NoteModel.create({ userId, title: 'gone', content: '', position: 3, tags: [wid], deletedAt: new Date() });
 
