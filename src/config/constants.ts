@@ -9,6 +9,7 @@ export const MAX_TITLE = 500;
 export const MAX_CONTENT = 500_000;
 export const MAX_CIPHER = MAX_CONTENT * 1.5; // Allow for some overhead from encryption, but not unbounded growth
 export const MAX_SEARCH = 200;
+export const MAX_TAGS_PER_NOTE = 10;
 
 // Version history (embedded per-note snapshots of title + body)
 export const MAX_VERSIONS = 10;

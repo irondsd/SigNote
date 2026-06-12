@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { createNote, getNotesByUserId } from '@/controllers/notes';
 import { linkFilesToNote } from '@/controllers/files';
-import { getOwnedTagIds, touchTags } from '@/controllers/tags';
+import { touchTags } from '@/controllers/tags';
 import { withSession } from '@/lib/routeAuth';
 import { MAX_CONTENT, MAX_TITLE } from '@/config/constants';
 import { extractFileIds } from '@/lib/fileIds';
-import { parseListParams } from '@/app/api/_shared/noteRouteHelpers';
+import { parseListParams, resolveCreateTags } from '@/app/api/_shared/noteRouteHelpers';
 
 export const runtime = 'nodejs';
 
@@ -35,7 +35,8 @@ export const POST = withSession(async (req, { userId }) => {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const tagIds = Array.isArray(tags) ? await getOwnedTagIds(userId, tags.filter((t) => typeof t === 'string')) : undefined;
+  const { tagIds, error: tagError } = await resolveCreateTags(userId, tags);
+  if (tagError) return tagError;
   const note = await createNote(userId, title ?? '', content ?? '', color, pattern, tagIds);
   if (tagIds?.length) await touchTags(tagIds);
 

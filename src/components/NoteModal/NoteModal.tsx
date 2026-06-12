@@ -5,9 +5,16 @@ import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
-import { useCreateNote, useDeleteNote, useUndeleteNote, useUpdateNote, type CachedNote } from '@/hooks/useNoteMutations';
+import {
+  useCreateNote,
+  useDeleteNote,
+  useUndeleteNote,
+  useUpdateNote,
+  type CachedNote,
+} from '@/hooks/useNoteMutations';
 import { useVersions, type PlainVersion } from '@/hooks/useVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -74,6 +81,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     setContent(v.content);
     setUpdatedAt(new Date().toISOString());
   };
+  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
     deleteNote.mutate(note._id.toString());
@@ -129,6 +137,10 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateNote.mutate({ id: note._id.toString(), tags: ids });
   };

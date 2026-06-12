@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
@@ -31,6 +32,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
+  const bumpTagCounts = useTagCountBump();
   const pendingRecoveryRef = useRef<{ title: string; content: string } | null>(null);
 
   const {
@@ -84,6 +86,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
         pendingRecoveryRef.current = { title: trimmedTitle, content: trimmedContent };
         const fileIds = extractFileIds(trimmedContent);
         createSecret.mutate({ title: trimmedTitle, encryptedBody, color, pattern, fileIds, tags });
+        bumpTagCounts(tags, []);
         onClose();
       });
     } finally {

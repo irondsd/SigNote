@@ -8,7 +8,15 @@ import { autoTagColor, TAG_COLORS, type TagColor } from '@/config/noteStyles';
 const TIER_MODELS = [NoteModel, SecretNoteModel, SealNoteModel];
 
 export function normalizeTagName(name: string): string {
-  return name.trim().toLowerCase().slice(0, 50);
+  // Slice by code points, not UTF-16 units — a plain .slice() could cut an
+  // emoji's surrogate pair in half and store a malformed string.
+  return [...name.trim().toLowerCase()].slice(0, 50).join('');
+}
+
+// Mongo duplicate-key error (unique index violation), thrown when a concurrent
+// write wins the { userId, name } uniqueness race.
+export function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code: unknown }).code === 11000;
 }
 
 export function isValidTagColor(color: unknown): color is TagColor {
@@ -53,7 +61,9 @@ export async function getTagUsageCounts(userId: string): Promise<Record<string, 
   await Promise.all(
     TIER_MODELS.map(async (model) => {
       const rows = await model.aggregate<{ _id: Types.ObjectId; n: number }>([
-        { $match: { userId, deletedAt: null } },
+        // Match listByUserId's visibility: skip soft-deleted AND already-expired
+        // docs, so the counts shown in the manager agree with filtered results.
+        { $match: { userId, deletedAt: null, $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] } },
         { $unwind: '$tags' },
         { $group: { _id: '$tags', n: { $sum: 1 } } },
       ]);
@@ -74,16 +84,26 @@ export async function createTag(userId: string, rawName: string, color?: string 
   const existing = await TagModel.findOne({ userId, name }).exec();
   if (existing) return existing;
   const resolvedColor = isValidTagColor(color) ? color : autoTagColor(name);
-  return TagModel.create({ userId, name, color: resolvedColor });
+  try {
+    return await TagModel.create({ userId, name, color: resolvedColor });
+  } catch (err) {
+    // Lost the race against a concurrent create of the same name — return the winner.
+    if (isDuplicateKeyError(err)) {
+      const winner = await TagModel.findOne({ userId, name }).exec();
+      if (winner) return winner;
+    }
+    throw err;
+  }
 }
 
-export async function renameTag(id: string, rawName: string): Promise<TagDocument | null> {
-  const name = normalizeTagName(rawName);
-  return TagModel.findByIdAndUpdate(id, { name, updatedAt: new Date() }, { returnDocument: 'after' }).exec();
-}
-
-export async function recolorTag(id: string, color: TagColor): Promise<TagDocument | null> {
-  return TagModel.findByIdAndUpdate(id, { color, updatedAt: new Date() }, { returnDocument: 'after' }).exec();
+// Rename and/or recolor in a single write. The name must be pre-normalized and
+// pre-checked for uniqueness by the caller; a concurrent rename can still lose
+// the race and throw a duplicate-key error (see isDuplicateKeyError).
+export async function updateTag(
+  id: string,
+  patch: { name?: string; color?: TagColor },
+): Promise<TagDocument | null> {
+  return TagModel.findByIdAndUpdate(id, { ...patch, updatedAt: new Date() }, { returnDocument: 'after' }).exec();
 }
 
 // Delete the tag and detach its id from every note/secret/seal that referenced it.

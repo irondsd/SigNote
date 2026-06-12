@@ -14,6 +14,7 @@ import {
 import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
 import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -114,6 +115,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       createSecret.mutate({ title: v.title, encryptedBody, color, pattern });
     });
   };
+  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
     deleteSecret.mutate(note._id);
@@ -206,6 +208,10 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateSecret.mutate({ id: note._id, tags: ids });
   };

@@ -15,6 +15,7 @@ import {
 import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
 import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
+import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
@@ -94,6 +95,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     [mek, note.wrappedNoteKey, note._id],
   );
   const versions = useDecryptedVersions(versionsQuery.data, mek ? decryptVersionBody : null);
+  const bumpTagCounts = useTagCountBump();
 
   const isDecrypted = decryptedContent !== null;
   const isDirty =
@@ -336,6 +338,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   };
 
   const handleTagsChange = (ids: string[]) => {
+    bumpTagCounts(
+      ids.filter((id) => !tags.includes(id)),
+      tags.filter((id) => !ids.includes(id)),
+    );
     setTags(ids);
     updateSeal.mutate({ id: note._id, tags: ids });
   };
