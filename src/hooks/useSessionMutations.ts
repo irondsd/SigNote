@@ -4,11 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { signOut } from 'next-auth/react';
 import { toast } from 'sonner';
 
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import { SESSIONS_QUERY_KEY, type SessionRow } from './useSessions';
-
-type RevokeResponse = { revoked: boolean; wasCurrent: boolean };
-type RevokeAllResponse = { revoked: number };
 
 const findCacheKeys = (qc: ReturnType<typeof useQueryClient>) =>
   qc
@@ -21,7 +18,7 @@ export const useRevokeSession = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      return api.delete(`/api/sessions/${id}`).json<RevokeResponse>();
+      return trpcClient.sessions.revoke.mutate({ id });
     },
     onMutate: async (id) => {
       const keys = findCacheKeys(qc);
@@ -60,7 +57,7 @@ export const useRevokeAllOtherSessions = () => {
 
   return useMutation({
     mutationFn: async () => {
-      return api.delete('/api/sessions').json<RevokeAllResponse>();
+      return trpcClient.sessions.revokeOthers.mutate();
     },
     onMutate: async () => {
       const keys = findCacheKeys(qc);

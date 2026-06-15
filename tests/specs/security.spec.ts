@@ -6,6 +6,7 @@ import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
+import { trpcMutate, trpcQuery } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -152,72 +153,62 @@ test.describe('HTTP security headers', () => {
   });
 });
 
-// ─── Invalid ObjectId → 404 ──────────────────────────────────────────────────
+// ─── Invalid ObjectId → 400 (Zod input validation) ──────────────────────────
 
-test.describe('invalid ObjectId returns 404', () => {
-  test('PATCH /api/notes/invalid-id returns 404', async ({ page }) => {
+test.describe('invalid ObjectId returns 400', () => {
+  test('notes.update with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.patch('/api/notes/not-a-valid-id', {
-      data: { title: 'test' },
-    });
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'notes.update', { id: 'not-a-valid-id', title: 'test' });
+    expect(res.status()).toBe(400);
   });
 
-  test('DELETE /api/notes/invalid-id returns 404', async ({ page }) => {
+  test('notes.delete with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.delete('/api/notes/not-a-valid-id');
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'notes.delete', { id: 'not-a-valid-id' });
+    expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/secrets/invalid-id returns 404', async ({ page }) => {
+  test('secrets.update with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.patch('/api/secrets/not-a-valid-id', {
-      data: { title: 'test' },
-    });
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'secrets.update', { id: 'not-a-valid-id', title: 'test' });
+    expect(res.status()).toBe(400);
   });
 
-  test('DELETE /api/secrets/invalid-id returns 404', async ({ page }) => {
+  test('secrets.delete with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.delete('/api/secrets/not-a-valid-id');
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'secrets.delete', { id: 'not-a-valid-id' });
+    expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/seals/invalid-id returns 404', async ({ page }) => {
+  test('seals.update with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.patch('/api/seals/not-a-valid-id', {
-      data: { title: 'test' },
-    });
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'seals.update', { id: 'not-a-valid-id', title: 'test' });
+    expect(res.status()).toBe(400);
   });
 
-  test('DELETE /api/seals/invalid-id returns 404', async ({ page }) => {
+  test('seals.delete with invalid id returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.delete('/api/seals/not-a-valid-id');
-    expect(res.status()).toBe(404);
+    const res = await trpcMutate(page.request, 'seals.delete', { id: 'not-a-valid-id' });
+    expect(res.status()).toBe(400);
   });
 });
 
-// ─── Payload size limits → 413 ───────────────────────────────────────────────
+// ─── Payload size limits → 400 (Zod max) ────────────────────────────────────
 
 test.describe('payload size limits', () => {
-  test('POST /api/notes with title > 500 chars returns 413', async ({ page }) => {
+  test('notes.create with title > 500 chars returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.post('/api/notes', {
-      data: { title: 'A'.repeat(501) },
-    });
-    expect(res.status()).toBe(413);
+    const res = await trpcMutate(page.request, 'notes.create', { title: 'A'.repeat(501) });
+    expect(res.status()).toBe(400);
   });
 
-  test('POST /api/notes with content > 500k chars returns 413', async ({ page }) => {
+  test('notes.create with content > 500k chars returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.post('/api/notes', {
-      data: { title: 'ok', content: 'B'.repeat(500_001) },
-    });
-    expect(res.status()).toBe(413);
+    const res = await trpcMutate(page.request, 'notes.create', { title: 'ok', content: 'B'.repeat(500_001) });
+    expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/notes/{id} with content > 500k chars returns 413', async ({ page }) => {
+  test('notes.update with content > 500k chars returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Size Test' }]);
 
@@ -225,47 +216,42 @@ test.describe('payload size limits', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/notes/${note._id}`, {
-      data: { content: 'C'.repeat(500_001) },
+    const res = await trpcMutate(page.request, 'notes.update', {
+      id: note._id.toString(),
+      content: 'C'.repeat(500_001),
     });
-    expect(res.status()).toBe(413);
+    expect(res.status()).toBe(400);
   });
 
-  test('POST /api/secrets with title > 500 chars returns 413', async ({ page }) => {
+  test('secrets.create with title > 500 chars returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.post('/api/secrets', {
-      data: { title: 'A'.repeat(501) },
-    });
-    expect(res.status()).toBe(413);
+    const res = await trpcMutate(page.request, 'secrets.create', { title: 'A'.repeat(501) });
+    expect(res.status()).toBe(400);
   });
 
-  test('POST /api/secrets with ciphertext > 750k chars returns 413', async ({ page }) => {
+  test('secrets.create with ciphertext > 750k chars returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.post('/api/secrets', {
-      data: {
-        title: 'ok',
-        encryptedBody: { alg: 'A256GCM', iv: 'aaaaaa', ciphertext: 'D'.repeat(750_001) },
-      },
+    const res = await trpcMutate(page.request, 'secrets.create', {
+      title: 'ok',
+      encryptedBody: { alg: 'A256GCM', iv: 'aaaaaa', ciphertext: 'D'.repeat(750_001) },
     });
-    expect(res.status()).toBe(413);
+    expect(res.status()).toBe(400);
   });
 
-  test('POST /api/seals with ciphertext > 750k chars returns 413', async ({ page }) => {
+  test('seals.create with ciphertext > 750k chars returns 400', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.post('/api/seals', {
-      data: {
-        title: 'ok',
-        encryptedBody: { alg: 'A256GCM', iv: 'aaaaaa', ciphertext: 'E'.repeat(750_001) },
-      },
+    const res = await trpcMutate(page.request, 'seals.create', {
+      title: 'ok',
+      encryptedBody: { alg: 'A256GCM', iv: 'aaaaaa', ciphertext: 'E'.repeat(750_001) },
     });
-    expect(res.status()).toBe(413);
+    expect(res.status()).toBe(400);
   });
 });
 
 // ─── Color enum validation → 400 ─────────────────────────────────────────────
 
 test.describe('color enum validation', () => {
-  test('PATCH /api/notes/{id} with invalid color returns 400', async ({ page }) => {
+  test('notes.setColor with invalid color returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Color Test Note' }]);
 
@@ -273,13 +259,11 @@ test.describe('color enum validation', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/notes/${note._id}`, {
-      data: { color: 'black' },
-    });
+    const res = await trpcMutate(page.request, 'notes.setColor', { id: note._id.toString(), color: 'black' });
     expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/secrets/{id} with invalid color returns 400', async ({ page }) => {
+  test('secrets.setColor with invalid color returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [secret] = await seedSecrets(account.address, fakeMek, [{ title: 'Color Test Secret' }]);
@@ -288,13 +272,11 @@ test.describe('color enum validation', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/secrets/${secret._id}`, {
-      data: { color: 'black' },
-    });
+    const res = await trpcMutate(page.request, 'secrets.setColor', { id: secret._id.toString(), color: 'black' });
     expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/seals/{id} with invalid color returns 400', async ({ page }) => {
+  test('seals.setColor with invalid color returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [seal] = await seedSeals(account.address, fakeMek, [{ title: 'Color Test Seal' }]);
@@ -303,9 +285,7 @@ test.describe('color enum validation', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/seals/${seal._id}`, {
-      data: { color: 'black' },
-    });
+    const res = await trpcMutate(page.request, 'seals.setColor', { id: seal._id.toString(), color: 'black' });
     expect(res.status()).toBe(400);
   });
 });
@@ -313,10 +293,11 @@ test.describe('color enum validation', () => {
 // ─── Position Infinity/NaN → 400 ─────────────────────────────────────────────
 
 test.describe('position infinity/NaN rejected', () => {
-  // JSON.stringify(Infinity) → null, so we send the raw JSON string '{"position":1e309}'
-  // which Node.js JSON.parse decodes as Infinity.
+  // JSON.stringify(Infinity) → null, so we POST a raw JSON body the tRPC handler
+  // parses as Infinity; z.number().finite() then rejects it (400).
+  const infinityBody = (id: string) => `{"id":"${id}","position":1e309}`;
 
-  test('PATCH /api/notes/{id} with position Infinity returns 400', async ({ page }) => {
+  test('notes.setPosition with position Infinity returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const [note] = await seedNotes(account.address, [{ title: 'Position Test Note' }]);
 
@@ -324,14 +305,14 @@ test.describe('position infinity/NaN rejected', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/notes/${note._id}`, {
+    const res = await page.request.post('/api/trpc/notes.setPosition', {
       headers: { 'Content-Type': 'application/json' },
-      data: '{"position":1e309}',
+      data: infinityBody(note._id.toString()),
     });
     expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/secrets/{id} with position Infinity returns 400', async ({ page }) => {
+  test('secrets.setPosition with position Infinity returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [secret] = await seedSecrets(account.address, fakeMek, [{ title: 'Position Test Secret' }]);
@@ -340,14 +321,14 @@ test.describe('position infinity/NaN rejected', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/secrets/${secret._id}`, {
+    const res = await page.request.post('/api/trpc/secrets.setPosition', {
       headers: { 'Content-Type': 'application/json' },
-      data: '{"position":1e309}',
+      data: infinityBody(secret._id.toString()),
     });
     expect(res.status()).toBe(400);
   });
 
-  test('PATCH /api/seals/{id} with position Infinity returns 400', async ({ page }) => {
+  test('seals.setPosition with position Infinity returns 400', async ({ page }) => {
     const { account } = makeAccount();
     const fakeMek = new Uint8Array(32);
     const [seal] = await seedSeals(account.address, fakeMek, [{ title: 'Position Test Seal' }]);
@@ -356,9 +337,9 @@ test.describe('position infinity/NaN rejected', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const res = await page.request.patch(`/api/seals/${seal._id}`, {
+    const res = await page.request.post('/api/trpc/seals.setPosition', {
       headers: { 'Content-Type': 'application/json' },
-      data: '{"position":1e309}',
+      data: infinityBody(seal._id.toString()),
     });
     expect(res.status()).toBe(400);
   });
@@ -392,24 +373,24 @@ test.describe('nonce rate limiting', () => {
   });
 });
 
-// ─── Limit cap ───────────────────────────────────────────────────────────────
+// ─── Limit cap (clamped, not rejected) ──────────────────────────────────────
 
 test.describe('limit parameter cap', () => {
-  test('GET /api/notes?limit=999999 does not error', async ({ page }) => {
+  test('notes.list with limit=999999 is clamped, not rejected', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.get('/api/notes?limit=999999');
+    const res = await trpcQuery(page.request, 'notes.list', { limit: 999999 });
     expect(res.status()).toBe(200);
   });
 
-  test('GET /api/secrets?limit=999999 does not error', async ({ page }) => {
+  test('secrets.list with limit=999999 is clamped, not rejected', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.get('/api/secrets?limit=999999');
+    const res = await trpcQuery(page.request, 'secrets.list', { limit: 999999 });
     expect(res.status()).toBe(200);
   });
 
-  test('GET /api/seals?limit=999999 does not error', async ({ page }) => {
+  test('seals.list with limit=999999 is clamped, not rejected', async ({ page }) => {
     await signInFresh(page);
-    const res = await page.request.get('/api/seals?limit=999999');
+    const res = await trpcQuery(page.request, 'seals.list', { limit: 999999 });
     expect(res.status()).toBe(200);
   });
 });

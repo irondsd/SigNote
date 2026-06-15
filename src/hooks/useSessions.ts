@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 
 export type SessionRow = {
   _id: string;
@@ -26,8 +26,8 @@ export const useSessions = () => {
   return useQuery({
     queryKey: [...SESSIONS_QUERY_KEY, userId],
     queryFn: async () => {
-      const data = await api.get('/api/sessions').json<{ sessions: SessionRow[] }>();
-      return data.sessions;
+      const data = await trpcClient.sessions.list.query();
+      return data.sessions as unknown as SessionRow[];
     },
     enabled: !!userId,
     staleTime: 30_000,

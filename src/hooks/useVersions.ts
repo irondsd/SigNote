@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import posthog from 'posthog-js';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import { patchInPlace, type Snapshot, type WithId } from '@/lib/queryCache';
 import type { InfiniteData } from '@tanstack/react-query';
 import type { EncryptedPayload } from '@/types/crypto';
@@ -39,7 +39,7 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
 ) {
   return useQuery({
     queryKey: versionsKey(tier, id),
-    queryFn: () => api.get(`/api/${tier}/${id}/versions`).json<V[]>(),
+    queryFn: async () => (await trpcClient[tier].versions.list.query({ id })) as unknown as V[],
     select: (versions) => [...versions].reverse(),
     enabled,
   });
@@ -54,8 +54,8 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
 export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
-      api.post(`/api/${tier}/${id}/versions/${versionId}/restore`).json<H>(),
+    mutationFn: async ({ id, versionId }: { id: string; versionId: string }) =>
+      (await trpcClient[tier].versions.restore.mutate({ id, versionId })) as unknown as H,
     onSuccess: async (updated, { id }) => {
       const snapshots = qc.getQueriesData<InfiniteData<H[]>>({ queryKey: [tier] }) as Snapshot<H>[];
       patchInPlace(qc, snapshots, id, updated);
@@ -70,7 +70,7 @@ export function useDeleteVersion(tier: VersionTier) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
-      api.delete(`/api/${tier}/${id}/versions/${versionId}`).json(),
+      trpcClient[tier].versions.delete.mutate({ id, versionId }),
     onMutate: async ({ id, versionId }) => {
       const key = versionsKey(tier, id);
       await qc.cancelQueries({ queryKey: key });

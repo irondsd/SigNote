@@ -4,6 +4,7 @@ import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
 import type { NotePattern } from '../../src/config/noteStyles';
+import { trpcMutationOf, trpcGet } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -81,14 +82,12 @@ test.describe('note patterns', () => {
       }
     });
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Plain').click();
     await patchPromise;
 
-    const res = await page.request.get('/api/notes');
+    const res = await trpcGet(page.request, 'notes.list');
     const notes = await res.json();
     const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
     expect(updated.pattern).toBeNull();
@@ -105,7 +104,7 @@ test.describe('note patterns', () => {
     await page.getByTitle('Note style').click();
     await page.getByTitle('Stars').click();
 
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-note-btn').click();
     await postPromise;
 
@@ -113,7 +112,7 @@ test.describe('note patterns', () => {
     await expect(card).toBeVisible();
     expect(await card.getAttribute('data-pattern')).toBe('stars');
 
-    const res = await page.request.get('/api/notes');
+    const res = await trpcGet(page.request, 'notes.list');
     const notes = await res.json();
     const created = notes.find((n: { title: string }) => n.title === title);
     expect(created.pattern).toBe('stars');
@@ -149,14 +148,12 @@ test.describe('note patterns', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Blobs').click();
     await patchPromise;
 
-    const res = await page.request.get('/api/notes');
+    const res = await trpcGet(page.request, 'notes.list');
     const notes = await res.json();
     const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
     expect(new Date(updated.updatedAt).getTime()).toBe(originalUpdatedAt);

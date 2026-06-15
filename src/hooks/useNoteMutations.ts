@@ -3,9 +3,11 @@
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
-import { api } from '@/lib/api';
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
+import { trpcClient } from '@/lib/trpcClient';
 import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { dispatchCommonUpdate } from './internal/tierClient';
 import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedNote = {
@@ -48,20 +50,32 @@ type UpdateNoteInput = {
 
 const ROOT = 'notes';
 
-async function apiCreateNote(input: CreateNoteInput) {
-  return api.post('/api/notes', { json: input }).json();
+async function apiCreateNote(input: CreateNoteInput): Promise<CachedNote> {
+  return (await trpcClient.notes.create.mutate({
+    ...input,
+    color: input.color as NoteColor | null | undefined,
+    pattern: input.pattern as NotePattern | null | undefined,
+  })) as unknown as CachedNote;
 }
 
 async function apiDeleteNote(id: string) {
-  return api.delete(`/api/notes/${id}`).json();
+  return trpcClient.notes.delete.mutate({ id });
 }
 
 async function apiUndeleteNote({ id }: { id: string; note: CachedNote }) {
-  return api.patch(`/api/notes/${id}`, { json: { deleted: false } }).json();
+  return trpcClient.notes.restore.mutate({ id });
 }
 
 async function apiUpdateNote({ id, ...data }: UpdateNoteInput) {
-  return api.patch(`/api/notes/${id}`, { json: data }).json();
+  // Route metadata changes to their discrete procedures; fall through to the
+  // content update (title/content) when none matched.
+  const handled = dispatchCommonUpdate('notes', id, data);
+  if (handled) return handled;
+  return (await trpcClient.notes.update.mutate({
+    id,
+    title: data.title,
+    content: data.content,
+  })) as unknown as CachedNote;
 }
 
 export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) => void }) => {

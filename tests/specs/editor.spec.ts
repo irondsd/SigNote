@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { trpcMutationOf, trpcGet } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -123,13 +124,11 @@ test.describe('checkboxes', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('tiptap-editor')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('tiptap-editor').locator('input[type="checkbox"]').click();
     await patchPromise;
 
-    const res = await page.request.get('/api/notes');
+    const res = await trpcGet(page.request, 'notes.list');
     const notes = await res.json();
     const updated = notes.find((n: { _id: string }) => n._id === note._id.toString());
     expect(updated.content).toContain('data-checked="true"');

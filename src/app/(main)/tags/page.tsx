@@ -231,7 +231,7 @@ export default function TagsPage() {
                     index={i}
                     onRename={(name) => update.mutate({ id: t._id, name })}
                     onRecolor={(color) => update.mutate({ id: t._id, color })}
-                    onDelete={() => remove.mutate(t._id)}
+                    onDelete={() => remove.mutate({ id: t._id })}
                   />
                 ))}
               </div>

@@ -4,13 +4,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { EraseFlow } from '@/components/erase/EraseFlow';
+import { EraseFlow, type StepConfig } from '@/components/erase/EraseFlow';
 import s from '@/components/erase/EraseFlow.module.scss';
 
-const STEPS = [
-  { key: 'seals', label: 'Seals', endpoint: '/api/erase/seals' },
-  { key: 'secrets', label: 'Secrets', endpoint: '/api/erase/secrets' },
-  { key: 'encryption', label: 'Encryption Profile', endpoint: '/api/erase/encryption' },
+const STEPS: StepConfig[] = [
+  { key: 'seals', label: 'Seals' },
+  { key: 'secrets', label: 'Secrets' },
+  { key: 'encryption', label: 'Encryption Profile' },
 ];
 
 const EXPLANATION = (
@@ -37,7 +37,7 @@ export default function EraseEncryptionPage() {
     <EraseFlow
       title="Erase Encryption Profile"
       explanation={EXPLANATION}
-      verifyEndpoint="/api/erase-encryption/verify"
+      scope="encryption"
       steps={STEPS}
       doneTitle="Encryption profile erased"
       doneDesc="Your encrypted data has been removed. You can set up a new encryption profile from your profile page."

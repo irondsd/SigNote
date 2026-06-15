@@ -1,21 +1,25 @@
 import { test, expect } from '@playwright/test';
 import { NotesPage } from '../pages/NotesPage';
 import { makeAccount } from '../utils/makeAccount';
+import { trpcQuery, trpcMutate, trpcData } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
+
+// `trpc.me` is the lightest authed procedure: it triggers the lazy AuthSession
+// upsert on first call and 401s once a session is revoked.
+const AUTHED_PING = 'me';
 
 test.describe('sessions / device management', () => {
   test('lists the current session after first authed request', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
 
-    // /api/notes is the first authed request — triggers lazy AuthSession upsert.
-    const notes = await page.request.get('/api/notes');
-    expect(notes.ok()).toBeTruthy();
+    const ping = await trpcQuery(page.request, AUTHED_PING);
+    expect(ping.ok()).toBeTruthy();
 
-    const res = await page.request.get('/api/sessions');
+    const res = await trpcQuery(page.request, 'sessions.list');
     expect(res.ok()).toBeTruthy();
-    const { sessions } = (await res.json()) as { sessions: Array<{ current: boolean; provider: string }> };
+    const { sessions } = await trpcData<{ sessions: Array<{ current: boolean; provider: string }> }>(res);
 
     expect(sessions).toHaveLength(1);
     expect(sessions[0].current).toBe(true);
@@ -37,32 +41,30 @@ test.describe('sessions / device management', () => {
     const notesB = new NotesPage(pageB);
     await notesB.signInDirectly(account.address);
 
-    // Both contexts hit /api/notes once so their AuthSession rows are created.
-    await pageA.request.get('/api/notes');
-    await pageB.request.get('/api/notes');
+    // Both contexts make one authed call so their AuthSession rows are created.
+    await trpcQuery(pageA.request, AUTHED_PING);
+    await trpcQuery(pageB.request, AUTHED_PING);
 
     // A sees two sessions, one of which is "current".
-    const listRes = await pageA.request.get('/api/sessions');
-    const { sessions } = (await listRes.json()) as {
-      sessions: Array<{ _id: string; current: boolean }>;
-    };
+    const listRes = await trpcQuery(pageA.request, 'sessions.list');
+    const { sessions } = await trpcData<{ sessions: Array<{ _id: string; current: boolean }> }>(listRes);
     expect(sessions).toHaveLength(2);
     const other = sessions.find((s) => !s.current);
     expect(other).toBeDefined();
 
     // A revokes B's session.
-    const revokeRes = await pageA.request.delete(`/api/sessions/${other!._id}`);
+    const revokeRes = await trpcMutate(pageA.request, 'sessions.revoke', { id: other!._id });
     expect(revokeRes.ok()).toBeTruthy();
-    const revokeBody = (await revokeRes.json()) as { revoked: boolean; wasCurrent: boolean };
+    const revokeBody = await trpcData<{ revoked: boolean; wasCurrent: boolean }>(revokeRes);
     expect(revokeBody.revoked).toBe(true);
     expect(revokeBody.wasCurrent).toBe(false);
 
     // B's next authed request is rejected.
-    const bAfter = await pageB.request.get('/api/notes');
+    const bAfter = await trpcQuery(pageB.request, AUTHED_PING);
     expect(bAfter.status()).toBe(401);
 
     // A is unaffected.
-    const aAfter = await pageA.request.get('/api/notes');
+    const aAfter = await trpcQuery(pageA.request, AUTHED_PING);
     expect(aAfter.ok()).toBeTruthy();
 
     await contextA.close();
@@ -84,18 +86,18 @@ test.describe('sessions / device management', () => {
     await new NotesPage(pageC).signInDirectly(account.address);
 
     await Promise.all([
-      pageA.request.get('/api/notes'),
-      pageB.request.get('/api/notes'),
-      pageC.request.get('/api/notes'),
+      trpcQuery(pageA.request, AUTHED_PING),
+      trpcQuery(pageB.request, AUTHED_PING),
+      trpcQuery(pageC.request, AUTHED_PING),
     ]);
 
-    const res = await pageA.request.delete('/api/sessions');
+    const res = await trpcMutate(pageA.request, 'sessions.revokeOthers');
     expect(res.ok()).toBeTruthy();
-    expect((await res.json()).revoked).toBe(2);
+    expect((await trpcData<{ revoked: number }>(res)).revoked).toBe(2);
 
-    expect((await pageB.request.get('/api/notes')).status()).toBe(401);
-    expect((await pageC.request.get('/api/notes')).status()).toBe(401);
-    expect((await pageA.request.get('/api/notes')).ok()).toBeTruthy();
+    expect((await trpcQuery(pageB.request, AUTHED_PING)).status()).toBe(401);
+    expect((await trpcQuery(pageC.request, AUTHED_PING)).status()).toBe(401);
+    expect((await trpcQuery(pageA.request, AUTHED_PING)).ok()).toBeTruthy();
 
     await Promise.all([ctxA.close(), ctxB.close(), ctxC.close()]);
   });
@@ -103,7 +105,7 @@ test.describe('sessions / device management', () => {
   test('/sessions page renders cards and exposes revoke buttons', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
-    await page.request.get('/api/notes'); // create the row
+    await trpcQuery(page.request, AUTHED_PING); // create the row
 
     await page.goto('/sessions');
     await expect(page.getByText('Active sessions')).toBeVisible();

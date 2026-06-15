@@ -1,6 +1,12 @@
-jest.mock('@/lib/api', () => ({ api: { get: jest.fn() } }));
+jest.mock('@/lib/trpcClient', () => ({
+  trpcClient: {
+    notes: { list: { query: jest.fn() } },
+    secrets: { list: { query: jest.fn() } },
+    seals: { list: { query: jest.fn() } },
+  },
+}));
 
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import {
   viewLabel,
   getNextPageParam,
@@ -11,19 +17,29 @@ import {
   type TierConfig,
 } from '@/hooks/internal/tierPagination';
 
-const mockGet = api.get as unknown as jest.Mock;
+type ListInput = {
+  archived?: boolean;
+  search?: string;
+  tags?: string[];
+  tagMode?: 'or' | 'and';
+  limit: number;
+  offset: number;
+};
 
-function setApiResponse<T>(body: T[]) {
-  mockGet.mockReturnValue({ json: jest.fn().mockResolvedValue(body) });
+const notesQuery = trpcClient.notes.list.query as unknown as jest.Mock;
+const secretsQuery = trpcClient.secrets.list.query as unknown as jest.Mock;
+
+function setResponse(query: jest.Mock, body: unknown[]) {
+  query.mockResolvedValue(body);
 }
 
-function lastCallSearchParams(): URLSearchParams {
-  const call = mockGet.mock.calls[mockGet.mock.calls.length - 1];
-  return call[1].searchParams as URLSearchParams;
+function lastInput(query: jest.Mock): ListInput {
+  return query.mock.calls[query.mock.calls.length - 1][0] as ListInput;
 }
 
 beforeEach(() => {
-  mockGet.mockReset();
+  notesQuery.mockReset();
+  secretsQuery.mockReset();
 });
 
 describe('viewLabel', () => {
@@ -70,69 +86,69 @@ describe('getNextPageParam', () => {
 
 describe('fetchTierPage', () => {
   it('uses INITIAL_PAGE_SIZE and offset=0 for first page (pageParam=0)', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0 });
-    const sp = lastCallSearchParams();
-    expect(sp.get('limit')).toBe(String(INITIAL_PAGE_SIZE));
-    expect(sp.get('offset')).toBe('0');
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0 });
+    const input = lastInput(notesQuery);
+    expect(input.limit).toBe(INITIAL_PAGE_SIZE);
+    expect(input.offset).toBe(0);
   });
 
   it('uses PAGE_SIZE and correct offset for second page (pageParam=1)', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 1 });
-    const sp = lastCallSearchParams();
-    expect(sp.get('limit')).toBe(String(PAGE_SIZE));
-    expect(sp.get('offset')).toBe(String(INITIAL_PAGE_SIZE));
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 1 });
+    const input = lastInput(notesQuery);
+    expect(input.limit).toBe(PAGE_SIZE);
+    expect(input.offset).toBe(INITIAL_PAGE_SIZE);
   });
 
   it('uses correct offset for third page (pageParam=2)', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 2 });
-    const sp = lastCallSearchParams();
-    expect(sp.get('offset')).toBe(String(INITIAL_PAGE_SIZE + PAGE_SIZE));
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 2 });
+    expect(lastInput(notesQuery).offset).toBe(INITIAL_PAGE_SIZE + PAGE_SIZE);
   });
 
-  it('omits archived param when archived is undefined', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0 });
-    expect(lastCallSearchParams().has('archived')).toBe(false);
+  it('omits archived when archived is undefined', async () => {
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0 });
+    expect(lastInput(notesQuery).archived).toBeUndefined();
   });
 
-  it('includes archived=true when archived is true', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0, archived: true });
-    expect(lastCallSearchParams().get('archived')).toBe('true');
+  it('passes archived=true when archived is true', async () => {
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0, archived: true });
+    expect(lastInput(notesQuery).archived).toBe(true);
   });
 
-  it('includes archived=false when archived is false', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0, archived: false });
-    expect(lastCallSearchParams().get('archived')).toBe('false');
+  it('passes archived=false when archived is false', async () => {
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0, archived: false });
+    expect(lastInput(notesQuery).archived).toBe(false);
   });
 
-  it('trims search and includes q when non-empty', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0, search: '  hello  ' });
-    expect(lastCallSearchParams().get('q')).toBe('hello');
+  it('trims search and includes it when non-empty', async () => {
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0, search: '  hello  ' });
+    expect(lastInput(notesQuery).search).toBe('hello');
   });
 
-  it('omits q param when search is whitespace-only', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/notes', { pageParam: 0, search: '   ' });
-    expect(lastCallSearchParams().has('q')).toBe(false);
+  it('omits search when whitespace-only', async () => {
+    setResponse(notesQuery, []);
+    await fetchTierPage('notes', { pageParam: 0, search: '   ' });
+    expect(lastInput(notesQuery).search).toBeUndefined();
   });
 
-  it('returns the JSON body unchanged', async () => {
+  it('returns the response body unchanged', async () => {
     const body = [{ id: '1' }, { id: '2' }];
-    setApiResponse(body);
-    const result = await fetchTierPage<{ id: string }>('/api/notes', { pageParam: 0 });
+    setResponse(notesQuery, body);
+    const result = await fetchTierPage<{ id: string }>('notes', { pageParam: 0 });
     expect(result).toEqual(body);
   });
 
-  it('passes the endpoint through to api.get', async () => {
-    setApiResponse([]);
-    await fetchTierPage('/api/secrets', { pageParam: 0 });
-    expect(mockGet.mock.calls[0][0]).toBe('/api/secrets');
+  it('routes to the requested tier client', async () => {
+    setResponse(secretsQuery, []);
+    await fetchTierPage('secrets', { pageParam: 0 });
+    expect(secretsQuery).toHaveBeenCalledTimes(1);
+    expect(notesQuery).not.toHaveBeenCalled();
   });
 });
 
@@ -151,15 +167,14 @@ describe('buildTierPrefetchOptions', () => {
   });
 
   it('queryFn invokes fetchTierPage with archived=false, search="", and the passed pageParam', async () => {
-    setApiResponse([]);
+    setResponse(notesQuery, []);
     const opts = buildTierPrefetchOptions(config, 'user-1');
     await opts.queryFn({ pageParam: 0 });
-    const sp = lastCallSearchParams();
-    expect(mockGet.mock.calls[0][0]).toBe('/api/notes');
-    expect(sp.get('archived')).toBe('false');
-    expect(sp.has('q')).toBe(false);
-    expect(sp.get('limit')).toBe(String(INITIAL_PAGE_SIZE));
-    expect(sp.get('offset')).toBe('0');
+    const input = lastInput(notesQuery);
+    expect(input.archived).toBe(false);
+    expect(input.search).toBeUndefined();
+    expect(input.limit).toBe(INITIAL_PAGE_SIZE);
+    expect(input.offset).toBe(0);
   });
 
   it('exposes getNextPageParam', () => {

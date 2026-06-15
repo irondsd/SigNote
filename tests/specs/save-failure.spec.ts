@@ -59,7 +59,7 @@ test.describe('create failure recovery', () => {
     await page.keyboard.type(content);
 
     // Intercept the POST to return a server error
-    await page.route('**/api/notes', async (route) => {
+    await page.route('**/api/trpc/notes.create*', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
@@ -67,7 +67,9 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
+    const failedPost = page.waitForResponse(
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST',
+    );
     await page.getByTestId('save-note-btn').click();
     await failedPost;
 
@@ -81,9 +83,9 @@ test.describe('create failure recovery', () => {
     await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
     // Retry — let the real request through
-    await page.unroute('**/api/notes');
+    await page.unroute('**/api/trpc/notes.create*');
     const successPost = page.waitForResponse(
-      (r) => r.url().includes('/api/notes') && r.request().method() === 'POST' && r.status() !== 500,
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST' && r.status() !== 500,
     );
     await page.getByTestId('save-note-btn').click();
     await successPost;
@@ -104,7 +106,7 @@ test.describe('create failure recovery', () => {
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type(content);
 
-    await page.route('**/api/secrets', async (route) => {
+    await page.route('**/api/trpc/secrets.create*', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
@@ -112,7 +114,9 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'POST');
+    const failedPost = page.waitForResponse(
+      (r) => r.url().includes('/api/trpc/secrets.') && r.request().method() === 'POST',
+    );
     await page.getByTestId('save-secret-btn').click();
     await failedPost;
 
@@ -125,9 +129,9 @@ test.describe('create failure recovery', () => {
     await expect(page.getByText('Failed to create secret')).toBeVisible();
     await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
-    await page.unroute('**/api/secrets');
+    await page.unroute('**/api/trpc/secrets.create*');
     const successPost = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST' && r.status() !== 500,
+      (r) => r.url().includes('/api/trpc/secrets.') && r.request().method() === 'POST' && r.status() !== 500,
     );
     await page.getByTestId('save-secret-btn').click();
     await successPost;
@@ -150,7 +154,7 @@ test.describe('create failure recovery', () => {
 
     // Intercepting the POST is sufficient — the 2-step mutationFn throws immediately
     // when apiCreateSeal returns non-ok, so the PATCH with encrypted body never runs
-    await page.route('**/api/seals', async (route) => {
+    await page.route('**/api/trpc/seals.create*', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
@@ -158,7 +162,9 @@ test.describe('create failure recovery', () => {
       }
     });
 
-    const failedPost = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
+    const failedPost = page.waitForResponse(
+      (r) => r.url().includes('/api/trpc/seals.') && r.request().method() === 'POST',
+    );
     await page.getByTestId('save-seal-btn').click();
     await failedPost;
 
@@ -169,9 +175,9 @@ test.describe('create failure recovery', () => {
     await expect(page.getByText('Failed to create seal')).toBeVisible();
     await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
-    await page.unroute('**/api/seals');
+    await page.unroute('**/api/trpc/seals.create*');
     const successPost = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST' && r.status() !== 500,
+      (r) => r.url().includes('/api/trpc/seals.') && r.request().method() === 'POST' && r.status() !== 500,
     );
     await page.getByTestId('save-seal-btn').click();
     await successPost;
@@ -199,8 +205,8 @@ test.describe('edit failure recovery', () => {
     const updatedTitle = `${originalTitle} Updated`;
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    await page.route('**/api/notes/**', async (route) => {
-      if (route.request().method() === 'PATCH') {
+    await page.route('**/api/trpc/notes.update*', async (route) => {
+      if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
         await route.continue();
@@ -208,7 +214,7 @@ test.describe('edit failure recovery', () => {
     });
 
     const failedPatch = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST',
     );
     await page.getByTestId('save-btn').click();
     await failedPatch;
@@ -218,7 +224,7 @@ test.describe('edit failure recovery', () => {
     await expect(page.getByTestId('note-title-input')).toHaveValue(updatedTitle);
     await expect(page.getByText('Failed to save note')).toBeVisible();
 
-    await page.unroute('**/api/notes/**');
+    await page.unroute('**/api/trpc/notes.update*');
   });
 
   test('secret: failed PATCH keeps SecretNoteModal in edit mode with content intact', async ({ page }) => {
@@ -239,8 +245,8 @@ test.describe('edit failure recovery', () => {
     const updatedTitle = `${originalTitle} Updated`;
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    await page.route('**/api/secrets/**', async (route) => {
-      if (route.request().method() === 'PATCH') {
+    await page.route('**/api/trpc/secrets.update*', async (route) => {
+      if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
         await route.continue();
@@ -248,7 +254,7 @@ test.describe('edit failure recovery', () => {
     });
 
     const failedPatch = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
+      (r) => r.url().includes('/api/trpc/secrets.') && r.request().method() === 'POST',
     );
     await page.getByTestId('save-btn').click();
     await failedPatch;
@@ -257,7 +263,7 @@ test.describe('edit failure recovery', () => {
     await expect(page.getByTestId('note-title-input')).toHaveValue(updatedTitle);
     await expect(page.getByText('Failed to save secret')).toBeVisible();
 
-    await page.unroute('**/api/secrets/**');
+    await page.unroute('**/api/trpc/secrets.update*');
   });
 
   test('seal: failed PATCH keeps SealNoteModal in edit mode with content intact', async ({ page }) => {
@@ -281,8 +287,8 @@ test.describe('edit failure recovery', () => {
     const updatedTitle = `${originalTitle} Updated`;
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    await page.route('**/api/seals/**', async (route) => {
-      if (route.request().method() === 'PATCH') {
+    await page.route('**/api/trpc/seals.update*', async (route) => {
+      if (route.request().method() === 'POST') {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Server error"}' });
       } else {
         await route.continue();
@@ -290,7 +296,7 @@ test.describe('edit failure recovery', () => {
     });
 
     const failedPatch = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
+      (r) => r.url().includes('/api/trpc/seals.') && r.request().method() === 'POST',
     );
     await page.getByTestId('save-btn').click();
     await failedPatch;
@@ -299,6 +305,6 @@ test.describe('edit failure recovery', () => {
     await expect(page.getByTestId('note-title-input')).toHaveValue(updatedTitle);
     await expect(page.getByText('Failed to save seal')).toBeVisible();
 
-    await page.unroute('**/api/seals/**');
+    await page.unroute('**/api/trpc/seals.update*');
   });
 });

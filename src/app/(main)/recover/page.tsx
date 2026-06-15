@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { CheckCircle, Eye, EyeOff, KeyRound, ShieldCheck, Upload } from 'lucide-react';
-import { HTTPError } from 'ky';
+import { TRPCClientError } from '@trpc/client';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import { useProfile } from '@/hooks/useProfile';
 import {
   createKeyCheck,
@@ -104,7 +104,7 @@ export default function RecoverPage() {
 
       let material: Material;
       try {
-        material = await api.get('/api/encryption/material').json<Material>();
+        material = (await trpcClient.encryption.material.query()) as unknown as Material;
       } catch {
         setUploadError('Failed to load encryption profile. Please try again.');
         return;
@@ -177,13 +177,14 @@ export default function RecoverPage() {
       const newKeyCheck = await createKeyCheck(mek);
 
       try {
-        await api.patch('/api/encryption/profile', {
-          json: { serverShare: newServerShareB64, salt: newSalt, keyCheck: newKeyCheck },
+        await trpcClient.encryption.update.mutate({
+          serverShare: newServerShareB64,
+          salt: newSalt,
+          keyCheck: newKeyCheck,
         });
       } catch (e) {
-        if (e instanceof HTTPError) {
-          const body = await e.response.json().catch(() => ({}));
-          throw new Error((body as { error?: string }).error || 'Failed to update encryption profile.');
+        if (e instanceof TRPCClientError) {
+          throw new Error(e.message || 'Failed to update encryption profile.');
         }
         throw e;
       }

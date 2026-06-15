@@ -5,6 +5,7 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
+import { trpcQuery, trpcMutate } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -80,17 +81,15 @@ test.describe('account isolation - secrets', () => {
 // ─── Unauthenticated API Access ─────────────────────────────────────────────
 
 test.describe('unauthenticated API access', () => {
-  test('GET /api/notes returns 401 when not authenticated', async ({ page }) => {
+  test('a protected query returns 401 when not authenticated', async ({ page }) => {
     await page.goto('/');
-    const response = await page.request.get('/api/notes');
+    const response = await trpcQuery(page.request, 'me');
     expect(response.status()).toBe(401);
   });
 
-  test('POST /api/notes returns 401 when not authenticated', async ({ page }) => {
+  test('a protected mutation returns 401 when not authenticated', async ({ page }) => {
     await page.goto('/');
-    const response = await page.request.post('/api/notes', {
-      data: { title: 'should fail', content: '<p>test</p>' },
-    });
+    const response = await trpcMutate(page.request, 'notes.create', { title: 'should fail', content: '<p>test</p>' });
     expect(response.status()).toBe(401);
   });
 });

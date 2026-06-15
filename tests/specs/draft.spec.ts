@@ -5,6 +5,7 @@ import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -294,7 +295,7 @@ test.describe('note draft restore', () => {
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
 
     // Save the note
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-note-btn').click();
     await postPromise;
 

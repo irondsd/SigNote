@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 
 export type Identity = {
   provider: 'siwe' | 'google';
@@ -15,7 +15,7 @@ export const useIdentities = () => {
 
   return useQuery({
     queryKey: ['identities', userId],
-    queryFn: () => api.get('/api/profile/identities').json<Identity[]>(),
+    queryFn: async () => (await trpcClient.identities.list.query()) as unknown as Identity[],
     enabled: !!userId,
   });
 };
@@ -26,7 +26,7 @@ export const useUnlinkIdentity = () => {
   const userId = session?.user?.id;
 
   return useMutation({
-    mutationFn: (provider: string) => api.delete(`/api/profile/identities/${provider}`).json(),
+    mutationFn: (provider: string) => trpcClient.identities.unlink.mutate({ provider: provider as 'siwe' | 'google' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['identities', userId] });
     },

@@ -7,6 +7,7 @@ import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { FileAttachmentModel } from '../../src/models/FileAttachment';
 import mongoose from 'mongoose';
+import { trpcMutationOf } from '../utils/trpc';
 
 const pdfPath = path.resolve(__dirname, '../fixtures/files/sample.pdf');
 const pngPath = path.resolve(__dirname, '../fixtures/files/sample.png');
@@ -289,9 +290,7 @@ test.describe('encrypted file uploads', () => {
     await page.getByRole('button', { name: 'Attach file' }).click();
     await expect(page.getByText('Drop file here or click to browse')).toBeVisible();
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
