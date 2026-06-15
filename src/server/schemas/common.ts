@@ -8,11 +8,15 @@ import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteStyles';
 export const objectId = z.string().refine(isValidObjectId, { message: 'Invalid id' });
 
 /** Pagination + filter params shared by the notes/secrets/seals list queries.
- *  limit/offset clamp (rather than reject) to match the old route's lenient
- *  `Math.min(100, Math.max(1, …))` behaviour. */
+ *  search/limit/offset clamp (rather than reject) to match the old route's
+ *  lenient `.trim().slice(0, MAX_SEARCH)` / `Math.min(100, Math.max(1, …))`
+ *  behaviour — an over-long search truncates instead of failing the list. */
 export const listParams = z.object({
   archived: z.boolean().optional(),
-  search: z.string().max(MAX_SEARCH).optional(),
+  search: z
+    .string()
+    .optional()
+    .transform((s) => s?.trim().slice(0, MAX_SEARCH)),
   tags: z.array(objectId).max(MAX_TAGS_PER_NOTE).optional(),
   tagMode: z.enum(['or', 'and']).optional().default('or'),
   limit: z

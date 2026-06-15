@@ -153,7 +153,7 @@ describe('fetchTierPage', () => {
 });
 
 describe('buildTierPrefetchOptions', () => {
-  const config: TierConfig = { key: 'notes', endpoint: '/api/notes' };
+  const config: TierConfig = { key: 'notes' };
 
   it('returns queryKey [config.key, userId, "active", ""]', () => {
     const opts = buildTierPrefetchOptions(config, 'user-1');

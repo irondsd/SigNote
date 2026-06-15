@@ -4,7 +4,6 @@ export type TierKey = 'notes' | 'seals' | 'secrets';
 
 export interface TierConfig {
   readonly key: TierKey;
-  readonly endpoint: `/api/${TierKey}`;
 }
 
 export type TierView = 'active' | 'archived' | 'all';

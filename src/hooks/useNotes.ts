@@ -1,7 +1,7 @@
 import { NoteDocument } from '@/models/Note';
 import { useNoteTier } from './internal/useNoteTier';
 
-const CONFIG = { key: 'notes', endpoint: '/api/notes' } as const;
+const CONFIG = { key: 'notes' } as const;
 
 export const useNotes = (params: {
   archived?: boolean;
