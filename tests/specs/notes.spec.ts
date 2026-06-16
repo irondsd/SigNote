@@ -159,8 +159,12 @@ test.describe('delete note', () => {
     await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
+    // Wait for the delete to actually commit server-side before reloading —
+    // the optimistic UI removal alone doesn't guarantee the request flushed.
+    const deletePromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('delete-btn').click();
     await expect(notesPage.noteCard(title)).not.toBeVisible();
+    await deletePromise;
 
     await clearSession(page);
     await page.reload();

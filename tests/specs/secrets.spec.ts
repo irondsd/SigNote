@@ -298,8 +298,12 @@ test.describe('delete secret', () => {
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
+    // Wait for the delete to actually commit server-side before reloading —
+    // the optimistic UI removal alone doesn't guarantee the request flushed.
+    const deletePromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('delete-btn').click();
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
+    await deletePromise;
 
     await clearSession(page);
     await page.reload();

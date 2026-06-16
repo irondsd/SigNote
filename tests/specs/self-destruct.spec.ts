@@ -9,6 +9,12 @@ import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
 
+// The list GET is often batched behind other procedures (e.g.
+// `/api/trpc/profile.get,notes.list?batch=1`), so match the procedure anywhere
+// in the URL rather than anchored to the `/api/trpc/` prefix.
+const listRefetchOf = (tier: 'notes' | 'secrets' | 'seals') => (r: { url(): string; request(): { method(): string } }) =>
+  r.url().includes(`${tier}.list`) && r.request().method() === 'GET';
+
 test.describe.configure({ mode: 'parallel' });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -280,9 +286,14 @@ test.describe('burn-after-reading arming', () => {
     // `?id=<noteId>` URL param set on card click, which after re-fetch would
     // make `useInitialNoteId` re-open the modal and re-fire the arming hook
     // with a fresh expiresAt, racing the list-query filter.
+    // Only the server filters expired notes; the persisted client list cache
+    // still holds the armed note, so wait for the post-navigation list refetch
+    // to reconcile before asserting (the card is hidden once it lands).
+    const listRefetch = page.waitForResponse(listRefetchOf('notes'));
     await page.goto('/');
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    await expect(notesPage.noteCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(notesPage.noteCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 
   test('user can spare a burn-after-reading note by disabling it before closing', async ({ page }) => {
@@ -395,8 +406,12 @@ test.describe('secrets tier — burn-after-reading', () => {
     // Banner appears after arming — confirm it, then reload directly.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
     // Title is plaintext on secrets — no unlock needed to verify it's gone.
+    // Wait for the post-reload list refetch to reconcile the persisted client
+    // cache (which still holds the armed secret) before asserting.
+    const listRefetch = page.waitForResponse(listRefetchOf('secrets'));
     await page.reload();
-    await expect(secretsPage.secretCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(secretsPage.secretCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 });
 
@@ -470,7 +485,11 @@ test.describe('seals tier — burn-after-reading', () => {
     // Banner appears after arming.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
 
+    // Wait for the post-reload list refetch to reconcile the persisted client
+    // cache (which still holds the armed seal) before asserting.
+    const listRefetch = page.waitForResponse(listRefetchOf('seals'));
     await page.reload();
-    await expect(sealsPage.sealCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(sealsPage.sealCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 });
