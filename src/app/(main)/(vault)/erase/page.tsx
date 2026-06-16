@@ -3,21 +3,16 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { EraseFlow } from '@/components/erase/EraseFlow';
+import { EraseFlow, type StepConfig } from '@/components/erase/EraseFlow';
 import { useProfile } from '@/hooks/useProfile';
 import s from '@/components/erase/EraseFlow.module.scss';
 
-const STEPS = [
-  { key: 'seals', label: 'Seals', endpoint: '/api/erase/seals', requiresEncryptionProfile: true },
-  { key: 'secrets', label: 'Secrets', endpoint: '/api/erase/secrets', requiresEncryptionProfile: true },
-  { key: 'notes', label: 'Notes', endpoint: '/api/erase/notes', requiresEncryptionProfile: false },
-  {
-    key: 'encryption',
-    label: 'Encryption Profile',
-    endpoint: '/api/erase/encryption',
-    requiresEncryptionProfile: true,
-  },
-  { key: 'account', label: 'User Account', endpoint: '/api/erase/account', requiresEncryptionProfile: false },
+const STEPS: StepConfig[] = [
+  { key: 'seals', label: 'Seals', requiresEncryptionProfile: true },
+  { key: 'secrets', label: 'Secrets', requiresEncryptionProfile: true },
+  { key: 'notes', label: 'Notes', requiresEncryptionProfile: false },
+  { key: 'encryption', label: 'Encryption Profile', requiresEncryptionProfile: true },
+  { key: 'account', label: 'User Account', requiresEncryptionProfile: false },
 ];
 
 const EXPLANATION = (
@@ -42,7 +37,7 @@ export default function ErasePage() {
     <EraseFlow
       title="Erase Account"
       explanation={EXPLANATION}
-      verifyEndpoint="/api/erase/verify"
+      scope="all"
       steps={STEPS}
       hasEncryptionProfile={profile?.hasEncryptionProfile}
       doneTitle="Account permanently erased"

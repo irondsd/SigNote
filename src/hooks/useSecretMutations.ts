@@ -4,9 +4,11 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
-import { api } from '@/lib/api';
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
+import { trpcClient } from '@/lib/trpcClient';
 import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { dispatchCommonUpdate } from './internal/tierClient';
 import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSecretNote = {
@@ -51,20 +53,31 @@ type UpdateSecretInput = {
 
 const ROOT = 'secrets';
 
-async function apiCreateSecret(input: CreateSecretInput) {
-  return api.post('/api/secrets', { json: input }).json();
+async function apiCreateSecret(input: CreateSecretInput): Promise<CachedSecretNote> {
+  return (await trpcClient.secrets.create.mutate({
+    ...input,
+    color: input.color as NoteColor | null | undefined,
+    pattern: input.pattern as NotePattern | null | undefined,
+  })) as unknown as CachedSecretNote;
 }
 
 async function apiDeleteSecret(id: string) {
-  return api.delete(`/api/secrets/${id}`).json();
+  return trpcClient.secrets.delete.mutate({ id });
 }
 
 async function apiUndeleteSecret({ id }: { id: string; note: CachedSecretNote }) {
-  return api.patch(`/api/secrets/${id}`, { json: { deleted: false } }).json();
+  return trpcClient.secrets.restore.mutate({ id });
 }
 
 async function apiUpdateSecret({ id, ...data }: UpdateSecretInput) {
-  return api.patch(`/api/secrets/${id}`, { json: data }).json();
+  const handled = dispatchCommonUpdate('secrets', id, data);
+  if (handled) return handled;
+  return (await trpcClient.secrets.update.mutate({
+    id,
+    title: data.title,
+    encryptedBody: data.encryptedBody,
+    fileIds: data.fileIds,
+  })) as unknown as CachedSecretNote;
 }
 
 export const useCreateSecret = (callbacks?: { onError?: () => void }) => {

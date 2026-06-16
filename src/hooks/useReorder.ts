@@ -2,7 +2,7 @@
 
 import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 
 type Resource = 'notes' | 'secrets' | 'seals';
 
@@ -20,8 +20,7 @@ export function useReorder<T extends WithId>(resource: Resource) {
   const queryKey = resource;
 
   return useMutation({
-    mutationFn: async ({ id, position }: ReorderInput) =>
-      api.patch(`/api/${queryKey}/${id}`, { json: { position } }).json(),
+    mutationFn: async ({ id, position }: ReorderInput) => trpcClient[resource].setPosition.mutate({ id, position }),
     onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: [queryKey] });
       const snapshots = qc.getQueriesData<InfiniteData<T[]>>({ queryKey: [queryKey] });

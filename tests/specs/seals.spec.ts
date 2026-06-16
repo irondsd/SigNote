@@ -4,6 +4,7 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSeals } from '../fixtures/seedSeals';
 import { SealsPage } from '../pages/SealsPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf, trpcGet } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -23,7 +24,7 @@ test.describe('create seal', () => {
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('My seal content');
 
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 
@@ -39,7 +40,7 @@ test.describe('create seal', () => {
     await page.getByRole('button', { name: 'New Seal' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 
@@ -72,11 +73,11 @@ test.describe('create seal', () => {
     await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/seals') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-seal-btn').click();
     await postPromise;
 
-    const res = await page.request.get('/api/seals');
+    const res = await trpcGet(page.request, 'seals.list');
     const seals = await res.json();
     const created = seals.find((s: { title: string }) => s.title === title);
     expect(created.color).toBe('yellow');
@@ -264,15 +265,13 @@ test.describe('edit seal', () => {
 
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
     await expect(sealsPage.sealCard(updatedTitle)).toBeVisible();
 
-    const sealsRes = await page.request.get('/api/seals');
+    const sealsRes = await trpcGet(page.request, 'seals.list');
     const seals = await sealsRes.json();
     const updated = seals.find((s: { _id: string }) => s._id === seededSeal._id.toString());
     expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(originalUpdatedAt);
@@ -300,9 +299,7 @@ test.describe('edit seal', () => {
     await page.keyboard.press('Meta+a');
     await page.keyboard.type('Updated seal content');
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
@@ -310,7 +307,7 @@ test.describe('edit seal', () => {
     await expect(page.getByTestId('tiptap-editor')).toContainText('Updated seal content');
 
     // Verify API confirms encryptedBody and wrappedNoteKey were re-encrypted
-    const sealsRes = await page.request.get('/api/seals');
+    const sealsRes = await trpcGet(page.request, 'seals.list');
     const seals = await sealsRes.json();
     const updated = seals.find((s: { _id: string }) => s._id === seededSeal._id.toString());
     expect(updated.encryptedBody).not.toBeNull();
@@ -349,9 +346,7 @@ test.describe('delete seal', () => {
     await sealsPage.unlock();
 
     await sealsPage.sealCard(title).click();
-    const deletePromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'DELETE',
-    );
+    const deletePromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('delete-btn').click();
     await deletePromise;
     await expect(sealsPage.sealCard(title)).not.toBeVisible();
@@ -398,9 +393,7 @@ test.describe('archive and unarchive seal', () => {
     await sealsPage.sealCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -425,9 +418,7 @@ test.describe('archive and unarchive seal', () => {
     await sealsPage.sealCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -528,9 +519,7 @@ test.describe('date update after save', () => {
 
     await page.getByTestId('note-title-input').fill(`${title} edited`);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/seals/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 

@@ -6,19 +6,20 @@ import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import { StepRow } from './StepRow';
 import type { EraseStep, Phase } from './types';
 import s from './EraseFlow.module.scss';
 
-type StepConfig = Pick<EraseStep, 'key' | 'label' | 'endpoint'> & {
+export type StepConfig = Pick<EraseStep, 'key' | 'label'> & {
   requiresEncryptionProfile?: boolean;
 };
 
 type EraseFlowProps = {
   title: string;
   explanation: React.ReactNode;
-  verifyEndpoint: string;
+  // Which scoped erase token to mint: full-account vs encryption-only.
+  scope: 'all' | 'encryption';
   steps: StepConfig[];
   hasEncryptionProfile?: boolean;
   doneTitle: string;
@@ -27,13 +28,13 @@ type EraseFlowProps = {
 };
 
 function initSteps(configs: StepConfig[]): EraseStep[] {
-  return configs.map(({ key, label, endpoint }) => ({ key, label, endpoint, status: 'pending' }));
+  return configs.map(({ key, label }) => ({ key, label, status: 'pending' }));
 }
 
 export function EraseFlow({
   title,
   explanation,
-  verifyEndpoint,
+  scope,
   steps: stepConfigs,
   hasEncryptionProfile = true,
   doneTitle,
@@ -65,7 +66,10 @@ export function EraseFlow({
     posthog.capture('account_erase_confirmed', { flow: title });
 
     try {
-      const { token } = await api.post(verifyEndpoint).json<{ token: string }>();
+      const { token } =
+        scope === 'encryption'
+          ? await trpcClient.erase.verifyEncryption.mutate()
+          : await trpcClient.erase.verifyAll.mutate();
 
       setEraseToken(token);
       setPhase('ready');
@@ -81,9 +85,7 @@ export function EraseFlow({
     setSteps((prev) => prev.map((s) => (s.key === step.key ? { ...s, status: 'running' } : s)));
 
     try {
-      await api.delete(step.endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await trpcClient.erase[step.key].mutate({ token });
       setSteps((prev) => prev.map((s) => (s.key === step.key ? { ...s, status: 'done' } : s)));
       return true;
     } catch {

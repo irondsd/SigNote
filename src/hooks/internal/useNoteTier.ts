@@ -30,7 +30,7 @@ export const useNoteTier = <T>(
   return useInfiniteQuery({
     queryKey: tagsKey ? [...baseKey, tagsKey] : baseKey,
     queryFn: ({ pageParam }: { pageParam: number }) =>
-      fetchTierPage<T>(config.endpoint, { archived, search: debouncedSearch, tags, tagMode, pageParam }),
+      fetchTierPage<T>(config.key, { archived, search: debouncedSearch, tags, tagMode, pageParam }),
     getNextPageParam,
     initialPageParam: 0,
     enabled: userId !== undefined && enabled,

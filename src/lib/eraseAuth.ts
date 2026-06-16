@@ -1,10 +1,5 @@
+import { TRPCError } from '@trpc/server';
 import jwt from 'jsonwebtoken';
-import { getServerSession } from 'next-auth';
-import { NextRequest, NextResponse } from 'next/server';
-
-import { authOptions } from '@/config/auth';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
-import { attachDatabasePool } from '@vercel/functions';
 
 export const ERASE_ALL_SCOPE = 'erase-all';
 export const ERASE_ENCRYPTION_SCOPE = 'erase-encryption';
@@ -20,46 +15,23 @@ export function issueEraseToken(userId: string, scope: string): string {
   });
 }
 
-type EraseHandler = (req: NextRequest, userId: string) => Promise<NextResponse>;
+/** Verifies an erase token's signature/expiry. Returns the payload or null. */
+export function verifyEraseToken(token: string): EraseTokenPayload | null {
+  try {
+    return jwt.verify(token, process.env.NEXTAUTH_SECRET!) as EraseTokenPayload;
+  } catch {
+    return null;
+  }
+}
 
-export function withEraseAuth(
-  expectedScope: string | string[],
-  handler: EraseHandler,
-): (req: NextRequest) => Promise<NextResponse> {
-  return async (req) => {
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authHeader = req.headers.get('authorization');
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return NextResponse.json({ error: 'Missing erase token' }, { status: 401 });
-    }
-
-    let payload: EraseTokenPayload;
-    try {
-      payload = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as EraseTokenPayload;
-    } catch {
-      return NextResponse.json({ error: 'Invalid or expired erase token' }, { status: 401 });
-    }
-
-    const validScopes = Array.isArray(expectedScope) ? expectedScope : [expectedScope];
-    if (!validScopes.includes(payload.scope)) {
-      return NextResponse.json({ error: 'Invalid token scope' }, { status: 403 });
-    }
-
-    if (payload.userId !== userId) {
-      return NextResponse.json({ error: 'Token user mismatch' }, { status: 403 });
-    }
-
-    const client = await getMongoClientFromMongoose();
-    attachDatabasePool(client);
-
-    return handler(req, userId);
-  };
+/**
+ * Re-confirmation gate for the erase procedures: the short-lived scoped JWT must
+ * be valid, carry one of the allowed scopes, and belong to the calling user.
+ * Throws a `TRPCError` (UNAUTHORIZED / FORBIDDEN) on any failure.
+ */
+export function assertEraseToken(token: string, userId: string, scopes: readonly string[]): void {
+  const payload = verifyEraseToken(token);
+  if (!payload) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired erase token' });
+  if (!scopes.includes(payload.scope)) throw new TRPCError({ code: 'FORBIDDEN', message: 'Invalid token scope' });
+  if (payload.userId !== userId) throw new TRPCError({ code: 'FORBIDDEN', message: 'Token user mismatch' });
 }

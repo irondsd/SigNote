@@ -4,6 +4,9 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { SecretsPage } from '../pages/SecretsPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf, trpcQueryOf, trpcQuery, trpcData } from '../utils/trpc';
+
+type SecretRow = { _id: string; title: string; color: string | null; updatedAt: string; encryptedBody: unknown };
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -23,9 +26,7 @@ test.describe('create secret', () => {
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('My secret content');
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
@@ -41,9 +42,7 @@ test.describe('create secret', () => {
     await page.getByRole('button', { name: 'New Secret' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
@@ -76,15 +75,12 @@ test.describe('create secret', () => {
     await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-secret-btn').click();
     await postPromise;
 
-    const res = await page.request.get('/api/secrets');
-    const secrets = await res.json();
-    const created = secrets.find((s: { title: string }) => s.title === title);
+    const secrets = await trpcData<SecretRow[]>(await trpcQuery(page.request, 'secrets.list', {}));
+    const created = secrets.find((s) => s.title === title)!;
     expect(created.color).toBe('yellow');
   });
 
@@ -226,17 +222,14 @@ test.describe('edit secret', () => {
 
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
     await expect(secretsPage.secretCard(updatedTitle)).toBeVisible();
 
-    const secretsRes = await page.request.get('/api/secrets');
-    const secrets = await secretsRes.json();
-    const updated = secrets.find((s: { _id: string }) => s._id === seededSecret._id.toString());
+    const secrets = await trpcData<SecretRow[]>(await trpcQuery(page.request, 'secrets.list', {}));
+    const updated = secrets.find((s) => s._id === seededSecret._id.toString())!;
     expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(originalUpdatedAt);
   });
 
@@ -260,9 +253,7 @@ test.describe('edit secret', () => {
     await page.keyboard.press('Meta+a');
     await page.keyboard.type('Updated secret content');
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
@@ -270,9 +261,8 @@ test.describe('edit secret', () => {
     await expect(page.getByTestId('tiptap-editor')).toContainText('Updated secret content');
 
     // Verify API confirms encryptedBody was re-encrypted (not null)
-    const secretsRes = await page.request.get('/api/secrets');
-    const secrets = await secretsRes.json();
-    const updated = secrets.find((s: { _id: string }) => s._id === seededSecret._id.toString());
+    const secrets = await trpcData<SecretRow[]>(await trpcQuery(page.request, 'secrets.list', {}));
+    const updated = secrets.find((s) => s._id === seededSecret._id.toString())!;
     expect(updated.encryptedBody).not.toBeNull();
   });
 });
@@ -308,8 +298,12 @@ test.describe('delete secret', () => {
     await secretsPage.unlock();
 
     await secretsPage.secretCard(title).click();
+    // Wait for the delete to actually commit server-side before reloading —
+    // the optimistic UI removal alone doesn't guarantee the request flushed.
+    const deletePromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('delete-btn').click();
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
+    await deletePromise;
 
     await clearSession(page);
     await page.reload();
@@ -353,9 +347,7 @@ test.describe('archive and unarchive secret', () => {
     await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -380,9 +372,7 @@ test.describe('archive and unarchive secret', () => {
     await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -420,9 +410,7 @@ test.describe('date update after save', () => {
 
     await page.getByTestId('note-title-input').fill(`${title} edited`);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
@@ -455,13 +443,13 @@ test.describe('infinite scroll decryption', () => {
     await expect(secretsPage.secretCard('Secret 50')).toBeVisible();
 
     // Scroll 1 — load page 2: Secret 20 → Secret 11
-    const scroll1 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+    const scroll1 = page.waitForResponse(trpcQueryOf('secrets.list'));
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll1;
     await expect(secretsPage.secretCard('Secret 11')).toBeVisible();
 
     // Scroll 2 — load page 3: Secret 10 → Secret 01
-    const scroll2 = page.waitForResponse((r) => r.url().includes('/api/secrets') && r.request().method() === 'GET');
+    const scroll2 = page.waitForResponse(trpcQueryOf('secrets.list'));
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await scroll2;
 

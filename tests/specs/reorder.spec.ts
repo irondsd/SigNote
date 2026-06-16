@@ -5,6 +5,7 @@ import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf, trpcGet } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -27,7 +28,7 @@ const startDrag = async (page: Page, sourceTitle: string, targetTitle: string) =
 };
 
 const dragCard = async (page: Page, sourceTitle: string, targetTitle: string) => {
-  const patchDone = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
+  const patchDone = page.waitForResponse(trpcMutationOf('notes.'));
   await startDrag(page, sourceTitle, targetTitle);
   await page.mouse.up();
   await patchDone;
@@ -81,7 +82,7 @@ test.describe('desktop reorder', () => {
     ]);
 
     // Confirm server state (API returns notes sorted by position desc)
-    const resp = await page.request.get('/api/notes');
+    const resp = await trpcGet(page.request, 'notes.list');
     const notes = await resp.json();
     const titles = notes.map((n: { title: string }) => n.title).filter((t: string) => t.startsWith(tag));
     expect(titles).toEqual([
@@ -255,7 +256,7 @@ test.describe('mobile reorder', () => {
 
     let patchFired = false;
     page.on('request', (req) => {
-      if (req.url().includes('/api/notes/') && req.method() === 'PATCH') patchFired = true;
+      if (req.url().includes('/api/trpc/notes.') && req.method() === 'POST') patchFired = true;
     });
 
     const box = await notesPage.noteCard(`${tag} Note 1`).boundingBox();

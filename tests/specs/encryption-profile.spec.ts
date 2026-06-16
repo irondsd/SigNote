@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { SecretsPage } from '../pages/SecretsPage';
+import { trpcMutationOf, trpcGet } from '../utils/trpc';
 
 const TEST_NEW_PASSPHRASE = 'different-horse-new-staple-1337';
 
@@ -36,16 +37,14 @@ test.describe('encryption profile', () => {
     await page.locator('#enc-passphrase').fill(SecretsPage.PASSPHRASE);
     await page.locator('#enc-confirm').fill(SecretsPage.PASSPHRASE);
 
-    const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/encryption/profile') && r.request().method() === 'POST',
-    );
+    const postPromise = page.waitForResponse(trpcMutationOf('encryption.create'));
     await page.getByRole('button', { name: 'Create encryption keys' }).click();
     const postResponse = await postPromise;
 
-    expect(postResponse.status()).toBe(201);
+    expect(postResponse.status()).toBe(200);
     await expect(page.locator('#enc-passphrase')).not.toBeVisible();
 
-    const profileRes = await page.request.get('/api/encryption/profile');
+    const profileRes = await trpcGet(page.request, 'encryption.profile');
     const profile = await profileRes.json();
     expect(profile.exists).toBe(true);
   });
@@ -68,9 +67,7 @@ test.describe('encryption profile', () => {
     // Wait for passphrase verification to succeed (all conditions met → button enabled)
     await expect(page.getByRole('button', { name: 'Change passphrase' })).toBeEnabled({ timeout: 15000 });
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/encryption/profile') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('encryption.update'));
     await page.getByRole('button', { name: 'Change passphrase' }).click();
     const patchResponse = await patchPromise;
 
@@ -79,7 +76,7 @@ test.describe('encryption profile', () => {
 
     // Verify MEK did not change: derive MEK from new passphrase + new material,
     // compare byte-for-byte to the original mekBytes
-    const materialRes = await page.request.get('/api/encryption/material');
+    const materialRes = await trpcGet(page.request, 'encryption.material');
     const newMaterial = await materialRes.json();
     const originalMekArray = Array.from(mekBytes);
 

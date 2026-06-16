@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { api } from '@/lib/api';
+import { trpc } from '@/lib/trpc';
 import type { TagColor } from '@/config/noteStyles';
 
 export type ClientTag = { _id: string; name: string; color: TagColor; createdAt: string };
@@ -22,14 +21,14 @@ export function useTags() {
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
-  const query = useQuery({
-    queryKey: ['tags', userId],
-    queryFn: () => api.get('/api/tags').json<TagsResponse>(),
+  const query = trpc.tags.list.useQuery(undefined, {
     enabled: userId !== undefined,
     staleTime: 60_000,
   });
 
-  const tags = query.data?.tags ?? EMPTY_TAGS;
+  // Server returns hydrated Mongoose docs; over the wire they're plain JSON
+  // (string _id, ISO dates) — the ClientTag shape. Same cast the REST hook did.
+  const tags = (query.data?.tags as unknown as ClientTag[] | undefined) ?? EMPTY_TAGS;
   const counts = query.data?.counts ?? EMPTY_COUNTS;
 
   const byId = useMemo(() => {

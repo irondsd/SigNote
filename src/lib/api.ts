@@ -1,26 +1,6 @@
 import ky from 'ky';
 
-// Guard against multiple concurrent 401s triggering multiple sign-outs.
-let signingOut = false;
-
-const handleUnauthorized = async () => {
-  if (typeof window === 'undefined') return;
-  if (signingOut) return;
-  signingOut = true;
-
-  // Tell other tabs to drop their session too — mirrors SidebarNav's manual sign-out.
-  try {
-    const channel = new BroadcastChannel('signote-auth');
-    channel.postMessage({ type: 'logout' });
-    channel.close();
-  } catch {
-    // BroadcastChannel unavailable (e.g. very old browser); harmless.
-  }
-
-  const [{ signOut }, { toast }] = await Promise.all([import('next-auth/react'), import('sonner')]);
-  toast.error('Your session ended. Please sign in again.');
-  await signOut({ callbackUrl: '/' });
-};
+import { handleUnauthorized } from './authRedirect';
 
 export const api = ky.create({
   hooks: {

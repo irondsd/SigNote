@@ -86,7 +86,7 @@ test.describe('version history', () => {
     await expect(page.getByTestId('version-title')).toContainText(`${tag} v1`);
 
     const restorePromise = page.waitForResponse(
-      (r) => r.url().includes('/versions/') && r.url().endsWith('/restore') && r.request().method() === 'POST',
+      (r) => r.url().includes('notes.versions.restore') && r.request().method() === 'POST',
     );
     await page.getByTestId('version-restore-btn').click();
     await restorePromise;
@@ -98,7 +98,7 @@ test.describe('version history', () => {
 
     // Undo from the toast brings the old head back.
     const undoPromise = page.waitForResponse(
-      (r) => r.url().includes('/versions/') && r.url().endsWith('/restore') && r.request().method() === 'POST',
+      (r) => r.url().includes('notes.versions.restore') && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Undo' }).click();
     await undoPromise;
@@ -122,7 +122,7 @@ test.describe('version history', () => {
     await page.getByTestId('version-row').last().click();
 
     const deletePromise = page.waitForResponse(
-      (r) => r.url().includes('/versions/') && r.request().method() === 'DELETE',
+      (r) => r.url().includes('notes.versions.delete') && r.request().method() === 'POST',
     );
     await page.getByTestId('version-delete-btn').click();
     await deletePromise;
@@ -146,7 +146,7 @@ test.describe('version history', () => {
     await page.getByTestId('note-title-input').fill(`${tag} edited`);
 
     const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
+      (r) => r.url().includes('notes.update') && r.request().method() === 'POST',
     );
     await page.getByTestId('save-btn').click();
     await patchPromise;
@@ -179,7 +179,7 @@ test.describe('version history', () => {
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('note-title-input').fill(`${tag} edited`);
     const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
+      (r) => r.url().includes('notes.update') && r.request().method() === 'POST',
     );
     await page.getByTestId('save-btn').click();
     await patchPromise;

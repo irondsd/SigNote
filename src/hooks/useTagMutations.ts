@@ -1,28 +1,15 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
-import { api } from '@/lib/api';
-import type { TagColor } from '@/config/noteStyles';
+import { trpc } from '@/lib/trpc';
 import type { ClientTag, TagsResponse } from './useTags';
 
-const TAGS_KEY = ['tags'] as const;
 // Roots whose cached docs embed tag ids — refreshed after a tag is deleted.
+// Still REST-keyed during the migration; these match the infinite-query keys.
 const TIER_ROOTS = ['notes', 'secrets', 'seals'] as const;
-
-async function apiCreateTag(input: { name: string; color?: TagColor }): Promise<ClientTag> {
-  return api.post('/api/tags', { json: input }).json<ClientTag>();
-}
-
-async function apiUpdateTag({ id, ...patch }: { id: string; name?: string; color?: TagColor }): Promise<ClientTag> {
-  return api.patch(`/api/tags/${id}`, { json: patch }).json<ClientTag>();
-}
-
-async function apiDeleteTag(id: string): Promise<unknown> {
-  return api.delete(`/api/tags/${id}`).json();
-}
 
 /**
  * Optimistically adjust the per-tag usage counts in the tags cache when a
@@ -30,11 +17,11 @@ async function apiDeleteTag(id: string): Promise<unknown> {
  * in step without forcing a refetch; the next natural refetch corrects drift.
  */
 export function useTagCountBump() {
-  const qc = useQueryClient();
+  const utils = trpc.useUtils();
   return useCallback(
     (added: string[], removed: string[]) => {
       if (added.length === 0 && removed.length === 0) return;
-      qc.setQueriesData<TagsResponse>({ queryKey: TAGS_KEY }, (old) => {
+      utils.tags.list.setData(undefined, (old) => {
         if (!old) return old;
         const counts = { ...old.counts };
         for (const id of added) counts[id] = (counts[id] ?? 0) + 1;
@@ -42,63 +29,70 @@ export function useTagCountBump() {
         return { ...old, counts };
       });
     },
-    [qc],
+    [utils],
   );
 }
 
+// The tags.list cache holds hydrated-doc types; at runtime it's the ClientTag
+// shape. Narrow once here so the cache updaters read naturally.
+type CachedTags = { tags: ClientTag[]; counts: Record<string, number> } | undefined;
+const asCached = (old: unknown): CachedTags => old as CachedTags;
+
 export function useTagMutations() {
+  const utils = trpc.useUtils();
   const qc = useQueryClient();
 
-  const snapshotTags = () => qc.getQueriesData<TagsResponse>({ queryKey: TAGS_KEY });
-  const restoreTags = (snapshots: ReturnType<typeof snapshotTags>) =>
-    snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
   const patchTagsCache = (updater: (tags: ClientTag[]) => ClientTag[]) =>
-    qc.setQueriesData<TagsResponse>({ queryKey: TAGS_KEY }, (old) => (old ? { ...old, tags: updater(old.tags) } : old));
+    utils.tags.list.setData(undefined, (old) => {
+      const cached = asCached(old);
+      return cached ? ({ ...cached, tags: updater(cached.tags) } as unknown as TagsResponse) : old;
+    });
 
-  const create = useMutation({
-    mutationFn: apiCreateTag,
+  const create = trpc.tags.create.useMutation({
     onSuccess: (tag) => {
       posthog.capture('tag_created');
       // Insert immediately so chips/lookup reflect the new tag before refetch.
+      const created = tag as unknown as ClientTag;
       patchTagsCache((tags) =>
-        tags.some((t) => t._id === tag._id) ? tags : [...tags, tag].sort((a, b) => a.name.localeCompare(b.name)),
+        tags.some((t) => t._id === created._id)
+          ? tags
+          : [...tags, created].sort((a, b) => a.name.localeCompare(b.name)),
       );
     },
     onError: () => toast.error('Failed to create tag'),
-    onSettled: () => qc.invalidateQueries({ queryKey: TAGS_KEY }),
+    onSettled: () => utils.tags.list.invalidate(),
   });
 
-  const update = useMutation({
-    mutationFn: apiUpdateTag,
+  const update = trpc.tags.update.useMutation({
     onMutate: async ({ id, ...patch }) => {
-      await qc.cancelQueries({ queryKey: TAGS_KEY });
-      const snapshots = snapshotTags();
+      await utils.tags.list.cancel();
+      const snapshot = asCached(utils.tags.list.getData());
       patchTagsCache((tags) => tags.map((t) => (t._id === id ? { ...t, ...patch } : t)));
-      return { snapshots };
+      return { snapshot };
     },
     onError: (_err, _vars, context) => {
-      if (context) restoreTags(context.snapshots);
+      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as unknown as TagsResponse);
       toast.error('Failed to update tag');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: TAGS_KEY }),
+    onSettled: () => utils.tags.list.invalidate(),
   });
 
-  const remove = useMutation({
-    mutationFn: apiDeleteTag,
-    onMutate: async (id: string) => {
-      await qc.cancelQueries({ queryKey: TAGS_KEY });
-      const snapshots = snapshotTags();
+  const remove = trpc.tags.delete.useMutation({
+    onMutate: async ({ id }) => {
+      await utils.tags.list.cancel();
+      const snapshot = asCached(utils.tags.list.getData());
       patchTagsCache((tags) => tags.filter((t) => t._id !== id));
-      return { snapshots };
+      return { snapshot };
     },
     onSuccess: () => posthog.capture('tag_deleted'),
-    onError: (_err, _id, context) => {
-      if (context) restoreTags(context.snapshots);
+    onError: (_err, _vars, context) => {
+      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as unknown as TagsResponse);
       toast.error('Failed to delete tag');
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: TAGS_KEY });
+      utils.tags.list.invalidate();
       // Cards/lists embed the deleted id; refresh so it's dropped server-side too.
+      // Tier lists are still REST-keyed during migration.
       for (const root of TIER_ROOTS) qc.invalidateQueries({ queryKey: [root] });
     },
   });

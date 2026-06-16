@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
+import { trpcMutationOf, trpcQuery, trpcData } from '../utils/trpc';
 
 export class NotesPage extends BasePage {
   protected defaultUrl = '/';
@@ -15,13 +16,11 @@ export class NotesPage extends BasePage {
   }
 
   async saveAndGetContent(noteId: string): Promise<string> {
-    const patchPromise = this.page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = this.page.waitForResponse(trpcMutationOf('notes.'));
     await this.page.getByTestId('save-btn').click();
     await patchPromise;
-    const res = await this.page.request.get('/api/notes');
-    const notes = await res.json();
-    return notes.find((n: { _id: string }) => n._id === noteId).content as string;
+    const res = await trpcQuery(this.page.request, 'notes.list', {});
+    const notes = await trpcData<Array<{ _id: string; content: string }>>(res);
+    return notes.find((n) => n._id === noteId)!.content;
   }
 }

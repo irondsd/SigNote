@@ -10,8 +10,8 @@ import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import s from './page.module.scss';
-import { HTTPError } from 'ky';
-import { api } from '@/lib/api';
+import { TRPCClientError } from '@trpc/client';
+import { trpcClient } from '@/lib/trpcClient';
 import { useProfile } from '@/hooks/useProfile';
 import {
   createKeyCheck,
@@ -81,9 +81,9 @@ export default function ChangePassphrasePage() {
     try {
       let material: Material;
       try {
-        material = await api.get('/api/encryption/material').json<Material>();
+        material = (await trpcClient.encryption.material.query()) as unknown as Material;
       } catch (e) {
-        if (e instanceof HTTPError && e.response.status === 404) {
+        if (e instanceof TRPCClientError && e.data?.code === 'NOT_FOUND') {
           router.replace('/secrets');
           return;
         }
@@ -164,13 +164,14 @@ export default function ChangePassphrasePage() {
       const newKeyCheck = await createKeyCheck(mek);
 
       try {
-        await api.patch('/api/encryption/profile', {
-          json: { serverShare: newServerShareB64, salt: newSalt, keyCheck: newKeyCheck },
+        await trpcClient.encryption.update.mutate({
+          serverShare: newServerShareB64,
+          salt: newSalt,
+          keyCheck: newKeyCheck,
         });
       } catch (e) {
-        if (e instanceof HTTPError) {
-          const body = await e.response.json().catch(() => ({}));
-          throw new Error((body as { error?: string }).error || 'Failed to update passphrase.');
+        if (e instanceof TRPCClientError) {
+          throw new Error(e.message || 'Failed to update passphrase.');
         }
         throw e;
       }

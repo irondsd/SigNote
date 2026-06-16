@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { attachDatabasePool } from '@vercel/functions';
 
 import { findSessionForValidation, touchSession, upsertSessionIfMissing } from '@/controllers/authSessions';
-import { RouteAuthError, assertOwner, withSession, type AuthedContext } from '@/lib/routeAuth';
+import { RouteAuthError, withSession, type AuthedContext } from '@/lib/routeAuth';
 
 type Handler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;
 
@@ -59,37 +59,6 @@ describe('RouteAuthError', () => {
 
   it('is an instance of Error', () => {
     expect(new RouteAuthError(404, 'Not found')).toBeInstanceOf(Error);
-  });
-});
-
-describe('assertOwner', () => {
-  it('returns the resource when userId matches', () => {
-    const resource = { userId: 'u1', value: 42 };
-    expect(assertOwner(resource, 'u1')).toBe(resource);
-  });
-
-  it('throws RouteAuthError 404 when resource is null', () => {
-    try {
-      assertOwner(null, 'u1');
-      throw new Error('did not throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(RouteAuthError);
-      expect((e as RouteAuthError).status).toBe(404);
-    }
-  });
-
-  it('throws RouteAuthError 404 when resource is undefined', () => {
-    expect(() => assertOwner(undefined, 'u1')).toThrow(RouteAuthError);
-  });
-
-  it('throws RouteAuthError 403 when userId does not match caller', () => {
-    try {
-      assertOwner({ userId: 'u2' }, 'u1');
-      throw new Error('did not throw');
-    } catch (e) {
-      expect(e).toBeInstanceOf(RouteAuthError);
-      expect((e as RouteAuthError).status).toBe(403);
-    }
   });
 });
 

@@ -3,9 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { HTTPError } from 'ky';
 import posthog from 'posthog-js';
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 import {
   clearDeviceShare,
   createKeyCheck,
@@ -62,7 +61,7 @@ type EncryptionContextValue = {
 // ─── Private helpers ─────────────────────────────────────────────────────────
 
 async function fetchMaterialRequest(): Promise<MaterialResponse> {
-  return api.get('/api/encryption/material').json<MaterialResponse>();
+  return (await trpcClient.encryption.material.query()) as unknown as MaterialResponse;
 }
 
 async function reconstructMek(deviceShare: Uint8Array, material: MaterialResponse): Promise<CryptoKey | null> {
@@ -132,7 +131,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // Fetch the encryption profile (non-sensitive metadata)
   const { data: profileResponse, isLoading: profileLoading } = useQuery<ProfileResponse>({
     queryKey: ['encryption-profile', userId],
-    queryFn: () => api.get('/api/encryption/profile').json<ProfileResponse>(),
+    queryFn: async () => (await trpcClient.encryption.profile.query()) as unknown as ProfileResponse,
     enabled: sessionStatus === 'authenticated' && !!userId,
     staleTime: Infinity, // profile rarely changes
   });
@@ -221,15 +220,15 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       const keyCheck = await createKeyCheck(newMek);
 
       try {
-        await api.post('/api/encryption/profile', {
-          json: { version: getEncVersion(), serverShare: serverShareB64, salt, kdf: kdfParams, keyCheck },
+        await trpcClient.encryption.create.mutate({
+          version: getEncVersion(),
+          serverShare: serverShareB64,
+          salt,
+          kdf: kdfParams,
+          keyCheck,
         });
       } catch (e) {
-        if (e instanceof HTTPError) {
-          const body = await e.response.json().catch(() => ({}));
-          throw new Error((body as { error?: string }).error || 'Failed to create encryption profile');
-        }
-        throw e;
+        throw new Error(e instanceof Error ? e.message : 'Failed to create encryption profile');
       }
 
       saveDeviceShare(deviceShare);

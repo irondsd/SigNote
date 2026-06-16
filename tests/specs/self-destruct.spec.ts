@@ -7,6 +7,13 @@ import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
+import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
+
+// The list GET is often batched behind other procedures (e.g.
+// `/api/trpc/profile.get,notes.list?batch=1`), so match the procedure anywhere
+// in the URL rather than anchored to the `/api/trpc/` prefix.
+const listRefetchOf = (tier: 'notes' | 'secrets' | 'seals') => (r: { url(): string; request(): { method(): string } }) =>
+  r.url().includes(`${tier}.list`) && r.request().method() === 'GET';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -52,7 +59,7 @@ async function closeModal(page: Page) {
 async function setPreset(page: Page, label: '1 hour' | '24 hours' | '7 days' | '30 days') {
   await page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).click();
   const patch = page.waitForResponse(
-    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+    (r) => /\/api\/trpc\/(notes|secrets|seals)\./.test(r.url()) && r.request().method() === 'POST',
   );
   await page.getByRole('button', { name: /set timer|update timer/i }).click();
   await patch;
@@ -61,7 +68,7 @@ async function setPreset(page: Page, label: '1 hour' | '24 hours' | '7 days' | '
 /** From inside the picker, click Turn off self-destruct. */
 async function turnOffFromPicker(page: Page) {
   const patch = page.waitForResponse(
-    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+    (r) => /\/api\/trpc\/(notes|secrets|seals)\./.test(r.url()) && r.request().method() === 'POST',
   );
   await page.getByRole('button', { name: /turn off self-destruct/i }).click();
   await patch;
@@ -75,14 +82,14 @@ async function toggleBurnSwitch(page: Page) {
 /** Save with "Set timer" / "Update timer", waiting for the PATCH. */
 async function commitFromPicker(page: Page) {
   const patch = page.waitForResponse(
-    (r) => /\/api\/(notes|secrets|seals)\//.test(r.url()) && r.request().method() === 'PATCH',
+    (r) => /\/api\/trpc\/(notes|secrets|seals)\./.test(r.url()) && r.request().method() === 'POST',
   );
   await page.getByRole('button', { name: /set timer|update timer/i }).click();
   await patch;
 }
 
 async function fetchNote(page: Page, id: string) {
-  const res = await page.request.get('/api/notes');
+  const res = await trpcGet(page.request, 'notes.list');
   const notes = await res.json();
   return notes.find((n: { _id: string }) => n._id === id) ?? null;
 }
@@ -257,9 +264,7 @@ test.describe('burn-after-reading arming', () => {
     await notesPage.signInDirectly(account.address);
 
     // The arm PATCH happens on modal mount.
-    const armPatch = page.waitForResponse(
-      (r) => r.url().includes(`/api/notes/${seeded._id.toString()}`) && r.request().method() === 'PATCH',
-    );
+    const armPatch = page.waitForResponse(trpcMutationOf('notes.'));
     await notesPage.noteCard(title).click();
     await armPatch;
 
@@ -271,7 +276,7 @@ test.describe('burn-after-reading arming', () => {
     // the server a moment to commit, then also confirm the UI matches.
     await expect
       .poll(async () => {
-        const res = await page.request.get('/api/notes');
+        const res = await trpcGet(page.request, 'notes.list');
         const notes = (await res.json()) as { _id: string }[];
         return notes.some((n) => n._id === seeded._id.toString());
       })
@@ -281,9 +286,14 @@ test.describe('burn-after-reading arming', () => {
     // `?id=<noteId>` URL param set on card click, which after re-fetch would
     // make `useInitialNoteId` re-open the modal and re-fire the arming hook
     // with a fresh expiresAt, racing the list-query filter.
+    // Only the server filters expired notes; the persisted client list cache
+    // still holds the armed note, so wait for the post-navigation list refetch
+    // to reconcile before asserting (the card is hidden once it lands).
+    const listRefetch = page.waitForResponse(listRefetchOf('notes'));
     await page.goto('/');
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    await expect(notesPage.noteCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(notesPage.noteCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 
   test('user can spare a burn-after-reading note by disabling it before closing', async ({ page }) => {
@@ -295,9 +305,7 @@ test.describe('burn-after-reading arming', () => {
     await notesPage.signInDirectly(account.address);
 
     // Arm fires on open.
-    const armPatch = page.waitForResponse(
-      (r) => r.url().includes(`/api/notes/${seeded._id.toString()}`) && r.request().method() === 'PATCH',
-    );
+    const armPatch = page.waitForResponse(trpcMutationOf('notes.'));
     await notesPage.noteCard(title).click();
     await armPatch;
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
@@ -305,8 +313,10 @@ test.describe('burn-after-reading arming', () => {
     // Clear via the API. (Picker UI clearing is exercised by the timer-spare
     // test below; here we just need to verify the post-arm lifecycle: clear
     // before reload → note survives, fields cleared.)
-    const clearRes = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const clearRes = await trpcPost(page.request, 'notes.setMeta', {
+      id: seeded._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(clearRes.ok()).toBe(true);
     // Verify the clear response itself confirms both fields landed.
@@ -323,7 +333,7 @@ test.describe('burn-after-reading arming', () => {
     // first to confirm the DB state, then assert the UI matches.
     await expect
       .poll(async () => {
-        const res = await page.request.get('/api/notes');
+        const res = await trpcGet(page.request, 'notes.list');
         const notes = (await res.json()) as { _id: string }[];
         return notes.some((n) => n._id === seeded._id.toString());
       })
@@ -383,25 +393,25 @@ test.describe('secrets tier — burn-after-reading', () => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `secret-arm-${Date.now()}`;
-    const [seeded] = await seedSecrets(account.address, mekBytes, [
-      { title, content: 'secret body', burnAfterReading: true },
-    ]);
+    await seedSecrets(account.address, mekBytes, [{ title, content: 'secret body', burnAfterReading: true }]);
 
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly(account.address);
     await secretsPage.unlock();
 
-    const armPatch = page.waitForResponse(
-      (r) => r.url().includes(`/api/secrets/${seeded._id.toString()}`) && r.request().method() === 'PATCH',
-    );
+    const armPatch = page.waitForResponse(trpcMutationOf('secrets.'));
     await secretsPage.secretCard(title).click();
     await armPatch;
 
     // Banner appears after arming — confirm it, then reload directly.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
     // Title is plaintext on secrets — no unlock needed to verify it's gone.
+    // Wait for the post-reload list refetch to reconcile the persisted client
+    // cache (which still holds the armed secret) before asserting.
+    const listRefetch = page.waitForResponse(listRefetchOf('secrets'));
     await page.reload();
-    await expect(secretsPage.secretCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(secretsPage.secretCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 });
 
@@ -449,7 +459,7 @@ test.describe('seals tier — burn-after-reading', () => {
     await expect(page.getByTestId('note-title')).toHaveCount(0);
 
     // Outcome check via API: the doc must still exist with no expiresAt set.
-    const res = await page.request.get('/api/seals');
+    const res = await trpcGet(page.request, 'seals.list');
     const seals = (await res.json()) as { _id: string; expiresAt: string | null }[];
     const found = seals.find((s) => s._id === seeded._id.toString());
     expect(found).toBeDefined();
@@ -460,9 +470,7 @@ test.describe('seals tier — burn-after-reading', () => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `seal-arm-${Date.now()}`;
-    const [seeded] = await seedSeals(account.address, mekBytes, [
-      { title, content: 'seal body', burnAfterReading: true },
-    ]);
+    await seedSeals(account.address, mekBytes, [{ title, content: 'seal body', burnAfterReading: true }]);
 
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly(account.address);
@@ -470,16 +478,18 @@ test.describe('seals tier — burn-after-reading', () => {
     await sealsPage.sealCard(title).click();
     await expect(page.getByTestId('decrypt-btn')).toBeVisible();
 
-    const armPatch = page.waitForResponse(
-      (r) => r.url().includes(`/api/seals/${seeded._id.toString()}`) && r.request().method() === 'PATCH',
-    );
+    const armPatch = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('decrypt-btn').click();
     await armPatch;
 
     // Banner appears after arming.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
 
+    // Wait for the post-reload list refetch to reconcile the persisted client
+    // cache (which still holds the armed seal) before asserting.
+    const listRefetch = page.waitForResponse(listRefetchOf('seals'));
     await page.reload();
-    await expect(sealsPage.sealCard(title)).toHaveCount(0);
+    await listRefetch;
+    await expect(sealsPage.sealCard(title)).toHaveCount(0, { timeout: 10000 });
   });
 });

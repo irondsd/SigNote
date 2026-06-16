@@ -4,6 +4,7 @@ import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { makeAccount } from '../utils/makeAccount';
 import { seedTags } from '../fixtures/seedTags';
+import { trpcGet, trpcPost, trpcMutate, trpcBatchData } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -17,13 +18,13 @@ test.describe('tags', () => {
     // editing a still-optimistic note would PATCH /api/notes/temp-… → 404.
     const title = `Tagged Note ${Date.now()}`;
     const createPost = page.waitForResponse(
-      (r) => r.url().endsWith('/api/notes') && r.request().method() === 'POST' && r.ok(),
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByTestId('new-note-btn').click();
     await page.getByTestId('note-title-input').fill(title);
     await page.getByTestId('save-note-btn').click();
     await createPost;
-    await page.waitForResponse((r) => /\/api\/notes\?/.test(r.url()) && r.request().method() === 'GET');
+    await page.waitForResponse((r) => r.url().includes('/api/trpc/notes.list') && r.request().method() === 'GET');
     await expect(notesPage.noteCard(title)).toBeVisible();
 
     // Open it, reveal the tags strip, and create a brand-new tag from the palette.
@@ -37,7 +38,7 @@ test.describe('tags', () => {
     // Creating + adding the tag fires a fire-and-forget PATCH that persists it
     // on the note; wait for that response so the card reflects it deterministically.
     const tagsPatch = page.waitForResponse(
-      (r) => /\/api\/notes\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH' && r.ok(),
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST' && r.ok(),
     );
     await input.fill(tagName);
     await input.press('Enter');
@@ -63,7 +64,7 @@ test.describe('tags', () => {
 
     const tagName = `manage${Date.now()}`;
     const createPost = page.waitForResponse(
-      (r) => r.url().endsWith('/api/tags') && r.request().method() === 'POST' && r.ok(),
+      (r) => r.url().includes('/api/trpc/tags.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByPlaceholder('New tag name…').fill(tagName);
     await page.getByRole('button', { name: 'Add tag' }).click();
@@ -81,12 +82,12 @@ test.describe('tags', () => {
 
     // Seed a tag and a note carrying it, directly via the API (shares the session).
     const tagName = `flt${Date.now()}`;
-    const tagRes = await page.request.post('/api/tags', { data: { name: tagName } });
+    const tagRes = await trpcPost(page.request, 'tags.create', { name: tagName });
     const tagId = (await tagRes.json())._id as string;
     const noteTitle = `Filterable ${Date.now()}`;
-    const noteRes = await page.request.post('/api/notes', { data: { title: noteTitle, content: '<p>body</p>' } });
+    const noteRes = await trpcPost(page.request, 'notes.create', { title: noteTitle, content: '<p>body</p>' });
     const noteId = (await noteRes.json())._id as string;
-    await page.request.patch(`/api/notes/${noteId}`, { data: { tags: [tagId] } });
+    await trpcMutate(page.request, 'notes.setTags', { id: noteId, tags: [tagId] });
 
     // Reload so the notes/tags caches are fresh, then open the search palette.
     await page.goto('/');
@@ -112,12 +113,12 @@ test.describe('tag API routes', () => {
     await new NotesPage(page).signInDirectly();
 
     const name = `MiXeD${Date.now()}`;
-    const first = await page.request.post('/api/tags', { data: { name: `  ${name}  ` } });
-    expect(first.status()).toBe(201);
+    const first = await trpcPost(page.request, 'tags.create', { name: `  ${name}  ` });
+    expect(first.status()).toBe(200);
     const created = await first.json();
     expect(created.name).toBe(name.toLowerCase());
 
-    const again = await page.request.post('/api/tags', { data: { name: name.toLowerCase() } });
+    const again = await trpcPost(page.request, 'tags.create', { name: name.toLowerCase() });
     expect((await again.json())._id).toBe(created._id);
   });
 
@@ -125,24 +126,22 @@ test.describe('tag API routes', () => {
     await new NotesPage(page).signInDirectly();
 
     const base = Date.now();
-    const a = await (await page.request.post('/api/tags', { data: { name: `a${base}` } })).json();
-    const b = await (await page.request.post('/api/tags', { data: { name: `b${base}` } })).json();
+    const a = await (await trpcPost(page.request, 'tags.create', { name: `a${base}` })).json();
+    const b = await (await trpcPost(page.request, 'tags.create', { name: `b${base}` })).json();
 
-    const conflict = await page.request.patch(`/api/tags/${b._id}`, { data: { name: a.name } });
+    const conflict = await trpcMutate(page.request, 'tags.update', { id: b._id, name: a.name });
     expect(conflict.status()).toBe(409);
 
-    const badColor = await page.request.patch(`/api/tags/${b._id}`, { data: { color: 'magenta' } });
+    const badColor = await trpcMutate(page.request, 'tags.update', { id: b._id, color: 'magenta' });
     expect(badColor.status()).toBe(400);
 
-    const both = await page.request.patch(`/api/tags/${b._id}`, {
-      data: { name: `c${base}`, color: 'green' },
-    });
+    const both = await trpcPost(page.request, 'tags.update', { id: b._id, name: `c${base}`, color: 'green' });
     expect(both.ok()).toBe(true);
     const updated = await both.json();
     expect(updated.name).toBe(`c${base}`);
     expect(updated.color).toBe('green');
 
-    const empty = await page.request.patch(`/api/tags/${b._id}`, { data: {} });
+    const empty = await trpcMutate(page.request, 'tags.update', { id: b._id });
     expect(empty.status()).toBe(400);
   });
 
@@ -153,25 +152,27 @@ test.describe('tag API routes', () => {
     const [foreign] = await seedTags(stranger.address, [{ name: `foreign${Date.now()}` }]);
     const foreignId = foreign._id.toString();
 
-    expect((await page.request.patch(`/api/tags/${foreignId}`, { data: { name: 'mine-now' } })).status()).toBe(403);
-    expect((await page.request.delete(`/api/tags/${foreignId}`)).status()).toBe(403);
-    expect((await page.request.patch('/api/tags/not-an-id', { data: { name: 'x' } })).status()).toBe(404);
+    expect((await trpcMutate(page.request, 'tags.update', { id: foreignId, name: 'mine-now' })).status()).toBe(403);
+    expect((await trpcMutate(page.request, 'tags.delete', { id: foreignId })).status()).toBe(403);
+    expect((await trpcMutate(page.request, 'tags.update', { id: 'not-an-id', name: 'x' })).status()).toBe(400);
   });
 
   test('DELETE removes the tag and detaches it from notes', async ({ page }) => {
     await new NotesPage(page).signInDirectly();
 
-    const tag = await (await page.request.post('/api/tags', { data: { name: `gone${Date.now()}` } })).json();
+    const tag = await (await trpcPost(page.request, 'tags.create', { name: `gone${Date.now()}` })).json();
     const note = await (
-      await page.request.post('/api/notes', {
-        data: { title: `Detach ${Date.now()}`, content: '<p>x</p>', tags: [tag._id] },
+      await trpcPost(page.request, 'notes.create', {
+        title: `Detach ${Date.now()}`,
+        content: '<p>x</p>',
+        tags: [tag._id],
       })
     ).json();
     expect(note.tags).toEqual([tag._id]);
 
-    expect((await page.request.delete(`/api/tags/${tag._id}`)).ok()).toBe(true);
+    expect((await trpcMutate(page.request, 'tags.delete', { id: tag._id })).ok()).toBe(true);
 
-    const list = await (await page.request.get('/api/notes')).json();
+    const list = await (await trpcGet(page.request, 'notes.list')).json();
     const fresh = list.find((n: { _id: string }) => n._id === note._id);
     expect(fresh.tags).toEqual([]);
   });
@@ -182,32 +183,32 @@ test.describe('tag API routes', () => {
     // The cap applies to the raw incoming list, so synthetic ids suffice.
     const eleven = Array.from({ length: 11 }, (_, i) => String(i).padStart(24, '0'));
 
-    const create = await page.request.post('/api/notes', {
-      data: { title: 'too many', content: '<p>x</p>', tags: eleven },
+    const create = await trpcPost(page.request, 'notes.create', {
+      title: 'too many',
+      content: '<p>x</p>',
+      tags: eleven,
     });
     expect(create.status()).toBe(400);
 
     const note = await (
-      await page.request.post('/api/notes', { data: { title: `cap ${Date.now()}`, content: '<p>x</p>' } })
+      await trpcPost(page.request, 'notes.create', { title: `cap ${Date.now()}`, content: '<p>x</p>' })
     ).json();
-    const patch = await page.request.patch(`/api/notes/${note._id}`, { data: { tags: eleven } });
+    const patch = await trpcMutate(page.request, 'notes.setTags', { id: note._id, tags: eleven });
     expect(patch.status()).toBe(400);
   });
 
   test('foreign and malformed tag ids are silently dropped on create', async ({ page }) => {
     await new NotesPage(page).signInDirectly();
 
-    const owned = await (await page.request.post('/api/tags', { data: { name: `own${Date.now()}` } })).json();
+    const owned = await (await trpcPost(page.request, 'tags.create', { name: `own${Date.now()}` })).json();
     const { account: stranger } = makeAccount();
     const [foreign] = await seedTags(stranger.address, [{ name: `their${Date.now()}` }]);
 
     const note = await (
-      await page.request.post('/api/notes', {
-        data: {
-          title: `Sanitize ${Date.now()}`,
-          content: '<p>x</p>',
-          tags: [owned._id, foreign._id.toString(), 'not-an-objectid'],
-        },
+      await trpcPost(page.request, 'notes.create', {
+        title: `Sanitize ${Date.now()}`,
+        content: '<p>x</p>',
+        tags: [owned._id, foreign._id.toString(), 'not-an-objectid'],
       })
     ).json();
     expect(note.tags).toEqual([owned._id]);
@@ -222,9 +223,9 @@ test.describe('tag management UI', () => {
     await notesPage.signInDirectly();
 
     const name = `old${Date.now()}`;
-    const tag = await (await page.request.post('/api/tags', { data: { name } })).json();
+    const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
     const title = `Rename prop ${Date.now()}`;
-    await page.request.post('/api/notes', { data: { title, content: '<p>b</p>', tags: [tag._id] } });
+    await trpcPost(page.request, 'notes.create', { title, content: '<p>b</p>', tags: [tag._id] });
 
     await page.goto('/tags');
     await expect(page.getByRole('heading', { name: 'Tags' })).toBeVisible();
@@ -235,7 +236,7 @@ test.describe('tag management UI', () => {
 
     const newName = `new${Date.now()}`;
     const patched = page.waitForResponse(
-      (r) => r.url().includes(`/api/tags/${tag._id}`) && r.request().method() === 'PATCH' && r.ok(),
+      (r) => r.url().includes('/api/trpc/tags.') && r.request().method() === 'POST' && r.ok(),
     );
     const renameInput = page.getByTestId('tag-row').locator('input'); // the only row this account has
     await renameInput.fill(newName);
@@ -253,9 +254,8 @@ test.describe('tag management UI', () => {
     await new NotesPage(page).signInDirectly();
 
     const name = `paint${Date.now()}`;
-    const tagRes = await page.request.post('/api/tags', { data: { name, color: 'red' } });
-    expect(tagRes.status()).toBe(201);
-    const tag = await tagRes.json();
+    const tagRes = await trpcPost(page.request, 'tags.create', { name, color: 'red' });
+    expect(tagRes.status()).toBe(200);
 
     await page.goto('/tags');
     await expect(page.getByRole('heading', { name: 'Tags' })).toBeVisible();
@@ -263,7 +263,7 @@ test.describe('tag management UI', () => {
     await row.getByRole('button', { name: 'Red' }).click();
 
     const patched = page.waitForResponse(
-      (r) => r.url().includes(`/api/tags/${tag._id}`) && r.request().method() === 'PATCH' && r.ok(),
+      (r) => r.url().includes('/api/trpc/tags.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByRole('button', { name: 'blue', exact: true }).click();
     await patched;
@@ -279,16 +279,16 @@ test.describe('tag management UI', () => {
     await notesPage.signInDirectly();
 
     const name = `strip${Date.now()}`;
-    const tag = await (await page.request.post('/api/tags', { data: { name } })).json();
+    const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
     const title = `Unstrip ${Date.now()}`;
-    await page.request.post('/api/notes', { data: { title, content: '<p>b</p>', tags: [tag._id] } });
+    await trpcPost(page.request, 'notes.create', { title, content: '<p>b</p>', tags: [tag._id] });
 
     await page.goto('/');
     await notesPage.noteCard(title).click();
 
     // The strip defaults open when the note already has tags.
     const patched = page.waitForResponse(
-      (r) => /\/api\/notes\/[^/]+$/.test(r.url()) && r.request().method() === 'PATCH' && r.ok(),
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST' && r.ok(),
     );
     await page
       .getByTestId('tag-strip')
@@ -305,7 +305,7 @@ test.describe('tag management UI', () => {
     await notesPage.signInDirectly();
 
     const name = `pre${Date.now()}`;
-    const tag = await (await page.request.post('/api/tags', { data: { name } })).json();
+    const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
     await page.goto('/'); // full reload so the tags cache includes the seeded tag
 
     const title = `Preselected ${Date.now()}`;
@@ -321,10 +321,10 @@ test.describe('tag management UI', () => {
     await page.keyboard.press('Escape');
 
     const created = page.waitForResponse(
-      (r) => r.url().endsWith('/api/notes') && r.request().method() === 'POST' && r.ok(),
+      (r) => r.url().includes('/api/trpc/notes.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByTestId('save-note-btn').click();
-    const body = await (await created).json();
+    const body = await trpcBatchData<{ tags: string[] }>(await created);
     expect(body.tags).toEqual([tag._id]);
 
     await expect(notesPage.noteCard(title).getByTestId('card-tags')).toContainText(name);
@@ -333,11 +333,11 @@ test.describe('tag management UI', () => {
   test('deep link /search?tag= shows only notes carrying that tag', async ({ page }) => {
     await new NotesPage(page).signInDirectly();
 
-    const tag = await (await page.request.post('/api/tags', { data: { name: `deep${Date.now()}` } })).json();
+    const tag = await (await trpcPost(page.request, 'tags.create', { name: `deep${Date.now()}` })).json();
     const taggedTitle = `Tagged deep ${Date.now()}`;
     const plainTitle = `Plain deep ${Date.now()}`;
-    await page.request.post('/api/notes', { data: { title: taggedTitle, content: '<p>x</p>', tags: [tag._id] } });
-    await page.request.post('/api/notes', { data: { title: plainTitle, content: '<p>x</p>' } });
+    await trpcPost(page.request, 'notes.create', { title: taggedTitle, content: '<p>x</p>', tags: [tag._id] });
+    await trpcPost(page.request, 'notes.create', { title: plainTitle, content: '<p>x</p>' });
 
     await page.goto(`/search?tag=${tag._id}`);
     await expect(page.getByText(taggedTitle, { exact: true })).toBeVisible();
@@ -369,10 +369,10 @@ test.describe('tags on encrypted tiers', () => {
     await page.keyboard.press('Escape');
 
     const created = page.waitForResponse(
-      (r) => r.url().includes('/api/secrets') && r.request().method() === 'POST' && r.ok(),
+      (r) => r.url().includes('/api/trpc/secrets.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByTestId('save-secret-btn').click();
-    const body = await (await created).json();
+    const body = await trpcBatchData<{ tags: string[] }>(await created);
     expect(body.tags).toHaveLength(1);
 
     await expect(secretsPage.secretCard(title).getByTestId('card-tags')).toContainText(tagName);
@@ -397,10 +397,10 @@ test.describe('tags on encrypted tiers', () => {
     await page.keyboard.press('Escape');
 
     const created = page.waitForResponse(
-      (r) => r.url().includes('/api/seals') && r.request().method() === 'POST' && r.ok(),
+      (r) => r.url().includes('/api/trpc/seals.') && r.request().method() === 'POST' && r.ok(),
     );
     await page.getByTestId('save-seal-btn').click();
-    const body = await (await created).json();
+    const body = await trpcBatchData<{ tags: string[] }>(await created);
     expect(body.tags).toHaveLength(1);
 
     await expect(sealsPage.sealCard(title).getByTestId('card-tags')).toContainText(tagName);

@@ -8,6 +8,7 @@ import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
 import { ProfilePage } from '../pages/ProfilePage';
 import { clearSession } from '../utils/clearSession';
+import { trpcQuery, trpcData } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -64,7 +65,9 @@ test.describe('erase account', () => {
     await injectSession(page, token);
     await page.goto('/');
 
-    const { createdAt: oldCreatedAt } = await (await page.request.get('/api/profile')).json();
+    const { createdAt: oldCreatedAt } = await trpcData<{ createdAt: string }>(
+      await trpcQuery(page.request, 'profile.get'),
+    );
 
     await page.goto('/erase');
     await performErase(page);
@@ -72,7 +75,9 @@ test.describe('erase account', () => {
 
     await reSignIn(page, account.address);
 
-    const newProfile = await (await page.request.get('/api/profile')).json();
+    const newProfile = await trpcData<{ notesCount: number; createdAt: string }>(
+      await trpcQuery(page.request, 'profile.get'),
+    );
     expect(newProfile.notesCount).toBe(0);
     expect(new Date(newProfile.createdAt).getTime()).toBeGreaterThan(new Date(oldCreatedAt).getTime());
   });
@@ -110,7 +115,7 @@ test.describe('erase account', () => {
     await clearSession(page);
 
     // Register listener before navigation so it catches the profile fetch triggered on page load
-    const profileLoaded = page.waitForResponse((r) => r.url().includes('/api/profile') && r.status() === 200);
+    const profileLoaded = page.waitForResponse((r) => r.url().includes('profile.get') && r.status() === 200);
     await page.goto('/erase');
     await profileLoaded;
 
@@ -180,12 +185,13 @@ test.describe('erase encryption profile', () => {
     await page.locator('#enc-confirm').fill(NEW_PASSPHRASE);
 
     const postPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/encryption/profile') && r.request().method() === 'POST',
+      (r) => r.url().includes('encryption.create') && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Create encryption keys' }).click();
     const postResponse = await postPromise;
 
-    expect(postResponse.status()).toBe(201);
+    // tRPC returns HTTP 200 on success (no 201).
+    expect(postResponse.status()).toBe(200);
     await expect(page.locator('#enc-passphrase')).not.toBeVisible();
   });
 
@@ -201,8 +207,9 @@ test.describe('erase encryption profile', () => {
     await performErase(page);
     await expect(page).toHaveURL('/profile', { timeout: 15000 });
 
-    const profileRes = await page.request.get('/api/profile');
-    const profile = await profileRes.json();
+    const profile = await trpcData<{ hasEncryptionProfile: boolean; encryptionProfileCreatedAt: string | null }>(
+      await trpcQuery(page.request, 'profile.get'),
+    );
     expect(profile.hasEncryptionProfile).toBe(false);
     expect(profile.encryptionProfileCreatedAt).toBeNull();
 

@@ -6,6 +6,7 @@ import { seedSeals } from '../fixtures/seedSeals';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
+import { trpcMutate, trpcGet } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -25,13 +26,17 @@ test.describe('expired note access — getById is grace-aware', () => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
 
-    const within = await page.request.patch(`/api/notes/${withinGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const within = await trpcMutate(page.request, 'notes.setMeta', {
+      id: withinGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(within.status()).toBe(200);
 
-    const outside = await page.request.patch(`/api/notes/${outsideGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const outside = await trpcMutate(page.request, 'notes.setMeta', {
+      id: outsideGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(outside.status()).toBe(404);
   });
@@ -44,13 +49,17 @@ test.describe('expired note access — getById is grace-aware', () => {
       { title: `outside-${Date.now()}`, content: 'x', expiresAt: new Date(Date.now() - 3700 * 1000) },
     ]);
 
-    const within = await page.request.patch(`/api/secrets/${withinGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const within = await trpcMutate(page.request, 'secrets.setMeta', {
+      id: withinGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(within.status()).toBe(200);
 
-    const outside = await page.request.patch(`/api/secrets/${outsideGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const outside = await trpcMutate(page.request, 'secrets.setMeta', {
+      id: outsideGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(outside.status()).toBe(404);
   });
@@ -63,13 +72,17 @@ test.describe('expired note access — getById is grace-aware', () => {
       { title: `outside-${Date.now()}`, content: 'x', expiresAt: new Date(Date.now() - 3700 * 1000) },
     ]);
 
-    const within = await page.request.patch(`/api/seals/${withinGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const within = await trpcMutate(page.request, 'seals.setMeta', {
+      id: withinGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(within.status()).toBe(200);
 
-    const outside = await page.request.patch(`/api/seals/${outsideGrace._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const outside = await trpcMutate(page.request, 'seals.setMeta', {
+      id: outsideGrace._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(outside.status()).toBe(404);
   });
@@ -83,12 +96,14 @@ test.describe('expired note access — getById is grace-aware', () => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
 
-    const revive = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
-      data: { expiresAt: null, burnAfterReading: false },
+    const revive = await trpcMutate(page.request, 'notes.setMeta', {
+      id: seeded._id.toString(),
+      expiresAt: null,
+      burnAfterReading: false,
     });
     expect(revive.ok()).toBe(true);
 
-    const list = await page.request.get('/api/notes');
+    const list = await trpcGet(page.request, 'notes.list');
     const notes = (await list.json()) as { _id: string }[];
     expect(notes.some((n) => n._id === seeded._id.toString())).toBe(true);
   });

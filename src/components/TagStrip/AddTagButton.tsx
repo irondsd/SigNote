@@ -98,7 +98,7 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
     const name = query.trim();
     if (!name || atLimit) return;
     const tag = await create.mutateAsync({ name });
-    add(tag._id);
+    add(String(tag._id));
   };
 
   const activate = (index: number) => {

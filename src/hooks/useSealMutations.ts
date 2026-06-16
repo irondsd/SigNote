@@ -4,9 +4,11 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
-import { api } from '@/lib/api';
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
+import { trpcClient } from '@/lib/trpcClient';
 import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
 import { registerStableKey } from '@/lib/stableKeyStore';
+import { dispatchCommonUpdate } from './internal/tierClient';
 import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSealNote = {
@@ -55,24 +57,40 @@ type UpdateSealInput = {
 
 const ROOT = 'seals';
 
-async function apiCreateSeal(input: CreateSealInput) {
-  return api.post('/api/seals', { json: input }).json<CachedSealNote>();
+async function apiCreateSeal(input: CreateSealInput): Promise<CachedSealNote> {
+  return (await trpcClient.seals.create.mutate({
+    ...input,
+    color: input.color as NoteColor | null | undefined,
+    pattern: input.pattern as NotePattern | null | undefined,
+  })) as unknown as CachedSealNote;
 }
 
 async function apiDeleteSeal(id: string) {
-  return api.delete(`/api/seals/${id}`).json();
+  return trpcClient.seals.delete.mutate({ id });
 }
 
 async function apiUndeleteSeal({ id }: { id: string; note: CachedSealNote }) {
-  return api.patch(`/api/seals/${id}`, { json: { deleted: false } }).json();
+  return trpcClient.seals.restore.mutate({ id });
 }
 
 async function apiUpdateSeal({ id, ...data }: UpdateSealInput) {
-  return api.patch(`/api/seals/${id}`, { json: data }).json();
+  const handled = dispatchCommonUpdate('seals', id, data);
+  if (handled) return handled;
+  return (await trpcClient.seals.update.mutate({
+    id,
+    title: data.title,
+    encryptedBody: data.encryptedBody,
+    wrappedNoteKey: data.wrappedNoteKey,
+    fileIds: data.fileIds,
+  })) as unknown as CachedSealNote;
 }
 
-async function apiPatchSeal(id: string, data: Partial<Omit<UpdateSealInput, 'id'>>) {
-  return api.patch(`/api/seals/${id}`, { json: data }).json<CachedSealNote>();
+// Content-only write used by the 2-step seal create flow.
+async function apiPatchSeal(
+  id: string,
+  data: { encryptedBody?: EncryptedPayload | null; wrappedNoteKey?: EncryptedPayload | null; fileIds?: string[] },
+): Promise<CachedSealNote> {
+  return (await trpcClient.seals.update.mutate({ id, ...data })) as unknown as CachedSealNote;
 }
 
 /**

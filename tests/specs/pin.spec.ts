@@ -3,6 +3,7 @@ import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -50,7 +51,7 @@ async function openMoreActionsAndClickPinToggle(notesPage: NotesPage, title: str
   await page.getByTestId('more-actions-btn').click();
 
   // Wait for the PATCH that the menu item click will trigger.
-  const patchPromise = page.waitForResponse((r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH');
+  const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
   await page.getByRole('button', { name: /(pin to top|unpin from top)/i }).click();
   await patchPromise;
 
@@ -170,7 +171,7 @@ test.describe('pin', () => {
     // Verify via API that the PATCH persisted (source of truth, no UI/cache race).
     await expect
       .poll(async () => {
-        const res = await page.request.get('/api/notes');
+        const res = await trpcGet(page.request, 'notes.list');
         const notes = (await res.json()) as { _id: string; pinned: boolean }[];
         return notes.find((n) => n._id === seededA._id.toString())?.pinned;
       })
@@ -220,12 +221,11 @@ test.describe('pin', () => {
 
     // Archive + unarchive via API — we're testing pin persistence, not the
     // archive UI (covered by notes.spec.ts).
-    const archiveRes = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
-      data: { archived: true },
-    });
+    const archiveRes = await trpcPost(page.request, 'notes.setArchived', { id: seeded._id.toString(), archived: true });
     expect(archiveRes.ok()).toBe(true);
-    const restoreRes = await page.request.patch(`/api/notes/${seeded._id.toString()}`, {
-      data: { archived: false },
+    const restoreRes = await trpcPost(page.request, 'notes.setArchived', {
+      id: seeded._id.toString(),
+      archived: false,
     });
     expect(restoreRes.ok()).toBe(true);
 

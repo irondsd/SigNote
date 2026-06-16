@@ -1,10 +1,9 @@
-import { api } from '@/lib/api';
+import { trpcClient } from '@/lib/trpcClient';
 
 export type TierKey = 'notes' | 'seals' | 'secrets';
 
 export interface TierConfig {
   readonly key: TierKey;
-  readonly endpoint: `/api/${TierKey}`;
 }
 
 export type TierView = 'active' | 'archived' | 'all';
@@ -25,31 +24,33 @@ export function getNextPageParam<T>(lastPage: T[], allPages: T[][]): number | un
 }
 
 export async function fetchTierPage<T>(
-  endpoint: string,
+  tier: TierKey,
   params: { archived?: boolean; search?: string; tags?: string[]; tagMode?: 'or' | 'and'; pageParam: number },
 ): Promise<T[]> {
   const { archived, search = '', tags, tagMode = 'or', pageParam } = params;
-  const searchParams = new URLSearchParams();
-  if (archived !== undefined) searchParams.set('archived', String(archived));
   const normalizedSearch = search.trim();
-  if (normalizedSearch) searchParams.set('q', normalizedSearch);
-  if (tags && tags.length > 0) {
-    searchParams.set('tags', tags.join(','));
-    if (tagMode === 'and') searchParams.set('tagMode', 'and');
-  }
   const isFirstPage = pageParam === 0;
   const limit = isFirstPage ? INITIAL_PAGE_SIZE : PAGE_SIZE;
   const offset = isFirstPage ? 0 : INITIAL_PAGE_SIZE + (pageParam - 1) * PAGE_SIZE;
-  searchParams.set('limit', String(limit));
-  searchParams.set('offset', String(offset));
-  return api.get(endpoint, { searchParams }).json<T[]>();
+
+  const input = {
+    archived,
+    search: normalizedSearch || undefined,
+    tags: tags && tags.length > 0 ? tags : undefined,
+    tagMode,
+    limit,
+    offset,
+  };
+
+  const rows = await trpcClient[tier].list.query(input);
+  return rows as unknown as T[];
 }
 
 export function buildTierPrefetchOptions<T>(config: TierConfig, userId: string) {
   return {
     queryKey: [config.key, userId, 'active', ''] as const,
     queryFn: ({ pageParam }: { pageParam: number }) =>
-      fetchTierPage<T>(config.endpoint, { archived: false, search: '', pageParam }),
+      fetchTierPage<T>(config.key, { archived: false, search: '', pageParam }),
     initialPageParam: 0,
     pages: 1,
     getNextPageParam,

@@ -3,6 +3,9 @@ import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
+import { trpcMutationOf, trpcQuery, trpcData } from '../utils/trpc';
+
+type NoteRow = { _id: string; title: string; content: string; color: string | null; updatedAt: string };
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -59,14 +62,13 @@ test.describe('create note', () => {
     await page.getByTitle('Note style').click();
     await page.getByTitle('Yellow').click();
 
-    const postPromise = page.waitForResponse((r) => r.url().includes('/api/notes') && r.request().method() === 'POST');
+    const postPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-note-btn').click();
     await postPromise;
 
-    const res = await page.request.get('/api/notes');
-    const notes = await res.json();
-    const created = notes.find((n: { title: string }) => n.title === title);
-    expect(created.color).toBe('yellow');
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const created = notes.find((n) => n.title === title);
+    expect(created!.color).toBe('yellow');
   });
 });
 
@@ -84,9 +86,7 @@ test.describe('archive and unarchive', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -120,9 +120,7 @@ test.describe('archive and unarchive', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
 
@@ -161,8 +159,12 @@ test.describe('delete note', () => {
     await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
+    // Wait for the delete to actually commit server-side before reloading —
+    // the optimistic UI removal alone doesn't guarantee the request flushed.
+    const deletePromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('delete-btn').click();
     await expect(notesPage.noteCard(title)).not.toBeVisible();
+    await deletePromise;
 
     await clearSession(page);
     await page.reload();
@@ -207,15 +209,12 @@ test.describe('edit note', () => {
     await page.keyboard.press('Meta+a');
     await page.keyboard.type('New content');
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
-    const notesRes = await page.request.get('/api/notes');
-    const notes = await notesRes.json();
-    const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const updated = notes.find((n) => n._id === seededNote._id.toString())!;
     expect(updated.content).toContain('New content');
   });
 
@@ -235,9 +234,7 @@ test.describe('edit note', () => {
 
     await page.getByTestId('note-title-input').fill(updatedTitle);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
@@ -245,9 +242,8 @@ test.describe('edit note', () => {
     await expect(notesPage.noteCard(updatedTitle)).toBeVisible();
 
     // updatedAt must have increased
-    const notesRes = await page.request.get('/api/notes');
-    const notes = await notesRes.json();
-    const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const updated = notes.find((n) => n._id === seededNote._id.toString())!;
     expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(originalUpdatedAt);
   });
   test('cancel edit reverts title and content changes without saving', async ({ page }) => {
@@ -272,7 +268,7 @@ test.describe('edit note', () => {
     // Click Cancel — no PATCH request should fire
     let patchFired = false;
     page.on('request', (req) => {
-      if (req.url().includes('/api/notes/') && req.method() === 'PATCH') patchFired = true;
+      if (req.url().includes('/api/trpc/notes.') && req.method() === 'POST') patchFired = true;
     });
     await page.getByTestId('note-modal').getByRole('button', { name: 'Cancel' }).click();
 
@@ -281,9 +277,8 @@ test.describe('edit note', () => {
     expect(patchFired).toBe(false);
 
     // API confirms the note is unchanged
-    const notesRes = await page.request.get('/api/notes');
-    const notes = await notesRes.json();
-    const unchanged = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const unchanged = notes.find((n) => n._id === seededNote._id.toString())!;
     expect(unchanged.title).toBe(originalTitle);
     expect(unchanged.content).toBe(originalContent);
   });
@@ -304,9 +299,7 @@ test.describe('note color', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Yellow').click();
     await patchPromise;
@@ -318,9 +311,8 @@ test.describe('note color', () => {
     expect(bgColor).not.toBe('transparent');
 
     // updatedAt must NOT have changed
-    const notesRes = await page.request.get('/api/notes');
-    const notes = await notesRes.json();
-    const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const updated = notes.find((n) => n._id === seededNote._id.toString())!;
     expect(new Date(updated.updatedAt).getTime()).toBe(originalUpdatedAt);
   });
 
@@ -335,16 +327,13 @@ test.describe('note color', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('style-picker-btn').click();
     await page.getByTitle('Default').click();
     await patchPromise;
 
-    const notesRes = await page.request.get('/api/notes');
-    const notes = await notesRes.json();
-    const updated = notes.find((n: { _id: string }) => n._id === seededNote._id.toString());
+    const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
+    const updated = notes.find((n) => n._id === seededNote._id.toString())!;
     expect(updated.color).toBeNull();
   });
 });
@@ -366,9 +355,7 @@ test.describe('date update after save', () => {
 
     await page.getByTestId('note-title-input').fill(`${title} edited`);
 
-    const patchPromise = page.waitForResponse(
-      (r) => r.url().includes('/api/notes/') && r.request().method() === 'PATCH',
-    );
+    const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-btn').click();
     await patchPromise;
 
