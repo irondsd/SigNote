@@ -92,14 +92,12 @@
   --tag-fg: oklch(from var(--note-bg) 0.4 0.12 h);
   --tag-dot: oklch(from var(--note-bg) 0.55 0.14 h);
   --tag-border: color-mix(in oklab, var(--note-bg) 70%, transparent);
-  --tag-solid: oklch(from var(--note-bg) 0.55 0.14 h);
 }
 /* gray stays neutral — don't force chroma onto it */
 .tag[data-color='gray'] {
   --tag-fg: var(--muted-foreground);
   --tag-dot: var(--muted-foreground);
   --tag-border: var(--border);
-  --tag-solid: oklch(from var(--note-bg) 0.45 0.01 h);
 }
 
 .soft[data-color] {
@@ -112,19 +110,12 @@
   color: var(--tag-fg);
   border-color: var(--tag-border);
 }
-.solid[data-color] {
-  background: var(--tag-solid);
-  color: oklch(0.99 0 0);
-  border-color: transparent;
-  --tag-dot: oklch(1 0 0 / 0.85);
-}
 
 /* ── dark mode: lighten text/dot, firm up the translucent fill ── */
 :global(.dark) .tag[data-color] {
   --tag-fg: oklch(from var(--note-bg) 0.86 0.1 h);
   --tag-dot: oklch(from var(--note-bg) 0.78 0.13 h);
   --tag-border: color-mix(in oklab, var(--note-bg) 85%, transparent);
-  --tag-solid: oklch(from var(--note-bg) 0.62 0.14 h);
 }
 :global(.dark) .tag[data-color='gray'] {
   --tag-fg: var(--muted-foreground);

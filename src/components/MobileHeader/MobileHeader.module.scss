@@ -24,7 +24,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay-scrim);
   z-index: 50;
   backdrop-filter: blur(2px);
   animation: fadeIn 0.2s ease;

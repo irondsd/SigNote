@@ -64,7 +64,7 @@
 .overlayBtn {
   background: var(--background) !important;
   border: 1px solid var(--border) !important;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  box-shadow: 0 1px 3px rgb(var(--shadow-color) / 0.1);
 
   &:hover {
     background: var(--accent) !important;

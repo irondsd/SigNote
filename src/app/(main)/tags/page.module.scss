@@ -201,7 +201,7 @@
   cursor: pointer;
   background: var(--note-bg, var(--muted));
   filter: saturate(2.5) brightness(0.92);
-  border: 1px solid oklch(0 0 0 / 0.1);
+  border: 1px solid var(--border-subtle);
   outline: 2px solid transparent;
   outline-offset: 1px;
 }
@@ -240,28 +240,6 @@
   display: flex;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.confirmCancel {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--foreground);
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 7px;
-}
-
-.confirmDelete {
-  background: var(--destructive);
-  border: none;
-  color: oklch(0.99 0 0);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 7px 13px;
-  border-radius: 7px;
 }
 
 .empty {

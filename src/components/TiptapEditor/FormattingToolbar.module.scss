@@ -40,6 +40,6 @@
 }
 
 .toggleActive {
-  background: oklch(76.79% 0.16028 69.258 / 0.1) !important;
+  background: color-mix(in oklab, var(--primary-300) 10%, transparent) !important;
   color: var(--primary) !important;
 }

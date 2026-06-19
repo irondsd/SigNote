@@ -26,7 +26,7 @@
 }
 
 .successIcon {
-  color: #22c55e;
+  color: var(--success);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,7 +97,7 @@
 }
 
 .iconValid {
-  color: #22c55e;
+  color: var(--success);
 }
 
 .iconInvalid {

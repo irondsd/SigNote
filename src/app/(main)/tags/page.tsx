@@ -162,19 +162,19 @@ function TagRow({
             Delete <b>{tag.name}</b>? It’s on <b>{count} notes</b> — the tag is removed from them, the notes are kept.
           </div>
           <div className={s.confirmActions}>
-            <button type="button" className={s.confirmCancel} onClick={() => setConfirmingDelete(false)}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
               Cancel
-            </button>
-            <button
-              type="button"
-              className={s.confirmDelete}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
               onClick={() => {
                 onDelete();
                 setConfirmingDelete(false);
               }}
             >
               Delete tag
-            </button>
+            </Button>
           </div>
         </div>
       )}

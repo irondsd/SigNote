@@ -11,11 +11,9 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar: var(--sidebar);
-  --color-primary-500: var(--primary-500);
   --color-primary-400: var(--primary-400);
   --color-primary-300: var(--primary-300);
   --color-primary-200: var(--primary-200);
-  --color-primary-100: var(--primary-100);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -68,13 +66,24 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --primary-100: oklch(0.88 0.15 92);
   --primary-200: oklch(0.77 0.16 70);
-  --primary-300: oklch(0.67 0.16 58);
+  --primary-300: oklch(0.64 0.17 52);
   --primary-400: oklch(0.56 0.15 49);
-  --primary-500: oklch(0.47 0.12 46);
   --radius: 0.625rem;
   --sidebar: oklch(97% 0.007 88);
+
+  /* Semantic accents */
+  --success: oklch(0.72 0.19 149); /* secure/active green (wallet dot, success icons) */
+
+  /* Overlays & subtle borders */
+  --overlay-backdrop: oklch(0 0 0 / 0.6); /* full-screen modal backdrop */
+  --overlay-scrim: oklch(0 0 0 / 0.45); /* drawer / header scrim */
+  --border-subtle: oklch(0 0 0 / 0.1); /* hairline border on colored surfaces */
+
+  /* Shadows — --shadow-color holds the rgb channels so opacity can vary per use */
+  --shadow-color: 0 0 0;
+  --shadow-xs: 0 1px 2px rgb(var(--shadow-color) / 0.04);
+  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .dark {
@@ -106,12 +115,18 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --primary-100: oklch(0.88 0.15 92);
   --primary-200: oklch(0.77 0.16 70);
   --primary-300: oklch(0.67 0.16 58);
   --primary-400: oklch(0.56 0.15 49);
-  --primary-500: oklch(0.47 0.12 46);
   --sidebar: oklch(0.205 0 0);
+
+  /* Semantic accents */
+  --success: oklch(0.75 0.18 150);
+
+  /* Overlays & subtle borders */
+  --overlay-backdrop: oklch(0 0 0 / 0.72);
+  --overlay-scrim: oklch(0 0 0 / 0.55);
+  --border-subtle: oklch(1 0 0 / 0.12);
 }
 
 @layer base {
