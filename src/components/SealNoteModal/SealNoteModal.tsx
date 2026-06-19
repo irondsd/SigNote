@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { LockOpen, Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Editor } from '@tiptap/core';
 import {
   useCreateSeal,
   useDeleteSeal,
@@ -15,8 +14,7 @@ import {
 import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
 import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
-import { useTagCountBump } from '@/hooks/useTagMutations';
-import { useBurnArming } from '@/hooks/useBurnArming';
+import { useNoteModalMeta } from '@/hooks/useNoteModalMeta';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { Button } from '@/components/ui/button';
@@ -51,24 +49,10 @@ type SealNoteModalProps = {
 export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const { mek, phase, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
   const [decryptedContent, setDecryptedContent] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(note.title ?? '');
-  const [isArchived, setIsArchived] = useState(note.archived);
-  const [color, setColor] = useState<string | null>(note.color ?? null);
-  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
-  const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [decrypting, setDecrypting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
   const [decryptError, setDecryptError] = useState('');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [showFormatBar, setShowFormatBar] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
-  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
-  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
-  const [tags, setTags] = useState<string[]>(note.tags ?? []);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
   const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
@@ -81,12 +65,47 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const updateSeal = useUpdateSeal();
   const createSeal = useCreateSeal();
 
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // Once history has been opened, returning to the note modal must not replay
-  // the entrance animation — it's the same surface switching modes.
-  const [historyWasOpen, setHistoryWasOpen] = useState(false);
-  const [menuOpened, setMenuOpened] = useState(false);
-  const versionsQuery = useVersions<EncryptedVersion>('seals', note._id, { enabled: menuOpened || historyOpen });
+  const isDecrypted = decryptedContent !== null;
+
+  const {
+    noteId,
+    editing,
+    setEditing,
+    title,
+    setTitle,
+    isArchived,
+    color,
+    pattern,
+    stylePickerOpen,
+    setStylePickerOpen,
+    updatedAt,
+    setUpdatedAt,
+    showFormatBar,
+    setShowFormatBar,
+    editor,
+    setEditor,
+    isUploading,
+    setIsUploading,
+    pinned,
+    expiresAt,
+    burnAfterReading,
+    tags,
+    historyOpen,
+    setHistoryOpen,
+    historyWasOpen,
+    setHistoryWasOpen,
+    menuOpened,
+    setMenuOpened,
+    handleArchiveToggle,
+    handleColorChange,
+    handlePatternChange,
+    handleTagsChange,
+    handleTogglePinned,
+    handleSetExpiry,
+    wasInitiallyBurning,
+  } = useNoteModalMeta(note, (patch) => updateSeal.mutate(patch), { burnReady: isDecrypted });
+
+  const versionsQuery = useVersions<EncryptedVersion>('seals', noteId, { enabled: menuOpened || historyOpen });
   const decryptVersionBody = useCallback(
     (payload: EncryptedPayload) =>
       mek && note.wrappedNoteKey
@@ -95,9 +114,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     [mek, note.wrappedNoteKey, note._id],
   );
   const versions = useDecryptedVersions(versionsQuery.data, mek ? decryptVersionBody : null);
-  const bumpTagCounts = useTagCountBump();
 
-  const isDecrypted = decryptedContent !== null;
   const isDirty =
     editing && (title !== (note.title ?? '') || (isDecrypted && decryptedContent !== originalDecryptedRef.current));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
@@ -158,7 +175,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     setHistoryOpen(false);
     setTimeLeft(null);
     totalTimeRef.current = DECRYPT_FOR_SECONDS;
-  }, []);
+  }, [setEditing, setHistoryOpen]);
 
   // History needs the head readable for the "Current" entry, so decrypt first.
   const openHistory = () => {
@@ -260,7 +277,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         setSaving(false);
       }
     },
-    [decryptedContent, title, note.encryptedBody, note.wrappedNoteKey, note._id, updateSeal],
+    [decryptedContent, title, note.encryptedBody, note.wrappedNoteKey, note._id, updateSeal, setEditing, setShowFormatBar, setUpdatedAt],
   );
 
   const handleSave = async () => {
@@ -320,59 +337,6 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       },
     });
   };
-
-  const handleArchiveToggle = () => {
-    const next = !isArchived;
-    setIsArchived(next);
-    updateSeal.mutate({ id: note._id, archived: next });
-  };
-
-  const handleColorChange = (newColor: string | null) => {
-    setColor(newColor);
-    updateSeal.mutate({ id: note._id, color: newColor });
-  };
-
-  const handlePatternChange = (newPattern: string | null) => {
-    setPattern(newPattern);
-    updateSeal.mutate({ id: note._id, pattern: newPattern });
-  };
-
-  const handleTagsChange = (ids: string[]) => {
-    bumpTagCounts(
-      ids.filter((id) => !tags.includes(id)),
-      tags.filter((id) => !ids.includes(id)),
-    );
-    setTags(ids);
-    updateSeal.mutate({ id: note._id, tags: ids });
-  };
-
-  const handleTogglePinned = (next: boolean) => {
-    setPinned(next);
-    updateSeal.mutate({ id: note._id, pinned: next });
-  };
-
-  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
-    setExpiresAt(next.expiresAt);
-    setBurnAfterReading(next.burnAfterReading);
-    updateSeal.mutate({
-      id: note._id,
-      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
-      burnAfterReading: next.burnAfterReading,
-    });
-  };
-
-  // Seals: arm only AFTER decrypt — the user hasn't "read" until then.
-  const { wasInitiallyBurning } = useBurnArming({
-    initialBurn: note.burnAfterReading ?? false,
-    expiresAt,
-    isReady: isDecrypted,
-    onArm: () =>
-      updateSeal.mutate({
-        id: note._id,
-        expiresAt: new Date().toISOString(),
-        burnAfterReading: true,
-      }),
-  });
 
   const handleCancel = () => {
     setTitle(note.title ?? '');

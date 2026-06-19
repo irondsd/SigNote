@@ -7,6 +7,7 @@ import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteC
 import { SealNoteModal } from '@/components/SealNoteModal/SealNoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { setNoteIdParam, clearNoteIdParam } from '@/utils/noteIdUrl';
 import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type SealsGridProps = {
@@ -41,7 +42,7 @@ export function SealsGrid({
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
       onNoteClick={(note) => {
-        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id}`);
+        setNoteIdParam(note._id);
         setSelected(note);
       }}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
@@ -82,7 +83,7 @@ export function SealsGrid({
         <SealNoteModal
           note={selected}
           onClose={() => {
-            window.history.replaceState(null, '', window.location.pathname);
+            clearNoteIdParam();
             setSelected(null);
           }}
         />

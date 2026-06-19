@@ -1,19 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Check } from 'lucide-react';
 import { useCreateNote } from '@/hooks/useNoteMutations';
-import { useTagCountBump } from '@/hooks/useTagMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
-import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
-import { Button } from '@/components/ui/button';
-import { NewModal } from '@/components/NewModal/NewModal';
-import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
-import { clearDraft } from '@/lib/draft';
-import { useNewNoteState } from '@/hooks/useNewNoteState';
-import s from '@/components/NewModal/NewModal.module.scss';
-import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
-import { toast } from 'sonner';
+import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
+import { useNewNoteForm } from '@/hooks/useNewNoteForm';
 
 type NewNoteModalProps = {
   onClose: () => void;
@@ -22,102 +12,29 @@ type NewNoteModalProps = {
 };
 
 export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteModalProps) {
-  const {
-    title,
-    setTitle,
-    content,
-    setContent,
-    showFormatBar,
-    setShowFormatBar,
-    editor,
-    setEditor,
-    color,
-    setColor,
-    pattern,
-    setPattern,
-    isTitleEmpty,
-    isContentEmpty,
-    isDirty,
-    showConfirm,
-    onCancelClose,
-    handleClose,
-    handleConfirmDiscard,
-    draftTimerRef,
-  } = useNewNoteState('note', onClose, initialContent);
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
-  const bumpTagCounts = useTagCountBump();
+  const form = useNewNoteForm('note', onClose, initialContent);
   const createNote = useCreateNote({ onError: onSaveError });
 
   const handleSave = () => {
-    if (isTitleEmpty && isContentEmpty) return;
-    if (title.length > MAX_TITLE) {
-      toast.error('Title is too long');
-      return;
-    }
-    if (content.length > MAX_CONTENT) {
-      toast.error('Content is too large to save');
-      return;
-    }
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    clearDraft();
-    createNote.mutate({ title: title.trim(), content: content.trim(), color, pattern, tags });
-    bumpTagCounts(tags, []);
+    const prepared = form.prepare();
+    if (!prepared) return;
+    form.commitDraft();
+    createNote.mutate({ ...prepared, color: form.color, pattern: form.pattern, tags: form.tags });
+    form.bumpTagCounts(form.tags, []);
     onClose();
   };
 
   return (
-    <>
-      <NewModal
-        heading={
-          <input
-            data-testid="note-title-input"
-            className={s.heading}
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            autoFocus
-          />
-        }
-        onClose={handleClose}
-        onBackdropClose={handleClose}
-        toolbar={<FormattingToolbar editor={editor} isOpen={showFormatBar} showFileUpload />}
-        footerLeft={<FormatToggleButton isActive={showFormatBar} onToggle={() => setShowFormatBar((v) => !v)} />}
-        onColorChange={setColor}
-        onPatternChange={setPattern}
-        onTagsChange={setTags}
-        isDirty={isDirty}
-        footerActions={
-          <>
-            <Button variant="ghost" size="sm" onClick={handleClose}>
-              <X size={14} />
-              Cancel
-            </Button>
-            <Button
-              data-testid="save-note-btn"
-              size="sm"
-              onClick={handleSave}
-              disabled={(isTitleEmpty && isContentEmpty) || isUploading}
-            >
-              <Check size={14} />
-              Save Note
-            </Button>
-          </>
-        }
-      >
-        <TiptapEditor
-          content={content}
-          onChange={setContent}
-          editable={true}
-          placeholder="Write your note..."
-          onEditorReady={setEditor}
-          allowFileUpload
-          onUploadingChange={setIsUploading}
-        />
-      </NewModal>
-
-      {showConfirm && <ConfirmDiscardDialog onDiscard={handleConfirmDiscard} onCancel={onCancelClose} />}
-    </>
+    <NewNoteModalShell form={form} saveLabel="Save Note" saveTestId="save-note-btn" onSave={handleSave}>
+      <TiptapEditor
+        content={form.content}
+        onChange={form.setContent}
+        editable={true}
+        placeholder="Write your note..."
+        onEditorReady={form.setEditor}
+        allowFileUpload
+        onUploadingChange={form.setIsUploading}
+      />
+    </NewNoteModalShell>
   );
 }

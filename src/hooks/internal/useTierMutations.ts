@@ -14,12 +14,14 @@ import {
   type WithId,
   type Snapshot,
 } from '@/lib/queryCache';
+import { registerStableKey } from '@/lib/stableKeyStore';
 import { versionsKey, type VersionTier } from '@/hooks/useVersions';
 
 type DeleteFn = (id: string) => Promise<unknown>;
 type UndeleteFn<T> = (args: { id: string; note: T }) => Promise<unknown>;
 type UpdateInput = { id: string; archived?: boolean; [key: string]: unknown };
 type UpdateFn = (input: UpdateInput) => Promise<unknown>;
+type CreateInput = { title: string; color?: string | null; pattern?: string | null; tags?: string[] };
 
 function settledHandler<T>(qc: ReturnType<typeof useQueryClient>, root: string) {
   return (_data: unknown, _err: unknown, _vars: unknown, context?: { snapshots: Snapshot<T>[] }) => {
@@ -28,8 +30,73 @@ function settledHandler<T>(qc: ReturnType<typeof useQueryClient>, root: string) 
   };
 }
 
-export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn, tierName: string) {
+/** The query root is the plural tier ('notes'); analytics/toasts want the singular ('note'). */
+const singular = (root: string) => root.replace(/s$/, '');
+
+/**
+ * The fields every tier's optimistic temp note shares. Each tier spreads this
+ * and adds its own body shape (content / encryptedBody / wrappedNoteKey).
+ */
+export function commonTempNote(input: CreateInput, tempId: string) {
+  const now = new Date().toISOString();
+  return {
+    _id: tempId,
+    title: input.title,
+    archived: false,
+    deletedAt: null,
+    position: -1,
+    createdAt: now,
+    updatedAt: now,
+    color: input.color ?? null,
+    pattern: input.pattern ?? null,
+    pinned: false,
+    expiresAt: null,
+    burnAfterReading: false,
+    tags: input.tags ?? [],
+  };
+}
+
+/**
+ * Shared optimistic-create mutation: snapshot, insert a temp note at the top,
+ * adopt the real id on success, and recover the cache (with a sticky toast) on
+ * failure. Tiers supply only the api call and the temp-note builder.
+ */
+export function useCreateTier<T extends WithId, TInput>(
+  root: string,
+  mutationFn: (input: TInput) => Promise<T>,
+  buildTempNote: (input: TInput, tempId: string) => T,
+  callbacks?: { onError?: (vars: TInput) => void },
+) {
   const qc = useQueryClient();
+  const tierName = singular(root);
+  return useMutation({
+    mutationFn,
+    onMutate: async (input: TInput) => {
+      const snapshots = await cancelAndSnapshot<T>(qc, root);
+      const tempId = `temp-${Date.now()}`;
+      insertAtTop(qc, snapshots, buildTempNote(input, tempId));
+      return { snapshots, tempId };
+    },
+    onSuccess: (data, _vars, context) => {
+      if (data?._id && context?.tempId) registerStableKey(data._id, context.tempId);
+      posthog.capture(`${tierName}_created`);
+    },
+    onError: (_err, vars, context) => {
+      if (context) restoreSnapshots(qc, context.snapshots);
+      posthog.capture('mutation_failed', { tier: tierName, operation: 'create' });
+      toast.error(`Failed to create ${tierName}`, {
+        description: 'Your content has been recovered.',
+        duration: Infinity,
+      });
+      callbacks?.onError?.(vars);
+    },
+    onSettled: settledHandler<T>(qc, root),
+  });
+}
+
+export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn) {
+  const qc = useQueryClient();
+  const tierName = singular(root);
   return useMutation({
     mutationFn: apiFn,
     onMutate: async (id: string) => {
@@ -49,8 +116,9 @@ export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn, t
   });
 }
 
-export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteFn<T>, tierName: string) {
+export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteFn<T>) {
   const qc = useQueryClient();
+  const tierName = singular(root);
   return useMutation({
     mutationFn: apiFn,
     onMutate: async ({ note }: { id: string; note: T }) => {
@@ -66,8 +134,9 @@ export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteF
   });
 }
 
-export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, tierName: string, contentField: string) {
+export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, contentField: string) {
   const qc = useQueryClient();
+  const tierName = singular(root);
   return useMutation({
     mutationFn: apiFn,
     onMutate: async ({ id, archived, ...rest }: UpdateInput) => {

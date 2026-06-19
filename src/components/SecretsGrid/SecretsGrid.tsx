@@ -10,6 +10,7 @@ import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { setNoteIdParam, clearNoteIdParam } from '@/utils/noteIdUrl';
 import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 import { useDecryptedPreviews } from '@/hooks/useDecryptedPreviews';
 
@@ -117,7 +118,7 @@ export function SecretsGrid({
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
       onNoteClick={async (note) => {
-        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id}`);
+        setNoteIdParam(note._id);
         await handleNoteClick(note);
       }}
       renderCard={(note, onClick, showBadge, dragDisabled) => (
@@ -165,7 +166,7 @@ export function SecretsGrid({
           note={selected}
           decryptedContent={selectedDecrypted}
           onClose={() => {
-            window.history.replaceState(null, '', window.location.pathname);
+            clearNoteIdParam();
             setSelected(null);
             setSelectedDecrypted('');
           }}

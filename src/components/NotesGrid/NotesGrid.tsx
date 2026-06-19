@@ -7,6 +7,7 @@ import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
+import { setNoteIdParam, clearNoteIdParam } from '@/utils/noteIdUrl';
 import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type NotesGridProps = {
@@ -42,7 +43,7 @@ export function NotesGrid({
       showArchivedBadge={showArchivedBadge}
       isDragDisabled={isDragDisabled}
       onNoteClick={(note, rect) => {
-        window.history.replaceState(null, '', `${window.location.pathname}?id=${note._id.toString()}`);
+        setNoteIdParam(note._id.toString());
         setSelected(note);
         setCardRect(rect);
       }}
@@ -62,7 +63,7 @@ export function NotesGrid({
           note={selected}
           cardRect={cardRect ?? undefined}
           onClose={() => {
-            window.history.replaceState(null, '', window.location.pathname);
+            clearNoteIdParam();
             setSelected(null);
             setCardRect(null);
           }}

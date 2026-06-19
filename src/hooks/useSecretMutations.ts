@@ -1,15 +1,10 @@
 'use client';
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { trpcClient } from '@/lib/trpcClient';
-import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
-import { registerStableKey } from '@/lib/stableKeyStore';
 import { dispatchCommonUpdate } from './internal/tierClient';
-import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
+import { commonTempNote, useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSecretNote = {
   _id: string;
@@ -80,53 +75,14 @@ async function apiUpdateSecret({ id, ...data }: UpdateSecretInput) {
   })) as unknown as CachedSecretNote;
 }
 
-export const useCreateSecret = (callbacks?: { onError?: () => void }) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiCreateSecret,
-    onMutate: async (input) => {
-      const snapshots = await cancelAndSnapshot<CachedSecretNote>(qc, ROOT);
-      const tempId = `temp-${Date.now()}`;
-      const tempNote: CachedSecretNote = {
-        _id: tempId,
-        title: input.title,
-        encryptedBody: input.encryptedBody,
-        archived: false,
-        deletedAt: null,
-        position: -1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        color: input.color ?? null,
-        pattern: input.pattern ?? null,
-        pinned: false,
-        expiresAt: null,
-        burnAfterReading: false,
-        tags: input.tags ?? [],
-      };
-      insertAtTop(qc, snapshots, tempNote);
-      return { snapshots, tempId };
-    },
-    onSuccess: (data, _vars, context) => {
-      const realId = (data as { _id: string })?._id;
-      if (realId && context?.tempId) registerStableKey(realId, context.tempId);
-      posthog.capture('secret_created');
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'secret', operation: 'create' });
-      toast.error('Failed to create secret', {
-        description: 'Your content has been recovered.',
-        duration: Infinity,
-      });
-      callbacks?.onError?.();
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+export const useCreateSecret = (callbacks?: { onError?: () => void }) =>
+  useCreateTier<CachedSecretNote, CreateSecretInput>(
+    ROOT,
+    apiCreateSecret,
+    (input, tempId) => ({ ...commonTempNote(input, tempId), encryptedBody: input.encryptedBody }),
+    callbacks,
+  );
 
-export const useDeleteSecret = () => useDeleteTier<CachedSecretNote>(ROOT, apiDeleteSecret, 'secret');
-export const useUndeleteSecret = () => useUndeleteTier<CachedSecretNote>(ROOT, apiUndeleteSecret, 'secret');
-export const useUpdateSecret = () => useUpdateTier<CachedSecretNote>(ROOT, apiUpdateSecret, 'secret', 'encryptedBody');
+export const useDeleteSecret = () => useDeleteTier<CachedSecretNote>(ROOT, apiDeleteSecret);
+export const useUndeleteSecret = () => useUndeleteTier<CachedSecretNote>(ROOT, apiUndeleteSecret);
+export const useUpdateSecret = () => useUpdateTier<CachedSecretNote>(ROOT, apiUpdateSecret, 'encryptedBody');

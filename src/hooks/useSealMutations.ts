@@ -1,15 +1,10 @@
 'use client';
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import posthog from 'posthog-js';
 import { type EncryptedPayload } from '@/types/crypto';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { trpcClient } from '@/lib/trpcClient';
-import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
-import { registerStableKey } from '@/lib/stableKeyStore';
 import { dispatchCommonUpdate } from './internal/tierClient';
-import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
+import { commonTempNote, useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedSealNote = {
   _id: string;
@@ -93,26 +88,25 @@ async function apiPatchSeal(
   return (await trpcClient.seals.update.mutate({ id, ...data })) as unknown as CachedSealNote;
 }
 
+type CreateSealMutationInput = {
+  title: string;
+  color?: string | null;
+  pattern?: string | null;
+  fileIds?: string[];
+  tags?: string[];
+  encryptBody: (sealId: string) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
+};
+
 /**
  * 2-step seal creation:
  * 1. POST with title only to get _id
  * 2. Caller encrypts body using _id
  * 3. PATCH with encryptedBody + wrappedNoteKey
  */
-export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: {
-      title: string;
-      color?: string | null;
-      pattern?: string | null;
-      fileIds?: string[];
-      tags?: string[];
-      encryptBody: (
-        sealId: string,
-      ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
-    }) => {
+export const useCreateSeal = (callbacks?: { onError?: () => void }) =>
+  useCreateTier<CachedSealNote, CreateSealMutationInput>(
+    ROOT,
+    async (input) => {
       const created = await apiCreateSeal({
         title: input.title,
         color: input.color,
@@ -126,49 +120,10 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) => {
       }
       return created;
     },
-    onMutate: async (input) => {
-      const snapshots = await cancelAndSnapshot<CachedSealNote>(qc, ROOT);
-      const tempId = `temp-${Date.now()}`;
-      const tempNote: CachedSealNote = {
-        _id: tempId,
-        title: input.title,
-        encryptedBody: null,
-        wrappedNoteKey: null,
-        archived: false,
-        deletedAt: null,
-        position: -1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        color: input.color ?? null,
-        pattern: input.pattern ?? null,
-        pinned: false,
-        expiresAt: null,
-        burnAfterReading: false,
-        tags: input.tags ?? [],
-      };
-      insertAtTop(qc, snapshots, tempNote);
-      return { snapshots, tempId };
-    },
-    onSuccess: (data, _vars, context) => {
-      if (data?._id && context?.tempId) registerStableKey(data._id, context.tempId);
-      posthog.capture('seal_created');
-    },
-    onError: (_err, _vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'seal', operation: 'create' });
-      toast.error('Failed to create seal', {
-        description: 'Your content has been recovered.',
-        duration: Infinity,
-      });
-      callbacks?.onError?.();
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+    (input, tempId) => ({ ...commonTempNote(input, tempId), encryptedBody: null, wrappedNoteKey: null }),
+    callbacks,
+  );
 
-export const useDeleteSeal = () => useDeleteTier<CachedSealNote>(ROOT, apiDeleteSeal, 'seal');
-export const useUndeleteSeal = () => useUndeleteTier<CachedSealNote>(ROOT, apiUndeleteSeal, 'seal');
-export const useUpdateSeal = () => useUpdateTier<CachedSealNote>(ROOT, apiUpdateSeal, 'seal', 'encryptedBody');
+export const useDeleteSeal = () => useDeleteTier<CachedSealNote>(ROOT, apiDeleteSeal);
+export const useUndeleteSeal = () => useUndeleteTier<CachedSealNote>(ROOT, apiUndeleteSeal);
+export const useUpdateSeal = () => useUpdateTier<CachedSealNote>(ROOT, apiUpdateSeal, 'encryptedBody');

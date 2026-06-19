@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import type { Editor } from '@tiptap/core';
 import {
   useCreateSecret,
   useDeleteSecret,
@@ -14,8 +13,7 @@ import {
 import { useVersions, type EncryptedVersion } from '@/hooks/useVersions';
 import { useDecryptedVersions } from '@/hooks/useDecryptedVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
-import { useTagCountBump } from '@/hooks/useTagMutations';
-import { useBurnArming } from '@/hooks/useBurnArming';
+import { useNoteModalMeta } from '@/hooks/useNoteModalMeta';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -44,22 +42,52 @@ type SecretNoteModalProps = {
 export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteModalProps) {
   const guard = useEncryptionGuard();
   const { mek, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(decryptedContent);
-  const [isArchived, setIsArchived] = useState(note.archived);
-  const [color, setColor] = useState<string | null>(note.color ?? null);
-  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
-  const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
-  const [showFormatBar, setShowFormatBar] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
-  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
-  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
-  const [tags, setTags] = useState<string[]>(note.tags ?? []);
+
+  const deleteSecret = useDeleteSecret();
+  const undeleteSecret = useUndeleteSecret();
+  const updateSecret = useUpdateSecret();
+  const createSecret = useCreateSecret();
+
+  const {
+    noteId,
+    editing,
+    setEditing,
+    title,
+    setTitle,
+    isArchived,
+    color,
+    pattern,
+    stylePickerOpen,
+    setStylePickerOpen,
+    updatedAt,
+    setUpdatedAt,
+    showFormatBar,
+    setShowFormatBar,
+    editor,
+    setEditor,
+    isUploading,
+    setIsUploading,
+    pinned,
+    expiresAt,
+    burnAfterReading,
+    tags,
+    historyOpen,
+    setHistoryOpen,
+    historyWasOpen,
+    setHistoryWasOpen,
+    menuOpened,
+    setMenuOpened,
+    handleArchiveToggle,
+    handleColorChange,
+    handlePatternChange,
+    handleTagsChange,
+    handleTogglePinned,
+    handleSetExpiry,
+    wasInitiallyBurning,
+  } = useNoteModalMeta(note, (patch) => updateSecret.mutate(patch));
+
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
@@ -77,17 +105,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     }
   }, [lockSerial, editing, onClose]);
 
-  const deleteSecret = useDeleteSecret();
-  const undeleteSecret = useUndeleteSecret();
-  const updateSecret = useUpdateSecret();
-  const createSecret = useCreateSecret();
-
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // Once history has been opened, returning to the note modal must not replay
-  // the entrance animation — it's the same surface switching modes.
-  const [historyWasOpen, setHistoryWasOpen] = useState(false);
-  const [menuOpened, setMenuOpened] = useState(false);
-  const versionsQuery = useVersions<EncryptedVersion>('secrets', note._id, { enabled: menuOpened || historyOpen });
+  const versionsQuery = useVersions<EncryptedVersion>('secrets', noteId, { enabled: menuOpened || historyOpen });
   const decryptVersionBody = useCallback(
     (payload: EncryptedPayload) =>
       mek ? decryptSecretBody(mek, payload) : Promise.reject(new Error('Vault is locked')),
@@ -115,10 +133,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       createSecret.mutate({ title: v.title, encryptedBody, color, pattern });
     });
   };
-  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
-    deleteSecret.mutate(note._id);
+    deleteSecret.mutate(noteId);
     onClose();
     toast.success('Secret deleted', {
       description: 'You can undo this action.',
@@ -126,7 +143,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       action: {
         label: 'Undo',
         onClick: () => {
-          undeleteSecret.mutate({ id: note._id, note });
+          undeleteSecret.mutate({ id: noteId, note });
           toast.success('Secret restored');
         },
       },
@@ -147,7 +164,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       try {
         const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
         const fileIds = extractFileIds(content);
-        updateSecret.mutate({ id: note._id, title, encryptedBody, fileIds }, { onError: () => setEditing(true) });
+        updateSecret.mutate({ id: noteId, title, encryptedBody, fileIds }, { onError: () => setEditing(true) });
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
         setShowFormatBar(false);
@@ -155,7 +172,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         setSaving(false);
       }
     },
-    [note._id, title, content, updateSecret],
+    [noteId, title, content, updateSecret, setEditing, setShowFormatBar, setUpdatedAt],
   );
 
   const handleSave = async () => {
@@ -191,58 +208,6 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     setEditing(false);
   };
 
-  const handleArchiveToggle = () => {
-    const next = !isArchived;
-    setIsArchived(next);
-    updateSecret.mutate({ id: note._id, archived: next });
-  };
-
-  const handleColorChange = (newColor: string | null) => {
-    setColor(newColor);
-    updateSecret.mutate({ id: note._id, color: newColor });
-  };
-
-  const handlePatternChange = (newPattern: string | null) => {
-    setPattern(newPattern);
-    updateSecret.mutate({ id: note._id, pattern: newPattern });
-  };
-
-  const handleTagsChange = (ids: string[]) => {
-    bumpTagCounts(
-      ids.filter((id) => !tags.includes(id)),
-      tags.filter((id) => !ids.includes(id)),
-    );
-    setTags(ids);
-    updateSecret.mutate({ id: note._id, tags: ids });
-  };
-
-  const handleTogglePinned = (next: boolean) => {
-    setPinned(next);
-    updateSecret.mutate({ id: note._id, pinned: next });
-  };
-
-  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
-    setExpiresAt(next.expiresAt);
-    setBurnAfterReading(next.burnAfterReading);
-    updateSecret.mutate({
-      id: note._id,
-      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
-      burnAfterReading: next.burnAfterReading,
-    });
-  };
-
-  const { wasInitiallyBurning } = useBurnArming({
-    initialBurn: note.burnAfterReading ?? false,
-    expiresAt,
-    isReady: true,
-    onArm: () =>
-      updateSecret.mutate({
-        id: note._id,
-        expiresAt: new Date().toISOString(),
-        burnAfterReading: true,
-      }),
-  });
-
   // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
   useEffect(() => {
     const action = pendingActionRef.current;
@@ -261,7 +226,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       <>
         <VersionHistoryModal
           tier="secrets"
-          noteId={note._id}
+          noteId={noteId}
           color={color}
           pattern={pattern}
           current={{ _id: CURRENT_VERSION_ID, title, content, createdAt: updatedAt }}
@@ -331,7 +296,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
                 try {
                   await guard.execute(async (mek) => {
                     const encryptedBody = html.trim() ? await encryptSecretBody(mek, html) : null;
-                    updateSecret.mutate({ id: note._id, encryptedBody });
+                    updateSecret.mutate({ id: noteId, encryptedBody });
                   });
                 } catch {
                   // Silently fail on auto-save encryption

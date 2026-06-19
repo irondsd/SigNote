@@ -1,14 +1,9 @@
 'use client';
 
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import posthog from 'posthog-js';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { trpcClient } from '@/lib/trpcClient';
-import { cancelAndSnapshot, insertAtTop, restoreSnapshots, invalidateSnapshots } from '@/lib/queryCache';
-import { registerStableKey } from '@/lib/stableKeyStore';
 import { dispatchCommonUpdate } from './internal/tierClient';
-import { useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
+import { commonTempNote, useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
 
 export type CachedNote = {
   _id: string;
@@ -78,53 +73,14 @@ async function apiUpdateNote({ id, ...data }: UpdateNoteInput) {
   })) as unknown as CachedNote;
 }
 
-export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) => void }) => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: apiCreateNote,
-    onMutate: async (input) => {
-      const snapshots = await cancelAndSnapshot<CachedNote>(qc, ROOT);
-      const tempId = `temp-${Date.now()}`;
-      const tempNote: CachedNote = {
-        _id: tempId,
-        title: input.title,
-        content: input.content,
-        archived: false,
-        deletedAt: null,
-        position: -1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        color: input.color ?? null,
-        pattern: input.pattern ?? null,
-        pinned: false,
-        expiresAt: null,
-        burnAfterReading: false,
-        tags: input.tags ?? [],
-      };
-      insertAtTop(qc, snapshots, tempNote);
-      return { snapshots, tempId };
-    },
-    onSuccess: (data, _vars, context) => {
-      const realId = (data as { _id: string })?._id;
-      if (realId && context?.tempId) registerStableKey(realId, context.tempId);
-      posthog.capture('note_created');
-    },
-    onError: (_err, vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
-      posthog.capture('mutation_failed', { tier: 'note', operation: 'create' });
-      toast.error('Failed to create note', {
-        description: 'Your content has been recovered.',
-        duration: Infinity,
-      });
-      callbacks?.onError?.(vars);
-    },
-    onSettled: (_data, _err, _vars, context) => {
-      if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
-      return qc.invalidateQueries({ queryKey: [ROOT] });
-    },
-  });
-};
+export const useCreateNote = (callbacks?: { onError?: (vars: CreateNoteInput) => void }) =>
+  useCreateTier<CachedNote, CreateNoteInput>(
+    ROOT,
+    apiCreateNote,
+    (input, tempId) => ({ ...commonTempNote(input, tempId), content: input.content }),
+    callbacks,
+  );
 
-export const useDeleteNote = () => useDeleteTier<CachedNote>(ROOT, apiDeleteNote, 'note');
-export const useUndeleteNote = () => useUndeleteTier<CachedNote>(ROOT, apiUndeleteNote, 'note');
-export const useUpdateNote = () => useUpdateTier<CachedNote>(ROOT, apiUpdateNote, 'note', 'content');
+export const useDeleteNote = () => useDeleteTier<CachedNote>(ROOT, apiDeleteNote);
+export const useUndeleteNote = () => useUndeleteTier<CachedNote>(ROOT, apiUndeleteNote);
+export const useUpdateNote = () => useUpdateTier<CachedNote>(ROOT, apiUpdateNote, 'content');

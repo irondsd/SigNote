@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import type { Editor } from '@tiptap/core';
 import type { NoteDocument } from '@/models/Note';
 import {
   useCreateNote,
@@ -14,8 +13,7 @@ import {
 } from '@/hooks/useNoteMutations';
 import { useVersions, type PlainVersion } from '@/hooks/useVersions';
 import { CURRENT_VERSION_ID, type DisplayVersion } from '@/components/VersionHistoryModal/VersionHistoryModal';
-import { useTagCountBump } from '@/hooks/useTagMutations';
-import { useBurnArming } from '@/hooks/useBurnArming';
+import { useNoteModalMeta } from '@/hooks/useNoteModalMeta';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
@@ -36,26 +34,50 @@ type NoteModalProps = {
 };
 
 export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(note.title ?? '');
   const [content, setContent] = useState(note.content ?? '');
-  const [isArchived, setIsArchived] = useState(note.archived);
-  const [color, setColor] = useState<string | null>(note.color ?? null);
-  const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
-  const [updatedAt, setUpdatedAt] = useState<string | Date>(note.updatedAt);
-  const [stylePickerOpen, setStylePickerOpen] = useState(false);
-  const [showFormatBar, setShowFormatBar] = useState(false);
-  const [editor, setEditor] = useState<Editor | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [pinned, setPinned] = useState<boolean>(note.pinned ?? false);
-  const [expiresAt, setExpiresAt] = useState<Date | string | null>(note.expiresAt ?? null);
-  const [burnAfterReading, setBurnAfterReading] = useState<boolean>(note.burnAfterReading ?? false);
-  const [tags, setTags] = useState<string[]>(() => (note.tags ?? []).map(String));
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // Once history has been opened, returning to the note modal must not replay
-  // the open-from-card entrance — it's the same surface switching modes.
-  const [historyWasOpen, setHistoryWasOpen] = useState(false);
-  const [menuOpened, setMenuOpened] = useState(false);
+
+  const deleteNote = useDeleteNote();
+  const undeleteNote = useUndeleteNote();
+  const updateNote = useUpdateNote();
+  const createNote = useCreateNote();
+
+  const {
+    noteId,
+    editing,
+    setEditing,
+    title,
+    setTitle,
+    isArchived,
+    color,
+    pattern,
+    stylePickerOpen,
+    setStylePickerOpen,
+    updatedAt,
+    setUpdatedAt,
+    showFormatBar,
+    setShowFormatBar,
+    editor,
+    setEditor,
+    isUploading,
+    setIsUploading,
+    pinned,
+    expiresAt,
+    burnAfterReading,
+    tags,
+    historyOpen,
+    setHistoryOpen,
+    historyWasOpen,
+    setHistoryWasOpen,
+    menuOpened,
+    setMenuOpened,
+    handleArchiveToggle,
+    handleColorChange,
+    handlePatternChange,
+    handleTagsChange,
+    handleTogglePinned,
+    handleSetExpiry,
+    wasInitiallyBurning,
+  } = useNoteModalMeta(note, (patch) => updateNote.mutate(patch));
 
   const openHistory = () => {
     setHistoryOpen(true);
@@ -67,12 +89,6 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
 
   const handleClose = () => confirmClose(onClose);
 
-  const deleteNote = useDeleteNote();
-  const undeleteNote = useUndeleteNote();
-  const updateNote = useUpdateNote();
-  const createNote = useCreateNote();
-
-  const noteId = note._id.toString();
   const versionsQuery = useVersions<PlainVersion>('notes', noteId, { enabled: menuOpened || historyOpen });
   const versions: DisplayVersion[] | undefined = versionsQuery.data;
 
@@ -81,10 +97,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     setContent(v.content);
     setUpdatedAt(new Date().toISOString());
   };
-  const bumpTagCounts = useTagCountBump();
 
   const handleDelete = () => {
-    deleteNote.mutate(note._id.toString());
+    deleteNote.mutate(noteId);
     onClose();
     toast.success('Note deleted', {
       description: 'You can undo this action.',
@@ -92,7 +107,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
       action: {
         label: 'Undo',
         onClick: () => {
-          undeleteNote.mutate({ id: note._id.toString(), note: note as unknown as CachedNote });
+          undeleteNote.mutate({ id: noteId, note: note as unknown as CachedNote });
           toast.success('Note restored');
         },
       },
@@ -114,62 +129,10 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
       toast.error('Content is too large to save');
       return;
     }
-    updateNote.mutate({ id: note._id.toString(), title, content }, { onError: () => setEditing(true) });
+    updateNote.mutate({ id: noteId, title, content }, { onError: () => setEditing(true) });
     setUpdatedAt(new Date().toISOString());
     setEditing(false);
     setShowFormatBar(false);
-  };
-
-  const handleArchiveToggle = () => {
-    const nextArchivedState = !isArchived;
-    setIsArchived(nextArchivedState);
-    updateNote.mutate({ id: note._id.toString(), archived: nextArchivedState });
-  };
-
-  const handleColorChange = (newColor: string | null) => {
-    setColor(newColor);
-    updateNote.mutate({ id: note._id.toString(), color: newColor });
-  };
-
-  const handlePatternChange = (newPattern: string | null) => {
-    setPattern(newPattern);
-    updateNote.mutate({ id: note._id.toString(), pattern: newPattern });
-  };
-
-  const handleTagsChange = (ids: string[]) => {
-    bumpTagCounts(
-      ids.filter((id) => !tags.includes(id)),
-      tags.filter((id) => !ids.includes(id)),
-    );
-    setTags(ids);
-    updateNote.mutate({ id: note._id.toString(), tags: ids });
-  };
-
-  const handleTogglePinned = (next: boolean) => {
-    setPinned(next);
-    updateNote.mutate({ id: note._id.toString(), pinned: next });
-  };
-
-  const { wasInitiallyBurning } = useBurnArming({
-    initialBurn: note.burnAfterReading ?? false,
-    expiresAt,
-    isReady: true,
-    onArm: () =>
-      updateNote.mutate({
-        id: note._id.toString(),
-        expiresAt: new Date().toISOString(),
-        burnAfterReading: true,
-      }),
-  });
-
-  const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
-    setExpiresAt(next.expiresAt);
-    setBurnAfterReading(next.burnAfterReading);
-    updateNote.mutate({
-      id: note._id.toString(),
-      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
-      burnAfterReading: next.burnAfterReading,
-    });
   };
 
   if (historyOpen) {
@@ -240,7 +203,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
           onChange={(html) => {
             setContent(html);
             if (!editing) {
-              updateNote.mutate({ id: note._id.toString(), content: html });
+              updateNote.mutate({ id: noteId, content: html });
             }
           }}
           editable={editing}
