@@ -2,7 +2,8 @@
 
 import { InlineSvg } from '@irondsd/inline-svg';
 import { cn } from '@/utils/cn';
-import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteStyles';
+import { NOTE_PATTERNS } from '@/config/noteStyles';
+import { ColorSwatches } from '@/components/ColorSwatches/ColorSwatches';
 import s from './NoteStylePicker.module.scss';
 
 type NoteStylePickerProps = {
@@ -19,26 +20,7 @@ export function NoteStylePicker({ isOpen, color, pattern, onColorChange, onPatte
       <div className={s.inner}>
         <div className={s.section}>
           <div className={s.label}>Color</div>
-          <div className={s.row}>
-            <button
-              type="button"
-              className={cn(s.colorSwatch, s.defaultSwatch, !color && s.selected)}
-              onClick={() => onColorChange(null)}
-              title="Default"
-              aria-label="Default"
-            />
-            {NOTE_COLORS.map((c) => (
-              <button
-                type="button"
-                key={c}
-                className={cn(s.colorSwatch, color === c && s.selected)}
-                data-color={c}
-                onClick={() => onColorChange(c)}
-                title={c.charAt(0).toUpperCase() + c.slice(1)}
-                aria-label={c.charAt(0).toUpperCase() + c.slice(1)}
-              />
-            ))}
-          </div>
+          <ColorSwatches value={color} onChange={onColorChange} includeDefault />
         </div>
         <div className={s.divider} />
         <div className={s.section}>

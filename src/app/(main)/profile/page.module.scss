@@ -40,23 +40,11 @@
   font-family: var(--font-mono), monospace;
 }
 
+/* Button handles size/hover; this only adds the reveal-on-row-hover behavior. */
 .editBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--muted-foreground);
-  border-radius: var(--radius-sm);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s;
-
-  &:hover {
-    color: var(--foreground);
-  }
 }
 
 .addressRow:hover .editBtn {

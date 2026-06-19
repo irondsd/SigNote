@@ -52,47 +52,6 @@ $swatch-border-radius: 8px;
   background: var(--border);
 }
 
-.colorSwatch {
-  width: $swatch-size;
-  height: $swatch-size;
-  border-radius: $swatch-border-radius;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  flex-shrink: 0;
-  background: var(--note-bg);
-  filter: saturate(3) brightness(0.9);
-  transition: outline-color 0.12s;
-  outline: 2px solid transparent;
-  outline-offset: 2px;
-
-  &.selected {
-    outline-color: var(--primary);
-  }
-
-  &:hover:not(.selected) {
-    outline-color: var(--muted);
-  }
-}
-
-:global(.dark) .colorSwatch {
-  filter: saturate(3);
-}
-
-.defaultSwatch {
-  background: var(--card);
-  border: 1.5px solid var(--border) !important;
-  position: relative;
-  filter: none !important;
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 3px;
-    border-radius: 50%;
-  }
-}
-
 .patternSwatch {
   width: $swatch-size;
   height: $swatch-size;

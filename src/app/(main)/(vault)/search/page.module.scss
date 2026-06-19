@@ -78,26 +78,6 @@
   }
 }
 
-.clearBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  transition: background 0.12s;
-
-  &:hover {
-    background: var(--accent);
-    color: var(--foreground);
-  }
-}
-
 .filterRow {
   display: flex;
 }

@@ -180,9 +180,16 @@ export function SelfDestructPicker({
   return (
     <div className={s.menu}>
       <div className={s.subHeader}>
-        <button type="button" className={s.subBack} onClick={onBack} aria-label="Back">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
+          onClick={onBack}
+          aria-label="Back"
+        >
           <ArrowLeft size={14} />
-        </button>
+        </Button>
         <div className={s.subTitle}>
           <Flame size={13} />
           Self-destruct timer
