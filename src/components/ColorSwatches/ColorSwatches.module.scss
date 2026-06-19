@@ -1,0 +1,53 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  &[data-layout='grid'] {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.swatch {
+  --swatch-size: 28px;
+  width: var(--swatch-size);
+  height: var(--swatch-size);
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--note-bg, var(--muted));
+  filter: saturate(2.8) brightness(0.9);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.12s;
+
+  &:hover:not(.selected) {
+    outline-color: var(--muted);
+  }
+  &.selected {
+    outline-color: var(--primary);
+  }
+}
+
+:global(.dark) .swatch {
+  filter: saturate(2.8);
+}
+
+/* circle shape used by the tag manager */
+.row[data-shape='circle'] .swatch {
+  --swatch-size: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  outline-offset: 1px;
+}
+
+/* "no color" swatch */
+.default {
+  background: var(--card);
+  border: 1.5px solid var(--border) !important;
+  filter: none !important;
+}

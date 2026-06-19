@@ -9,6 +9,7 @@ import { TierToggle, type TierSet, type TierCounts } from '@/components/TierTogg
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
 import { Tag } from '@/components/Tag/Tag';
+import { Button } from '@/components/ui/button';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useTags } from '@/hooks/useTags';
 import { cn } from '@/utils/cn';
@@ -128,9 +129,16 @@ export function SearchPalette() {
       <div className={cn(s.panel, exiting && s.panelExiting)}>
         {/* sticky top: header + input + filter */}
         <div className={s.panelTop}>
-          <button type="button" className={s.closeBtn} onClick={close} aria-label="Close search">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn(s.closeBtn, 'text-muted-foreground')}
+            onClick={close}
+            aria-label="Close search"
+          >
             <X size={20} strokeWidth={1.9} />
-          </button>
+          </Button>
 
           <div className={s.panelHeader}>
             <div className={s.titleRow}>
@@ -157,9 +165,16 @@ export function SearchPalette() {
                 className={s.input}
               />
               {activeQuery && (
-                <button type="button" onClick={() => setQuery('')} className={s.clearBtn} aria-label="Clear search">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-md"
+                  className="text-muted-foreground"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                >
                   <X size={15} strokeWidth={2} />
-                </button>
+                </Button>
               )}
               {activeQuery && (
                 <button

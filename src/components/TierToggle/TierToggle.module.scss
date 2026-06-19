@@ -43,8 +43,8 @@
     background: var(--card);
     color: var(--foreground);
     box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 0.5px rgba(0, 0, 0, 0.04);
+      0 1px 2px rgb(var(--shadow-color) / 0.08),
+      0 0 0 0.5px rgb(var(--shadow-color) / 0.04);
 
     svg {
       color: var(--primary);

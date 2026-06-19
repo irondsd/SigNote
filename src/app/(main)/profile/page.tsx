@@ -174,8 +174,10 @@ function ProfilePageContent() {
                         {profile?.displayName}
                       </span>
                       {profile && (
-                        <button
-                          className={s.editBtn}
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className={`${s.editBtn} text-muted-foreground`}
                           onClick={() => {
                             setEditValue(profile.displayName);
                             setIsEditing(true);
@@ -183,7 +185,7 @@ function ProfilePageContent() {
                           aria-label="Edit display name"
                         >
                           <Pencil size={13} />
-                        </button>
+                        </Button>
                       )}
                     </>
                   )}

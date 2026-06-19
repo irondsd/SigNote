@@ -5,7 +5,7 @@ import { cn } from '@/utils/cn';
 import type { TagColor } from '@/config/noteStyles';
 import s from './Tag.module.scss';
 
-export type TagVariant = 'soft' | 'outline' | 'solid';
+export type TagVariant = 'soft' | 'outline';
 export type TagSize = 'xs' | 'sm' | 'md';
 
 export type TagLike = { name: string; color?: TagColor | string | null };

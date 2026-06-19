@@ -7,6 +7,7 @@ import { TierToggle, type TierSet, type TierCounts } from '@/components/TierTogg
 import { SearchResults } from '@/components/SearchResults/SearchResults';
 import { RecentSearches } from '@/components/RecentSearches/RecentSearches';
 import { Tag } from '@/components/Tag/Tag';
+import { Button } from '@/components/ui/button';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useTags } from '@/hooks/useTags';
 import s from './page.module.scss';
@@ -114,17 +115,19 @@ function SearchPageContent() {
             className={s.input}
           />
           {inputValue && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-md"
+              className="text-muted-foreground"
               onClick={() => {
                 setInputValue('');
                 updateParams({ q: '' });
               }}
-              className={s.clearBtn}
               aria-label="Clear search"
             >
               <X size={15} strokeWidth={2} />
-            </button>
+            </Button>
           )}
         </div>
 

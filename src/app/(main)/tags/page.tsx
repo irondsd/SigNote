@@ -9,30 +9,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/Tag/Tag';
+import { ColorSwatches } from '@/components/ColorSwatches/ColorSwatches';
 import { useTags, type ClientTag } from '@/hooks/useTags';
 import { useTagMutations } from '@/hooks/useTagMutations';
 import { NOTE_COLORS, autoTagColor, type TagColor } from '@/config/noteStyles';
 import s from './page.module.scss';
 
 const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
-
-function Swatches({ value, onChange }: { value: TagColor; onChange: (c: TagColor) => void }) {
-  return (
-    <div className={s.swatches}>
-      {NOTE_COLORS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          data-color={c}
-          className={`${s.swatch} ${value === c ? s.swatchSelected : ''}`}
-          onClick={() => onChange(c)}
-          title={cap(c)}
-          aria-label={c}
-        />
-      ))}
-    </div>
-  );
-}
 
 function ColorButton({ value, onChange }: { value: TagColor; onChange: (c: TagColor) => void }) {
   const [open, setOpen] = useState(false);
@@ -46,11 +29,15 @@ function ColorButton({ value, onChange }: { value: TagColor; onChange: (c: TagCo
       </PopoverTrigger>
       <PopoverContent align="start" className={s.colorPopover}>
         <div className={s.colorPopoverLabel}>Color</div>
-        <Swatches
+        <ColorSwatches
           value={value}
+          shape="circle"
+          layout="grid"
           onChange={(c) => {
-            onChange(c);
-            setOpen(false);
+            if (c) {
+              onChange(c);
+              setOpen(false);
+            }
           }}
         />
       </PopoverContent>
@@ -162,19 +149,19 @@ function TagRow({
             Delete <b>{tag.name}</b>? It’s on <b>{count} notes</b> — the tag is removed from them, the notes are kept.
           </div>
           <div className={s.confirmActions}>
-            <button type="button" className={s.confirmCancel} onClick={() => setConfirmingDelete(false)}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(false)}>
               Cancel
-            </button>
-            <button
-              type="button"
-              className={s.confirmDelete}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
               onClick={() => {
                 onDelete();
                 setConfirmingDelete(false);
               }}
             >
               Delete tag
-            </button>
+            </Button>
           </div>
         </div>
       )}
