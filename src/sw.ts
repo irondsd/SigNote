@@ -36,7 +36,9 @@ const serwist = new Serwist({
       matcher: ({ url }) => url.pathname === '/api/auth/session',
       handler: new NetworkFirst({
         cacheName: 'auth-session',
-        networkTimeoutSeconds: 3,
+        // Do not serve a stale authenticated session merely because a cold
+        // server took more than a few seconds to answer. The cached response is
+        // still used when the network request actually fails (offline mode).
         plugins: [
           new ExpirationPlugin({
             maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days — matches session maxAge

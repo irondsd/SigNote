@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import type { NoteDocument } from '@/models/Note';
@@ -21,6 +21,7 @@ import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { clearDraft, saveDraft } from '@/lib/draft';
 
 const VersionHistoryModal = dynamic(
   () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
@@ -118,7 +119,19 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     setTitle(note.title ?? '');
     setContent(note.content ?? '');
     setEditing(false);
+    clearDraft();
   };
+
+  // Editing deserves the same crash/session-expiry recovery as creation. Keep
+  // a plaintext recovery copy locally while the form is dirty; restoring it as
+  // a new note is safer than silently overwriting a possibly newer server copy.
+  useEffect(() => {
+    if (!isDirty) return;
+    const timer = setTimeout(() => {
+      saveDraft({ type: 'note', title, content, savedAt: Date.now(), sourceId: noteId });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [content, isDirty, noteId, title]);
 
   const handleSave = () => {
     if (title.length > MAX_TITLE) {
@@ -129,10 +142,22 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
       toast.error('Content is too large to save');
       return;
     }
-    updateNote.mutate({ id: noteId, title, content }, { onError: () => setEditing(true) });
-    setUpdatedAt(new Date().toISOString());
-    setEditing(false);
-    setShowFormatBar(false);
+    saveDraft({ type: 'note', title, content, savedAt: Date.now(), sourceId: noteId });
+
+    const onSuccess = () => {
+      clearDraft();
+      setUpdatedAt(new Date().toISOString());
+      setEditing(false);
+      setShowFormatBar(false);
+    };
+
+    if (noteId.startsWith('temp-')) {
+      // Recover an optimistic create left by an older/offline app session. A
+      // temp id never existed server-side, so turn the edit into a real create.
+      createNote.mutate({ title, content, color, pattern, tags }, { onSuccess });
+    } else {
+      updateNote.mutate({ id: noteId, title, content }, { onSuccess, onError: () => setEditing(true) });
+    }
   };
 
   if (historyOpen) {
@@ -175,6 +200,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         createdAt={note.createdAt}
         onSave={handleSave}
         onCancel={handleCancel}
+        saving={updateNote.isPending || createNote.isPending}
         isArchived={isArchived}
         onArchive={handleArchiveToggle}
         onDelete={handleDelete}
@@ -214,7 +240,15 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         />
       </SharedNoteModal>
 
-      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+      {showConfirm && (
+        <ConfirmDiscardDialog
+          onDiscard={() => {
+            clearDraft();
+            onConfirmDiscard();
+          }}
+          onCancel={onCancelClose}
+        />
+      )}
     </>
   );
 }

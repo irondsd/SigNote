@@ -18,7 +18,7 @@ type GlobalWithMongo = typeof globalThis & {
   __MOCK_S3__?: MockS3Server;
 };
 
-async function waitForServer(url: string, timeoutMs = 50000): Promise<void> {
+async function waitForServer(url: string, timeoutMs = 20000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {

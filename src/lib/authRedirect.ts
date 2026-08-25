@@ -11,7 +11,7 @@ export const handleUnauthorized = async () => {
   // Tell other tabs to drop their session too — mirrors SidebarNav's manual sign-out.
   try {
     const channel = new BroadcastChannel('signote-auth');
-    channel.postMessage({ type: 'logout' });
+    channel.postMessage({ type: 'logout', preserveDraft: true });
     channel.close();
   } catch {
     // BroadcastChannel unavailable (e.g. very old browser); harmless.

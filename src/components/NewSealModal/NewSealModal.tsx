@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -10,6 +11,7 @@ import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
 import { useNewNoteForm } from '@/hooks/useNewNoteForm';
+import { saveDraft } from '@/lib/draft';
 
 type NewSealModalProps = {
   onClose: () => void;
@@ -33,27 +35,36 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
   const handleSave = async () => {
     const prepared = form.prepare();
     if (!prepared) return;
+    saveDraft({ type: 'seal', ...prepared, savedAt: Date.now() });
 
     try {
       setSaving(true);
       await guard.execute(async (mek) => {
-        form.commitDraft();
         pendingRecoveryRef.current = prepared;
         const fileIds = extractFileIds(prepared.content);
-        createSeal.mutate({
-          title: prepared.title,
-          color: form.color,
-          pattern: form.pattern,
-          fileIds,
-          tags: form.tags,
-          encryptBody: async (sealId: string) => {
-            if (!prepared.content) return null;
-            return encryptSealBody(mek, prepared.content, sealId);
+        createSeal.mutate(
+          {
+            title: prepared.title,
+            color: form.color,
+            pattern: form.pattern,
+            fileIds,
+            tags: form.tags,
+            encryptBody: async (sealId: string) => {
+              if (!prepared.content) return null;
+              return encryptSealBody(mek, prepared.content, sealId);
+            },
           },
-        });
-        form.bumpTagCounts(form.tags, []);
-        onClose();
+          {
+            onSuccess: () => {
+              form.commitDraft();
+              form.bumpTagCounts(form.tags, []);
+              onClose();
+            },
+          },
+        );
       });
+    } catch {
+      toast.error('Failed to prepare seal for saving', { description: 'Your draft is safe.' });
     } finally {
       setSaving(false);
     }
@@ -65,7 +76,7 @@ export function NewSealModal({ onClose, initialContent, onSaveError }: NewSealMo
       saveLabel="Save Seal"
       saveTestId="save-seal-btn"
       onSave={handleSave}
-      saving={saving}
+      saving={saving || createSeal.isPending}
       extras={guard.PassphraseGuard}
     >
       <FileEncryptionProvider mek={mek}>

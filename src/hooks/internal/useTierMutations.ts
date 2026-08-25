@@ -70,6 +70,10 @@ export function useCreateTier<T extends WithId, TInput>(
   const qc = useQueryClient();
   const tierName = singular(root);
   return useMutation({
+    // Never leave an optimistic write paused only in memory. Offline reads come
+    // from the persisted query cache, but writes must either reach the server
+    // or fail and roll back so the caller can keep a durable draft.
+    networkMode: 'always',
     mutationFn,
     onMutate: async (input: TInput) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
@@ -98,6 +102,7 @@ export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn) {
   const qc = useQueryClient();
   const tierName = singular(root);
   return useMutation({
+    networkMode: 'always',
     mutationFn: apiFn,
     onMutate: async (id: string) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
@@ -120,6 +125,7 @@ export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteF
   const qc = useQueryClient();
   const tierName = singular(root);
   return useMutation({
+    networkMode: 'always',
     mutationFn: apiFn,
     onMutate: async ({ note }: { id: string; note: T }) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
@@ -138,6 +144,7 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
   const qc = useQueryClient();
   const tierName = singular(root);
   return useMutation({
+    networkMode: 'always',
     mutationFn: apiFn,
     onMutate: async ({ id, archived, ...rest }: UpdateInput) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);

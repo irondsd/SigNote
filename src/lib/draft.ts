@@ -3,6 +3,8 @@ export type DraftData = {
   title: string;
   content: string; // always plaintext
   savedAt: number;
+  /** Present when the recovery copy came from editing an existing item. */
+  sourceId?: string;
 };
 
 const DRAFT_KEY = 'sn_draft';

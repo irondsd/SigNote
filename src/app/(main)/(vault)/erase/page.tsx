@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { clearDraft } from '@/lib/draft';
 import { EraseFlow, type StepConfig } from '@/components/erase/EraseFlow';
 import { useProfile } from '@/hooks/useProfile';
 import s from '@/components/erase/EraseFlow.module.scss';
@@ -42,7 +43,10 @@ export default function ErasePage() {
       hasEncryptionProfile={profile?.hasEncryptionProfile}
       doneTitle="Account permanently erased"
       doneDesc="All your data has been deleted. You will be signed out automatically."
-      onDone={() => void signOut({ callbackUrl: '/' })}
+      onDone={() => {
+        clearDraft();
+        void signOut({ callbackUrl: '/' });
+      }}
     />
   );
 }

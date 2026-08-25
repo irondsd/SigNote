@@ -13,6 +13,12 @@ const sample: DraftData = {
   savedAt: 1_700_000_000_000,
 };
 
+const editSample: DraftData = {
+  ...sample,
+  title: 'Recovered edit',
+  sourceId: '507f1f77bcf86cd799439011',
+};
+
 beforeEach(() => {
   localStorage.clear();
   jest.restoreAllMocks();
@@ -26,6 +32,11 @@ describe('saveDraft / loadDraft', () => {
 
   it('loadDraft returns null when nothing is saved', () => {
     expect(loadDraft()).toBeNull();
+  });
+
+  it('round-trips edit recovery metadata', () => {
+    saveDraft(editSample);
+    expect(loadDraft()).toEqual(editSample);
   });
 
   it('loadDraft returns null when stored value is malformed JSON', () => {

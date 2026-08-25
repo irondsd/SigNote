@@ -265,7 +265,7 @@ test.describe('tag management UI', () => {
     const patched = page.waitForResponse(
       (r) => r.url().includes('/api/trpc/tags.') && r.request().method() === 'POST' && r.ok(),
     );
-    await page.getByRole('button', { name: 'blue', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Blue', exact: true }).click();
     await patched;
 
     await page.reload();

@@ -19,7 +19,8 @@ export function DraftToast() {
 
     // Defer so the Toaster has mounted and subscribed before we push the toast
     const timer = setTimeout(() => {
-      toast(`You have an unsaved ${draft.type} draft`, {
+      const label = draft.sourceId ? `unsaved changes to a ${draft.type}` : `an unsaved ${draft.type} draft`;
+      toast(`You have ${label}`, {
         description: `"${displayTitle}"`,
         duration: Infinity,
         action: {

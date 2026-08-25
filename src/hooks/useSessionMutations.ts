@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { trpcClient } from '@/lib/trpcClient';
 import { SESSIONS_QUERY_KEY, type SessionRow } from './useSessions';
+import { clearDraft } from '@/lib/draft';
 
 const findCacheKeys = (qc: ReturnType<typeof useQueryClient>) =>
   qc
@@ -40,6 +41,7 @@ export const useRevokeSession = () => {
     onSuccess: (data) => {
       if (data.wasCurrent) {
         // The current session is gone — sign the user out client-side too.
+        clearDraft();
         toast.success('Signed out.');
         signOut({ callbackUrl: '/' });
       } else {

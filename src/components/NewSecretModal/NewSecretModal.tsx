@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useCreateSecret } from '@/hooks/useSecretMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -10,6 +11,7 @@ import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
 import { useNewNoteForm } from '@/hooks/useNewNoteForm';
+import { saveDraft } from '@/lib/draft';
 
 type NewSecretModalProps = {
   onClose: () => void;
@@ -33,25 +35,34 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
   const handleSave = async () => {
     const prepared = form.prepare();
     if (!prepared) return;
+    saveDraft({ type: 'secret', ...prepared, savedAt: Date.now() });
 
     try {
       setSaving(true);
       await guard.execute(async (mek) => {
-        form.commitDraft();
         const encryptedBody = prepared.content ? await encryptSecretBody(mek, prepared.content) : null;
         pendingRecoveryRef.current = prepared;
         const fileIds = extractFileIds(prepared.content);
-        createSecret.mutate({
-          title: prepared.title,
-          encryptedBody,
-          color: form.color,
-          pattern: form.pattern,
-          fileIds,
-          tags: form.tags,
-        });
-        form.bumpTagCounts(form.tags, []);
-        onClose();
+        createSecret.mutate(
+          {
+            title: prepared.title,
+            encryptedBody,
+            color: form.color,
+            pattern: form.pattern,
+            fileIds,
+            tags: form.tags,
+          },
+          {
+            onSuccess: () => {
+              form.commitDraft();
+              form.bumpTagCounts(form.tags, []);
+              onClose();
+            },
+          },
+        );
       });
+    } catch {
+      toast.error('Failed to prepare secret for saving', { description: 'Your draft is safe.' });
     } finally {
       setSaving(false);
     }
@@ -63,7 +74,7 @@ export function NewSecretModal({ onClose, initialContent, onSaveError }: NewSecr
       saveLabel="Save Secret"
       saveTestId="save-secret-btn"
       onSave={handleSave}
-      saving={saving}
+      saving={saving || createSecret.isPending}
       extras={guard.PassphraseGuard}
     >
       <FileEncryptionProvider mek={mek}>

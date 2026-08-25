@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import { isAddress } from 'viem';
 import { shortenAddress } from '@/utils/shortenAddress';
 import { InlineSvg } from '@irondsd/inline-svg';
+import { clearDraft } from '@/lib/draft';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -45,6 +46,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   }, [profile, session]);
 
   const handleSignOut = async () => {
+    clearDraft();
     disconnect();
     signOut({ redirect: false });
     const channel = new BroadcastChannel('signote-auth');
