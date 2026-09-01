@@ -6,13 +6,14 @@ import type { NextAuthOptions } from 'next-auth';
 import { revokeSessionBySid } from '@/controllers/authSessions';
 import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
 import { validateSiweCredentials } from '@/lib/siwe';
+import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60,
-    updateAge: 2 * 24 * 60 * 60,
+    maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
+    updateAge: AUTH_SESSION_UPDATE_AGE_SECONDS,
   },
   providers: [
     GoogleProvider({
@@ -81,6 +82,7 @@ export const authOptions: NextAuthOptions = {
         } else if (account.provider === 'credentials') {
           token.provider = 'siwe';
         }
+        token.client = 'web';
         token.sid = new mongoose.Types.ObjectId().toString();
       }
       return token;

@@ -50,16 +50,13 @@ Do not bundle a separate frontend in the MVP. A bundled renderer would require a
 
 ```text
 1. Electron creates:
-   - attempt ID
    - random state
    - PKCE verifier and SHA-256 challenge
 
-2. Electron opens the system browser:
+2. Electron creates a server-side attempt, then opens the returned URL in the system browser:
    https://signote.tech/desktop/login
      ?attempt=<id>
      &state=<state>
-     &code_challenge=<challenge>
-     &code_challenge_method=S256
 
 3. The browser completes normal Google/NextAuth authentication.
 
@@ -67,7 +64,7 @@ Do not bundle a separate frontend in the MVP. A bundled renderer would require a
    bound to the authenticated user, attempt, state, and PKCE challenge.
 
 5. The browser opens:
-   signote://auth/callback?code=<opaque-code>&state=<state>
+   signote://auth/callback?attempt=<id>&code=<opaque-code>&state=<state>
 
 6. Electron receives the deep link and verifies state locally.
 
@@ -405,16 +402,18 @@ Phase 1 status (2026-09-01): complete. Electron exposes a narrow typed bridge, o
 
 ### Phase 2: browser-to-desktop authentication
 
-- [ ] Add the desktop auth-attempt model and TTL indexes.
-- [ ] Add attempt creation, browser completion, and exchange endpoints.
-- [ ] Add shared NextAuth JWT/cookie issuance helper.
-- [ ] Add PKCE, state verification, one-time consumption, expiry, and rate limits.
-- [ ] Add the browser login/confirmation page.
-- [ ] Register the Electron protocol and implement every lifecycle case.
-- [ ] Connect callback delivery to the renderer and refresh `SessionProvider`.
-- [ ] Mark the issued session as a desktop client.
+- [x] Add the desktop auth-attempt model and TTL indexes.
+- [x] Add attempt creation, browser completion, and exchange endpoints.
+- [x] Add shared NextAuth JWT/cookie issuance helper.
+- [x] Add PKCE, state verification, one-time consumption, expiry, and rate limits.
+- [x] Add the browser login/confirmation page.
+- [x] Register the Electron protocol and implement every lifecycle case.
+- [x] Connect callback delivery to the renderer and refresh `SessionProvider`.
+- [x] Mark the issued session as a desktop client.
 
 Exit criteria: a signed-out Electron install can authenticate through the default browser, receive a new independent session, restart, and remain signed in until expiry or revocation.
+
+Phase 2 status (2026-09-01): complete. The browser authorizes only Google-backed sessions and issues a one-minute, single-use code bound to a five-minute PKCE attempt. Electron validates and queues exact `signote://auth/callback` links across cold-start, macOS `open-url`, and running-instance paths, then the renderer exchanges the code for a separate seven-day HTTP-only desktop session. Automated coverage verifies hashing, expiry, guess limits, concurrent replay prevention, browser confirmation, cookie persistence, session metadata, replay rejection, and remote revocation. The unpacked arm64 app packages successfully; installed-app protocol and lifecycle testing remains part of Phase 3 validation.
 
 ### Phase 3: security and functional validation
 

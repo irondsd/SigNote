@@ -13,6 +13,7 @@ describe('desktop environment detection', () => {
       platform: 'macos',
       appVersion: '0.1.0',
       startBrowserLogin: jest.fn().mockResolvedValue(undefined),
+      onAuthCallback: () => () => undefined,
     };
     window.signoteDesktop = bridge;
 

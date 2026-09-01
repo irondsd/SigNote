@@ -46,8 +46,10 @@ Signing and notarization configuration will be added in Phase 4. Keep signing cr
 
 ## Current boundary
 
-Phase 0 registers the protocol and a single-instance application, but it does not yet consume authentication callbacks. Browser-to-desktop authentication and complete deep-link lifecycle handling belong to Phase 2.
+Phase 2 browser-to-desktop authentication is implemented. The renderer creates state and a PKCE verifier, opens the server-provided `/desktop/login` URL in the system browser, and exchanges a validated `signote://auth/callback` for an independent desktop session. The main process handles macOS `open-url`, cold-start arguments, and running-instance callbacks, queues one callback until the renderer is ready, and focuses the existing window.
 
-The preload exposes immutable desktop metadata and one constrained `startBrowserLogin` operation. The main process accepts only the configured SigNote origin with the exact `/desktop/login` path. It deliberately provides no filesystem, generic shell, cookie, token, or generic IPC access.
+The preload exposes immutable desktop metadata, one constrained `startBrowserLogin` operation, and a validated authentication-callback subscription. The main process accepts only the configured SigNote origin with the exact `/desktop/login` path. It deliberately provides no filesystem, generic shell, cookie, token, or generic IPC access.
+
+Pending state and PKCE material live only in renderer `sessionStorage`; callbacks contain only the attempt ID, opaque single-use code, and state. The persistent Electron partition stores the HTTP-only NextAuth cookie so a desktop session survives window and application restarts.
 
 Wallet providers and SIWE controls are not loaded in desktop mode. Service-worker registrations are cleared in the dedicated Electron session before the page loads so an old worker cannot pin the shell to a stale web deployment; IndexedDB application data remains untouched.

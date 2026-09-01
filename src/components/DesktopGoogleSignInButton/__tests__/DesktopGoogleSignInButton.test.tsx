@@ -3,15 +3,25 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import posthog from 'posthog-js';
+import { beginDesktopAuth } from '@/lib/desktopAuth';
 import { DesktopGoogleSignInButton } from '../DesktopGoogleSignInButton';
 
 jest.mock('posthog-js', () => ({
   __esModule: true,
   default: { capture: jest.fn() },
 }));
+jest.mock('@/lib/desktopAuth', () => ({
+  beginDesktopAuth: jest.fn(),
+  DesktopAuthError: class DesktopAuthError extends Error {},
+}));
 
 describe('<DesktopGoogleSignInButton />', () => {
   const capture = jest.mocked(posthog.capture);
+  const beginAuth = jest.mocked(beginDesktopAuth);
+
+  beforeEach(() => {
+    beginAuth.mockResolvedValue('http://localhost/desktop/login?attempt=test');
+  });
 
   afterEach(() => {
     delete window.signoteDesktop;
@@ -25,12 +35,13 @@ describe('<DesktopGoogleSignInButton />', () => {
       platform: 'macos',
       appVersion: '0.1.0',
       startBrowserLogin,
+      onAuthCallback: () => () => undefined,
     };
 
     render(<DesktopGoogleSignInButton />);
     fireEvent.click(screen.getByRole('button', { name: 'Continue with Google' }));
 
-    await waitFor(() => expect(startBrowserLogin).toHaveBeenCalledWith('http://localhost/desktop/login'));
+    await waitFor(() => expect(startBrowserLogin).toHaveBeenCalledWith('http://localhost/desktop/login?attempt=test'));
     expect(screen.getByRole('button', { name: 'Waiting for browser…' })).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent('Finish signing in in your browser');
     expect(capture).toHaveBeenCalledWith('sign_in_started', { method: 'google', client: 'desktop' });
@@ -42,6 +53,7 @@ describe('<DesktopGoogleSignInButton />', () => {
       platform: 'macos',
       appVersion: '0.1.0',
       startBrowserLogin: jest.fn().mockRejectedValue(new Error('open failed')),
+      onAuthCallback: () => () => undefined,
     };
 
     render(<DesktopGoogleSignInButton />);

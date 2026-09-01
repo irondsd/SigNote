@@ -1,18 +1,41 @@
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
-import { START_BROWSER_LOGIN_CHANNEL } from './ipc.js';
+import { findDesktopAuthCallback, parseDesktopAuthCallback } from './deepLinks.js';
 import {
-  isAllowedAppNavigation,
-  isAllowedBrowserLoginUrl,
-  isSafeExternalUrl,
-  resolveAppOrigin,
-} from './security.js';
+  AUTH_CALLBACK_CHANNEL,
+  AUTH_CALLBACK_READY_CHANNEL,
+  START_BROWSER_LOGIN_CHANNEL,
+  type DesktopAuthCallback,
+} from './ipc.js';
+import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from './security.js';
 
 const PROTOCOL = 'signote';
 const SESSION_PARTITION = 'persist:signote';
 
 let mainWindow: BrowserWindow | null = null;
+let pendingAuthCallback: DesktopAuthCallback | null = null;
+let authCallbackRendererReady = false;
 const appOrigin = resolveAppOrigin(app.isPackaged);
+
+function focusMainWindow(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function flushAuthCallback(): void {
+  if (!mainWindow || !authCallbackRendererReady || !pendingAuthCallback) return;
+  mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, pendingAuthCallback);
+  pendingAuthCallback = null;
+}
+
+function handleAuthCallback(callback: DesktopAuthCallback | null): void {
+  if (!callback) return;
+  pendingAuthCallback = callback;
+  focusMainWindow();
+  flushAuthCallback();
+}
 
 function registerProtocol(): void {
   if (process.defaultApp && process.argv[1]) {
@@ -47,6 +70,12 @@ function configureIpc(): void {
 
     await shell.openExternal(rawUrl);
   });
+
+  ipcMain.on(AUTH_CALLBACK_READY_CHANNEL, (event) => {
+    if (event.sender !== mainWindow?.webContents) return;
+    authCallbackRendererReady = true;
+    flushAuthCallback();
+  });
 }
 
 function createWindow(): BrowserWindow {
@@ -70,6 +99,7 @@ function createWindow(): BrowserWindow {
       additionalArguments: [`--signote-app-version=${app.getVersion()}`],
     },
   });
+  window.webContents.setUserAgent(`${window.webContents.getUserAgent()} SigNoteDesktop/${app.getVersion()}`);
 
   const guardNavigation = (event: Electron.Event, targetUrl: string): void => {
     if (isAllowedAppNavigation(targetUrl, appOrigin)) return;
@@ -86,8 +116,14 @@ function createWindow(): BrowserWindow {
   });
 
   window.once('ready-to-show', () => window.show());
+  window.webContents.on('did-start-loading', () => {
+    authCallbackRendererReady = false;
+  });
   window.on('closed', () => {
-    if (mainWindow === window) mainWindow = null;
+    if (mainWindow === window) {
+      authCallbackRendererReady = false;
+      mainWindow = null;
+    }
   });
 
   void window.loadURL(appOrigin.href);
@@ -96,22 +132,26 @@ function createWindow(): BrowserWindow {
 
 registerProtocol();
 
+app.on('open-url', (event, rawUrl) => {
+  event.preventDefault();
+  handleAuthCallback(parseDesktopAuthCallback(rawUrl));
+});
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+  app.on('second-instance', (_event, commandLine) => {
+    handleAuthCallback(findDesktopAuthCallback(commandLine));
+    focusMainWindow();
   });
 
   app.whenReady().then(async () => {
     await configureSession();
     configureIpc();
     mainWindow = createWindow();
+    handleAuthCallback(findDesktopAuthCallback(process.argv));
 
     app.on('activate', () => {
       if (!mainWindow) mainWindow = createWindow();

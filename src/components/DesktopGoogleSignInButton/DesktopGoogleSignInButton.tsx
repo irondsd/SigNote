@@ -1,17 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
 import { getDesktopBridge } from '@/lib/desktop';
+import { beginDesktopAuth, DesktopAuthError } from '@/lib/desktopAuth';
+import { onDesktopAuthUiEvent } from '@/lib/desktopAuthEvents';
 import s from './DesktopGoogleSignInButton.module.scss';
 
-type BrowserLoginState = 'idle' | 'opening' | 'waiting' | 'error';
+type BrowserLoginState = 'idle' | 'opening' | 'waiting' | 'exchanging' | 'error';
 
 export function DesktopGoogleSignInButton() {
   const [state, setState] = useState<BrowserLoginState>('idle');
+  const [errorMessage, setErrorMessage] = useState("SigNote couldn't open your browser. Please try again.");
+
+  useEffect(
+    () =>
+      onDesktopAuthUiEvent((event) => {
+        if (event.state === 'exchanging') setState('exchanging');
+        if (event.state === 'error') {
+          setErrorMessage(event.message);
+          setState('error');
+        }
+      }),
+    [],
+  );
 
   const startBrowserLogin = async () => {
     const bridge = getDesktopBridge();
@@ -24,23 +39,29 @@ export function DesktopGoogleSignInButton() {
     posthog.capture('sign_in_started', { method: 'google', client: 'desktop' });
 
     try {
-      await bridge.startBrowserLogin(new URL('/desktop/login', window.location.origin).href);
+      const loginUrl = await beginDesktopAuth();
+      await bridge.startBrowserLogin(loginUrl);
       setState('waiting');
-    } catch {
+    } catch (error) {
       posthog.capture('sign_in_failed', { method: 'google', client: 'desktop', reason: 'browser_open_failed' });
+      setErrorMessage(
+        error instanceof DesktopAuthError ? error.message : "SigNote couldn't open your browser. Please try again.",
+      );
       setState('error');
     }
   };
 
-  const isPending = state === 'opening' || state === 'waiting';
+  const isPending = state === 'opening' || state === 'waiting' || state === 'exchanging';
   const label =
     state === 'opening'
       ? 'Opening browser…'
       : state === 'waiting'
         ? 'Waiting for browser…'
-        : state === 'error'
-          ? 'Try opening browser again'
-          : 'Continue with Google';
+        : state === 'exchanging'
+          ? 'Completing sign-in…'
+          : state === 'error'
+            ? 'Try opening browser again'
+            : 'Continue with Google';
 
   return (
     <div className={s.container} aria-busy={isPending}>
@@ -60,9 +81,14 @@ export function DesktopGoogleSignInButton() {
           Finish signing in in your browser, then return to SigNote.
         </p>
       )}
+      {state === 'exchanging' && (
+        <p className={s.message} role="status" aria-live="polite">
+          Securely completing your desktop session…
+        </p>
+      )}
       {state === 'error' && (
         <p className={s.error} role="alert">
-          SigNote couldn&apos;t open your browser. Please try again.
+          {errorMessage}
         </p>
       )}
     </div>

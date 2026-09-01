@@ -1,8 +1,9 @@
 'use client';
 
 import { X } from 'lucide-react';
+import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
@@ -23,6 +24,11 @@ type SignInModalProps = {
 
 export function SignInModal({ onClose }: SignInModalProps) {
   const isDesktop = isDesktopApp();
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (isDesktop && status === 'authenticated') onClose();
+  }, [isDesktop, onClose, status]);
 
   return (
     <Backdrop onClose={onClose}>

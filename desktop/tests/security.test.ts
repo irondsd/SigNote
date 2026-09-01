@@ -1,10 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  isAllowedAppNavigation,
-  isAllowedBrowserLoginUrl,
-  isSafeExternalUrl,
-  resolveAppOrigin,
-} from '../src/security';
+import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from '../src/security';
+import { findDesktopAuthCallback, parseDesktopAuthCallback } from '../src/deepLinks';
 
 describe('resolveAppOrigin', () => {
   test('uses localhost for an unpackaged development build', () => {
@@ -28,6 +24,30 @@ describe('resolveAppOrigin', () => {
   test('rejects values that are not bare origins', () => {
     expect(() => resolveAppOrigin(false, 'https://signote.app/notes')).toThrow('must be an origin');
     expect(() => resolveAppOrigin(false, 'https://user:pass@signote.app')).toThrow('must be an origin');
+  });
+});
+
+describe('desktop auth deep links', () => {
+  const attempt = 'a'.repeat(32);
+  const code = 'b'.repeat(43);
+  const state = 'c'.repeat(43);
+  const valid = `signote://auth/callback?attempt=${attempt}&code=${code}&state=${state}`;
+
+  test('parses the exact callback shape', () => {
+    expect(parseDesktopAuthCallback(valid)).toEqual({ attemptId: attempt, code, state });
+    expect(findDesktopAuthCallback(['SigNote', valid])).toEqual({ attemptId: attempt, code, state });
+  });
+
+  test('rejects wrong routes, duplicate fields, fragments, and malformed secrets', () => {
+    expect(
+      parseDesktopAuthCallback(`signote://evil/callback?attempt=${attempt}&code=${code}&state=${state}`),
+    ).toBeNull();
+    expect(parseDesktopAuthCallback(`${valid}&code=${code}`)).toBeNull();
+    expect(parseDesktopAuthCallback(`${valid}#token`)).toBeNull();
+    expect(parseDesktopAuthCallback(`signote://auth/callback?attempt=short&code=${code}&state=${state}`)).toBeNull();
+    expect(
+      parseDesktopAuthCallback(`https://signote.app/callback?attempt=${attempt}&code=${code}&state=${state}`),
+    ).toBeNull();
   });
 });
 

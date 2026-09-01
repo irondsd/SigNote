@@ -1,0 +1,235 @@
+.screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background:
+    radial-gradient(circle at 50% 10%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 40%),
+    var(--background);
+}
+
+.content {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.logo {
+  align-self: center;
+}
+
+.card {
+  gap: 22px;
+}
+
+.header {
+  justify-items: center;
+  text-align: center;
+  gap: 7px;
+}
+
+.deviceMark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 5px;
+  border-radius: 15px;
+  color: var(--primary-400);
+  background: color-mix(in oklch, var(--primary) 14%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.description {
+  max-width: 34ch;
+  line-height: 1.5;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.googleButton,
+.primaryAction {
+  width: 100%;
+  min-height: 44px;
+}
+
+.googleButton {
+  background: white;
+  color: #27272a;
+  border-color: #e4e4e7;
+
+  &:hover {
+    background: #f4f4f5;
+  }
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+
+  > svg {
+    flex: 0 0 auto;
+    color: var(--success);
+  }
+
+  div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  span {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.disclosure,
+.securityNote,
+.feedback p,
+.success p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.disclosure {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  color: var(--destructive);
+  background: color-mix(in oklch, var(--destructive) 9%, var(--card));
+  border: 1px solid color-mix(in oklch, var(--destructive) 28%, var(--border));
+  border-radius: var(--radius-lg);
+
+  > svg {
+    width: 19px;
+    height: 19px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  strong {
+    color: var(--foreground);
+    font-size: 13px;
+  }
+
+  p {
+    color: var(--muted-foreground);
+    font-size: 13px;
+  }
+}
+
+.centerStatus {
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--muted-foreground);
+}
+
+.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+
+  > svg {
+    width: 34px;
+    height: 34px;
+    color: var(--success);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  p {
+    margin-bottom: 7px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+  }
+}
+
+.securityNote {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-align: center;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+}
+
+.loadingCard {
+  width: min(440px, 100%);
+  min-height: 360px;
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+}
+
+@media (max-width: 480px) {
+  .screen {
+    place-items: start center;
+    padding-top: 24px;
+  }
+
+  .content {
+    gap: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .deviceMark {
+    animation: none;
+    transition: none;
+  }
+}

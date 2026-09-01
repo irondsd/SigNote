@@ -1,11 +1,13 @@
 import { type HydratedDocument, model, models, Schema } from 'mongoose';
 
 export type AuthProvider = 'google' | 'siwe';
+export type AuthClient = 'web' | 'desktop';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'unknown';
 
 export type AuthSession = {
   userId: string;
   provider: AuthProvider;
+  client: AuthClient;
   ip: string;
   userAgent: string;
   browser: string;
@@ -23,6 +25,7 @@ const authSessionSchema = new Schema<AuthSession>(
   {
     userId: { type: String, required: true },
     provider: { type: String, enum: ['google', 'siwe'], required: true },
+    client: { type: String, enum: ['web', 'desktop'], required: true, default: 'web' },
     ip: { type: String, default: '' },
     userAgent: { type: String, default: '' },
     browser: { type: String, default: '' },

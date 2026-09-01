@@ -6,6 +6,7 @@ import { SessionProvider, signOut, useSession } from 'next-auth/react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { queryCacheStorage } from '@/lib/idb';
 import { clearDraft } from '@/lib/draft';
+import { DesktopAuthCallbackHandler } from '@/components/DesktopAuthCallbackHandler/DesktopAuthCallbackHandler';
 
 type AuthSessionProviderProps = {
   children: ReactNode;
@@ -40,6 +41,7 @@ export const AuthSessionProvider: FC<AuthSessionProviderProps> = ({ children }) 
   return (
     <SessionProvider refetchOnWindowFocus={isOnline}>
       <SessionCleanup />
+      <DesktopAuthCallbackHandler />
       {children}
     </SessionProvider>
   );

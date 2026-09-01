@@ -7,6 +7,7 @@ import { trpcClient } from '@/lib/trpcClient';
 export type SessionRow = {
   _id: string;
   provider: 'google' | 'siwe';
+  client: 'web' | 'desktop';
   ip: string;
   browser: string;
   os: string;

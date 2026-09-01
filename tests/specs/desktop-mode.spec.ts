@@ -14,6 +14,7 @@ test.describe('desktop mode', () => {
           startBrowserLogin: async (url: string) => {
             sessionStorage.setItem('desktop-browser-login-url', url);
           },
+          onAuthCallback: () => () => undefined,
         }),
       });
     });
@@ -33,7 +34,10 @@ test.describe('desktop mode', () => {
     await expect(page.getByTestId('desktop-google-sign-in-btn')).toBeDisabled();
     await expect
       .poll(() => page.evaluate(() => sessionStorage.getItem('desktop-browser-login-url')))
-      .toBe('http://localhost:5005/desktop/login');
+      .toContain('http://localhost:5005/desktop/login?');
+    const browserLoginUrl = await page.evaluate(() => sessionStorage.getItem('desktop-browser-login-url'));
+    expect(new URL(browserLoginUrl!).searchParams.get('attempt')).toHaveLength(32);
+    expect(new URL(browserLoginUrl!).searchParams.get('state')).toHaveLength(43);
   });
 
   test('hides Ethereum identity management from the profile', async ({ page }) => {
