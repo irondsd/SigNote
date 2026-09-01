@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
+import { AuthCallbackQueue, focusDesktopWindow } from '../src/authCallbackQueue';
+import { createDesktopBridge, type DesktopIpc } from '../src/bridge';
 import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from '../src/security';
 import { findDesktopAuthCallback, parseDesktopAuthCallback } from '../src/deepLinks';
+import { AUTH_CALLBACK_CHANNEL, AUTH_CALLBACK_READY_CHANNEL, START_BROWSER_LOGIN_CHANNEL } from '../src/ipc';
 
 describe('resolveAppOrigin', () => {
   test('uses localhost for an unpackaged development build', () => {
@@ -48,6 +51,84 @@ describe('desktop auth deep links', () => {
     expect(
       parseDesktopAuthCallback(`https://signote.app/callback?attempt=${attempt}&code=${code}&state=${state}`),
     ).toBeNull();
+  });
+});
+
+describe('desktop auth callback lifecycle', () => {
+  const callback = { attemptId: 'a'.repeat(32), code: 'b'.repeat(43), state: 'c'.repeat(43) };
+
+  test('queues a cold-start callback until the renderer is ready and delivers it once', () => {
+    const queue = new AuthCallbackQueue();
+    const delivered: (typeof callback)[] = [];
+
+    queue.receive(callback);
+    expect(queue.flush((payload) => delivered.push(payload))).toBe(false);
+    queue.markRendererReady();
+    expect(queue.flush((payload) => delivered.push(payload))).toBe(true);
+    expect(queue.flush((payload) => delivered.push(payload))).toBe(false);
+    expect(delivered).toEqual([callback]);
+  });
+
+  test('pauses callback delivery during a renderer reload', () => {
+    const queue = new AuthCallbackQueue();
+    const delivered: (typeof callback)[] = [];
+
+    queue.markRendererReady();
+    queue.markRendererLoading();
+    queue.receive(callback);
+    expect(queue.flush((payload) => delivered.push(payload))).toBe(false);
+    queue.markRendererReady();
+    expect(queue.flush((payload) => delivered.push(payload))).toBe(true);
+    expect(delivered).toEqual([callback]);
+  });
+
+  test('restores and focuses an already-running minimized window', () => {
+    const calls: string[] = [];
+    focusDesktopWindow({
+      isMinimized: () => true,
+      restore: () => calls.push('restore'),
+      show: () => calls.push('show'),
+      focus: () => calls.push('focus'),
+    });
+    expect(calls).toEqual(['restore', 'show', 'focus']);
+  });
+});
+
+describe('preload bridge boundary', () => {
+  test('exposes only the documented immutable API and cleans up its callback listener', async () => {
+    const calls: Array<{ channel: string; payload?: string }> = [];
+    const callback = { attemptId: 'a'.repeat(32), code: 'b'.repeat(43), state: 'c'.repeat(43) };
+    const listeners = new Map<string, (payload: typeof callback) => void>();
+    const ipc: DesktopIpc = {
+      invoke: async (channel, payload) => {
+        calls.push({ channel, payload });
+      },
+      on: (channel, listener) => listeners.set(channel, listener),
+      send: (channel) => calls.push({ channel }),
+      removeListener: (channel, listener) => {
+        if (listeners.get(channel) === listener) listeners.delete(channel);
+      },
+    };
+
+    const bridge = createDesktopBridge(ipc, 'macos', '0.1.0');
+    expect(Object.isFrozen(bridge)).toBe(true);
+    expect(Object.keys(bridge).sort()).toEqual(
+      ['appVersion', 'isDesktop', 'onAuthCallback', 'platform', 'startBrowserLogin'].sort(),
+    );
+
+    await bridge.startBrowserLogin('https://signote.app/desktop/login?attempt=test');
+    expect(calls).toContainEqual({
+      channel: START_BROWSER_LOGIN_CHANNEL,
+      payload: 'https://signote.app/desktop/login?attempt=test',
+    });
+
+    const delivered: (typeof callback)[] = [];
+    const unsubscribe = bridge.onAuthCallback((payload) => delivered.push(payload));
+    expect(calls).toContainEqual({ channel: AUTH_CALLBACK_READY_CHANNEL });
+    listeners.get(AUTH_CALLBACK_CHANNEL)?.(callback);
+    expect(delivered).toEqual([callback]);
+    unsubscribe();
+    expect(listeners.has(AUTH_CALLBACK_CHANNEL)).toBe(false);
   });
 });
 

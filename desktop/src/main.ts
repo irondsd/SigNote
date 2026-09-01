@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { AuthCallbackQueue, focusDesktopWindow } from './authCallbackQueue.js';
 import { findDesktopAuthCallback, parseDesktopAuthCallback } from './deepLinks.js';
 import {
   AUTH_CALLBACK_CHANNEL,
@@ -13,26 +14,21 @@ const PROTOCOL = 'signote';
 const SESSION_PARTITION = 'persist:signote';
 
 let mainWindow: BrowserWindow | null = null;
-let pendingAuthCallback: DesktopAuthCallback | null = null;
-let authCallbackRendererReady = false;
+const authCallbackQueue = new AuthCallbackQueue();
 const appOrigin = resolveAppOrigin(app.isPackaged);
 
 function focusMainWindow(): void {
-  if (!mainWindow) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
+  focusDesktopWindow(mainWindow);
 }
 
 function flushAuthCallback(): void {
-  if (!mainWindow || !authCallbackRendererReady || !pendingAuthCallback) return;
-  mainWindow.webContents.send(AUTH_CALLBACK_CHANNEL, pendingAuthCallback);
-  pendingAuthCallback = null;
+  if (!mainWindow) return;
+  authCallbackQueue.flush((callback) => mainWindow?.webContents.send(AUTH_CALLBACK_CHANNEL, callback));
 }
 
 function handleAuthCallback(callback: DesktopAuthCallback | null): void {
   if (!callback) return;
-  pendingAuthCallback = callback;
+  authCallbackQueue.receive(callback);
   focusMainWindow();
   flushAuthCallback();
 }
@@ -73,7 +69,7 @@ function configureIpc(): void {
 
   ipcMain.on(AUTH_CALLBACK_READY_CHANNEL, (event) => {
     if (event.sender !== mainWindow?.webContents) return;
-    authCallbackRendererReady = true;
+    authCallbackQueue.markRendererReady();
     flushAuthCallback();
   });
 }
@@ -117,11 +113,11 @@ function createWindow(): BrowserWindow {
 
   window.once('ready-to-show', () => window.show());
   window.webContents.on('did-start-loading', () => {
-    authCallbackRendererReady = false;
+    authCallbackQueue.markRendererLoading();
   });
   window.on('closed', () => {
     if (mainWindow === window) {
-      authCallbackRendererReady = false;
+      authCallbackQueue.markRendererLoading();
       mainWindow = null;
     }
   });

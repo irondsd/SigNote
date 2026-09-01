@@ -7,6 +7,34 @@ import { makeAccount } from '../utils/makeAccount';
 import { trpcData, trpcMutate, trpcQuery } from '../utils/trpc';
 
 test.describe('desktop browser sign-in', () => {
+  test('rejects malformed, cross-origin, and unauthenticated protocol requests', async ({ page }) => {
+    const state = randomBytes(32).toString('base64url');
+    const verifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256').update(verifier, 'utf8').digest('base64url');
+
+    expect(
+      (
+        await page.request.post('/api/desktop-auth/attempts', {
+          data: { state: 'short', codeChallenge, codeChallengeMethod: 'S256' },
+        })
+      ).status(),
+    ).toBe(400);
+    expect(
+      (
+        await page.request.post('/api/desktop-auth/attempts', {
+          data: { state, codeChallenge, codeChallengeMethod: 'S256' },
+          headers: { Origin: 'https://attacker.example' },
+        })
+      ).status(),
+    ).toBe(400);
+
+    const attemptResponse = await page.request.post('/api/desktop-auth/attempts', {
+      data: { state, codeChallenge, codeChallengeMethod: 'S256' },
+    });
+    const { attemptId } = (await attemptResponse.json()) as { attemptId: string };
+    expect((await page.request.post('/api/desktop-auth/authorize', { data: { attemptId, state } })).status()).toBe(401);
+  });
+
   test('does not let a SIWE browser session authorize the desktop app', async ({ page }) => {
     const state = randomBytes(32).toString('base64url');
     const verifier = randomBytes(32).toString('base64url');
@@ -64,6 +92,11 @@ test.describe('desktop browser sign-in', () => {
       state: callback.searchParams.get('state'),
       codeVerifier,
     };
+    const interceptedResponse = await desktopPage.request.post('/api/desktop-auth/exchange', {
+      data: { ...exchangeBody, codeVerifier: randomBytes(32).toString('base64url') },
+    });
+    expect(interceptedResponse.status()).toBe(400);
+
     const exchangeResponse = await desktopPage.request.post('/api/desktop-auth/exchange', { data: exchangeBody });
     expect(exchangeResponse.ok()).toBeTruthy();
     expect(await exchangeResponse.json()).toEqual({ ok: true });

@@ -43,6 +43,8 @@ export function WebSignInMethods() {
   };
 
   const handleLinkGoogle = () => {
+    // A full document navigation is required because this route starts an external OAuth redirect.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = '/api/auth/link/google/initiate';
   };
 

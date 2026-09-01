@@ -1,28 +1,34 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import {
-  AUTH_CALLBACK_CHANNEL,
-  AUTH_CALLBACK_READY_CHANNEL,
-  START_BROWSER_LOGIN_CHANNEL,
-  type DesktopAuthCallback,
-} from './ipc.js';
+import { createDesktopBridge } from './bridge.js';
+import type { DesktopAuthCallback } from './ipc.js';
 
 const platform =
   process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : ('linux' as const);
 const appVersionArgument = process.argv.find((argument) => argument.startsWith('--signote-app-version='));
 const appVersion = appVersionArgument?.slice('--signote-app-version='.length) ?? 'unknown';
+const authListeners = new Map<
+  (payload: DesktopAuthCallback) => void,
+  (event: Electron.IpcRendererEvent, payload: DesktopAuthCallback) => void
+>();
 
-contextBridge.exposeInMainWorld(
-  'signoteDesktop',
-  Object.freeze({
-    isDesktop: true,
-    platform,
-    appVersion,
-    startBrowserLogin: (url: string) => ipcRenderer.invoke(START_BROWSER_LOGIN_CHANNEL, url),
-    onAuthCallback: (callback: (payload: DesktopAuthCallback) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: DesktopAuthCallback) => callback(payload);
-      ipcRenderer.on(AUTH_CALLBACK_CHANNEL, listener);
-      ipcRenderer.send(AUTH_CALLBACK_READY_CHANNEL);
-      return () => ipcRenderer.removeListener(AUTH_CALLBACK_CHANNEL, listener);
+const bridge = createDesktopBridge(
+  {
+    invoke: (channel, payload) => ipcRenderer.invoke(channel, payload),
+    on: (channel, listener) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, payload: DesktopAuthCallback) => listener(payload);
+      authListeners.set(listener, wrapped);
+      ipcRenderer.on(channel, wrapped);
     },
-  }),
+    send: (channel) => ipcRenderer.send(channel),
+    removeListener: (channel, listener) => {
+      const wrapped = authListeners.get(listener);
+      if (!wrapped) return;
+      ipcRenderer.removeListener(channel, wrapped);
+      authListeners.delete(listener);
+    },
+  },
+  platform,
+  appVersion,
 );
+
+contextBridge.exposeInMainWorld('signoteDesktop', bridge);

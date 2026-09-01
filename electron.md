@@ -417,16 +417,29 @@ Phase 2 status (2026-09-01): complete. The browser authorizes only Google-backed
 
 ### Phase 3: security and functional validation
 
-- [ ] Test Notes create/read/update/delete.
-- [ ] Test Secrets and Seals setup, unlock, soft lock, hard lock, and restart behavior.
+- [x] Test Notes create/read/update/delete.
+- [x] Test Secrets and Seals setup, unlock, soft lock, hard lock, and renderer-reload behavior.
 - [ ] Test attachments, downloads, clipboard, note URLs, and offline cache.
-- [ ] Test sign-out, session expiry, remote revocation, and preserved drafts.
-- [ ] Test expired, replayed, intercepted, malformed, and mismatched auth callbacks.
-- [ ] Test cold-start and already-running deep links.
-- [ ] Review navigation, popup, permission, IPC, preload, and CSP boundaries.
-- [ ] Run dependency and Electron security checks.
+- [x] Test sign-out, session expiry, remote revocation, and preserved drafts.
+- [x] Test expired, replayed, intercepted, malformed, and mismatched auth callbacks.
+- [x] Test cold-start and already-running deep links at the Electron lifecycle boundary.
+- [x] Review navigation, popup, permission, IPC, preload, and CSP boundaries.
+- [x] Run dependency and Electron security checks.
 
 Exit criteria: automated tests cover the auth protocol and manual regression passes cover all three note security tiers.
+
+Phase 3 status (2026-09-01): automated validation complete; installed-app manual validation remains. The final dependency state passes 323 Jest tests, 15 Electron security/lifecycle tests, and all 378 Playwright scenarios. The E2E suite covers Notes CRUD, both encrypted tiers, locks and reloads, attachments and downloads, clipboard actions, note URLs, drafts, sign-out, session revocation, and the desktop authorization protocol. A production Next.js build succeeds, and its emitted CSP omits `unsafe-eval`.
+
+The packaged arm64 app registers `signote://`, uses ASAR integrity metadata, denies arbitrary and local cleartext App Transport Security loads, and has the following Electron fuses enforced: `RunAsNode` off, cookie encryption on, `NODE_OPTIONS` and CLI inspection off, embedded ASAR integrity validation on, ASAR-only application loading on, and extra `file://` privileges off. Electronegativity reports the expected custom-protocol and `openExternal` review points; both call sites are constrained by exact URL parsers. Its CSP finding is not applicable to this thin-shell ASAR because the renderer CSP is delivered by the production HTTPS response and was verified in the generated Next.js route manifest.
+
+The desktop production dependency audit reports no known vulnerabilities. The web dependency audit has no critical findings after the security upgrades, but still reports 106 transitive findings (45 high, 55 moderate, 6 low), concentrated in the browser wallet connector stack and build/development tooling. These remain a tracked release risk; forcing incompatible transitive overrides is not accepted as remediation without upstream-compatible releases and regression coverage.
+
+Remaining manual checks before declaring Phase 3 fully complete:
+
+- Install and launch the unsigned development bundle, then verify `signote://` through macOS LaunchServices with the app both closed and already running.
+- Complete a real system-browser Google authorization against the deployment and verify quit/relaunch cookie persistence plus the expected encryption lock state.
+- Exercise attachment download and clipboard behavior inside the packaged Electron runtime.
+- Validate persisted-note behavior during a controlled offline start; service workers are intentionally disabled in desktop mode, so this must be judged against the actual TanStack Query cache UX.
 
 ### Phase 4: macOS distribution
 

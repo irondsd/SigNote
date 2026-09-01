@@ -14,6 +14,7 @@
     "dist": "bun run build && electron-builder"
   },
   "devDependencies": {
+    "@electron/fuses": "^1.8.0",
     "@types/node": "^22.0.0",
     "electron": "^44.1.0",
     "electron-builder": "^26.0.0",
@@ -23,6 +24,7 @@
     "appId": "app.signote.desktop",
     "productName": "SigNote",
     "asar": true,
+    "afterPack": "scripts/afterPack.cjs",
     "directories": {
       "output": "release"
     },
@@ -41,6 +43,12 @@
     "mac": {
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
+      "extendInfo": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": false
+        }
+      },
       "target": [
         "dmg",
         "zip"
