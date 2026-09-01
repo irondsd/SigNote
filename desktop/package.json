@@ -6,12 +6,14 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
+    "icon": "node scripts/render-icon.mjs assets/icon.svg assets/icon.png",
     "build": "tsc -p tsconfig.json && esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --sourcemap --outfile=dist/preload.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run build && bun test tests",
     "dev": "bun run build && electron .",
-    "pack": "bun run build && electron-builder --dir",
-    "dist": "bun run build && electron-builder"
+    "pack": "bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "dist": "bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never",
+    "dist:release": "bun run build && electron-builder --mac dmg zip --universal --publish never --config.forceCodeSigning=true --config.mac.notarize=true"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
@@ -19,11 +21,14 @@
     "electron": "^44.1.0",
     "electron-builder": "^26.0.0",
     "esbuild": "^0.27.7",
+    "sharp": "^0.35.4",
     "typescript": "^5.9.0"
   },
   "build": {
     "appId": "app.signote.desktop",
     "productName": "SigNote",
+    "copyright": "Copyright © 2026 SigNote",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
     "asar": true,
     "afterPack": "scripts/afterPack.cjs",
     "directories": {
@@ -36,6 +41,7 @@
     "protocols": [
       {
         "name": "SigNote",
+        "role": "Viewer",
         "schemes": [
           "signote"
         ]
@@ -44,6 +50,9 @@
     "mac": {
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
+      "icon": "assets/icon.png",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "extendInfo": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,

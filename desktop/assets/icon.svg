@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="surface" x1="160" y1="96" x2="864" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24262D"/>
+      <stop offset="1" stop-color="#0C0D11"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="270" y1="220" x2="748" y2="842" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB31A"/>
+      <stop offset="1" stop-color="#FF8A00"/>
+    </linearGradient>
+    <filter id="shadow" x="24" y="30" width="976" height="992" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="48" width="896" height="896" rx="208" fill="url(#surface)"/>
+    <rect x="70" y="54" width="884" height="884" rx="202" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="12"/>
+  </g>
+
+  <g transform="translate(128 120) scale(12)">
+    <path d="M22 30V20C22 12 26 8 32 8C38 8 42 12 42 20V30" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
+    <rect x="10" y="30" width="44" height="30" rx="6" stroke="url(#accent)" stroke-width="5"/>
+    <path d="M10 40H16M10 50H16" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="32" cy="44" r="3.5" fill="url(#accent)"/>
+    <rect x="30" y="47" width="4" height="5" rx="1" fill="url(#accent)"/>
+  </g>
+</svg>

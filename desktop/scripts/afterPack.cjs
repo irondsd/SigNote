@@ -37,4 +37,22 @@ exports.default = async function hardenMacTransportSecurity(context) {
     infoPlist,
   ]);
   execFileSync('plutil', ['-remove', 'NSAppTransportSecurity.NSExceptionDomains', infoPlist]);
+
+  // Electron's packaging defaults add usage strings for capabilities SigNote
+  // does not request. Omitting them keeps the signed bundle metadata aligned
+  // with the main-process permission policy, which denies every request.
+  for (const key of [
+    'NSAudioCaptureUsageDescription',
+    'NSBluetoothAlwaysUsageDescription',
+    'NSBluetoothPeripheralUsageDescription',
+    'NSCameraUsageDescription',
+    'NSLocationUsageDescription',
+    'NSMicrophoneUsageDescription',
+  ]) {
+    try {
+      execFileSync('plutil', ['-remove', key, infoPlist]);
+    } catch {
+      // The key is optional and may disappear from future Electron templates.
+    }
+  }
 };
