@@ -13,7 +13,13 @@ import {
 } from '@/lib/desktopAuth';
 import { emitDesktopAuthUiEvent } from '@/lib/desktopAuthEvents';
 
-export function DesktopAuthCallbackHandler() {
+type DesktopAuthCallbackHandlerProps = {
+  reload?: () => void;
+};
+
+const reloadWindow = () => window.location.reload();
+
+export function DesktopAuthCallbackHandler({ reload = reloadWindow }: DesktopAuthCallbackHandlerProps = {}) {
   useEffect(() => {
     const bridge = getDesktopBridge();
     if (!bridge) return;
@@ -29,10 +35,14 @@ export function DesktopAuthCallbackHandler() {
 
       try {
         await exchangeDesktopAuthCallback(payload);
-        await getSession();
+        const session = await getSession({ broadcast: false });
+        if (!session) {
+          throw new DesktopAuthError('The desktop session was created but could not be loaded. Please sign in again.', false);
+        }
         if (!active) return;
         posthog.capture('sign_in_completed', { method: 'google', client: 'desktop' });
         emitDesktopAuthUiEvent({ state: 'success' });
+        reload();
       } catch (error) {
         if (!active) return;
         const message = error instanceof DesktopAuthError ? error.message : 'Desktop sign-in failed. Please try again.';
@@ -51,7 +61,7 @@ export function DesktopAuthCallbackHandler() {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [reload]);
 
   return null;
 }

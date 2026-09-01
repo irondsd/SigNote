@@ -10,7 +10,7 @@ import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
 import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButton/DesktopGoogleSignInButton';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
-import { isDesktopApp } from '@/lib/desktop';
+import { useDesktopApp } from '@/hooks/useDesktopApp';
 import s from './SignInModal.module.scss';
 
 const SiweSignInButton = dynamic(
@@ -23,7 +23,7 @@ type SignInModalProps = {
 };
 
 export function SignInModal({ onClose }: SignInModalProps) {
-  const isDesktop = isDesktopApp();
+  const isDesktop = useDesktopApp();
   const { status } = useSession();
 
   useEffect(() => {

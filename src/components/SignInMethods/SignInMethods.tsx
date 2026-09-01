@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { isDesktopApp } from '@/lib/desktop';
+import { useDesktopApp } from '@/hooks/useDesktopApp';
 import { DesktopSignInMethods } from './DesktopSignInMethods';
 
 const WebSignInMethods = dynamic(
@@ -10,5 +10,5 @@ const WebSignInMethods = dynamic(
 );
 
 export function SignInMethods() {
-  return isDesktopApp() ? <DesktopSignInMethods /> : <WebSignInMethods />;
+  return useDesktopApp() ? <DesktopSignInMethods /> : <WebSignInMethods />;
 }
