@@ -7,6 +7,7 @@ import { WagmiProvider } from 'wagmi';
 import { config } from '@/config/wagmi';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+import { WalletSessionBridge } from '@/providers/WalletSessionBridge';
 
 type Web3ProviderProps = {
   children: ReactNode;
@@ -28,6 +29,7 @@ export const Web3Provider: FC<Web3ProviderProps> = ({ children }) => {
   return (
     <WagmiProvider config={config}>
       <RainbowKitProvider appInfo={appInfo} theme={rkTheme}>
+        <WalletSessionBridge />
         {children}
       </RainbowKitProvider>
     </WagmiProvider>

@@ -1,0 +1,50 @@
+{
+  "name": "signote-desktop",
+  "version": "0.1.0",
+  "description": "Secure desktop shell for SigNote",
+  "author": "SigNote",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test",
+    "dev": "bun run build && electron .",
+    "pack": "bun run build && electron-builder --dir",
+    "dist": "bun run build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^44.1.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.9.0"
+  },
+  "build": {
+    "appId": "app.signote.desktop",
+    "productName": "SigNote",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "SigNote",
+        "schemes": [
+          "signote"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
+  }
+}

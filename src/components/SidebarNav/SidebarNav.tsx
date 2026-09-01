@@ -4,7 +4,6 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { useDisconnect } from 'wagmi';
 import { Github, BookOpen, LogOut } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import { isAddress } from 'viem';
 import { shortenAddress } from '@/utils/shortenAddress';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { clearDraft } from '@/lib/draft';
+import { requestWalletDisconnect } from '@/lib/walletEvents';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -34,7 +34,6 @@ type SidebarNavProps = {
 export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { disconnect } = useDisconnect();
   const { data: profile } = useProfile();
 
   const displayName = useMemo(() => {
@@ -47,7 +46,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
 
   const handleSignOut = async () => {
     clearDraft();
-    disconnect();
+    requestWalletDisconnect();
     signOut({ redirect: false });
     const channel = new BroadcastChannel('signote-auth');
     channel.postMessage({ type: 'logout' });

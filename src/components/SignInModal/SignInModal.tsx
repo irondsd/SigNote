@@ -1,20 +1,29 @@
 'use client';
 
 import { X } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { signIn } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
-import { SiweSignInButton } from '@/components/SiweSignInButton/SiweSignInButton';
+import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButton/DesktopGoogleSignInButton';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
+import { isDesktopApp } from '@/lib/desktop';
 import s from './SignInModal.module.scss';
+
+const SiweSignInButton = dynamic(
+  () => import('@/components/SiweSignInButton/SiweSignInButton').then((module) => module.SiweSignInButton),
+  { ssr: false },
+);
 
 type SignInModalProps = {
   onClose: () => void;
 };
 
 export function SignInModal({ onClose }: SignInModalProps) {
+  const isDesktop = isDesktopApp();
+
   return (
     <Backdrop onClose={onClose}>
       <Modal className={s.modal}>
@@ -26,23 +35,29 @@ export function SignInModal({ onClose }: SignInModalProps) {
         </div>
 
         <div className={s.body}>
-          <Button
-            onClick={() => {
-              posthog.capture('sign_in_started', { method: 'google' });
-              signIn('google');
-            }}
-            data-testid="google-sign-in-btn"
-            className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
-          >
-            <GoogleIcon />
-            Sign in with Google
-          </Button>
+          {isDesktop ? (
+            <DesktopGoogleSignInButton />
+          ) : (
+            <>
+              <Button
+                onClick={() => {
+                  posthog.capture('sign_in_started', { method: 'google' });
+                  signIn('google');
+                }}
+                data-testid="google-sign-in-btn"
+                className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
+              >
+                <GoogleIcon />
+                Sign in with Google
+              </Button>
 
-          <div className={s.divider}>
-            <span>or</span>
-          </div>
+              <div className={s.divider}>
+                <span>or</span>
+              </div>
 
-          <SiweSignInButton />
+              <SiweSignInButton />
+            </>
+          )}
         </div>
       </Modal>
     </Backdrop>
