@@ -374,7 +374,7 @@ Implement all relevant launch cases:
 
 ### Phase 0: decisions and scaffolding
 
-- [x] Select `https://signote.app` as the configurable production-origin default; confirm before release.
+- [x] Select `https://signote.tech` as the configurable production-origin default; confirm before release.
 - [x] Select `app.signote.desktop` as the initial macOS bundle ID; confirm before signing.
 - [x] Select `signote://` as the initial deep-link scheme.
 - [x] Choose Electron Builder.

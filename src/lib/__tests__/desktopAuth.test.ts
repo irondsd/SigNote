@@ -38,7 +38,7 @@ describe('desktop renderer authentication', () => {
       jsonResponse(
         {
           attemptId: 'a'.repeat(32),
-          loginUrl: 'https://signote.app/desktop/login?attempt=test',
+          loginUrl: 'https://signote.tech/desktop/login?attempt=test',
           expiresAt: new Date(Date.now() + 60_000).toISOString(),
         },
         201,

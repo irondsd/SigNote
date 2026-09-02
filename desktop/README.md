@@ -7,7 +7,7 @@ This directory contains the isolated Electron shell for SigNote. The renderer lo
 - Packaging: `electron-builder`
 - macOS application ID: `app.signote.desktop`
 - Deep-link scheme: `signote://`
-- Production origin: `https://signote.app`
+- Production origin: `https://signote.tech`
 - Development origin: `http://localhost:5000`
 - Distribution: unsigned personal build; Developer ID signing is deferred
 - Automatic updates: excluded from the first beta until the release channel is selected
@@ -39,7 +39,7 @@ bun install
 `SIGNOTE_DESKTOP_ORIGIN` overrides the origin loaded by the shell:
 
 ```bash
-SIGNOTE_DESKTOP_ORIGIN="https://staging.signote.app" bun run desktop:dev
+SIGNOTE_DESKTOP_ORIGIN="https://staging.signote.tech" bun run desktop:dev
 ```
 
 Only HTTPS origins are accepted in packaged builds. Development builds also allow HTTP on `localhost`, `127.0.0.1`, and `[::1]`.

@@ -1,5 +1,5 @@
 const DEVELOPMENT_ORIGIN = 'http://localhost:5000';
-const PRODUCTION_ORIGIN = 'https://signote.app';
+const PRODUCTION_ORIGIN = 'https://signote.tech';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 

@@ -5,7 +5,7 @@ import { injectedWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wall
 import { server } from './server';
 
 const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID as string;
-export const walletAppUrl = typeof window === 'undefined' ? 'https://signote.app' : window.location.origin;
+export const walletAppUrl = typeof window === 'undefined' ? 'https://signote.tech' : window.location.origin;
 
 const walletConnectParams = {
   appName: 'SigNote',
