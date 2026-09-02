@@ -1,4 +1,4 @@
-# SigNote Desktop macOS Distribution Checklist
+# SigNote Desktop Distribution Checklist
 
 Phase 4 targets an unnotarized personal build with a free ad-hoc integrity signature. This avoids Apple Developer Program costs while the app is used only by its owner. Developer ID signing and notarization are deferred until SigNote is distributed to other users.
 
@@ -69,6 +69,78 @@ Do not remove quarantine attributes or globally disable Gatekeeper as part of th
 - [ ] Remove the application and document whether retained Electron profile data is intentional.
 - [ ] Repeat the core install/auth flow after a macOS update or on a clean local user account before relying on it for important data.
 
+## Windows personal build
+
+Build unsigned NSIS installers for both architectures from any host:
+
+```bash
+bun run desktop:dist:win
+```
+
+`dist:win` passes `--config.win.signExecutable=false`, so a `WIN_CSC_LINK` or
+certificate that happens to be present in the build environment is never used by
+the personal channel. The build log states `file signing skipped via
+signExecutable configuration` for every executable it produces. Artifacts land in
+`desktop/release/` as `SigNote-<version>-x64.exe`, `SigNote-<version>-arm64.exe`,
+and a combined `SigNote-<version>.exe`.
+
+Unsigned installers trigger a Microsoft Defender SmartScreen warning
+("Windows protected your PC"); the user must choose **More info -> Run anyway**.
+Do not distribute to other users before obtaining an EV or Azure Trusted Signing
+certificate. Publish the SHA-256 checksum alongside every download:
+
+```bash
+shasum -a 256 "desktop/release/SigNote-0.1.1-x64.exe"
+```
+
+### Windows acceptance (requires a Windows host)
+
+- [ ] Install `SigNote-<version>-x64.exe` per user and confirm no administrator prompt appears.
+- [ ] Confirm the Start-menu and desktop shortcuts, product name, icon at 16/32/48/256px, and version.
+- [ ] Confirm `HKCU\Software\Classes\signote` exists with `URL Protocol` and the `shell\open\command` value quoting `"%1"`.
+- [ ] Complete Google authorization with SigNote already running.
+- [ ] Complete Google authorization from a fully quit state (cold-start `signote://` deep link).
+- [ ] Confirm a second launch focuses the existing window instead of opening a new one.
+- [ ] Confirm the taskbar button groups with the installed shortcut (AppUserModelID `app.signote.desktop`).
+- [ ] Verify Notes, Secrets, Seals, attachments, downloads, clipboard, note URLs, and offline cache.
+- [ ] Verify WalletConnect QR pairing, SIWE sign-in, rejection, and disconnect.
+- [ ] Install a newer build over an older build and confirm the session, protocol registration, and profile data survive.
+- [ ] Uninstall and confirm the protocol keys are removed and `%APPDATA%\SigNote` is intentionally retained.
+- [ ] Repeat the install on an arm64 Windows device with `SigNote-<version>-arm64.exe`.
+
+## Linux personal build
+
+```bash
+bun run desktop:dist:linux
+```
+
+This produces AppImage and deb packages for x64 and arm64. The deb registers the
+scheme system-wide through `update-desktop-database`; an AppImage only registers
+`signote://` once the user integrates its desktop entry (for example with
+AppImageLauncher), so the deb is the recommended package whenever deep links
+matter.
+
+Neither package is signed. Publish SHA-256 checksums with every download.
+
+### Linux acceptance (requires a Linux host)
+
+- [ ] Install the deb and confirm `/usr/share/applications/signote.desktop` contains `MimeType=x-scheme-handler/signote;`.
+- [ ] Confirm `xdg-open "signote://auth/callback?..."` launches or focuses SigNote.
+- [ ] Confirm the Chromium sandbox is active (`chrome://sandbox` reports the namespace sandbox) and that the deb post-install only sets the `chrome-sandbox` SUID bit on kernels without unprivileged user namespaces.
+- [ ] Confirm the window manager associates the window with the desktop entry (`xprop WM_CLASS` reports `signote`).
+- [ ] Complete Google authorization both while running and from a cold start.
+- [ ] Verify Notes, Secrets, Seals, attachments, downloads, clipboard, note URLs, and offline cache.
+- [ ] Run the AppImage on a distribution with unprivileged user namespaces enabled and confirm it starts without `--no-sandbox`.
+- [ ] Uninstall the deb and confirm the desktop entry and MIME association are removed.
+
+## Automatic updates
+
+Automatic updates remain disabled on every platform. The NSIS target writes
+`.blockmap` files next to each installer, which a future `electron-updater`
+channel can use for differential downloads, but no updater is bundled and no
+publish target is configured. Update testing therefore means installing a newer
+build over an older one and verifying the checklist items above.
+
 ## Future signed distribution
 
 When budget permits and SigNote is ready for other users, enroll in the Apple Developer Program and run:
@@ -77,4 +149,9 @@ When budget permits and SigNote is ready for other users, enroll in the Apple De
 bun run desktop:dist:release
 ```
 
-That command builds a universal app and deliberately fails unless a Developer ID Application identity is available. Before using it, configure notarization credentials and restore the signed/notarized verification matrix: `codesign --verify`, `spctl --assess`, `xcrun stapler validate`, and testing on both Apple silicon and Intel Macs. Signing credentials must stay in the release environment or macOS Keychain and must never be committed.
+`desktop:dist:win:release` is the Windows equivalent: it sets
+`forceCodeSigning`, so it fails unless a certificate is configured through
+`win.signtoolOptions` or `win.azureSignOptions`, and it enables the Electron
+cookie-encryption fuse that the unsigned personal channel leaves off.
+
+That macOS command builds a universal app and deliberately fails unless a Developer ID Application identity is available. Before using it, configure notarization credentials and restore the signed/notarized verification matrix: `codesign --verify`, `spctl --assess`, `xcrun stapler validate`, and testing on both Apple silicon and Intel Macs. Signing credentials must stay in the release environment or macOS Keychain and must never be committed.

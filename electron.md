@@ -444,7 +444,7 @@ Deferred release-gate issue: test 9, end-to-end cold-start authorization, did no
 - [x] Explicitly disable automatic signing for personal builds.
 - [x] Defer Developer ID signing and Apple notarization until the project has a distribution budget.
 - [x] Produce a local unsigned DMG and ZIP installer for packaging validation.
-- [ ] Test installation, Privacy & Security approval, first launch, protocol registration, upgrade, and uninstall on the owner's Mac.
+- [x] Test installation, Privacy & Security approval, first launch, protocol registration, upgrade, and uninstall on the owner's Mac.
 - [x] Keep crash reporting disabled until privacy and redaction behavior is documented.
 - [x] Use manually published downloads for the first beta; keep automatic updates disabled.
 
@@ -459,10 +459,54 @@ Exit criteria for the personal build: the owner can install, explicitly approve,
 - [x] Manually validate QR pairing, signing, rejection, disconnect, relaunch, and session revocation with supported mobile wallets.
 - [ ] Add Windows packaging, code signing, installer, protocol registration, and update testing.
 - [ ] Add Linux packages and desktop-entry/protocol registration.
-- [ ] Evaluate verified HTTPS links or loopback callbacks.
-- [ ] Evaluate whether offline/product requirements justify a locally bundled frontend.
+- [x] Evaluate verified HTTPS links or loopback callbacks.
+- [x] Evaluate whether offline/product requirements justify a locally bundled frontend.
 
 Phase 5 WalletConnect status (2026-09-02): implementation and automated desktop-mode coverage are complete. Electron uses a dedicated RainbowKit configuration containing only the generic WalletConnect connector; the ordinary web application retains its existing wallet list and injected fallback. SIWE nonce creation and signature verification remain on the deployed backend, while the credentials callback writes the resulting session cookie directly into Electron's persistent partition and labels it as a desktop session. No system-browser consent page or `signote://` exchange is involved. Before relying on this path, add every deployed SigNote origin to the Reown project allowlist and complete the mobile-wallet manual matrix.
+
+Phase 5 checkbox note: the Windows and Linux items stay unchecked because their packaging, protocol registration, and hardening have landed and build successfully, but no part of either platform has been installed or exercised on its own operating system. Code signing on both platforms remains deliberately deferred under the Phase 4 budget decision.
+
+### Phase 5 Windows and Linux packaging status (2026-09-02)
+
+Configuration, installer scripting, icons, and cross-platform hardening are implemented, and every artifact type builds from the macOS development host: `makensis`, `fpm`, and the AppImage tooling all have host builds that electron-builder downloads, so `bun run desktop:dist:win` and `bun run desktop:dist:linux` produce real installers without a Windows or Linux machine.
+
+Windows:
+
+- NSIS installers for x64 and arm64, per user (`perMachine: false`, `allowElevation: false`), so no administrator prompt and no machine-wide state.
+- `desktop/build/installer.nsh` registers `Software\Classes\signote` under `SHCTX` with `URL Protocol`, a `DefaultIcon`, and a `shell\open\command` that quotes `"%1"`, and deletes the key on uninstall. electron-builder's `protocols` field is macOS-only, so the installer has to do this itself; the registry keys also let a cold-start deep link resolve before the app has ever been launched. A deliberate syntax error inserted into the include aborts `makensis`, which confirms the file is compiled into the shipped installer.
+- `app.setAppUserModelId('app.signote.desktop')` matches the AppUserModelID electron-builder stamps on the installed shortcuts, so the taskbar button groups correctly.
+- A multi-slot `assets/icon.ico` (16/24/32/48/64/128/256) is generated from the same SVG as the macOS icon; electron-builder requires the 256px slot.
+- `desktop:dist:win` passes `--config.win.signExecutable=false` so a certificate present in the build environment can never be used by the personal channel; the log records `file signing skipped via signExecutable configuration` for every executable. `desktop:dist:win:release` sets `forceCodeSigning` and enables the cookie-encryption fuse for a future signed channel.
+
+Linux:
+
+- AppImage and deb for x64 and arm64. electron-builder derives `MimeType=x-scheme-handler/signote;` in the generated desktop entry from `build.protocols`, which was verified by extracting `signote.desktop` from both built packages.
+- `desktopName`, `linux.executableName`, and `linux.syncDesktopName` are aligned so `StartupWMClass` matches Electron's `app_id` and window managers associate running windows with the installed entry.
+- The AppImage desktop entry drops the historical unconditional `--no-sandbox` argument (`appImage.executableArgs: []`). The bundled `AppRun` wrapper probes for unprivileged user namespaces and adds the flag only when the Chromium sandbox cannot start, so the sandbox stays on wherever the kernel allows it.
+- The deb keeps the sandbox as well: its post-install script sets the `chrome-sandbox` SUID bit only on kernels without user namespaces, and calls `update-desktop-database` so the scheme is registered system-wide. An AppImage registers the scheme only once its desktop entry is integrated, so the deb is the package to use when deep links matter.
+- The hardening `afterPack` hook now runs on all three platforms. Embedded ASAR integrity validation is enabled on macOS and Windows and left off on Linux, where Electron does not implement it; the remaining fuses (`RunAsNode`, `NODE_OPTIONS`, CLI inspection, `file://` privileges off, ASAR-only loading on) are identical everywhere, verified by reading the fuse wire back from each packaged binary.
+
+Remaining before either platform can be checked off: install, first launch, protocol registration, cold-start and already-running deep links, the three note tiers, upgrade over an older build, and uninstall, each on its own operating system. The per-platform acceptance matrices are in `desktop/RELEASE.md`. Automatic updates stay disabled everywhere; NSIS emits `.blockmap` files that a future `electron-updater` channel could use, but no updater is bundled and no publish target is configured, so "update testing" means installing a newer build over an older one.
+
+### Phase 5 evaluation: verified HTTPS links and loopback callbacks (2026-09-02)
+
+Decision: keep `signote://` as the only callback transport.
+
+Verified HTTPS links cannot cover the supported platforms. macOS universal links need an `apple-app-site-association` file served from the SigNote origin _and_ a Developer ID team identifier baked into a signed, notarized bundle, which the Phase 4 budget decision explicitly defers. Windows has no equivalent for a Win32/NSIS application; App URI handlers require MSIX packaging with domain validation. Linux has no verified-link mechanism at all beyond the desktop-entry MIME association already in use. So the best case is one extra macOS-only transport that still needs the custom scheme as a fallback, in exchange for a paid signing identity and a new server-hosted association file.
+
+Loopback callbacks (RFC 8252 section 7.3) are the standard native-app alternative and do remove scheme hijacking: only the process holding the ephemeral `127.0.0.1` port receives the redirect. They are rejected for now because they trade that for worse properties here. A loopback listener cannot start the application, so the cold-start case — the one already tracked as a release gate — becomes impossible rather than merely awkward. It adds an inbound HTTP surface inside the process that holds the PKCE verifier. It requires the server to accept a dynamic-port redirect target, weakening the current fixed-callback validation. And a local process can still race to bind the port before Electron does.
+
+The custom scheme's residual risk is bounded by the existing protocol rather than by the transport. A hostile local application that registers `signote://` receives the attempt ID, the state, and the opaque authorization code, but not the PKCE verifier, which never leaves the Electron renderer's `sessionStorage`. Without the verifier the exchange endpoint rejects the code, and the code is single-use with a one-minute lifetime, so interception yields a denial of service and never a session. Revisit this only if universal links become free as a side effect of Developer ID signing, and treat them as an additional macOS transport rather than a replacement.
+
+### Phase 5 evaluation: locally bundled frontend (2026-09-02)
+
+Decision: keep the thin shell over the deployed origin; do not bundle a renderer.
+
+Bundling cannot deliver offline use, which is its only compelling motivation. Unlocking Secrets and Seals reconstructs the MEK as `deviceShare XOR serverShare`, and `serverShare` lives in the `EncryptionProfile` document on the server. An offline SigNote therefore cannot decrypt anything it has cached, so a bundled renderer would ship an application that loads without a network and then refuses to open the two tiers that motivate the product. Making it genuinely offline means caching the server share locally, which collapses the two-share model into a single local secret — a security redesign, not a packaging change.
+
+The rest of the cost is unchanged from the original architecture decision and remains substantial: a public API origin with CORS, bearer tokens in place of same-origin HTTP-only cookies, `SessionProvider` changes, a clean client/server module split in a Next.js application that currently relies on server rendering and route handlers, and an auto-update channel so the bundled renderer can be patched at all — updates being the thing the first beta deliberately excludes. Meanwhile the existing TanStack Query persistence and IndexedDB cache already serve cached plaintext notes once the document has loaded, which is the only offline behavior actually reachable today.
+
+One thin-shell weakness this evaluation did surface is worth fixing independently of bundling: the main process calls `loadURL` with no `did-fail-load` handling, so an unreachable origin shows Chromium's default error page instead of a SigNote retry state. That is a small, self-contained shell improvement and is recommended as follow-up work rather than a reason to bundle.
 
 ## Testing Plan
 

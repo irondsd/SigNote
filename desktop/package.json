@@ -2,8 +2,10 @@
   "name": "signote-desktop",
   "version": "0.1.1",
   "description": "Secure desktop shell for SigNote",
+  "homepage": "https://signote.tech",
   "author": "SigNote",
   "private": true,
+  "desktopName": "signote.desktop",
   "main": "dist/main.js",
   "scripts": {
     "icon": "sh scripts/build-icon.sh",
@@ -13,6 +15,9 @@
     "dev": "bun run build && electron .",
     "pack": "bun run icon && bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --config.mac.identity=- --config.mac.hardenedRuntime=false",
     "dist": "bun run icon && bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never --config.mac.identity=- --config.mac.hardenedRuntime=false",
+    "dist:win": "bun run icon && bun run build && electron-builder --win --publish never --config.win.signExecutable=false",
+    "dist:win:release": "bun run icon && bun run build && SIGNOTE_ENABLE_COOKIE_ENCRYPTION=true electron-builder --win --publish never --config.win.signExecutable=true --config.win.forceCodeSigning=true",
+    "dist:linux": "bun run icon && bun run build && electron-builder --linux --publish never",
     "dist:release": "bun run icon && bun run build && SIGNOTE_ENABLE_COOKIE_ENCRYPTION=true electron-builder --mac dmg zip --universal --publish never --config.forceCodeSigning=true --config.mac.notarize=true"
   },
   "devDependencies": {
@@ -63,6 +68,65 @@
         "dmg",
         "zip"
       ]
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "executableName": "SigNote",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": true,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "SigNote",
+      "include": "build/installer.nsh"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "executableName": "signote",
+      "category": "Utility",
+      "synopsis": "Secure desktop shell for SigNote",
+      "description": "SigNote desktop application for encrypted notes, secrets, and seals.",
+      "maintainer": "SigNote <noreply@signote.tech>",
+      "syncDesktopName": true,
+      "desktop": {
+        "entry": {
+          "StartupNotify": "true"
+        }
+      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "appImage": {
+      "executableArgs": []
     }
   }
 }

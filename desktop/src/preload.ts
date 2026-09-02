@@ -1,9 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { createDesktopBridge } from './bridge.js';
+import { createDesktopBridge, toDesktopPlatform } from './bridge.js';
 import type { DesktopAuthCallback } from './ipc.js';
 
-const platform =
-  process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : ('linux' as const);
+const platform = toDesktopPlatform(process.platform);
 const appVersionArgument = process.argv.find((argument) => argument.startsWith('--signote-app-version='));
 const appVersion = appVersionArgument?.slice('--signote-app-version='.length) ?? 'unknown';
 const authListeners = new Map<

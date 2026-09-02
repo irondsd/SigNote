@@ -7,6 +7,14 @@ import {
 
 export type DesktopPlatform = 'macos' | 'windows' | 'linux';
 
+export function toDesktopPlatform(nodePlatform: NodeJS.Platform | string): DesktopPlatform {
+  if (nodePlatform === 'darwin') return 'macos';
+  if (nodePlatform === 'win32') return 'windows';
+  // Every remaining desktop target Electron supports is an X11/Wayland
+  // platform that behaves like Linux for the renderer's purposes.
+  return 'linux';
+}
+
 export type DesktopIpc = {
   invoke(channel: string, payload: string): Promise<unknown>;
   on(channel: string, listener: (payload: DesktopAuthCallback) => void): void;

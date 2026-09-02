@@ -6,4 +6,5 @@ desktop_dir=$(dirname -- "$script_dir")
 source_svg="$desktop_dir/assets/icon.svg"
 output_png="$desktop_dir/assets/icon.png"
 output_icns="$desktop_dir/assets/icon.icns"
-node "$script_dir/render-icon.mjs" "$source_svg" "$output_png" "$output_icns"
+output_ico="$desktop_dir/assets/icon.ico"
+node "$script_dir/render-icon.mjs" "$source_svg" "$output_png" "$output_icns" "$output_ico"

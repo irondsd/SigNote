@@ -12,6 +12,9 @@ import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, re
 import { isWindowVisible, loadWindowState, saveWindowState } from './windowState.js';
 
 const PROTOCOL = 'signote';
+// Must match build.appId so Windows groups the taskbar button with the
+// Start-menu shortcut the NSIS installer creates.
+const APP_USER_MODEL_ID = 'app.signote.desktop';
 // Cookie encryption was enabled in the original partition. Electron documents
 // disabling that fuse as a one-way transition that leaves the old cookie store
 // unreadable, so the unencrypted personal-build channel starts with a clean DB.
@@ -162,6 +165,8 @@ function createWindow(): BrowserWindow {
   void window.loadURL(appOrigin.href);
   return window;
 }
+
+if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
 registerProtocol();
 
