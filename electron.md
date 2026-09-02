@@ -456,7 +456,7 @@ Exit criteria for the personal build: the owner can install, explicitly approve,
 
 - [x] Add WalletConnect-only SIWE sign-in and Ethereum identity linking for desktop.
 - [x] Keep injected, extension, and wallet-specific SDK connectors disabled in desktop mode.
-- [ ] Manually validate QR pairing, signing, rejection, disconnect, relaunch, and session revocation with supported mobile wallets.
+- [x] Manually validate QR pairing, signing, rejection, disconnect, relaunch, and session revocation with supported mobile wallets.
 - [ ] Add Windows packaging, code signing, installer, protocol registration, and update testing.
 - [ ] Add Linux packages and desktop-entry/protocol registration.
 - [ ] Evaluate verified HTTPS links or loopback callbacks.
