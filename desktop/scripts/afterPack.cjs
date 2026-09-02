@@ -12,7 +12,10 @@ exports.default = async function hardenMacTransportSecurity(context) {
   await flipFuses(appPath, {
     version: FuseVersion.V1,
     [FuseV1Options.RunAsNode]: false,
-    [FuseV1Options.EnableCookieEncryption]: true,
+    // Ad-hoc macOS builds do not have a stable signing identity, so Chromium's
+    // Keychain-backed cookie encryption can prompt again after every rebuild.
+    // Enable it only for the future Developer ID release channel.
+    [FuseV1Options.EnableCookieEncryption]: process.env.SIGNOTE_ENABLE_COOKIE_ENCRYPTION === 'true',
     [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
     [FuseV1Options.EnableNodeCliInspectArguments]: false,
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,

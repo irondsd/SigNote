@@ -9,7 +9,7 @@ This directory contains the isolated Electron shell for SigNote. The renderer lo
 - Deep-link scheme: `signote://`
 - Production origin: `https://signote.tech`
 - Development origin: `http://localhost:5000`
-- Distribution: unsigned personal build; Developer ID signing is deferred
+- Distribution: ad-hoc signed, unnotarized personal build; Developer ID signing is deferred
 - Automatic updates: excluded from the first beta until the release channel is selected
 
 The application ID and production origin must be confirmed before distributing a build.
@@ -23,7 +23,7 @@ bun run dev              # start the SigNote web app
 bun run desktop:dev      # build and open the Electron shell
 bun run desktop:build    # compile the Electron main and preload processes
 bun run desktop:pack     # create an unpacked application
-bun run desktop:dist     # create explicitly unsigned local DMG and ZIP artifacts
+bun run desktop:dist     # create ad-hoc signed, unnotarized local DMG and ZIP artifacts
 bun run desktop:dist:release # future signed/notarized release (credentials required)
 ```
 
@@ -44,7 +44,9 @@ SIGNOTE_DESKTOP_ORIGIN="https://staging.signote.tech" bun run desktop:dev
 
 Only HTTPS origins are accepted in packaged builds. Development builds also allow HTTP on `localhost`, `127.0.0.1`, and `[::1]`.
 
-The current personal build is intentionally unsigned and requires one-time approval in macOS Privacy & Security. Signing and notarization remain configured only as a future opt-in release command. See [RELEASE.md](RELEASE.md) for installation steps and the deferred cold-start auth case.
+The current personal build has only a free ad-hoc integrity signature and remains unnotarized, so it may require one-time approval in macOS Privacy & Security. Developer ID signing and notarization remain configured only as a future opt-in release command. See [RELEASE.md](RELEASE.md) for installation steps and the deferred cold-start auth case.
+
+Because ad-hoc signatures change between builds, the personal channel keeps Electron's Keychain-backed cookie encryption fuse disabled and stores its HTTP-only session cookie in the local Chromium profile. Version 0.1.1 uses the fresh `persist:signote-v2` partition to avoid the unreadable encrypted cookie database created by 0.1.0. This requires one sign-in after upgrading, but later restarts persist without a Keychain prompt. The Developer ID release command re-enables cookie encryption once a stable signing identity is available.
 
 ## Current boundary
 

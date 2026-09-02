@@ -1,6 +1,6 @@
 # SigNote Desktop macOS Distribution Checklist
 
-Phase 4 targets an unsigned personal build. This avoids Apple Developer Program costs while the app is used only by its owner. Signing and notarization are deferred until SigNote is distributed to other users.
+Phase 4 targets an unnotarized personal build with a free ad-hoc integrity signature. This avoids Apple Developer Program costs while the app is used only by its owner. Developer ID signing and notarization are deferred until SigNote is distributed to other users.
 
 ## Known release gate
 
@@ -10,7 +10,7 @@ Phase 4 targets an unsigned personal build. This avoids Apple Developer Program 
 
 ## Release policy
 
-- Current DMG and ZIP artifacts are intentionally unsigned and unnotarized.
+- Current DMG and ZIP artifacts are intentionally ad-hoc signed and unnotarized. The ad-hoc signature is local bundle integrity metadata, not an Apple-issued identity and does not require a paid account.
 - The owner must explicitly approve the application through macOS Privacy & Security after the first blocked launch.
 - Do not ask other users to bypass Gatekeeper; obtain a Developer ID and notarize before wider distribution.
 - First-beta updates are manual downloads. No automatic updater is included.
@@ -24,7 +24,9 @@ No paid Apple membership or signing credentials are required. Build host-archite
 bun run desktop:dist
 ```
 
-`desktop:dist` explicitly disables certificate auto-discovery so local personal builds remain unsigned even if a certificate is added to the Keychain later. Artifacts are written to `desktop/release/`.
+`desktop:dist` explicitly disables certificate auto-discovery and requests ad-hoc signing so local personal builds never use a certificate added to the Keychain later. The ad-hoc signing pass is required on Apple silicon because the security-fuse hardening step modifies Electron's executable; without a fresh integrity signature macOS terminates it at launch. Artifacts are written to `desktop/release/`.
+
+The personal build leaves Electron cookie encryption disabled. Its persistent HTTP-only session cookie is therefore stored in Chromium's local profile without Keychain protection. This avoids repeated Keychain prompts caused by the changing identity of ad-hoc builds. Treat the local macOS account and disk as trusted, and enable FileVault. The future Developer ID release command enables cookie encryption again once the app has a stable signing identity.
 
 ## Install and approve on the owner's Mac
 
@@ -37,16 +39,22 @@ bun run desktop:dist
 Keep the DMG and its SHA-256 checksum together so the downloaded file can be checked before approval:
 
 ```bash
-shasum -a 256 "desktop/release/SigNote-0.1.0-arm64.dmg"
-hdiutil verify "desktop/release/SigNote-0.1.0-arm64.dmg"
+shasum -a 256 "desktop/release/SigNote-0.1.1-arm64.dmg"
+hdiutil verify "desktop/release/SigNote-0.1.1-arm64.dmg"
 ```
 
 Do not remove quarantine attributes or globally disable Gatekeeper as part of the normal installation instructions.
 
 ## Personal-build acceptance
 
-- [ ] Install from the unsigned DMG and approve it through Privacy & Security.
+- [ ] Verify the bundle before installation with `codesign --verify --deep --strict --verbose=2 desktop/release/mac-arm64/SigNote.app`.
+- [ ] Install from the unnotarized DMG and approve it through Privacy & Security.
+- [ ] Confirm the personal build does not request access to `SigNote Safe Storage` in Keychain.
+- [ ] Sign in once after upgrading from 0.1.0, quit fully, and confirm 0.1.1 restores the session without Keychain access.
 - [ ] Confirm the correct app name, icon, version, bundle ID `app.signote.desktop`, and `signote://` registration.
+- [ ] Confirm the icon renders correctly at compact launcher sizes (including Raycast or Spotlight), not only in Finder and the Dock.
+- [ ] Move and resize the window on a secondary display, close it with `Cmd+W`, and confirm reopening it from the Dock restores those bounds.
+- [ ] Disconnect that display while SigNote is closed and confirm the next launch places the window safely on the primary display.
 - [ ] Complete Google authorization with the app already running.
 - [ ] Complete Google authorization from a fully quit state.
 - [ ] Connect a supported mobile wallet by scanning the desktop WalletConnect QR code and complete SIWE sign-in.

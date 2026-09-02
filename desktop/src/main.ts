@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, session, shell } from 'electron';
 import { AuthCallbackQueue, focusDesktopWindow } from './authCallbackQueue.js';
 import { findDesktopAuthCallback, parseDesktopAuthCallback } from './deepLinks.js';
 import {
@@ -9,9 +9,14 @@ import {
   type DesktopAuthCallback,
 } from './ipc.js';
 import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from './security.js';
+import { isWindowVisible, loadWindowState, saveWindowState } from './windowState.js';
 
 const PROTOCOL = 'signote';
-const SESSION_PARTITION = 'persist:signote';
+// Cookie encryption was enabled in the original partition. Electron documents
+// disabling that fuse as a one-way transition that leaves the old cookie store
+// unreadable, so the unencrypted personal-build channel starts with a clean DB.
+const SESSION_PARTITION = 'persist:signote-v2';
+const DEFAULT_WINDOW_BOUNDS = { width: 1280, height: 820 };
 
 let mainWindow: BrowserWindow | null = null;
 const authCallbackQueue = new AuthCallbackQueue();
@@ -75,9 +80,20 @@ function configureIpc(): void {
 }
 
 function createWindow(): BrowserWindow {
+  const stateFile = path.join(app.getPath('userData'), 'window-state.json');
+  const savedState = loadWindowState(stateFile);
+  const displayWorkAreas = screen.getAllDisplays().map((display) => display.workArea);
+  const savedBounds = savedState?.bounds;
+  const primaryWorkArea = screen.getPrimaryDisplay().workArea;
+  const fallbackBounds = {
+    width: Math.min(DEFAULT_WINDOW_BOUNDS.width, primaryWorkArea.width),
+    height: Math.min(DEFAULT_WINDOW_BOUNDS.height, primaryWorkArea.height),
+    x: primaryWorkArea.x + Math.max(0, Math.floor((primaryWorkArea.width - DEFAULT_WINDOW_BOUNDS.width) / 2)),
+    y: primaryWorkArea.y + Math.max(0, Math.floor((primaryWorkArea.height - DEFAULT_WINDOW_BOUNDS.height) / 2)),
+  };
+  const restoredBounds = savedBounds && isWindowVisible(savedBounds, displayWorkAreas) ? savedBounds : fallbackBounds;
   const window = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    ...restoredBounds,
     minWidth: 900,
     minHeight: 640,
     show: false,
@@ -95,7 +111,26 @@ function createWindow(): BrowserWindow {
       additionalArguments: [`--signote-app-version=${app.getVersion()}`],
     },
   });
+  if (savedState?.maximized) window.maximize();
   window.webContents.setUserAgent(`${window.webContents.getUserAgent()} SigNoteDesktop/${app.getVersion()}`);
+
+  let saveBoundsTimer: NodeJS.Timeout | undefined;
+  const persistWindowState = (): void => {
+    if (window.isDestroyed()) return;
+    saveWindowState(stateFile, {
+      bounds: window.getNormalBounds(),
+      maximized: window.isMaximized(),
+    });
+  };
+  const scheduleWindowStateSave = (): void => {
+    if (saveBoundsTimer) clearTimeout(saveBoundsTimer);
+    saveBoundsTimer = setTimeout(persistWindowState, 250);
+  };
+
+  window.on('move', scheduleWindowStateSave);
+  window.on('resize', scheduleWindowStateSave);
+  window.on('maximize', scheduleWindowStateSave);
+  window.on('unmaximize', scheduleWindowStateSave);
 
   const guardNavigation = (event: Electron.Event, targetUrl: string): void => {
     if (isAllowedAppNavigation(targetUrl, appOrigin)) return;
@@ -116,11 +151,13 @@ function createWindow(): BrowserWindow {
     authCallbackQueue.markRendererLoading();
   });
   window.on('closed', () => {
+    if (saveBoundsTimer) clearTimeout(saveBoundsTimer);
     if (mainWindow === window) {
       authCallbackQueue.markRendererLoading();
       mainWindow = null;
     }
   });
+  window.on('close', persistWindowState);
 
   void window.loadURL(appOrigin.href);
   return window;

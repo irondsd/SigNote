@@ -1,19 +1,19 @@
 {
   "name": "signote-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Secure desktop shell for SigNote",
   "author": "SigNote",
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "icon": "node scripts/render-icon.mjs assets/icon.svg assets/icon.png",
+    "icon": "sh scripts/build-icon.sh",
     "build": "tsc -p tsconfig.json && esbuild src/preload.ts --bundle --platform=node --format=cjs --external:electron --sourcemap --outfile=dist/preload.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun run build && bun test tests",
     "dev": "bun run build && electron .",
-    "pack": "bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "dist": "bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never",
-    "dist:release": "bun run build && electron-builder --mac dmg zip --universal --publish never --config.forceCodeSigning=true --config.mac.notarize=true"
+    "pack": "bun run icon && bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --config.mac.identity=- --config.mac.hardenedRuntime=false",
+    "dist": "bun run icon && bun run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never --config.mac.identity=- --config.mac.hardenedRuntime=false",
+    "dist:release": "bun run icon && bun run build && SIGNOTE_ENABLE_COOKIE_ENCRYPTION=true electron-builder --mac dmg zip --universal --publish never --config.forceCodeSigning=true --config.mac.notarize=true"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",
@@ -50,7 +50,7 @@
     "mac": {
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.icns",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "extendInfo": {
