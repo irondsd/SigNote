@@ -54,7 +54,8 @@ export function SessionCard({ session, onRevoke, isRevoking }: SessionCardProps)
       <div className={s.body}>
         <div className={s.headRow}>
           <h3 className={s.title}>
-            {session.browser} <span className={s.muted}>on</span> {session.os}
+            {session.client === 'desktop' ? 'SigNote Desktop' : session.browser} <span className={s.muted}>on</span>{' '}
+            {session.os}
           </h3>
           {session.current && (
             <Badge variant="secondary" className={s.currentBadge}>

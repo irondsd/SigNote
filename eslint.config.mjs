@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
     '.next/**',
     'out/**',
     'build/**',
+    'desktop/dist/**',
+    'desktop/release/**',
     'next-env.d.ts',
     'tests/provider/mock-provider.js',
     'public/sw.js',

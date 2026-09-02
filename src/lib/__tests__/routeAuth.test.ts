@@ -84,7 +84,7 @@ describe('withSession', () => {
     const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
     await withSession(handler)(buildReq(), { params: Promise.resolve({ id: 'abc' }) });
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, params: { id: 'abc' } });
+    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, provider: null, params: { id: 'abc' } });
     expect(mockFindSession).not.toHaveBeenCalled();
   });
 
@@ -146,7 +146,7 @@ describe('withSession', () => {
         userAgent: 'TestUA',
       }),
     );
-    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: 'sid1', params: {} });
+    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: 'sid1', provider: 'google', params: {} });
   });
 
   it('does not touch a fresh session row', async () => {
@@ -196,7 +196,7 @@ describe('withSession', () => {
     const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await withSession(handler)(buildReq(), undefined as any);
-    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, params: {} });
+    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, provider: null, params: {} });
   });
 
   it('returns handler response on success', async () => {

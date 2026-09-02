@@ -7,9 +7,9 @@ function mockBaseUrl() {
   return `http://localhost:${port}`;
 }
 
-function setupFlowRoute(page: Page, flowId: string): Promise<void> {
+async function setupFlowRoute(page: Page, flowId: string): Promise<void> {
   const port = process.env.MOCK_OAUTH_PORT!;
-  return page.route(
+  await page.route(
     (url) => url.hostname === 'localhost' && url.port === port && url.pathname === '/auth',
     (route) => {
       const target = new URL(route.request().url());

@@ -12,6 +12,7 @@ export const sessionsRouter = router({
       sessions: sessions.map((s) => ({
         _id: s._id.toString(),
         provider: s.provider,
+        client: s.client ?? 'web',
         ip: s.ip,
         browser: s.browser,
         os: s.os,

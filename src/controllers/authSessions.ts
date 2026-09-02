@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { AuthSessionModel, type AuthProvider, type DeviceType } from '@/models/AuthSession';
+import { AuthSessionModel, type AuthClient, type AuthProvider, type DeviceType } from '@/models/AuthSession';
 
 // Controller intentionally does not call connectToDatabase: callers (route
 // handlers via withSession; tests via mongoose.connect) own the connection
@@ -23,6 +23,7 @@ export const upsertSessionIfMissing = async (params: {
   sid: string;
   userId: string;
   provider: AuthProvider;
+  client?: AuthClient;
   ip: string;
   userAgent: string;
   browser: string;
@@ -40,6 +41,7 @@ export const upsertSessionIfMissing = async (params: {
         _id,
         userId: params.userId,
         provider: params.provider,
+        client: params.client ?? 'web',
         ip: params.ip,
         userAgent: params.userAgent,
         browser: params.browser,

@@ -10,6 +10,7 @@ import {
 } from '@/controllers/authSessions';
 import { getClientIp } from '@/lib/clientIp';
 import { parseUserAgent } from '@/lib/uaParser';
+import type { AuthProvider } from '@/models/AuthSession';
 import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export class RouteAuthError extends Error {
@@ -26,6 +27,7 @@ export class RouteAuthError extends Error {
 export interface AuthedContext {
   userId: string;
   sid: string | null;
+  provider: AuthProvider | null;
   params: Record<string, string>;
 }
 
@@ -38,7 +40,9 @@ type AuthedHandler = (req: NextRequest, ctx: AuthedContext) => Promise<NextRespo
  * on any auth failure. Shared by `withSession` (REST) and the tRPC context so
  * the security-sensitive path has a single source of truth.
  */
-export async function authenticateRequest(req: NextRequest): Promise<{ userId: string; sid: string | null }> {
+export async function authenticateRequest(
+  req: NextRequest,
+): Promise<{ userId: string; sid: string | null; provider: AuthProvider | null }> {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const userId = typeof token?.sub === 'string' ? token.sub : null;
 
@@ -47,7 +51,7 @@ export async function authenticateRequest(req: NextRequest): Promise<{ userId: s
   }
 
   const sid = typeof token?.sid === 'string' ? token.sid : null;
-  const provider = token?.provider;
+  const provider = token?.provider === 'google' || token?.provider === 'siwe' ? token.provider : null;
 
   // Per-request session validation. Legacy JWTs (no sid) bypass — they expire
   // naturally within 7 days of the deploy of this feature.
@@ -63,7 +67,7 @@ export async function authenticateRequest(req: NextRequest): Promise<{ userId: s
       // First authed request after sign-in: lazy-create the audit row. We need
       // the provider claim that was set during the jwt callback to know how
       // the user signed in.
-      if (provider === 'google' || provider === 'siwe') {
+      if (provider) {
         const ip = getClientIp(req);
         const userAgent = req.headers.get('user-agent') ?? '';
         const parsed = parseUserAgent(userAgent);
@@ -71,6 +75,7 @@ export async function authenticateRequest(req: NextRequest): Promise<{ userId: s
           sid,
           userId,
           provider,
+          client: token?.client === 'desktop' ? 'desktop' : 'web',
           ip,
           userAgent,
           ...parsed,
@@ -88,7 +93,7 @@ export async function authenticateRequest(req: NextRequest): Promise<{ userId: s
   const client = await getMongoClientFromMongoose();
   attachDatabasePool(client);
 
-  return { userId, sid };
+  return { userId, sid, provider };
 }
 
 export function withSession(
@@ -108,7 +113,7 @@ export function withSession(
     const params = nextCtx?.params ? await nextCtx.params : {};
 
     try {
-      return await handler(req, { userId: auth.userId, sid: auth.sid, params });
+      return await handler(req, { userId: auth.userId, sid: auth.sid, provider: auth.provider, params });
     } catch (err) {
       if (err instanceof RouteAuthError) {
         return NextResponse.json(err.body, { status: err.status });
