@@ -61,7 +61,9 @@ describe('DesktopAuthCallbackHandler', () => {
 
     await act(async () => receiveCallback?.(callback));
 
-    await waitFor(() => expect(emitDesktopAuthUiEvent).toHaveBeenCalledWith(expect.objectContaining({ state: 'error' })));
+    await waitFor(() =>
+      expect(emitDesktopAuthUiEvent).toHaveBeenCalledWith(expect.objectContaining({ state: 'error' })),
+    );
     expect(reload).not.toHaveBeenCalled();
   });
 });

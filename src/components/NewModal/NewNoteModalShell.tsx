@@ -28,7 +28,15 @@ type NewNoteModalShellProps = {
  * the title input, formatting toolbar, style/tag controls, footer buttons and
  * the discard-confirmation dialog. Tiers supply the editor and the save logic.
  */
-export function NewNoteModalShell({ form, saveLabel, saveTestId, onSave, saving, children, extras }: NewNoteModalShellProps) {
+export function NewNoteModalShell({
+  form,
+  saveLabel,
+  saveTestId,
+  onSave,
+  saving,
+  children,
+  extras,
+}: NewNoteModalShellProps) {
   const disableSave = (form.isTitleEmpty && form.isContentEmpty) || saving || form.isUploading;
 
   return (
@@ -47,7 +55,9 @@ export function NewNoteModalShell({ form, saveLabel, saveTestId, onSave, saving,
         onClose={form.handleClose}
         onBackdropClose={form.handleClose}
         toolbar={<FormattingToolbar editor={form.editor} isOpen={form.showFormatBar} showFileUpload />}
-        footerLeft={<FormatToggleButton isActive={form.showFormatBar} onToggle={() => form.setShowFormatBar((v) => !v)} />}
+        footerLeft={
+          <FormatToggleButton isActive={form.showFormatBar} onToggle={() => form.setShowFormatBar((v) => !v)} />
+        }
         onColorChange={form.setColor}
         onPatternChange={form.setPattern}
         onTagsChange={form.setTags}

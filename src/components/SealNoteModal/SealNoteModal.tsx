@@ -277,7 +277,17 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         setSaving(false);
       }
     },
-    [decryptedContent, title, note.encryptedBody, note.wrappedNoteKey, note._id, updateSeal, setEditing, setShowFormatBar, setUpdatedAt],
+    [
+      decryptedContent,
+      title,
+      note.encryptedBody,
+      note.wrappedNoteKey,
+      note._id,
+      updateSeal,
+      setEditing,
+      setShowFormatBar,
+      setUpdatedAt,
+    ],
   );
 
   const handleSave = async () => {

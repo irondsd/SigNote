@@ -4,7 +4,13 @@ import { type EncryptedPayload } from '@/types/crypto';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { trpcClient } from '@/lib/trpcClient';
 import { dispatchCommonUpdate } from './internal/tierClient';
-import { commonTempNote, useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
+import {
+  commonTempNote,
+  useCreateTier,
+  useDeleteTier,
+  useUndeleteTier,
+  useUpdateTier,
+} from './internal/useTierMutations';
 
 export type CachedSealNote = {
   _id: string;
@@ -94,7 +100,9 @@ type CreateSealMutationInput = {
   pattern?: string | null;
   fileIds?: string[];
   tags?: string[];
-  encryptBody: (sealId: string) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
+  encryptBody: (
+    sealId: string,
+  ) => Promise<{ encryptedBody: EncryptedPayload; wrappedNoteKey: EncryptedPayload } | null>;
 };
 
 /**

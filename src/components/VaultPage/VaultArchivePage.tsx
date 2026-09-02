@@ -35,7 +35,14 @@ export type VaultArchivePageConfig<T> = {
 };
 
 /** Shared archive page for the encrypted tiers (secrets, seals). */
-export function VaultArchivePage<T>({ title, backHref, backLabel, backIcon, useItems, Grid }: VaultArchivePageConfig<T>) {
+export function VaultArchivePage<T>({
+  title,
+  backHref,
+  backLabel,
+  backIcon,
+  useItems,
+  Grid,
+}: VaultArchivePageConfig<T>) {
   const { data: session, status } = useSession();
   const { phase } = useEncryption();
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useItems({ archived: true });

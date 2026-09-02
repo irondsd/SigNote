@@ -3,7 +3,13 @@
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { trpcClient } from '@/lib/trpcClient';
 import { dispatchCommonUpdate } from './internal/tierClient';
-import { commonTempNote, useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from './internal/useTierMutations';
+import {
+  commonTempNote,
+  useCreateTier,
+  useDeleteTier,
+  useUndeleteTier,
+  useUpdateTier,
+} from './internal/useTierMutations';
 
 export type CachedNote = {
   _id: string;

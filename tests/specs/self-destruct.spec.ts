@@ -12,8 +12,9 @@ import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
 // The list GET is often batched behind other procedures (e.g.
 // `/api/trpc/profile.get,notes.list?batch=1`), so match the procedure anywhere
 // in the URL rather than anchored to the `/api/trpc/` prefix.
-const listRefetchOf = (tier: 'notes' | 'secrets' | 'seals') => (r: { url(): string; request(): { method(): string } }) =>
-  r.url().includes(`${tier}.list`) && r.request().method() === 'GET';
+const listRefetchOf =
+  (tier: 'notes' | 'secrets' | 'seals') => (r: { url(): string; request(): { method(): string } }) =>
+    r.url().includes(`${tier}.list`) && r.request().method() === 'GET';
 
 test.describe.configure({ mode: 'parallel' });
 

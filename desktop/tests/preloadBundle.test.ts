@@ -8,6 +8,6 @@ describe('sandboxed preload bundle', () => {
 
     expect(source).toContain('require("electron")');
     expect(source).not.toMatch(/require\(["']\.{1,2}\//u);
-    expect(source).toContain("exposeInMainWorld(\"signoteDesktop\"");
+    expect(source).toContain('exposeInMainWorld("signoteDesktop"');
   });
 });

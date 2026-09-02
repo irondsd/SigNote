@@ -37,7 +37,10 @@ export function DesktopAuthCallbackHandler({ reload = reloadWindow }: DesktopAut
         await exchangeDesktopAuthCallback(payload);
         const session = await getSession({ broadcast: false });
         if (!session) {
-          throw new DesktopAuthError('The desktop session was created but could not be loaded. Please sign in again.', false);
+          throw new DesktopAuthError(
+            'The desktop session was created but could not be loaded. Please sign in again.',
+            false,
+          );
         }
         if (!active) return;
         posthog.capture('sign_in_completed', { method: 'google', client: 'desktop' });

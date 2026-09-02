@@ -44,22 +44,16 @@ describe('window state persistence', () => {
 
   test('recognizes a window on a secondary display with negative coordinates', () => {
     expect(
-      isWindowVisible(
-        { x: -1400, y: 100, width: 1000, height: 700 },
-        [
-          { x: 0, y: 0, width: 1728, height: 1080 },
-          { x: -1920, y: 0, width: 1920, height: 1080 },
-        ],
-      ),
+      isWindowVisible({ x: -1400, y: 100, width: 1000, height: 700 }, [
+        { x: 0, y: 0, width: 1728, height: 1080 },
+        { x: -1920, y: 0, width: 1920, height: 1080 },
+      ]),
     ).toBe(true);
   });
 
   test('rejects bounds from a disconnected display', () => {
     expect(
-      isWindowVisible(
-        { x: 2500, y: 100, width: 1000, height: 700 },
-        [{ x: 0, y: 0, width: 1728, height: 1080 }],
-      ),
+      isWindowVisible({ x: 2500, y: 100, width: 1000, height: 700 }, [{ x: 0, y: 0, width: 1728, height: 1080 }]),
     ).toBe(false);
   });
 });

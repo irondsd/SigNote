@@ -16,8 +16,7 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
 
   const requiresEncryption = !!(
     editor.extensionManager.extensions.find((e) => e.name === 'fileDropHandler')?.options as
-      | { encryptionRef?: { current: { required: boolean } } }
-      | undefined
+      { encryptionRef?: { current: { required: boolean } } } | undefined
   )?.encryptionRef?.current?.required;
 
   const handleFiles = useCallback(

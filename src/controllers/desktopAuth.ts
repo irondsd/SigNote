@@ -75,8 +75,7 @@ export async function authorizeDesktopAuthAttempt(params: { attemptId: string; s
 }
 
 export type ConsumeDesktopAuthResult =
-  | { ok: true; userId: string }
-  | { ok: false; reason: 'invalid_or_expired' | 'rate_limited' | 'already_consumed' };
+  { ok: true; userId: string } | { ok: false; reason: 'invalid_or_expired' | 'rate_limited' | 'already_consumed' };
 
 export async function consumeDesktopAuthAttempt(params: {
   attemptId: string;

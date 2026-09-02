@@ -38,7 +38,11 @@ type MetaNote = {
  * `update` is the tier's `updateX.mutate` (bound); `burnReady` gates burn-arming
  * until the body is readable (seals arm only after decrypt).
  */
-export function useNoteModalMeta(note: MetaNote, update: (patch: MetaPatch) => void, options?: { burnReady?: boolean }) {
+export function useNoteModalMeta(
+  note: MetaNote,
+  update: (patch: MetaPatch) => void,
+  options?: { burnReady?: boolean },
+) {
   const noteId = String(note._id);
 
   const [editing, setEditing] = useState(false);
