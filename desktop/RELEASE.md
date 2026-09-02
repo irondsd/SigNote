@@ -49,6 +49,10 @@ Do not remove quarantine attributes or globally disable Gatekeeper as part of th
 - [ ] Confirm the correct app name, icon, version, bundle ID `app.signote.desktop`, and `signote://` registration.
 - [ ] Complete Google authorization with the app already running.
 - [ ] Complete Google authorization from a fully quit state.
+- [ ] Connect a supported mobile wallet by scanning the desktop WalletConnect QR code and complete SIWE sign-in.
+- [ ] Reject a pairing and a signature, then confirm the desktop UI recovers and permits a retry.
+- [ ] Confirm injected/browser wallets never appear in the desktop wallet chooser.
+- [ ] Quit and relaunch after SIWE sign-in; confirm the NextAuth session persists without requiring the wallet to remain connected.
 - [ ] Quit and relaunch; confirm the desktop session persists and encrypted tiers return in the expected locked state.
 - [ ] Verify Notes, Secrets, Seals, attachments, downloads, clipboard, note URLs, and offline cache.
 - [ ] Verify remote session revocation and local sign-out.

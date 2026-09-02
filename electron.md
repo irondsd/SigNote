@@ -454,12 +454,15 @@ Exit criteria for the personal build: the owner can install, explicitly approve,
 
 ### Phase 5: later platform work
 
+- [x] Add WalletConnect-only SIWE sign-in and Ethereum identity linking for desktop.
+- [x] Keep injected, extension, and wallet-specific SDK connectors disabled in desktop mode.
+- [ ] Manually validate QR pairing, signing, rejection, disconnect, relaunch, and session revocation with supported mobile wallets.
 - [ ] Add Windows packaging, code signing, installer, protocol registration, and update testing.
 - [ ] Add Linux packages and desktop-entry/protocol registration.
-- [ ] Add WalletConnect-only SIWE for desktop.
-- [ ] Keep injected wallets disabled in desktop mode.
 - [ ] Evaluate verified HTTPS links or loopback callbacks.
 - [ ] Evaluate whether offline/product requirements justify a locally bundled frontend.
+
+Phase 5 WalletConnect status (2026-09-02): implementation and automated desktop-mode coverage are complete. Electron uses a dedicated RainbowKit configuration containing only the generic WalletConnect connector; the ordinary web application retains its existing wallet list and injected fallback. SIWE nonce creation and signature verification remain on the deployed backend, while the credentials callback writes the resulting session cookie directly into Electron's persistent partition and labels it as a desktop session. No system-browser consent page or `signote://` exchange is involved. Before relying on this path, add every deployed SigNote origin to the Reown project allowlist and complete the mobile-wallet manual matrix.
 
 ## Testing Plan
 

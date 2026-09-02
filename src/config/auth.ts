@@ -6,6 +6,7 @@ import type { NextAuthOptions } from 'next-auth';
 import { revokeSessionBySid } from '@/controllers/authSessions';
 import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
 import { validateSiweCredentials } from '@/lib/siwe';
+import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
 
 export const authOptions: NextAuthOptions = {
@@ -40,6 +41,10 @@ export const authOptions: NextAuthOptions = {
           label: 'Signature',
           type: 'text',
         },
+        client: {
+          label: 'Client',
+          type: 'text',
+        },
       },
       async authorize(credentials) {
         if (!credentials?.message || !credentials?.signature) return null;
@@ -50,7 +55,10 @@ export const authOptions: NextAuthOptions = {
         const user = await upsertSiweUser(valid.address);
         if (!user) return null;
 
-        return { id: user._id.toString(), name: user.displayName };
+        // This value labels the session in the device list only. It is never
+        // used as an authorization or trust boundary.
+        const client = credentials.client === 'desktop' ? 'desktop' : 'web';
+        return { id: user._id.toString(), name: user.displayName, client };
       },
     }),
   ],
@@ -67,7 +75,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
       if (account) {
         // First sign-in for this JWT — issue a session id and capture the provider.
         // Subsequent calls (token refresh) have no `account` and pass the existing claims through unchanged.
@@ -82,7 +90,7 @@ export const authOptions: NextAuthOptions = {
         } else if (account.provider === 'credentials') {
           token.provider = 'siwe';
         }
-        token.client = 'web';
+        token.client = resolveSignInClient(account.provider, user?.client);
         token.sid = new mongoose.Types.ObjectId().toString();
       }
       return token;

@@ -8,7 +8,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { EthereumIcon } from '../icons/SignInIcons';
 
-export function SiweSignInButton() {
+export function SiweSignInButton({ client = 'web' }: { client?: 'web' | 'desktop' }) {
   const { sign, step } = useSiweSign();
 
   const handleSignIn = async () => {
@@ -19,6 +19,7 @@ export function SiweSignInButton() {
     const res = await signIn('credentials', {
       message: result.message,
       signature: result.signature,
+      client,
       redirect: false,
     });
 

@@ -42,7 +42,15 @@ export function SignInModal({ onClose }: SignInModalProps) {
 
         <div className={s.body}>
           {isDesktop ? (
-            <DesktopGoogleSignInButton />
+            <>
+              <DesktopGoogleSignInButton />
+
+              <div className={s.divider}>
+                <span>or</span>
+              </div>
+
+              <SiweSignInButton client="desktop" />
+            </>
           ) : (
             <>
               <Button

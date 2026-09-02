@@ -4,18 +4,19 @@ import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowki
 import type { FC, ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 
-import { config } from '@/config/wagmi';
+import { desktopConfig, walletAppUrl, webConfig } from '@/config/wagmi';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { WalletSessionBridge } from '@/providers/WalletSessionBridge';
 
 type Web3ProviderProps = {
   children: ReactNode;
+  desktop?: boolean;
 };
 
-const appInfo = { appName: 'SigNote', learnMoreUrl: `https://${process.env.NEXTAUTH_URL}/docs/about` };
+const appInfo = { appName: 'SigNote', learnMoreUrl: `${walletAppUrl}/docs/about` };
 
-export const Web3Provider: FC<Web3ProviderProps> = ({ children }) => {
+export const Web3Provider: FC<Web3ProviderProps> = ({ children, desktop = false }) => {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -27,7 +28,7 @@ export const Web3Provider: FC<Web3ProviderProps> = ({ children }) => {
   const rkTheme = mounted && resolvedTheme === 'dark' ? darkTheme() : lightTheme();
 
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={desktop ? desktopConfig : webConfig}>
       <RainbowKitProvider appInfo={appInfo} theme={rkTheme}>
         <WalletSessionBridge />
         {children}

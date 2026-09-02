@@ -54,4 +54,6 @@ The preload exposes immutable desktop metadata, one constrained `startBrowserLog
 
 Pending state and PKCE material live only in renderer `sessionStorage`; callbacks contain only the attempt ID, opaque single-use code, and state. The persistent Electron partition stores the HTTP-only NextAuth cookie so a desktop session survives window and application restarts.
 
-Wallet providers and SIWE controls are not loaded in desktop mode. Service-worker registrations are cleared in the dedicated Electron session before the page loads so an old worker cannot pin the shell to a stale web deployment; IndexedDB application data remains untouched.
+Desktop mode loads a dedicated RainbowKit configuration with only the generic WalletConnect connector. Injected wallets, browser extensions, and wallet-specific SDK connectors remain unavailable; users connect by scanning the QR code with a compatible mobile wallet. SIWE nonce creation and verification still use the deployed SigNote origin, and the resulting NextAuth cookie is written directly to Electron's persistent session. Add the production and staging origins to the Reown project allowlist before testing those deployments.
+
+Service-worker registrations are cleared in the dedicated Electron session before the page loads so an old worker cannot pin the shell to a stale web deployment; IndexedDB application data remains untouched.
