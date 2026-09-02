@@ -4,7 +4,7 @@ import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowki
 import type { FC, ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 
-import { desktopConfig, walletAppUrl, webConfig } from '@/config/wagmi';
+import { getWalletConfig, walletAppUrl } from '@/config/wagmi';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { WalletSessionBridge } from '@/providers/WalletSessionBridge';
@@ -26,9 +26,10 @@ export const Web3Provider: FC<Web3ProviderProps> = ({ children, desktop = false 
   }, []);
 
   const rkTheme = mounted && resolvedTheme === 'dark' ? darkTheme() : lightTheme();
+  const config = getWalletConfig(desktop);
 
   return (
-    <WagmiProvider config={desktop ? desktopConfig : webConfig}>
+    <WagmiProvider config={config}>
       <RainbowKitProvider appInfo={appInfo} theme={rkTheme}>
         <WalletSessionBridge />
         {children}

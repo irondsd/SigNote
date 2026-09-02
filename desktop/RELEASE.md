@@ -50,6 +50,7 @@ Do not remove quarantine attributes or globally disable Gatekeeper as part of th
 - [ ] Complete Google authorization with the app already running.
 - [ ] Complete Google authorization from a fully quit state.
 - [ ] Connect a supported mobile wallet by scanning the desktop WalletConnect QR code and complete SIWE sign-in.
+- [ ] Before re-testing WalletConnect client changes, disconnect the old SigNote pairing in the mobile wallet and restart both the Next.js and Electron development processes; Fast Refresh can leave obsolete development listeners alive.
 - [ ] Reject a pairing and a signature, then confirm the desktop UI recovers and permits a retry.
 - [ ] Confirm injected/browser wallets never appear in the desktop wallet chooser.
 - [ ] Quit and relaunch after SIWE sign-in; confirm the NextAuth session persists without requiring the wallet to remain connected.

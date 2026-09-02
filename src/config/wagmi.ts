@@ -11,7 +11,6 @@ const walletConnectParams = {
   appName: 'SigNote',
   projectId: walletConnectProjectId,
 };
-const { wallets } = getDefaultWallets(walletConnectParams);
 
 const metadata = {
   projectId: walletConnectProjectId,
@@ -21,24 +20,46 @@ const metadata = {
   appIcon: `${walletAppUrl}/web-app-manifest-512x512.png`,
 };
 
-export const webConfig = getDefaultConfig({
-  ...server,
-  ...metadata,
-  wallets: [
-    ...wallets,
-    // Required by browser E2E tests and useful when an extension injects
-    // window.ethereum into the ordinary web application.
-    { groupName: 'Other', wallets: [injectedWallet] },
-  ],
-});
+function createWebConfig() {
+  const { wallets } = getDefaultWallets(walletConnectParams);
+  return getDefaultConfig({
+    ...server,
+    ...metadata,
+    wallets: [
+      ...wallets,
+      // Required by browser E2E tests and useful when an extension injects
+      // window.ethereum into the ordinary web application.
+      { groupName: 'Other', wallets: [injectedWallet] },
+    ],
+  });
+}
 
-export const desktopConfig = getDefaultConfig({
-  ...server,
-  ...metadata,
-  // Electron has no supported extension surface. The generic WalletConnect
-  // connector deliberately exposes only the QR-compatible transport.
-  wallets: [{ groupName: 'Mobile wallets', wallets: [walletConnectWallet] }],
-});
+function createDesktopConfig() {
+  return getDefaultConfig({
+    ...server,
+    ...metadata,
+    // Electron has no supported extension surface. The generic WalletConnect
+    // connector deliberately exposes only the QR-compatible transport.
+    wallets: [{ groupName: 'Mobile wallets', wallets: [walletConnectWallet] }],
+  });
+}
 
-// Backwards-compatible export for callers that mean the normal web config.
-export const config = webConfig;
+type WalletConfig = ReturnType<typeof createWebConfig>;
+
+let webConfig: WalletConfig | undefined;
+let desktopConfig: WalletConfig | undefined;
+
+/**
+ * Construct only the connector graph used by the current runtime. Creating
+ * both Wagmi configs eagerly makes their WalletConnect connectors share
+ * storage and process the same proposal/session events twice.
+ */
+export function getWalletConfig(desktop: boolean): WalletConfig {
+  if (desktop) {
+    desktopConfig ??= createDesktopConfig();
+    return desktopConfig;
+  }
+
+  webConfig ??= createWebConfig();
+  return webConfig;
+}
