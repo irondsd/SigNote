@@ -42,8 +42,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // The dev server is started inside globalSetup (after MongoDB) so that it
-  // inherits the dynamic MONGODB_URI. webServer is intentionally omitted here.
+  // The dev server is started inside globalSetup (after Postgres is up and
+  // migrated) so that it inherits DATABASE_URL. webServer is intentionally
+  // omitted here.
   globalSetup: './tests/setup/globalSetup.ts',
   globalTeardown: './tests/setup/globalTeardown.ts',
 });

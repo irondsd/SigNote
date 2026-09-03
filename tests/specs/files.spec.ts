@@ -5,8 +5,10 @@ import { makeAccount } from '../utils/makeAccount';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
-import { FileAttachmentModel } from '../../src/models/FileAttachment';
-import mongoose from 'mongoose';
+import { eq } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
+import { fileAttachments } from '../../src/db/schema';
+import { testDb } from '../fixtures/db';
 import { trpcMutationOf } from '../utils/trpc';
 
 const pdfPath = path.resolve(__dirname, '../fixtures/files/sample.pdf');
@@ -94,7 +96,7 @@ test.describe('file download', () => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
 
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = uuidv7();
     const res = await page.request.get(`/api/files/${fakeId}`);
     expect(res.status()).toBe(404);
   });
@@ -134,7 +136,7 @@ test.describe('file delete', () => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
 
-    const fakeId = new mongoose.Types.ObjectId().toString();
+    const fakeId = uuidv7();
     const res = await page.request.delete(`/api/files/${fakeId}`);
     expect(res.status()).toBe(404);
   });
@@ -182,10 +184,10 @@ async function waitForFileUpload(page: import('@playwright/test').Page) {
 }
 
 async function assertFileEncrypted(fileId: string) {
-  const doc = await FileAttachmentModel.findById(fileId).lean();
-  expect(doc).toBeTruthy();
-  expect(doc!.encrypted).toBe(true);
-  expect(doc!.encryptionIv).toBeTruthy();
+  const rows = await testDb().select().from(fileAttachments).where(eq(fileAttachments.id, fileId)).limit(1);
+  expect(rows[0]).toBeTruthy();
+  expect(rows[0].encrypted).toBe(true);
+  expect(rows[0].encryptionIv).toBeTruthy();
 }
 
 async function openNewSecret(page: import('@playwright/test').Page) {

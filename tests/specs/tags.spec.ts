@@ -154,7 +154,8 @@ test.describe('tag API routes', () => {
 
     expect((await trpcMutate(page.request, 'tags.update', { id: foreignId, name: 'mine-now' })).status()).toBe(403);
     expect((await trpcMutate(page.request, 'tags.delete', { id: foreignId })).status()).toBe(403);
-    expect((await trpcMutate(page.request, 'tags.update', { id: 'not-an-id', name: 'x' })).status()).toBe(400);
+    // Tag ids are TEXT now — an id with no matching row is simply not found.
+    expect((await trpcMutate(page.request, 'tags.update', { id: 'not-an-id', name: 'x' })).status()).toBe(404);
   });
 
   test('DELETE removes the tag and detaches it from notes', async ({ page }) => {

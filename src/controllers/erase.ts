@@ -1,21 +1,25 @@
-import { AuthIdentityModel } from '@/models/AuthIdentity';
-import { NoteModel } from '@/models/Note';
-import { SecretNoteModel } from '@/models/SecretNote';
-import { SealNoteModel } from '@/models/SealNote';
-import { EncryptionProfileModel } from '@/models/EncryptionProfile';
-import { UserModel } from '@/models/User';
-import { deleteFilesByUserId } from '@/controllers/files';
+import { eq } from 'drizzle-orm';
 
-export const eraseSeals = (userId: string) => SealNoteModel.deleteMany({ userId });
+import { getDb } from '@/db/client';
+import { authIdentities, encryptionProfiles, notes, sealNotes, secretNotes, users } from '@/db/schema';
+import { deleteFilesByUserId } from './files';
 
-export const eraseSecrets = (userId: string) => SecretNoteModel.deleteMany({ userId });
+// Version and tag-join rows go with their parents via ON DELETE CASCADE.
 
-export const eraseNotes = (userId: string) => NoteModel.deleteMany({ userId });
+export const eraseSeals = (userId: string) => getDb().delete(sealNotes).where(eq(sealNotes.userId, userId));
 
-export const eraseEncryptionProfile = (userId: string) => EncryptionProfileModel.deleteOne({ userId });
+export const eraseSecrets = (userId: string) => getDb().delete(secretNotes).where(eq(secretNotes.userId, userId));
+
+export const eraseNotes = (userId: string) => getDb().delete(notes).where(eq(notes.userId, userId));
+
+export const eraseEncryptionProfile = (userId: string) =>
+  getDb().delete(encryptionProfiles).where(eq(encryptionProfiles.userId, userId));
 
 export const eraseFiles = (userId: string) => deleteFilesByUserId(userId);
 
 export const eraseAccount = async (userId: string) => {
-  await Promise.all([UserModel.deleteOne({ _id: userId }), AuthIdentityModel.deleteMany({ userId })]);
+  await Promise.all([
+    getDb().delete(users).where(eq(users.id, userId)),
+    getDb().delete(authIdentities).where(eq(authIdentities.userId, userId)),
+  ]);
 };

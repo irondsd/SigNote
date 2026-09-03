@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { trpc } from '@/lib/trpc';
-import type { ClientTag, TagsResponse } from './useTags';
+import type { ClientTag } from './useTags';
 
 // Roots whose cached docs embed tag ids — refreshed after a tag is deleted.
 // Still REST-keyed during the migration; these match the infinite-query keys.
@@ -33,8 +33,10 @@ export function useTagCountBump() {
   );
 }
 
-// The tags.list cache holds hydrated-doc types; at runtime it's the ClientTag
-// shape. Narrow once here so the cache updaters read naturally.
+// tRPC runs without a data transformer, so the inferred cache type carries
+// `Date` fields that are actually ISO strings once they cross the wire.
+// ClientTag is the runtime truth; narrow to it once here so the cache updaters
+// read naturally, and cast back at the setData boundary.
 type CachedTags = { tags: ClientTag[]; counts: Record<string, number> } | undefined;
 const asCached = (old: unknown): CachedTags => old as CachedTags;
 
@@ -43,10 +45,10 @@ export function useTagMutations() {
   const qc = useQueryClient();
 
   const patchTagsCache = (updater: (tags: ClientTag[]) => ClientTag[]) =>
-    utils.tags.list.setData(undefined, (old) => {
+    utils.tags.list.setData(undefined, ((old: unknown) => {
       const cached = asCached(old);
-      return cached ? ({ ...cached, tags: updater(cached.tags) } as unknown as TagsResponse) : old;
-    });
+      return cached ? { ...cached, tags: updater(cached.tags) } : old;
+    }) as never);
 
   const create = trpc.tags.create.useMutation({
     onSuccess: (tag) => {
@@ -71,7 +73,7 @@ export function useTagMutations() {
       return { snapshot };
     },
     onError: (_err, _vars, context) => {
-      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as unknown as TagsResponse);
+      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as never);
       toast.error('Failed to update tag');
     },
     onSettled: () => utils.tags.list.invalidate(),
@@ -86,7 +88,7 @@ export function useTagMutations() {
     },
     onSuccess: () => posthog.capture('tag_deleted'),
     onError: (_err, _vars, context) => {
-      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as unknown as TagsResponse);
+      if (context?.snapshot) utils.tags.list.setData(undefined, context.snapshot as never);
       toast.error('Failed to delete tag');
     },
     onSettled: () => {

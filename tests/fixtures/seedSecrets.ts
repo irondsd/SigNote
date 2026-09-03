@@ -1,12 +1,17 @@
-import mongoose from 'mongoose';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Address } from 'viem';
-import { SecretNoteModel, type SecretNoteDocument } from '../../src/models/SecretNote';
+import { secretNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
+import { testDb } from './db';
 import type { NoteColor } from '../../src/config/noteStyles';
 
-const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
-const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
 const POSITION_STEP = 1000;
+
+/** The inserted row, plus the `_id` alias the app's API exposes — specs
+ *  address seeded rows the same way the client sees them. */
+export type SeededSecret = typeof secretNotes.$inferSelect & { _id: string };
+
+const withAliasedId = (row: typeof secretNotes.$inferSelect): SeededSecret => ({ ...row, _id: row.id });
 const HKDF_INFO_SECRET_BODY = 'secret-body:v1';
 
 export type SeedSecret = {
@@ -34,11 +39,8 @@ export const seedSecrets = async (
   address: Address,
   mekBytes: Uint8Array,
   secrets: SeedSecret[],
-): Promise<SecretNoteDocument[]> => {
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
-  }
-
+): Promise<SeededSecret[]> => {
+  const db = testDb();
   const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
@@ -61,34 +63,38 @@ export const seedSecrets = async (
   );
 
   // Determine starting position
-  const lastSecret = await SecretNoteModel.findOne({ userId, deletedAt: null })
-    .sort({ position: -1 })
-    .select({ position: 1 })
-    .lean()
-    .exec();
+  const last = await db
+    .select({ position: secretNotes.position })
+    .from(secretNotes)
+    .where(and(eq(secretNotes.userId, userId), isNull(secretNotes.deletedAt)))
+    .orderBy(desc(secretNotes.position))
+    .limit(1);
 
-  let position = (lastSecret?.position ?? 0) + POSITION_STEP;
+  let position = (last[0]?.position ?? 0) + POSITION_STEP;
 
-  const created: SecretNoteDocument[] = [];
+  const created: SeededSecret[] = [];
   for (const secret of secrets) {
     const now = new Date();
     const encryptedBody = secret.content?.trim() ? await encryptContent(secretBodyKey, secret.content.trim()) : null;
 
-    const doc = await SecretNoteModel.create({
-      userId,
-      title: secret.title ?? '',
-      encryptedBody,
-      archived: secret.archived ?? false,
-      color: secret.color ?? null,
-      position,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      pinned: secret.pinned ?? false,
-      expiresAt: secret.expiresAt ?? null,
-      burnAfterReading: secret.burnAfterReading ?? false,
-    });
-    created.push(doc);
+    const [row] = await db
+      .insert(secretNotes)
+      .values({
+        userId,
+        title: secret.title ?? '',
+        encryptedBody,
+        archived: secret.archived ?? false,
+        color: secret.color ?? null,
+        position,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+        pinned: secret.pinned ?? false,
+        expiresAt: secret.expiresAt ?? null,
+        burnAfterReading: secret.burnAfterReading ?? false,
+      })
+      .returning();
+    created.push(withAliasedId(row));
     position += POSITION_STEP;
   }
 

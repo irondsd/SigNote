@@ -153,44 +153,43 @@ test.describe('HTTP security headers', () => {
   });
 });
 
-// ─── Invalid ObjectId → 400 (Zod input validation) ──────────────────────────
+// ─── Unknown / malformed ids ────────────────────────────────────────────────
+//
+// Ids are TEXT columns now, not ObjectIds, so there is no format left to
+// violate: an id that doesn't exist simply matches nothing and the procedure
+// 404s. Zod still rejects the two shapes that can't be a real id at all —
+// empty, and longer than the 64-char anti-abuse cap — with a 400.
 
-test.describe('invalid ObjectId returns 400', () => {
-  test('notes.update with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'notes.update', { id: 'not-a-valid-id', title: 'test' });
-    expect(res.status()).toBe(400);
-  });
+test.describe('unknown id returns 404', () => {
+  const cases = [
+    ['notes.update', { title: 'test' }],
+    ['notes.delete', {}],
+    ['secrets.update', { title: 'test' }],
+    ['secrets.delete', {}],
+    ['seals.update', { title: 'test' }],
+    ['seals.delete', {}],
+  ] as const;
 
-  test('notes.delete with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'notes.delete', { id: 'not-a-valid-id' });
-    expect(res.status()).toBe(400);
-  });
+  for (const [proc, extra] of cases) {
+    test(`${proc} with an id that matches no row returns 404`, async ({ page }) => {
+      await signInFresh(page);
+      const res = await trpcMutate(page.request, proc, { id: 'not-a-valid-id', ...extra });
+      expect(res.status()).toBe(404);
+    });
+  }
+});
 
-  test('secrets.update with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'secrets.update', { id: 'not-a-valid-id', title: 'test' });
-    expect(res.status()).toBe(400);
-  });
-
-  test('secrets.delete with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'secrets.delete', { id: 'not-a-valid-id' });
-    expect(res.status()).toBe(400);
-  });
-
-  test('seals.update with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'seals.update', { id: 'not-a-valid-id', title: 'test' });
-    expect(res.status()).toBe(400);
-  });
-
-  test('seals.delete with invalid id returns 400', async ({ page }) => {
-    await signInFresh(page);
-    const res = await trpcMutate(page.request, 'seals.delete', { id: 'not-a-valid-id' });
-    expect(res.status()).toBe(400);
-  });
+test.describe('malformed id returns 400', () => {
+  for (const [label, id] of [
+    ['empty', ''],
+    ['over the 64-char cap', 'x'.repeat(65)],
+  ] as const) {
+    test(`notes.update with an ${label} id returns 400`, async ({ page }) => {
+      await signInFresh(page);
+      const res = await trpcMutate(page.request, 'notes.update', { id, title: 'test' });
+      expect(res.status()).toBe(400);
+    });
+  }
 });
 
 // ─── Payload size limits → 400 (Zod max) ────────────────────────────────────

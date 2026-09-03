@@ -1,9 +1,8 @@
-import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { TagModel } from '@/models/Tag';
-import { NoteModel } from '@/models/Note';
-import { SecretNoteModel } from '@/models/SecretNote';
-import { SealNoteModel } from '@/models/SealNote';
+import { count, eq } from 'drizzle-orm';
+
+import type { Db } from '@/db/client';
+import { notes, tags } from '@/db/schema';
+import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import {
   createTag,
   deleteTagAndDetach,
@@ -15,35 +14,32 @@ import {
   tagNameTaken,
   touchTags,
   updateTag,
-} from '../tags';
-import { getNotesByUserId } from '../notes';
+} from '@/controllers/tags';
+import { createNote, getNoteById, getNotesByUserId } from '@/controllers/notes';
+import { createSecret } from '@/controllers/secrets';
+import { createSeal } from '@/controllers/seals';
 
-let mongo: MongoMemoryServer;
+let db: Db;
 
 beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
-  await mongoose.connect(mongo.getUri());
-  // Build the { userId, name } unique index up front — the concurrent-create
-  // race test relies on it existing.
-  await TagModel.init();
+  db = await setupTestDb();
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongo.stop();
+  await teardownTestDb();
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    TagModel.deleteMany({}),
-    NoteModel.deleteMany({}),
-    SecretNoteModel.deleteMany({}),
-    SealNoteModel.deleteMany({}),
-  ]);
+  await resetTestDb(db);
 });
 
 const userId = '0xowner';
 const other = '0xstranger';
+
+const countTags = async (owner: string) => {
+  const rows = await db.select({ n: count() }).from(tags).where(eq(tags.userId, owner));
+  return Number(rows[0].n);
+};
 
 describe('createTag', () => {
   it('normalizes the name and auto-assigns a color when none given', async () => {
@@ -57,7 +53,7 @@ describe('createTag', () => {
     const b = await createTag(userId, 'work');
     expect(b._id.toString()).toBe(a._id.toString());
     expect(b.color).toBe('red'); // unchanged
-    expect(await TagModel.countDocuments({ userId })).toBe(1);
+    expect(await countTags(userId)).toBe(1);
   });
 
   it('honors an explicit valid color', async () => {
@@ -73,7 +69,7 @@ describe('createTag', () => {
     ]);
     const ids = new Set(results.map((t) => t._id.toString()));
     expect(ids.size).toBe(1);
-    expect(await TagModel.countDocuments({ userId })).toBe(1);
+    expect(await countTags(userId)).toBe(1);
   });
 });
 
@@ -132,13 +128,13 @@ describe('updateTag / uniqueness', () => {
 });
 
 describe('getOwnedTagIds', () => {
-  it('keeps only valid ids owned by the user, preserving order', async () => {
+  it('keeps only ids owned by the user, preserving order', async () => {
     const a = await createTag(userId, 'a');
     const b = await createTag(userId, 'b');
     const foreign = await createTag(other, 'c');
     const result = await getOwnedTagIds(userId, [
       b._id.toString(),
-      'not-an-objectid',
+      'not-a-real-id',
       foreign._id.toString(),
       a._id.toString(),
     ]);
@@ -153,8 +149,14 @@ describe('listTags / touchTags ordering', () => {
     await createTag(userId, 'cherry'); // never used → null lastUsedAt
 
     // Explicit timestamps keep ordering independent of DB write timing.
-    await TagModel.updateOne({ _id: banana._id }, { lastUsedAt: new Date('2024-01-01') });
-    await TagModel.updateOne({ _id: apple._id }, { lastUsedAt: new Date('2024-06-01') });
+    await db
+      .update(tags)
+      .set({ lastUsedAt: new Date('2024-01-01') })
+      .where(eq(tags.id, banana._id.toString()));
+    await db
+      .update(tags)
+      .set({ lastUsedAt: new Date('2024-06-01') })
+      .where(eq(tags.id, apple._id.toString()));
 
     const ordered = await listTags(userId);
     expect(ordered.map((t) => t.name)).toEqual(['apple', 'banana', 'cherry']);
@@ -164,12 +166,12 @@ describe('listTags / touchTags ordering', () => {
     const tag = await createTag(userId, 'work');
     expect(tag.lastUsedAt).toBeNull();
     await touchTags([tag._id.toString()]);
-    const fresh = await TagModel.findById(tag._id);
-    expect(fresh?.lastUsedAt).toBeInstanceOf(Date);
+    const fresh = await db.select().from(tags).where(eq(tags.id, tag._id.toString()));
+    expect(fresh[0]?.lastUsedAt).toBeInstanceOf(Date);
   });
 
-  it('ignores invalid ids and never throws', async () => {
-    await expect(touchTags(['not-an-objectid'])).resolves.toBeUndefined();
+  it('ignores unknown ids and never throws', async () => {
+    await expect(touchTags(['not-a-real-id'])).resolves.toBeUndefined();
     await expect(touchTags([])).resolves.toBeUndefined();
   });
 });
@@ -181,19 +183,13 @@ describe('getTagUsageCounts', () => {
     const wid = work._id.toString();
     const hid = home._id.toString();
 
-    await NoteModel.create({ userId, title: 'n1', content: '', position: 1, tags: [wid, hid] });
-    await NoteModel.create({ userId, title: 'n2', content: '', position: 2, tags: [wid] });
-    await SecretNoteModel.create({ userId, title: 's1', encryptedBody: null, position: 1, tags: [wid] });
-    await SealNoteModel.create({
-      userId,
-      title: 'l1',
-      encryptedBody: null,
-      wrappedNoteKey: null,
-      position: 1,
-      tags: [hid],
-    });
+    await createNote(userId, 'n1', '', undefined, undefined, [wid, hid]);
+    await createNote(userId, 'n2', '', undefined, undefined, [wid]);
+    await createSecret(userId, 's1', null, undefined, undefined, [wid]);
+    await createSeal(userId, 'l1', null, null, undefined, undefined, [hid]);
     // soft-deleted note should not count
-    await NoteModel.create({ userId, title: 'gone', content: '', position: 3, tags: [wid], deletedAt: new Date() });
+    const gone = await createNote(userId, 'gone', '', undefined, undefined, [wid]);
+    await db.update(notes).set({ deletedAt: new Date() }).where(eq(notes.id, gone._id.toString()));
 
     const counts = await getTagUsageCounts(userId);
     expect(counts[wid]).toBe(3); // 2 notes + 1 secret
@@ -204,23 +200,17 @@ describe('getTagUsageCounts', () => {
     const work = await createTag(userId, 'work');
     const wid = work._id.toString();
 
-    await NoteModel.create({ userId, title: 'live', content: '', position: 1, tags: [wid] });
-    await NoteModel.create({
-      userId,
-      title: 'expired',
-      content: '',
-      position: 2,
-      tags: [wid],
-      expiresAt: new Date(Date.now() - 60_000),
-    });
-    await NoteModel.create({
-      userId,
-      title: 'expires later',
-      content: '',
-      position: 3,
-      tags: [wid],
-      expiresAt: new Date(Date.now() + 60 * 60_000),
-    });
+    await createNote(userId, 'live', '', undefined, undefined, [wid]);
+    const expired = await createNote(userId, 'expired', '', undefined, undefined, [wid]);
+    await db
+      .update(notes)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(notes.id, expired._id.toString()));
+    const later = await createNote(userId, 'expires later', '', undefined, undefined, [wid]);
+    await db
+      .update(notes)
+      .set({ expiresAt: new Date(Date.now() + 60 * 60_000) })
+      .where(eq(notes.id, later._id.toString()));
 
     const counts = await getTagUsageCounts(userId);
     expect(counts[wid]).toBe(2); // live + future expiry; past expiry dropped
@@ -228,33 +218,35 @@ describe('getTagUsageCounts', () => {
 });
 
 describe('deleteTagAndDetach', () => {
-  it('deletes the tag and pulls its id from every tier', async () => {
+  it('deletes the tag and detaches its id from every tier', async () => {
     const work = await createTag(userId, 'work');
     const keep = await createTag(userId, 'keep');
     const wid = work._id.toString();
     const kid = keep._id.toString();
 
-    const note = await NoteModel.create({ userId, title: 'n', content: '', position: 1, tags: [wid, kid] });
-    const secret = await SecretNoteModel.create({ userId, title: 's', encryptedBody: null, position: 1, tags: [wid] });
+    const note = await createNote(userId, 'n', '', undefined, undefined, [wid, kid]);
+    const secret = await createSecret(userId, 's', null, undefined, undefined, [wid]);
 
     await deleteTagAndDetach(wid);
 
-    expect(await TagModel.findById(wid)).toBeNull();
-    expect((await NoteModel.findById(note._id))?.tags.map(String)).toEqual([kid]);
-    expect((await SecretNoteModel.findById(secret._id))?.tags).toEqual([]);
+    const goneRows = await db.select().from(tags).where(eq(tags.id, wid));
+    expect(goneRows).toHaveLength(0);
+    expect((await getNoteById(note._id.toString()))?.tags).toEqual([kid]);
+    const { getSecretById } = await import('../secrets');
+    expect((await getSecretById(secret._id.toString()))?.tags).toEqual([]);
   });
 });
 
-describe('listByUserId tag filtering (via getNotesByUserId)', () => {
+describe('list tag filtering (via getNotesByUserId)', () => {
   it('filters with OR (any) and AND (all) semantics', async () => {
     const a = await createTag(userId, 'a');
     const b = await createTag(userId, 'b');
     const aid = a._id.toString();
     const bid = b._id.toString();
 
-    await NoteModel.create({ userId, title: 'both', content: '', position: 3, tags: [aid, bid] });
-    await NoteModel.create({ userId, title: 'onlyA', content: '', position: 2, tags: [aid] });
-    await NoteModel.create({ userId, title: 'none', content: '', position: 1, tags: [] });
+    await createNote(userId, 'none', '');
+    await createNote(userId, 'onlyA', '', undefined, undefined, [aid]);
+    await createNote(userId, 'both', '', undefined, undefined, [aid, bid]);
 
     const or = await getNotesByUserId(userId, undefined, 30, 0, '', [aid, bid], 'or');
     expect(or.map((n) => n.title).sort()).toEqual(['both', 'onlyA']);

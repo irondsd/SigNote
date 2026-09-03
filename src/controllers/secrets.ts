@@ -1,28 +1,15 @@
-import { isValidObjectId, Types } from 'mongoose';
-import { MAX_VERSIONS } from '@/config/constants';
-import { SecretNoteModel } from '@/models/SecretNote';
+import { secretTier } from '@/db/tiers';
+import type { TierHeadRow } from '@/db/tier';
 import { type EncryptedPayload } from '@/types/crypto';
-import {
-  commonOps,
-  createEntity,
-  deleteVersionById,
-  getByIdActive,
-  getVersionsByIdActive,
-  listByUserId,
-} from './common';
-import { buildVersionPush } from './versions';
 
-// Plain-object copy of an encrypted payload (strips mongoose subdoc internals so
-// it can be safely embedded in the versions array).
-const clonePayload = (p: EncryptedPayload | null): EncryptedPayload | null =>
-  p ? { alg: p.alg, iv: p.iv, ciphertext: p.ciphertext } : null;
+export type SecretRow = TierHeadRow & { encryptedBody: EncryptedPayload | null };
 
 const samePayload = (a: EncryptedPayload | null, b: EncryptedPayload | null): boolean => {
   if (a === null || b === null) return a === b;
   return a.alg === b.alg && a.iv === b.iv && a.ciphertext === b.ciphertext;
 };
 
-export const secretOps = commonOps(SecretNoteModel);
+export const secretOps = secretTier.ops;
 export const deleteSecret = secretOps.softDelete;
 export const undeleteSecret = secretOps.restore;
 export const archiveSecret = secretOps.archive;
@@ -40,7 +27,7 @@ export const createSecret = (
   color?: string | null,
   pattern?: string | null,
   tags?: string[],
-) => createEntity(SecretNoteModel, userId, { title, encryptedBody }, color, pattern, tags);
+) => secretTier.create(userId, { title, encryptedBody }, color, pattern, tags) as Promise<SecretRow>;
 
 export const getSecretsByUserId = (
   userId: string,
@@ -50,75 +37,31 @@ export const getSecretsByUserId = (
   search = '',
   tagIds?: string[],
   tagMode: 'or' | 'and' = 'or',
-) => listByUserId(SecretNoteModel, userId, { archived, limit, offset, search, tagIds, tagMode });
+) => secretTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<SecretRow[]>;
 
-export const getSecretById = (id: string) => getByIdActive(SecretNoteModel, id);
-export const getSecretVersions = (id: string) => getVersionsByIdActive(SecretNoteModel, id);
-export const deleteSecretVersion = (id: string, versionId: string) => deleteVersionById(SecretNoteModel, id, versionId);
+export const getSecretById = (id: string) => secretTier.getByIdActive(id) as Promise<SecretRow | null>;
+export const getSecretVersions = (id: string) => secretTier.getVersionsByIdActive(id);
+export const deleteSecretVersion = (id: string, versionId: string) =>
+  secretTier.deleteVersionById(id, versionId) as Promise<SecretRow | null>;
 
-export const updateSecret = async (id: string, title: string, encryptedBody: EncryptedPayload | null) => {
-  // $slice keeps every other field but loads only the newest version — all the
-  // no-op check and the compression-window decision need.
-  const doc = await SecretNoteModel.findById(id)
-    .select({ versions: { $slice: -1 } })
-    .exec();
-  if (!doc) return null;
-
-  // No-op edit: identical title and ciphertext. (Re-encryption changes the IV,
-  // so this only short-circuits genuine no-change PATCHes, not content re-saves.)
-  // Re-read without the version slice so the response carries no history.
-  if (doc.title === title && samePayload(doc.encryptedBody, encryptedBody)) {
-    return SecretNoteModel.findById(id).select('-versions').exec();
-  }
-
-  const now = new Date();
-  // The snapshot is stamped with when its content was *saved* (the head's
-  // updatedAt), not when this edit displaced it.
-  const versionPush = buildVersionPush(doc, {
-    title: doc.title,
-    encryptedBody: clonePayload(doc.encryptedBody),
-    createdAt: doc.updatedAt,
-  });
-
-  return SecretNoteModel.findByIdAndUpdate(
-    id,
-    { $set: { title, encryptedBody, updatedAt: now }, ...versionPush },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+export const updateSecret = (id: string, title: string, encryptedBody: EncryptedPayload | null) =>
+  secretTier.updateWithVersion(id, (head) => {
+    const headBody = head.encryptedBody as EncryptedPayload | null;
+    return {
+      // No-op edit: identical title and ciphertext. (Re-encryption changes the
+      // IV, so this only short-circuits genuine no-change PATCHes, not content
+      // re-saves.)
+      changed: !(head.title === title && samePayload(headBody, encryptedBody)),
+      set: { title, encryptedBody },
+      snapshot: { title: head.title, encryptedBody: headBody, createdAt: head.updatedAt as Date },
+    };
+  }) as Promise<SecretRow | null>;
 
 /** See `restoreNoteVersion` — same semantics for the secret tier. */
-export const restoreSecretVersion = async (id: string, versionId: string) => {
-  if (!isValidObjectId(versionId)) return null;
-
-  // $elemMatch loads only the targeted version alongside the head fields.
-  const doc = await SecretNoteModel.findById(id)
-    .select({
-      title: 1,
-      encryptedBody: 1,
-      updatedAt: 1,
-      versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } },
-    })
-    .exec();
-  if (!doc) return null;
-
-  const version = doc.versions?.[0];
-  if (!version) return null;
-
-  const now = new Date();
-
-  return SecretNoteModel.findByIdAndUpdate(
+export const restoreSecretVersion = (id: string, versionId: string) =>
+  secretTier.restoreVersion(
     id,
-    {
-      $set: { title: version.title, encryptedBody: clonePayload(version.encryptedBody), updatedAt: now },
-      $push: {
-        versions: {
-          // Stamped with when the pre-restore head was saved, not restore time.
-          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: doc.updatedAt }],
-          $slice: -MAX_VERSIONS,
-        },
-      },
-    },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+    versionId,
+    (version) => ({ title: version.title, encryptedBody: version.encryptedBody }),
+    (head) => ({ title: head.title, encryptedBody: head.encryptedBody }),
+  ) as Promise<SecretRow | null>;

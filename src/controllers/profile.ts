@@ -1,18 +1,36 @@
-import { NoteModel } from '@/models/Note';
-import { SecretNoteModel } from '@/models/SecretNote';
-import { SealNoteModel } from '@/models/SealNote';
-import { UserModel } from '@/models/User';
-import { EncryptionProfileModel } from '@/models/EncryptionProfile';
+import { and, count, eq, isNull } from 'drizzle-orm';
+
+import { getDb } from '@/db/client';
+import { encryptionProfiles, notes, sealNotes, secretNotes, users } from '@/db/schema';
 
 export const getProfileData = async (userId: string) => {
-  const [user, notesCount, secretsCount, sealsCount, encryptionProfileExists] = await Promise.all([
-    UserModel.findById(userId).select({ displayName: 1, createdAt: 1 }).lean().exec(),
-    NoteModel.countDocuments({ userId, deletedAt: null }),
-    SecretNoteModel.countDocuments({ userId, deletedAt: null }),
-    SealNoteModel.countDocuments({ userId, deletedAt: null }),
-    EncryptionProfileModel.findOne({ userId }).select({ createdAt: 1 }).lean().exec(),
+  const db = getDb();
+
+  const countActive = async (table: typeof notes | typeof secretNotes | typeof sealNotes) => {
+    const rows = await db
+      .select({ n: count() })
+      .from(table)
+      .where(and(eq(table.userId, userId), isNull(table.deletedAt)));
+    return Number(rows[0].n);
+  };
+
+  const [userRows, notesCount, secretsCount, sealsCount, profileRows] = await Promise.all([
+    db
+      .select({ displayName: users.displayName, createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    countActive(notes),
+    countActive(secretNotes),
+    countActive(sealNotes),
+    db
+      .select({ createdAt: encryptionProfiles.createdAt })
+      .from(encryptionProfiles)
+      .where(eq(encryptionProfiles.userId, userId))
+      .limit(1),
   ]);
 
+  const user = userRows[0];
   if (!user) return null;
 
   return {
@@ -21,7 +39,7 @@ export const getProfileData = async (userId: string) => {
     notesCount,
     secretsCount,
     sealsCount,
-    hasEncryptionProfile: encryptionProfileExists !== null,
-    encryptionProfileCreatedAt: encryptionProfileExists?.createdAt ?? null,
+    hasEncryptionProfile: profileRows[0] !== undefined,
+    encryptionProfileCreatedAt: profileRows[0]?.createdAt ?? null,
   };
 };

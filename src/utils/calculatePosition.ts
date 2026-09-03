@@ -1,5 +1,3 @@
-import { type Model } from 'mongoose';
-
 import { POSITION_STEP } from '@/config/constants';
 
 /**
@@ -19,16 +17,4 @@ export function calculatePosition(above: number | null, below: number | null): n
     return above / 2;
   }
   return (above + below) / 2;
-}
-
-export async function getNextPosition(
-  Model: Model<{ position?: number; userId: string }>,
-  userId: string,
-): Promise<number> {
-  const last = await Model.findOne({ userId, deletedAt: null })
-    .sort({ position: -1 })
-    .select({ position: 1 })
-    .lean()
-    .exec();
-  return (last?.position ?? 0) + POSITION_STEP;
 }

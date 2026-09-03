@@ -1,4 +1,3 @@
-import { attachDatabasePool } from '@vercel/functions';
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse, after } from 'next/server';
 
@@ -10,8 +9,7 @@ import {
 } from '@/controllers/authSessions';
 import { getClientIp } from '@/lib/clientIp';
 import { parseUserAgent } from '@/lib/uaParser';
-import type { AuthProvider } from '@/models/AuthSession';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
+import type { AuthProvider } from '@/db/schema';
 
 export class RouteAuthError extends Error {
   readonly status: 401 | 403 | 404;
@@ -34,9 +32,9 @@ export interface AuthedContext {
 type AuthedHandler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;
 
 /**
- * Resolves the authenticated user for a request: decodes the JWT, runs
+ * Resolves the authenticated user for a request: decodes the JWT and runs
  * per-request session validation (revocation/expiry, lazy audit-row create,
- * throttled activity touch) and attaches the DB pool. Throws `RouteAuthError`
+ * throttled activity touch). Throws `RouteAuthError`
  * on any auth failure. Shared by `withSession` (REST) and the tRPC context so
  * the security-sensitive path has a single source of truth.
  */
@@ -89,9 +87,6 @@ export async function authenticateRequest(
       after(() => touchSession(sid, ip, userAgent));
     }
   }
-
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
 
   return { userId, sid, provider };
 }

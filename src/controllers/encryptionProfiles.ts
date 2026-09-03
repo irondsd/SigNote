@@ -1,4 +1,7 @@
-import { EncryptionProfileModel } from '@/models/EncryptionProfile';
+import { eq } from 'drizzle-orm';
+
+import { getDb } from '@/db/client';
+import { encryptionProfiles } from '@/db/schema';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
 type CreateProfileInput = {
@@ -17,21 +20,41 @@ export class ProfileAlreadyExistsError extends Error {
 }
 
 export const getProfileByUserId = async (userId: string) => {
-  const profile = await EncryptionProfileModel.findOne({ userId })
-    .select({ userId: 1, version: 1, salt: 1, kdf: 1, keyCheck: 1 })
-    .lean()
-    .exec();
-
-  return profile;
+  const rows = await getDb()
+    .select({
+      id: encryptionProfiles.id,
+      userId: encryptionProfiles.userId,
+      version: encryptionProfiles.version,
+      salt: encryptionProfiles.salt,
+      kdf: encryptionProfiles.kdf,
+      keyCheck: encryptionProfiles.keyCheck,
+    })
+    .from(encryptionProfiles)
+    .where(eq(encryptionProfiles.userId, userId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  const { id, ...rest } = row;
+  return { _id: id, ...rest };
 };
 
 export const getMaterialByUserId = async (userId: string) => {
-  const profile = await EncryptionProfileModel.findOne({ userId })
-    .select({ version: 1, serverShare: 1, salt: 1, kdf: 1, keyCheck: 1 })
-    .lean()
-    .exec();
-
-  return profile;
+  const rows = await getDb()
+    .select({
+      id: encryptionProfiles.id,
+      version: encryptionProfiles.version,
+      serverShare: encryptionProfiles.serverShare,
+      salt: encryptionProfiles.salt,
+      kdf: encryptionProfiles.kdf,
+      keyCheck: encryptionProfiles.keyCheck,
+    })
+    .from(encryptionProfiles)
+    .where(eq(encryptionProfiles.userId, userId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  const { id, ...rest } = row;
+  return { _id: id, ...rest };
 };
 
 type UpdateProfileInput = {
@@ -41,32 +64,34 @@ type UpdateProfileInput = {
 };
 
 export const updateProfile = async (userId: string, data: UpdateProfileInput) => {
-  const result = await EncryptionProfileModel.findOneAndUpdate(
-    { userId },
-    { $set: { ...data, updatedAt: new Date() } },
-    { returnDocument: 'after' },
-  )
-    .lean()
-    .exec();
+  const rows = await getDb()
+    .update(encryptionProfiles)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(encryptionProfiles.userId, userId))
+    .returning();
 
-  if (!result) throw new Error('Profile not found');
-  return result;
+  if (!rows[0]) throw new Error('Profile not found');
+  const { id, ...rest } = rows[0];
+  return { _id: id, ...rest };
 };
 
 export const createProfile = async (userId: string, data: CreateProfileInput) => {
-  const existing = await EncryptionProfileModel.findOne({ userId }).lean().exec();
+  const db = getDb();
+  const existing = await db
+    .select({ id: encryptionProfiles.id })
+    .from(encryptionProfiles)
+    .where(eq(encryptionProfiles.userId, userId))
+    .limit(1);
 
-  if (existing) {
+  if (existing[0]) {
     throw new ProfileAlreadyExistsError();
   }
 
   const now = new Date();
-  const profile = await EncryptionProfileModel.create({
-    userId,
-    ...data,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  return profile;
+  const rows = await db
+    .insert(encryptionProfiles)
+    .values({ userId, ...data, createdAt: now, updatedAt: now })
+    .returning();
+  const { id, ...rest } = rows[0];
+  return { _id: id, ...rest };
 };

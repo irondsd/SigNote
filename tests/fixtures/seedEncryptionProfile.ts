@@ -1,10 +1,7 @@
-import mongoose from 'mongoose';
 import type { Address } from 'viem';
-import { EncryptionProfileModel } from '../../src/models/EncryptionProfile';
+import { encryptionProfiles } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
-
-const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
-const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
+import { testDb } from './db';
 
 const ENC_PBKDF2_ITERATIONS = 600_000;
 const ENC_PBKDF2_LENGTH = 32;
@@ -33,10 +30,6 @@ export const seedEncryptionProfile = async (
   address: Address,
   passphrase: string,
 ): Promise<{ mekBytes: Uint8Array; deviceShare: Uint8Array }> => {
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
-  }
-
   const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
@@ -91,7 +84,7 @@ export const seedEncryptionProfile = async (
     ciphertext: toBase64(ciphertext),
   };
 
-  await EncryptionProfileModel.create({
+  await testDb().insert(encryptionProfiles).values({
     userId,
     version: ENC_VERSION,
     serverShare,

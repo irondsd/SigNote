@@ -1,26 +1,18 @@
-import { isValidObjectId, Types } from 'mongoose';
-import { MAX_VERSIONS } from '@/config/constants';
-import { SealNoteModel } from '@/models/SealNote';
+import { sealTier } from '@/db/tiers';
+import type { TierHeadRow } from '@/db/tier';
 import { type EncryptedPayload } from '@/types/crypto';
-import {
-  commonOps,
-  createEntity,
-  deleteVersionById,
-  getByIdActive,
-  getVersionsByIdActive,
-  listByUserId,
-} from './common';
-import { buildVersionPush } from './versions';
 
-const clonePayload = (p: EncryptedPayload | null): EncryptedPayload | null =>
-  p ? { alg: p.alg, iv: p.iv, ciphertext: p.ciphertext } : null;
+export type SealRow = TierHeadRow & {
+  encryptedBody: EncryptedPayload | null;
+  wrappedNoteKey: EncryptedPayload | null;
+};
 
 const samePayload = (a: EncryptedPayload | null, b: EncryptedPayload | null): boolean => {
   if (a === null || b === null) return a === b;
   return a.alg === b.alg && a.iv === b.iv && a.ciphertext === b.ciphertext;
 };
 
-export const sealOps = commonOps(SealNoteModel);
+export const sealOps = sealTier.ops;
 export const deleteSeal = sealOps.softDelete;
 export const undeleteSeal = sealOps.restore;
 export const archiveSeal = sealOps.archive;
@@ -39,7 +31,7 @@ export const createSeal = (
   color?: string | null,
   pattern?: string | null,
   tags?: string[],
-) => createEntity(SealNoteModel, userId, { title, encryptedBody, wrappedNoteKey }, color, pattern, tags);
+) => sealTier.create(userId, { title, encryptedBody, wrappedNoteKey }, color, pattern, tags) as Promise<SealRow>;
 
 export const getSealsByUserId = (
   userId: string,
@@ -49,11 +41,12 @@ export const getSealsByUserId = (
   search = '',
   tagIds?: string[],
   tagMode: 'or' | 'and' = 'or',
-) => listByUserId(SealNoteModel, userId, { archived, limit, offset, search, tagIds, tagMode });
+) => sealTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<SealRow[]>;
 
-export const getSealById = (id: string) => getByIdActive(SealNoteModel, id);
-export const getSealVersions = (id: string) => getVersionsByIdActive(SealNoteModel, id);
-export const deleteSealVersion = (id: string, versionId: string) => deleteVersionById(SealNoteModel, id, versionId);
+export const getSealById = (id: string) => sealTier.getByIdActive(id) as Promise<SealRow | null>;
+export const getSealVersions = (id: string) => sealTier.getVersionsByIdActive(id);
+export const deleteSealVersion = (id: string, versionId: string) =>
+  sealTier.deleteVersionById(id, versionId) as Promise<SealRow | null>;
 
 type UpdateSealInput = {
   title?: string;
@@ -61,73 +54,34 @@ type UpdateSealInput = {
   wrappedNoteKey?: EncryptedPayload | null;
 };
 
-export const updateSeal = async (id: string, data: UpdateSealInput) => {
-  // $slice keeps every other field but loads only the newest version — all the
-  // change detection and the compression-window decision need.
-  const doc = await SealNoteModel.findById(id)
-    .select({ versions: { $slice: -1 } })
-    .exec();
-  if (!doc) return null;
+export const updateSeal = (id: string, data: UpdateSealInput) =>
+  sealTier.updateWithVersion(id, (head) => {
+    const headBody = head.encryptedBody as EncryptedPayload | null;
+    const nextTitle = data.title !== undefined ? data.title : (head.title as string);
+    const nextBody = data.encryptedBody !== undefined ? data.encryptedBody : headBody;
 
-  const now = new Date();
-  const nextTitle = data.title !== undefined ? data.title : doc.title;
-  const nextBody = data.encryptedBody !== undefined ? data.encryptedBody : doc.encryptedBody;
+    // Only title/body changes are versioned. A wrappedNoteKey-only change
+    // (rare) still writes through but records no version. The snapshot is
+    // stamped with when its content was *saved* (the head's updatedAt).
+    const titleOrBodyChanged = nextTitle !== head.title || !samePayload(headBody, nextBody);
 
-  // Only title/body changes are versioned. A wrappedNoteKey-only change (rare)
-  // still writes through but records no version.
-  // The snapshot is stamped with when its content was *saved* (the head's
-  // updatedAt), not when this edit displaced it.
-  const titleOrBodyChanged = nextTitle !== doc.title || !samePayload(doc.encryptedBody, nextBody);
-  const versionPush = titleOrBodyChanged
-    ? buildVersionPush(doc, {
-        title: doc.title,
-        encryptedBody: clonePayload(doc.encryptedBody),
-        createdAt: doc.updatedAt,
-      })
-    : {};
-
-  return SealNoteModel.findByIdAndUpdate(
-    id,
-    { $set: { ...data, updatedAt: now }, ...versionPush },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+    return {
+      changed: true,
+      set: { ...data },
+      snapshot: titleOrBodyChanged
+        ? { title: head.title, encryptedBody: headBody, createdAt: head.updatedAt as Date }
+        : null,
+    };
+  }) as Promise<SealRow | null>;
 
 /**
  * See `restoreNoteVersion`. The head's wrappedNoteKey is intentionally left
  * untouched — the per-note NEK never rotates and decrypts every version body.
  */
-export const restoreSealVersion = async (id: string, versionId: string) => {
-  if (!isValidObjectId(versionId)) return null;
-
-  // $elemMatch loads only the targeted version alongside the head fields.
-  const doc = await SealNoteModel.findById(id)
-    .select({
-      title: 1,
-      encryptedBody: 1,
-      updatedAt: 1,
-      versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } },
-    })
-    .exec();
-  if (!doc) return null;
-
-  const version = doc.versions?.[0];
-  if (!version) return null;
-
-  const now = new Date();
-
-  return SealNoteModel.findByIdAndUpdate(
+export const restoreSealVersion = (id: string, versionId: string) =>
+  sealTier.restoreVersion(
     id,
-    {
-      $set: { title: version.title, encryptedBody: clonePayload(version.encryptedBody), updatedAt: now },
-      $push: {
-        versions: {
-          // Stamped with when the pre-restore head was saved, not restore time.
-          $each: [{ title: doc.title, encryptedBody: clonePayload(doc.encryptedBody), createdAt: doc.updatedAt }],
-          $slice: -MAX_VERSIONS,
-        },
-      },
-    },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+    versionId,
+    (version) => ({ title: version.title, encryptedBody: version.encryptedBody }),
+    (head) => ({ title: head.title, encryptedBody: head.encryptedBody }),
+  ) as Promise<SealRow | null>;

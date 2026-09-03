@@ -1,61 +1,66 @@
-import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import { FileAttachmentModel } from '@/models/FileAttachment';
-import { NoteModel } from '@/models/Note';
-import { SecretNoteModel } from '@/models/SecretNote';
-import { SealNoteModel } from '@/models/SealNote';
-import { cleanupOrphanedFiles } from '../files';
+import { count, eq, isNull, and } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 
-let mongo: MongoMemoryServer;
+import type { Db } from '@/db/client';
+import { fileAttachments, notes, sealNotes, secretNotes } from '@/db/schema';
+import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
+import { cleanupOrphanedFiles } from '@/controllers/files';
+
+let db: Db;
 
 beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
-  await mongoose.connect(mongo.getUri());
+  db = await setupTestDb();
 });
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongo.stop();
+  await teardownTestDb();
 });
 
 beforeEach(async () => {
-  await Promise.all([
-    FileAttachmentModel.deleteMany({}),
-    NoteModel.deleteMany({}),
-    SecretNoteModel.deleteMany({}),
-    SealNoteModel.deleteMany({}),
-  ]);
+  await resetTestDb(db);
 });
 
 const userId = '0xabc';
 
 async function seedNote() {
-  return NoteModel.create({ userId, title: 't', content: 'c', position: 1 });
+  const rows = await db.insert(notes).values({ userId, title: 't', content: 'c', position: 1 }).returning();
+  return rows[0];
 }
-async function seedSecret() {
-  return SecretNoteModel.create({ userId, title: 't', encryptedBody: null, position: 1 });
+async function seedSecret(id?: string) {
+  const rows = await db
+    .insert(secretNotes)
+    .values({ ...(id && { id }), userId, title: 't', encryptedBody: null, position: 1 })
+    .returning();
+  return rows[0];
 }
 async function seedSeal() {
-  return SealNoteModel.create({
-    userId,
-    title: 't',
-    encryptedBody: null,
-    wrappedNoteKey: null,
-    position: 1,
-  });
+  const rows = await db
+    .insert(sealNotes)
+    .values({ userId, title: 't', encryptedBody: null, wrappedNoteKey: null, position: 1 })
+    .returning();
+  return rows[0];
 }
 
 async function seedFile(noteId: string, noteTier: 'note' | 'secret' | 'seal') {
-  return FileAttachmentModel.create({
-    userId,
-    noteId,
-    noteTier,
-    s3Key: `uploads/${userId}/${noteId}/x`,
-    filename: 'x',
-    size: 1,
-    mimeType: 'application/octet-stream',
-  });
+  const rows = await db
+    .insert(fileAttachments)
+    .values({
+      userId,
+      noteId,
+      noteTier,
+      s3Key: `uploads/${userId}/${noteId}/x`,
+      filename: 'x',
+      size: 1,
+      mimeType: 'application/octet-stream',
+    })
+    .returning();
+  return rows[0];
 }
+
+const getFile = async (id: string) => {
+  const rows = await db.select().from(fileAttachments).where(eq(fileAttachments.id, id));
+  return rows[0] ?? null;
+};
 
 describe('cleanupOrphanedFiles', () => {
   it('returns scanned=0, orphaned=0 when there are no linked files', async () => {
@@ -67,58 +72,51 @@ describe('cleanupOrphanedFiles', () => {
     const note = await seedNote();
     const secret = await seedSecret();
     const seal = await seedSeal();
-    await seedFile(note._id.toString(), 'note');
-    await seedFile(secret._id.toString(), 'secret');
-    await seedFile(seal._id.toString(), 'seal');
+    await seedFile(note.id, 'note');
+    await seedFile(secret.id, 'secret');
+    await seedFile(seal.id, 'seal');
 
     const result = await cleanupOrphanedFiles();
     expect(result.orphaned).toBe(0);
 
-    const alive = await FileAttachmentModel.find({ deletedAt: null }).countDocuments();
-    expect(alive).toBe(3);
+    const alive = await db.select({ n: count() }).from(fileAttachments).where(isNull(fileAttachments.deletedAt));
+    expect(Number(alive[0].n)).toBe(3);
   });
 
   it('soft-deletes files whose linked note has been removed', async () => {
     const note = await seedNote();
-    const file = await seedFile(note._id.toString(), 'note');
+    const file = await seedFile(note.id, 'note');
 
-    // Note vanishes (e.g., TTL fired).
-    await NoteModel.deleteOne({ _id: note._id });
+    // Note vanishes (e.g., purge cron fired).
+    await db.delete(notes).where(eq(notes.id, note.id));
 
     const result = await cleanupOrphanedFiles();
     expect(result.scanned).toBe(1);
     expect(result.orphaned).toBe(1);
 
-    const reloaded = await FileAttachmentModel.findById(file._id);
+    const reloaded = await getFile(file.id);
     expect(reloaded?.deletedAt).toBeInstanceOf(Date);
   });
 
   it('only treats a file as orphaned if its OWN tier has no matching note', async () => {
     // Edge case: a file linked to tier 'note' with a noteId that ALSO exists
-    // (with the same ObjectId) as a secret should still be considered orphaned.
-    const sharedId = new mongoose.Types.ObjectId();
-    await SecretNoteModel.create({
-      _id: sharedId,
-      userId,
-      title: 't',
-      encryptedBody: null,
-      position: 1,
-    });
-    const file = await seedFile(sharedId.toString(), 'note'); // linked to NOTE tier, not secret
+    // (with the same id) as a secret should still be considered orphaned.
+    const sharedId = uuidv7();
+    await seedSecret(sharedId);
+    const file = await seedFile(sharedId, 'note'); // linked to NOTE tier, not secret
 
     const result = await cleanupOrphanedFiles();
     expect(result.orphaned).toBe(1);
 
-    const reloaded = await FileAttachmentModel.findById(file._id);
+    const reloaded = await getFile(file.id);
     expect(reloaded?.deletedAt).toBeInstanceOf(Date);
   });
 
   it('does not re-process files that are already soft-deleted', async () => {
     const note = await seedNote();
-    const file = await seedFile(note._id.toString(), 'note');
-    file.deletedAt = new Date();
-    await file.save();
-    await NoteModel.deleteOne({ _id: note._id });
+    const file = await seedFile(note.id, 'note');
+    await db.update(fileAttachments).set({ deletedAt: new Date() }).where(eq(fileAttachments.id, file.id));
+    await db.delete(notes).where(eq(notes.id, note.id));
 
     const result = await cleanupOrphanedFiles();
     expect(result.scanned).toBe(0); // already deleted file not in scan
@@ -129,22 +127,25 @@ describe('cleanupOrphanedFiles', () => {
     const liveNote = await seedNote();
     const deadSecret = await seedSecret();
     const deadSeal = await seedSeal();
-    await seedFile(liveNote._id.toString(), 'note');
-    const orphanA = await seedFile(deadSecret._id.toString(), 'secret');
-    const orphanB = await seedFile(deadSeal._id.toString(), 'seal');
+    await seedFile(liveNote.id, 'note');
+    const orphanA = await seedFile(deadSecret.id, 'secret');
+    const orphanB = await seedFile(deadSeal.id, 'seal');
 
-    await SecretNoteModel.deleteOne({ _id: deadSecret._id });
-    await SealNoteModel.deleteOne({ _id: deadSeal._id });
+    await db.delete(secretNotes).where(eq(secretNotes.id, deadSecret.id));
+    await db.delete(sealNotes).where(eq(sealNotes.id, deadSeal.id));
 
     const result = await cleanupOrphanedFiles();
     expect(result.scanned).toBe(3);
     expect(result.orphaned).toBe(2);
 
-    const aliveStill = await FileAttachmentModel.find({ deletedAt: null });
+    const aliveStill = await db
+      .select()
+      .from(fileAttachments)
+      .where(and(isNull(fileAttachments.deletedAt)));
     expect(aliveStill).toHaveLength(1);
-    expect(aliveStill[0].noteId).toBe(liveNote._id.toString());
+    expect(aliveStill[0].noteId).toBe(liveNote.id);
 
-    expect((await FileAttachmentModel.findById(orphanA._id))?.deletedAt).toBeInstanceOf(Date);
-    expect((await FileAttachmentModel.findById(orphanB._id))?.deletedAt).toBeInstanceOf(Date);
+    expect((await getFile(orphanA.id))?.deletedAt).toBeInstanceOf(Date);
+    expect((await getFile(orphanB.id))?.deletedAt).toBeInstanceOf(Date);
   });
 });

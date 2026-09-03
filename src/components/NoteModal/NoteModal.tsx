@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import type { NoteDocument } from '@/models/Note';
 import {
   useCreateNote,
   useDeleteNote,
@@ -29,7 +28,7 @@ const VersionHistoryModal = dynamic(
 );
 
 type NoteModalProps = {
-  note: NoteDocument;
+  note: CachedNote;
   onClose: () => void;
   cardRect?: DOMRect;
 };

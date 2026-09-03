@@ -1,24 +1,27 @@
-import mongoose from 'mongoose';
 import type { Address } from 'viem';
-import { TagModel, type TagDocument } from '@/models/Tag';
+import { tags as tagsTable } from '../../src/db/schema';
 import { autoTagColor, type TagColor } from '@/config/noteStyles';
 import { getOrCreateUserId } from './getOrCreateUserId';
-
-const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
-const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
+import { testDb } from './db';
 
 export type SeedTag = { name: string; color?: TagColor };
+/** The inserted row, plus the `_id` alias the app's API exposes — specs
+ *  address seeded rows the same way the client sees them. */
+export type SeededTag = typeof tagsTable.$inferSelect & { _id: string };
 
-export const seedTags = async (address: Address, tags: SeedTag[]): Promise<TagDocument[]> => {
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
-  }
+const withAliasedId = (row: typeof tagsTable.$inferSelect): SeededTag => ({ ...row, _id: row.id });
 
+export const seedTags = async (address: Address, tags: SeedTag[]): Promise<SeededTag[]> => {
+  const db = testDb();
   const userId = await getOrCreateUserId(address);
 
-  const created: TagDocument[] = [];
+  const created: SeededTag[] = [];
   for (const tag of tags) {
-    created.push(await TagModel.create({ userId, name: tag.name, color: tag.color ?? autoTagColor(tag.name) }));
+    const [row] = await db
+      .insert(tagsTable)
+      .values({ userId, name: tag.name, color: tag.color ?? autoTagColor(tag.name) })
+      .returning();
+    created.push(withAliasedId(row));
   }
   return created;
 };

@@ -1,17 +1,9 @@
-import { isValidObjectId, Types } from 'mongoose';
-import { MAX_VERSIONS } from '@/config/constants';
-import { NoteModel } from '@/models/Note';
-import {
-  commonOps,
-  createEntity,
-  deleteVersionById,
-  getByIdActive,
-  getVersionsByIdActive,
-  listByUserId,
-} from './common';
-import { buildVersionPush } from './versions';
+import { noteTier } from '@/db/tiers';
+import type { TierHeadRow } from '@/db/tier';
 
-export const noteOps = commonOps(NoteModel);
+export type NoteRow = TierHeadRow & { content: string };
+
+export const noteOps = noteTier.ops;
 export const deleteNote = noteOps.softDelete;
 export const undeleteNote = noteOps.restore;
 export const archiveNote = noteOps.archive;
@@ -29,7 +21,7 @@ export const createNote = (
   color?: string | null,
   pattern?: string | null,
   tags?: string[],
-) => createEntity(NoteModel, userId, { title, content }, color, pattern, tags);
+) => noteTier.create(userId, { title, content }, color, pattern, tags) as Promise<NoteRow>;
 
 export const getNotesByUserId = (
   userId: string,
@@ -39,83 +31,33 @@ export const getNotesByUserId = (
   search = '',
   tagIds?: string[],
   tagMode: 'or' | 'and' = 'or',
-) =>
-  listByUserId(NoteModel, userId, {
-    archived,
-    limit,
-    offset,
-    search,
-    searchFields: ['title', 'content'],
-    tagIds,
-    tagMode,
-  });
+) => noteTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<NoteRow[]>;
 
-export const getNoteById = (id: string) => getByIdActive(NoteModel, id);
-export const getNoteVersions = (id: string) => getVersionsByIdActive(NoteModel, id);
-export const deleteNoteVersion = (id: string, versionId: string) => deleteVersionById(NoteModel, id, versionId);
+export const getNoteById = (id: string) => noteTier.getByIdActive(id) as Promise<NoteRow | null>;
+export const getNoteVersions = (id: string) => noteTier.getVersionsByIdActive(id);
+export const deleteNoteVersion = (id: string, versionId: string) =>
+  noteTier.deleteVersionById(id, versionId) as Promise<NoteRow | null>;
 
-export const updateNote = async (id: string, title: string, content: string) => {
-  // $slice keeps every other field but loads only the newest version — all the
-  // no-op check and the compression-window decision need.
-  const doc = await NoteModel.findById(id)
-    .select({ versions: { $slice: -1 } })
-    .exec();
-  if (!doc) return null;
-
-  // No-op edit: don't touch updatedAt or record a version. Re-read without the
-  // version slice so the response carries no history, same as a real update.
-  if (doc.title === title && doc.content === content) {
-    return NoteModel.findById(id).select('-versions').exec();
-  }
-
-  const now = new Date();
-  // The snapshot is stamped with when its content was *saved* (the head's
-  // updatedAt), not when this edit displaced it.
-  const versionPush = buildVersionPush(doc, {
-    title: doc.title,
-    content: doc.content,
-    createdAt: doc.updatedAt,
-  });
-
-  return NoteModel.findByIdAndUpdate(
-    id,
-    { $set: { title, content, updatedAt: now }, ...versionPush },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+export const updateNote = (id: string, title: string, content: string) =>
+  noteTier.updateWithVersion(id, (head) => ({
+    // No-op edit: don't touch updatedAt or record a version.
+    changed: !(head.title === title && head.content === content),
+    set: { title, content },
+    // The snapshot is stamped with when its content was *saved* (the head's
+    // updatedAt), not when this edit displaced it.
+    snapshot: { title: head.title, content: head.content, createdAt: head.updatedAt as Date },
+  })) as Promise<NoteRow | null>;
 
 /**
- * Restores a past version into the head. Unlike a normal edit, restore always
- * records a snapshot of the current head first (so the restore is itself
- * reversible) and bypasses the compression window. The restored version row is
- * left in place — restore is "edit head to match vN", not "move vN to head".
+ * Restores a past version into the head. Always records a snapshot of the
+ * current head first (so the restore is itself reversible) and bypasses the
+ * compression window. The restored version row is left in place — restore is
+ * "edit head to match vN", not "move vN to head".
  */
-export const restoreNoteVersion = async (id: string, versionId: string) => {
-  if (!isValidObjectId(versionId)) return null;
-
-  // $elemMatch loads only the targeted version alongside the head fields.
-  const doc = await NoteModel.findById(id)
-    .select({ title: 1, content: 1, updatedAt: 1, versions: { $elemMatch: { _id: new Types.ObjectId(versionId) } } })
-    .exec();
-  if (!doc) return null;
-
-  const version = doc.versions?.[0];
-  if (!version) return null;
-
-  const now = new Date();
-
-  return NoteModel.findByIdAndUpdate(
+export const restoreNoteVersion = (id: string, versionId: string) =>
+  noteTier.restoreVersion(
     id,
-    {
-      $set: { title: version.title, content: version.content, updatedAt: now },
-      $push: {
-        versions: {
-          // Stamped with when the pre-restore head was saved, not restore time.
-          $each: [{ title: doc.title, content: doc.content, createdAt: doc.updatedAt }],
-          $slice: -MAX_VERSIONS,
-        },
-      },
-    },
-    { returnDocument: 'after', projection: { versions: 0 } },
-  ).exec();
-};
+    versionId,
+    (version) => ({ title: version.title, content: version.content }),
+    (head) => ({ title: head.title, content: head.content }),
+  ) as Promise<NoteRow | null>;

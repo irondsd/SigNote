@@ -26,8 +26,9 @@ export function useTags() {
     staleTime: 60_000,
   });
 
-  // Server returns hydrated Mongoose docs; over the wire they're plain JSON
-  // (string _id, ISO dates) — the ClientTag shape. Same cast the REST hook did.
+  // tRPC has no data transformer here, so the inferred type still says `Date`
+  // where the wire actually carries an ISO string. ClientTag is that runtime
+  // shape.
   const tags = (query.data?.tags as unknown as ClientTag[] | undefined) ?? EMPTY_TAGS;
   const counts = query.data?.counts ?? EMPTY_COUNTS;
 
@@ -37,8 +38,8 @@ export function useTags() {
     return map;
   }, [tags]);
 
-  // Accepts string ids or Mongoose ObjectIds (server document types expose the
-  // latter even though the client only ever holds JSON strings at runtime).
+  // Accepts anything stringifiable so a caller can pass ids straight through
+  // from a note's `tags` list without pre-mapping.
   const resolve = useCallback(
     (ids: ReadonlyArray<string | { toString(): string }> | undefined | null): ClientTag[] =>
       (ids ?? []).map((id) => byId.get(String(id))).filter((t): t is ClientTag => t !== undefined),

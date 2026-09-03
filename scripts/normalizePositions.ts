@@ -7,159 +7,91 @@
  * script rewrites every user's positions, per tier, as multiples of
  * POSITION_STEP in their current order, restoring large integer gaps.
  *
- * Run from the project root (bun auto-loads .env.local):
+ * (The Mongo version of this script also repaired mixed BSON types for
+ * `position`/`pinned`. Postgres types those columns `double precision NOT NULL`
+ * and `boolean NOT NULL`, so that failure mode no longer exists.)
+ *
+ * Run from the project root:
  *   bun run scripts/normalizePositions.ts            # apply changes
  *   bun run scripts/normalizePositions.ts --dry-run  # preview only, no writes
  */
-import mongoose from 'mongoose';
+import { config } from 'dotenv';
+import postgres from 'postgres';
+
+config({ path: '.env.local' });
+config();
 
 const POSITION_STEP = 1000;
-const COLLECTIONS = ['notes', 'secretnotes', 'sealnotes'] as const;
+const TABLES = ['notes', 'secret_notes', 'seal_notes'] as const;
 const DRY_RUN = process.argv.includes('--dry-run');
-const INSPECT = process.argv.includes('--inspect');
 
-const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB ?? 'signote';
-
-if (!uri) {
-  throw new Error('Missing MONGODB_URI — set it in .env.local');
+const url = process.env.DATABASE_URL;
+if (!url) {
+  throw new Error('Missing DATABASE_URL — set it in .env.local');
 }
-
-type Doc = { _id: mongoose.Types.ObjectId; userId?: unknown; position?: unknown };
-
-// Sort key: missing / non-numeric positions sink to the bottom.
-const posValue = (p: unknown): number => (typeof p === 'number' && Number.isFinite(p) ? p : -Infinity);
-
-const hasDecimal = (p: unknown): boolean => typeof p === 'number' && !Number.isInteger(p);
 
 async function main() {
-  await mongoose.connect(uri!, { dbName });
-  const db = mongoose.connection.db;
-  if (!db) throw new Error('No database handle after connect');
+  const sql = postgres(url!, { max: 1 });
 
-  console.log(`Connected to "${dbName}"${DRY_RUN ? ' (dry run — no writes)' : ''}\n`);
+  try {
+    for (const table of TABLES) {
+      // Same ordering the list query uses, minus `pinned` (which is a separate
+      // sort key, not part of the position sequence).
+      const rows = await sql<{ id: string; user_id: string; position: number }[]>`
+        select id, user_id, position
+        from ${sql(table)}
+        order by user_id asc, position desc, id desc`;
 
-  if (INSPECT) {
-    // Print the exact BSON type of position + pinned per doc, in the SAME order the
-    // app's list query uses. A doc whose type differs from its siblings is the one
-    // MongoDB mis-sorts (type-bracket ordering rather than numeric value).
-    for (const name of COLLECTIONS) {
-      const col = db.collection(name);
-      const rows = await col
-        .aggregate([
-          { $sort: { pinned: -1, position: -1 } },
-          {
-            $project: {
-              position: 1,
-              posType: { $type: '$position' },
-              pinned: 1,
-              pinnedType: { $type: '$pinned' },
-            },
-          },
-        ])
-        .toArray();
-      console.log(`\n=== ${name} (list-sort order) ===`);
-      for (const r of rows) {
-        console.log(
-          `  ${String(r._id).slice(-6)}  position=${r.position} (${r.posType})  pinned=${r.pinned} (${r.pinnedType})`,
-        );
+      if (rows.length === 0) {
+        console.log(`${table}: empty, skipping`);
+        continue;
       }
-    }
-    await mongoose.disconnect();
-    console.log('\nDone (inspect).');
-    return;
-  }
 
-  for (const name of COLLECTIONS) {
-    const col = db.collection<Doc>(name);
-
-    // BSON-type breakdown of `position` — mixed types (string vs number) silently
-    // break the descending sort, which is the actual reorder bug.
-    const typeBreakdown = await col
-      .aggregate([{ $group: { _id: { $type: '$position' }, count: { $sum: 1 } } }, { $sort: { count: -1 } }])
-      .toArray();
-    console.log(`${name}: position BSON types →`, typeBreakdown.map((t) => `${t._id}: ${t.count}`).join(', '));
-
-    // `pinned` is the PRIMARY sort key. A missing field (BSON "missing") sorts in a
-    // different type-bracket than a real boolean `false`, which scrambles the
-    // secondary position sort. Report its types/presence too.
-    const pinnedBreakdown = await col
-      .aggregate([{ $group: { _id: { $type: '$pinned' }, count: { $sum: 1 } } }, { $sort: { count: -1 } }])
-      .toArray();
-    console.log(`${name}: pinned BSON types →`, pinnedBreakdown.map((t) => `${t._id}: ${t.count}`).join(', '));
-
-    // Backfill `pinned` to a real boolean on every doc that isn't already a boolean
-    // (missing field or wrong type), so the `{ pinned: -1, ... }` sort can't bracket
-    // docs into separate type groups. We target "not a boolean" via the inverse of the
-    // two valid states (true/false); this matches missing fields and never clobbers a
-    // genuinely-pinned doc.
-    const needsPinned = { pinned: { $nin: [true, false] } };
-    const pinnedToFix = await col.countDocuments(needsPinned);
-    if (pinnedToFix > 0) {
-      if (DRY_RUN) {
-        console.log(`${name}: ${pinnedToFix} docs have a missing/non-boolean pinned → would set pinned: false`);
-      } else {
-        const res = await col.updateMany(needsPinned, { $set: { pinned: false } });
-        console.log(`${name}: set pinned: false on ${res.modifiedCount} docs`);
+      // Positions are a per-user ordering. Rows arrive grouped by user and
+      // already in list order, so each user's block is numbered downward from
+      // count*STEP — the highest position stays first in the list.
+      const byUser = new Map<string, { id: string; position: number }[]>();
+      for (const row of rows) {
+        const bucket = byUser.get(row.user_id);
+        if (bucket) bucket.push(row);
+        else byUser.set(row.user_id, [row]);
       }
-    }
 
-    const docs = await col.find({}, { projection: { _id: 1, userId: 1, position: 1 } }).toArray();
+      const updates: { id: string; position: number }[] = [];
+      for (const bucket of byUser.values()) {
+        bucket.forEach((row, i) => {
+          const position = (bucket.length - i) * POSITION_STEP;
+          if (position !== row.position) updates.push({ id: row.id, position });
+        });
+      }
 
-    if (docs.length === 0) {
-      console.log(`${name}: empty, skipping\n`);
-      continue;
-    }
-
-    // Group by user — positions are a per-user ordering.
-    const byUser = new Map<string, Doc[]>();
-    for (const d of docs) {
-      const key = String(d.userId ?? '');
-      const bucket = byUser.get(key) ?? [];
-      bucket.push(d);
-      byUser.set(key, bucket);
-    }
-
-    const ops: Parameters<typeof col.bulkWrite>[0][number][] = [];
-    let decimalsSeen = 0;
-
-    for (const [userId, group] of byUser) {
-      // Highest position first — matches the descending list sort.
-      group.sort((a, b) => posValue(b.position) - posValue(a.position));
-
-      group.forEach((doc, i) => {
-        if (hasDecimal(doc.position)) decimalsSeen++;
-        // Top item gets the largest position; each step below drops by POSITION_STEP.
-        const newPos = (group.length - i) * POSITION_STEP;
-        if (doc.position !== newPos) {
-          ops.push({ updateOne: { filter: { _id: doc._id }, update: { $set: { position: newPos } } } });
-        }
-      });
+      if (updates.length === 0) {
+        console.log(`${table}: ${rows.length} rows across ${byUser.size} users — already normalized`);
+        continue;
+      }
 
       if (DRY_RUN) {
-        const preview = group
-          .map((d) => (typeof d.position === 'number' ? d.position : `(${String(d.position)})`))
-          .join(', ');
-        console.log(`  ${name} · user ${userId} (${group.length}): ${preview}`);
+        console.log(`${table}: would rewrite ${updates.length}/${rows.length} positions`);
+        continue;
       }
-    }
 
-    if (DRY_RUN) {
-      console.log(`${name}: ${docs.length} docs, ${decimalsSeen} with decimals, ${ops.length} would change\n`);
-    } else if (ops.length > 0) {
-      const res = await col.bulkWrite(ops);
-      console.log(`${name}: ${docs.length} docs, ${decimalsSeen} had decimals, ${res.modifiedCount} updated\n`);
-    } else {
-      console.log(`${name}: ${docs.length} docs, already normalized\n`);
+      // One statement per tier: the id/position pairs go over as two arrays and
+      // are zipped back into rows by unnest, then joined onto the table.
+      await sql`
+        update ${sql(table)} as t
+        set position = v.position
+        from unnest(${updates.map((u) => u.id)}::text[], ${updates.map((u) => u.position)}::double precision[])
+          as v(id, position)
+        where t.id = v.id`;
+      console.log(`${table}: rewrote ${updates.length}/${rows.length} positions`);
     }
+    console.log(DRY_RUN ? '\nDone (dry run — nothing written).' : '\nDone.');
+  } finally {
+    await sql.end();
   }
-
-  await mongoose.disconnect();
-  console.log('Done.');
 }
 
-main().catch(async (err) => {
+main().catch((err) => {
   console.error(err);
-  await mongoose.disconnect().catch(() => {});
   process.exit(1);
 });

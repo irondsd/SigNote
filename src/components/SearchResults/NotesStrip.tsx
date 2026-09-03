@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { NoteDocument } from '@/models/Note';
+import type { CachedNote } from '@/hooks/useNoteMutations';
 import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
 import { StripShell } from './StripShell';
 
 type NotesStripProps = {
-  notes: NoteDocument[];
+  notes: CachedNote[];
   totalCount: number;
   cap?: number;
   query: string;
@@ -29,7 +29,7 @@ export function NotesStrip({
   isLoadingMore,
   onItemClick,
 }: NotesStripProps) {
-  const [selected, setSelected] = useState<NoteDocument | null>(null);
+  const [selected, setSelected] = useState<CachedNote | null>(null);
   const [cardRect, setCardRect] = useState<DOMRect | null>(null);
   const visible = useMemo(() => (cap ? notes.slice(0, cap) : notes), [notes, cap]);
 

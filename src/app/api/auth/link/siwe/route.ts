@@ -1,11 +1,9 @@
-import { attachDatabasePool } from '@vercel/functions';
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 import { authOptions } from '@/config/auth';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';
 
@@ -29,9 +27,6 @@ export async function POST(req: Request) {
   }
 
   const addressLower = valid.address.toLowerCase();
-
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
 
   try {
     await linkIdentity(userId, 'siwe', addressLower, {

@@ -1,11 +1,11 @@
 'use client';
 
-import type { NoteDocument } from '@/models/Note';
+import type { CachedNote } from '@/hooks/useNoteMutations';
 import { NoteCard } from './NoteCard';
 import { SortableWrapper } from '@/components/SortableWrapper/SortableWrapper';
 
 type SortableNoteCardProps = {
-  note: NoteDocument;
+  note: CachedNote;
   onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   isDragDisabled?: boolean;

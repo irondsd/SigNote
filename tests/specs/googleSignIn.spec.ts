@@ -81,7 +81,7 @@ test.describe('Google sign-in', () => {
     const secondSession = (await sessionRes2.json()) as { user?: { id?: string } };
     const secondUserId = secondSession.user?.id;
 
-    // Must be the same MongoDB user — no duplicate created
+    // Must be the same user row — no duplicate created
     expect(secondUserId).toBe(firstUserId);
   });
 

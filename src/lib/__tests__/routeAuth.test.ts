@@ -4,10 +4,6 @@ jest.mock('next/server', () => {
   return { ...actual, after: (cb: () => unknown) => cb() };
 });
 jest.mock('@/config/auth', () => ({ authOptions: {} }));
-jest.mock('@/utils/mongoose', () => ({
-  getMongoClientFromMongoose: jest.fn().mockResolvedValue({ kind: 'mock-client' }),
-}));
-jest.mock('@vercel/functions', () => ({ attachDatabasePool: jest.fn() }));
 jest.mock('@/controllers/authSessions', () => ({
   TOUCH_THROTTLE_MS: 5 * 60 * 1000,
   findSessionForValidation: jest.fn(),
@@ -17,7 +13,6 @@ jest.mock('@/controllers/authSessions', () => ({
 
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
-import { attachDatabasePool } from '@vercel/functions';
 
 import { findSessionForValidation, touchSession, upsertSessionIfMissing } from '@/controllers/authSessions';
 import { RouteAuthError, withSession, type AuthedContext } from '@/lib/routeAuth';
@@ -25,14 +20,12 @@ import { RouteAuthError, withSession, type AuthedContext } from '@/lib/routeAuth
 type Handler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;
 
 const mockGetToken = getToken as jest.MockedFunction<typeof getToken>;
-const mockAttachDatabasePool = attachDatabasePool as jest.MockedFunction<typeof attachDatabasePool>;
 const mockFindSession = findSessionForValidation as jest.MockedFunction<typeof findSessionForValidation>;
 const mockTouchSession = touchSession as jest.MockedFunction<typeof touchSession>;
 const mockUpsertSession = upsertSessionIfMissing as jest.MockedFunction<typeof upsertSessionIfMissing>;
 
 beforeEach(() => {
   mockGetToken.mockReset();
-  mockAttachDatabasePool.mockClear();
   mockFindSession.mockReset();
   mockTouchSession.mockClear();
   mockUpsertSession.mockClear();
@@ -91,9 +84,10 @@ describe('withSession', () => {
   it('returns 401 when session row is revoked', async () => {
     setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
     mockFindSession.mockResolvedValueOnce({
-      _id: 'sid1' as never,
+      _id: 'sid1',
       userId: 'u1',
       provider: 'google',
+      client: 'web',
       ip: '',
       userAgent: '',
       browser: '',
@@ -114,9 +108,10 @@ describe('withSession', () => {
   it('returns 401 when session row has expired', async () => {
     setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
     mockFindSession.mockResolvedValueOnce({
-      _id: 'sid1' as never,
+      _id: 'sid1',
       userId: 'u1',
       provider: 'google',
+      client: 'web',
       ip: '',
       userAgent: '',
       browser: '',
@@ -152,9 +147,10 @@ describe('withSession', () => {
   it('does not touch a fresh session row', async () => {
     setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
     mockFindSession.mockResolvedValueOnce({
-      _id: 'sid1' as never,
+      _id: 'sid1',
       userId: 'u1',
       provider: 'google',
+      client: 'web',
       ip: '',
       userAgent: '',
       browser: '',
@@ -173,9 +169,10 @@ describe('withSession', () => {
   it('touches a stale session row (fire-and-forget)', async () => {
     setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
     mockFindSession.mockResolvedValueOnce({
-      _id: 'sid1' as never,
+      _id: 'sid1',
       userId: 'u1',
       provider: 'google',
+      client: 'web',
       ip: '',
       userAgent: '',
       browser: '',
@@ -223,12 +220,5 @@ describe('withSession', () => {
       throw new Error('boom');
     });
     await expect(withSession(handler)(buildReq(), { params: Promise.resolve({}) })).rejects.toThrow('boom');
-  });
-
-  it('attaches mongo client to the database pool before invoking handler', async () => {
-    setToken({ sub: 'u1' });
-    const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
-    await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
-    expect(mockAttachDatabasePool).toHaveBeenCalledWith({ kind: 'mock-client' });
   });
 });

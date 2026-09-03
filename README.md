@@ -10,8 +10,8 @@ SigNote organizes notes into three tiers:
 
 ### Tier 1 — Notes
 
-- Stored as plain text in MongoDB.
-- Searchable by **title and content**.
+- Stored as plain text in Postgres.
+- Searchable by **title and content**, via a weighted full-text index (a title match outranks a body match).
 - Best for everyday notes where convenience matters more than encryption.
 
 ### Tier 2 — Secrets
@@ -43,7 +43,7 @@ Encryption is unlocked with a user-chosen passphrase. The passphrase itself is n
 
 1. A random 32-byte `salt` is generated client-side.
 2. The passphrase is run through **PBKDF2** (SHA-256, 600,000 iterations) to produce a 32-byte `deviceShare`.
-3. A random 32-byte `serverShare` is generated client-side and stored encrypted in MongoDB (associated with the wallet address).
+3. A random 32-byte `serverShare` is generated client-side and stored in Postgres (associated with the wallet address).
 4. The **Master Encryption Key (MEK)** is `deviceShare XOR serverShare`. The MEK is never stored anywhere.
 
 After setup, `deviceShare` is kept in `sessionStorage` for the duration of the browser session. This means the MEK can be reconstructed silently on page reload without re-prompting for a passphrase — and is automatically discarded when the tab closes.
@@ -77,7 +77,7 @@ Because the `sealWrapKey` derivation includes the note ID in the info string, ea
 
 ### Secrets encryption
 
-Each Secret body is encrypted with AES-GCM 256-bit using `secretBodyKey`. A fresh random 12-byte IV is generated per encryption operation. The ciphertext and IV are stored together in MongoDB.
+Each Secret body is encrypted with AES-GCM 256-bit using `secretBodyKey`. A fresh random 12-byte IV is generated per encryption operation. The ciphertext and IV are stored together in Postgres.
 
 ### Seals encryption — per-note keys
 
@@ -85,7 +85,7 @@ Each Seal uses a unique 32-byte Note Encryption Key (NEK):
 
 1. A random NEK is generated and used to encrypt the note body with AES-GCM 256-bit. The note ID is used as Additional Authenticated Data (AAD) on both operations.
 2. The NEK is then wrapped (encrypted) with `sealWrapKey(noteId)` — also AES-GCM, also with the note ID as AAD.
-3. The encrypted body and the wrapped NEK are both stored in MongoDB.
+3. The encrypted body and the wrapped NEK are both stored in Postgres.
 
 To decrypt, the process is reversed: derive the seal wrapping key → unwrap the NEK → decrypt the body. If the note ID does not match the AAD used during encryption, decryption fails.
 
@@ -150,7 +150,7 @@ Titles are intentionally left unencrypted to enable full-text indexing while kee
 - **Next.js** (App Router)
 - **React 19**
 - **NextAuth** with SIWE and Google OAuth support
-- **MongoDB** with Mongoose
+- **PostgreSQL** with Drizzle ORM
 - **Web Crypto API** for all client-side encryption
 - **Wagmi** + **RainbowKit** for wallet connection
 - **TanStack Query v5** for server state
@@ -182,8 +182,7 @@ cp .env.local.example .env.local
 # Core configuration
 NEXTAUTH_URL="http://localhost:5000"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
-MONGODB_URI="mongodb+srv://<username>:<password>@<cluster-url>/"
-MONGODB_DB="signote"
+DATABASE_URL="postgres://<user>:<password>@<host>:5432/<database>"
 
 # SIWE configuration
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=""
@@ -205,8 +204,8 @@ AWS_S3_ENDPOINT=""   # optional: S3-compatible provider endpoint
 | -------------------------------------- | ---------------------------------------------------------- | -------- |
 | `NEXTAUTH_URL`                         | Exact public app origin (used for both SIWE and OAuth)     | Yes      |
 | `NEXTAUTH_SECRET`                      | Secret used by NextAuth to sign sessions                   | Yes      |
-| `MONGODB_URI`                          | MongoDB connection string                                  | Yes      |
-| `MONGODB_DB`                           | Database name                                              | Yes      |
+| `DATABASE_URL`                         | Postgres connection string                                 | Yes      |
+| `PG_POOL_SIZE`                         | Max pooled connections (default 10)                        | No       |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID used by RainbowKit/Wagmi          | Yes      |
 | `NEXT_PUBLIC_RPC_URL`                  | Ethereum RPC endpoint used by the app (for SIWE)           | Yes      |
 | `GOOGLE_CLIENT_ID`                     | Google OAuth 2.0 Client ID (from Google Cloud Console)     | No\*     |
@@ -249,11 +248,11 @@ src/
 ├── components/           # UI and feature components
 ├── config/               # Auth, wallet, and server configuration
 ├── contexts/             # EncryptionContext — MEK lifecycle management
-├── controllers/          # MongoDB-facing application logic
+├── controllers/          # Application logic over the database layer
+├── db/                   # Drizzle schema, client, and the shared note-tier repo
 ├── hooks/                # Client data and mutation hooks
 ├── lib/
 │   └── crypto.ts         # All client-side cryptographic operations
-├── models/               # Mongoose models
 └── providers/            # App-wide React providers
 ```
 
@@ -266,7 +265,7 @@ src/
 - If you use account linking (SIWE + Google), both methods provide access to the same account and encrypted notes.
 - The MEK never leaves the browser and is never sent to the server in any form.
 - Files attached to Secrets and Seals are encrypted client-side before upload using AES-GCM with a key derived from the MEK. The server stores only ciphertext and never sees the original file contents.
-- The `serverShare` stored in MongoDB is useless without the user's passphrase.
+- The `serverShare` stored in Postgres is useless without the user's passphrase.
 - `sessionStorage` (which holds `deviceShare`) is tab-scoped and cleared automatically when the tab closes.
 - Explicit lock clears both the in-memory MEK and the `sessionStorage` entry immediately.
 - Sign-out clears the MEK and device share as soon as the session becomes unauthenticated.

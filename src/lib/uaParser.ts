@@ -1,5 +1,5 @@
 import { UAParser } from 'ua-parser-js';
-import type { DeviceType } from '@/models/AuthSession';
+import type { DeviceType } from '@/db/schema';
 
 export type ParsedUA = {
   browser: string;

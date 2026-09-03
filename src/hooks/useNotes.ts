@@ -1,4 +1,4 @@
-import { NoteDocument } from '@/models/Note';
+import type { CachedNote } from './useNoteMutations';
 import { useNoteTier } from './internal/useNoteTier';
 
 const CONFIG = { key: 'notes' } as const;
@@ -9,4 +9,4 @@ export const useNotes = (params: {
   tags?: string[];
   tagMode?: 'or' | 'and';
   enabled?: boolean;
-}) => useNoteTier<NoteDocument>(CONFIG, params);
+}) => useNoteTier<CachedNote>(CONFIG, params);

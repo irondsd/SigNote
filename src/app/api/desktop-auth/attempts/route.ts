@@ -1,10 +1,8 @@
-import { attachDatabasePool } from '@vercel/functions';
 import { type NextRequest, NextResponse } from 'next/server';
 import { canCreateDesktopAuthAttempt, createDesktopAuthAttempt } from '@/controllers/desktopAuth';
 import { getClientIp } from '@/lib/clientIp';
 import { acceptsJson, isSameOriginMutation } from '@/lib/requestSecurity';
 import { createDesktopAttemptSchema } from '@/server/schemas/desktopAuth';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
 
 export const runtime = 'nodejs';
 
@@ -15,9 +13,6 @@ export async function POST(request: NextRequest) {
 
   const input = createDesktopAttemptSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
 
   const ip = getClientIp(request);
   if (!(await canCreateDesktopAuthAttempt(ip))) {

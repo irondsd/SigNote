@@ -1,4 +1,3 @@
-import { isValidObjectId } from 'mongoose';
 import { NextResponse } from 'next/server';
 
 import { deleteFileAttachment, getFileAttachment } from '@/controllers/files';
@@ -8,8 +7,6 @@ import { streamFromS3 } from '@/lib/s3';
 export const runtime = 'nodejs';
 
 export const GET = withSession(async (req, { userId, params: { id } }) => {
-  if (!isValidObjectId(id)) throw new RouteAuthError(404, 'Not found');
-
   const doc = await getFileAttachment(id, userId);
   if (!doc) throw new RouteAuthError(404, 'Not found');
 
@@ -34,8 +31,6 @@ export const GET = withSession(async (req, { userId, params: { id } }) => {
 });
 
 export const DELETE = withSession(async (_req, { userId, params: { id } }) => {
-  if (!isValidObjectId(id)) throw new RouteAuthError(404, 'Not found');
-
   const doc = await deleteFileAttachment(id, userId);
   if (!doc) throw new RouteAuthError(404, 'Not found');
 

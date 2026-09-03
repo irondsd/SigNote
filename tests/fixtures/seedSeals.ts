@@ -1,12 +1,18 @@
-import mongoose from 'mongoose';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 import type { Address } from 'viem';
-import { SealNoteModel, type SealNoteDocument } from '../../src/models/SealNote';
+import { sealNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
+import { testDb } from './db';
 import type { NoteColor } from '../../src/config/noteStyles';
 
-const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
-const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
 const POSITION_STEP = 1000;
+
+/** The inserted row, plus the `_id` alias the app's API exposes — specs
+ *  address seeded rows the same way the client sees them. */
+export type SeededSeal = typeof sealNotes.$inferSelect & { _id: string };
+
+const withAliasedId = (row: typeof sealNotes.$inferSelect): SeededSeal => ({ ...row, _id: row.id });
 const HKDF_SEAL_WRAP_PREFIX = 'seal-wrap:v1';
 
 export type SeedSeal = {
@@ -45,15 +51,8 @@ async function wrapNekBytes(sealWrapKey: CryptoKey, nekBytes: Uint8Array, aad: s
   return { alg: 'A256GCM' as const, iv: toBase64(iv), ciphertext: toBase64(ciphertext) };
 }
 
-export const seedSeals = async (
-  address: Address,
-  mekBytes: Uint8Array,
-  seals: SeedSeal[],
-): Promise<SealNoteDocument[]> => {
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
-  }
-
+export const seedSeals = async (address: Address, mekBytes: Uint8Array, seals: SeedSeal[]): Promise<SeededSeal[]> => {
+  const db = testDb();
   const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
@@ -62,21 +61,21 @@ export const seedSeals = async (
   const mek = await subtle.importKey('raw', new Uint8Array(mekBytes), 'HKDF', false, ['deriveKey']);
 
   // Determine starting position
-  const lastSeal = await SealNoteModel.findOne({ userId, deletedAt: null })
-    .sort({ position: -1 })
-    .select({ position: 1 })
-    .lean()
-    .exec();
+  const last = await db
+    .select({ position: sealNotes.position })
+    .from(sealNotes)
+    .where(and(eq(sealNotes.userId, userId), isNull(sealNotes.deletedAt)))
+    .orderBy(desc(sealNotes.position))
+    .limit(1);
 
-  let position = (lastSeal?.position ?? 0) + POSITION_STEP;
+  let position = (last[0]?.position ?? 0) + POSITION_STEP;
 
-  const created: SealNoteDocument[] = [];
+  const created: SeededSeal[] = [];
 
   for (const seal of seals) {
     const now = new Date();
-    // Pre-generate ObjectId so we can use it as the sealId for key derivation
-    const sealObjectId = new mongoose.Types.ObjectId();
-    const sealId = sealObjectId.toString();
+    // Pre-generate the row id so it can double as the sealId for key derivation
+    const sealId = uuidv7();
     const aad = `${HKDF_SEAL_WRAP_PREFIX}:${sealId}`;
 
     let encryptedBody = null;
@@ -110,24 +109,27 @@ export const seedSeals = async (
       wrappedNoteKey = await wrapNekBytes(sealWrapKey, nekBytes, aad);
     }
 
-    const doc = await SealNoteModel.create({
-      _id: sealObjectId,
-      userId,
-      title: seal.title ?? '',
-      encryptedBody,
-      wrappedNoteKey,
-      archived: seal.archived ?? false,
-      color: seal.color ?? null,
-      position,
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null,
-      pinned: seal.pinned ?? false,
-      expiresAt: seal.expiresAt ?? null,
-      burnAfterReading: seal.burnAfterReading ?? false,
-    });
+    const [row] = await db
+      .insert(sealNotes)
+      .values({
+        id: sealId,
+        userId,
+        title: seal.title ?? '',
+        encryptedBody,
+        wrappedNoteKey,
+        archived: seal.archived ?? false,
+        color: seal.color ?? null,
+        position,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+        pinned: seal.pinned ?? false,
+        expiresAt: seal.expiresAt ?? null,
+        burnAfterReading: seal.burnAfterReading ?? false,
+      })
+      .returning();
 
-    created.push(doc);
+    created.push(withAliasedId(row));
     position += POSITION_STEP;
   }
 

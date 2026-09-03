@@ -1,34 +1,28 @@
-import mongoose from 'mongoose';
-import { AuthIdentityModel } from '../../src/models/AuthIdentity';
-import { UserModel } from '../../src/models/User';
+import { and, eq } from 'drizzle-orm';
 
-const MONGO_TEST_URI = process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27018/';
-const MONGO_TEST_DB = process.env.MONGODB_DB ?? 'signote-test';
+import { authIdentities, users } from '../../src/db/schema';
+import { testDb } from './db';
 
 /**
- * Returns the MongoDB _id string for the user with the given Google ID,
- * creating the user + identity if they don't exist yet.
+ * Returns the user id for the given Google ID, creating the user + identity
+ * if they don't exist yet.
  */
 export const getOrCreateGoogleUserId = async (googleId: string, email: string): Promise<string> => {
-  if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(MONGO_TEST_URI, { dbName: MONGO_TEST_DB });
-  }
-
+  const db = testDb();
   const now = new Date();
 
-  const existingIdentity = await AuthIdentityModel.findOne({
-    provider: 'google',
-    providerSubject: googleId,
-  }).lean();
+  const existing = await db
+    .select({ userId: authIdentities.userId })
+    .from(authIdentities)
+    .where(and(eq(authIdentities.provider, 'google'), eq(authIdentities.providerSubject, googleId)))
+    .limit(1);
 
-  if (existingIdentity) {
-    return existingIdentity.userId;
-  }
+  if (existing[0]) return existing[0].userId;
 
-  const user = await UserModel.create({ displayName: email, createdAt: now });
+  const [user] = await db.insert(users).values({ displayName: email, createdAt: now }).returning({ id: users.id });
 
-  await AuthIdentityModel.create({
-    userId: user._id.toString(),
+  await db.insert(authIdentities).values({
+    userId: user.id,
     provider: 'google',
     providerSubject: googleId,
     email,
@@ -37,5 +31,5 @@ export const getOrCreateGoogleUserId = async (googleId: string, email: string): 
     rawProfileJson: { sub: googleId, email, name: email, email_verified: true },
   });
 
-  return user._id.toString();
+  return user.id;
 };

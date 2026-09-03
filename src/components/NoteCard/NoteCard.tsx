@@ -1,7 +1,7 @@
 'use client';
 
 import DOMPurify from 'dompurify';
-import type { NoteDocument } from '@/models/Note';
+import type { CachedNote } from '@/hooks/useNoteMutations';
 import { NoteCardBase } from '@/components/NoteCardBase/NoteCardBase';
 import { EncryptedPlaceholder } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { useTags } from '@/hooks/useTags';
@@ -12,7 +12,7 @@ const PURIFY_CONFIG = {
 };
 
 type NoteCardProps = {
-  note: NoteDocument;
+  note: CachedNote;
   onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
 };

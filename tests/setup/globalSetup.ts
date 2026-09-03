@@ -1,7 +1,7 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
 import { execSync, spawn } from 'child_process';
 import path from 'path';
 import { config } from 'dotenv';
+import postgres from 'postgres';
 import type { ChildProcess } from 'child_process';
 import { startMockOAuthServer } from '../oauth/mockOAuthServer';
 import type { MockOAuthServer } from '../oauth/mockOAuthServer';
@@ -11,12 +11,45 @@ import type { MockS3Server } from '../s3/mockS3Server';
 // Load .env.test so test workers (spawned after globalSetup) inherit these vars
 config({ path: path.resolve(__dirname, '../../.env.test') });
 
-type GlobalWithMongo = typeof globalThis & {
-  __MONGOD__?: MongoMemoryServer;
+type GlobalWithServers = typeof globalThis & {
   __SERVER__?: ChildProcess;
   __MOCK_OAUTH__?: MockOAuthServer;
   __MOCK_S3__?: MockS3Server;
 };
+
+// The disposable Postgres from docker-compose (`db-test`, tmpfs-backed).
+//
+// Deliberately NOT read from DATABASE_URL: this setup truncates every table,
+// and DATABASE_URL is the variable that points at Supabase in .env.local.
+// Override with TEST_DATABASE_URL, which nothing else in the repo sets.
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://signote:signote@localhost:5435/signote_test';
+
+/** Refuse to wipe anything that isn't unmistakably a local test database. */
+function assertDisposable(url: string): void {
+  const { hostname, pathname } = new URL(url);
+  const isLocalHost = ['localhost', '127.0.0.1', '::1', 'db-test'].includes(hostname);
+  const isTestDatabase = pathname.replace('/', '').endsWith('_test');
+  if (!isLocalHost || !isTestDatabase) {
+    throw new Error(
+      `Refusing to run E2E against ${hostname}${pathname}: the suite truncates every table. ` +
+        'TEST_DATABASE_URL must point at a local database whose name ends in "_test".',
+    );
+  }
+}
+
+async function truncateAll(url: string): Promise<void> {
+  const sql = postgres(url, { max: 1 });
+  try {
+    const tables = await sql<{ tablename: string }[]>`
+      select tablename from pg_tables
+      where schemaname = 'public' and tablename <> '__drizzle_migrations'`;
+    if (tables.length > 0) {
+      await sql`truncate table ${sql(tables.map((t) => t.tablename))} cascade`;
+    }
+  } finally {
+    await sql.end();
+  }
+}
 
 async function waitForServer(url: string, timeoutMs = 20000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -50,7 +83,7 @@ export default async function globalSetup() {
   process.env.GOOGLE_AUTH_URL = `http://localhost:${mockOAuth.port}/auth`;
   process.env.GOOGLE_TOKEN_URL = `http://localhost:${mockOAuth.port}/token`;
   process.env.GOOGLE_USERINFO_URL = `http://localhost:${mockOAuth.port}/userinfo`;
-  (globalThis as GlobalWithMongo).__MOCK_OAUTH__ = mockOAuth;
+  (globalThis as GlobalWithServers).__MOCK_OAUTH__ = mockOAuth;
   console.log(`Mock OAuth server started on port ${mockOAuth.port}`);
 
   // Start mock S3 server for file upload tests.
@@ -60,24 +93,36 @@ export default async function globalSetup() {
   process.env.AWS_S3_REGION = 'us-east-1';
   process.env.AWS_ACCESS_KEY_ID = 'test-key';
   process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
-  (globalThis as GlobalWithMongo).__MOCK_S3__ = mockS3;
+  (globalThis as GlobalWithServers).__MOCK_S3__ = mockS3;
   console.log(`Mock S3 server started on port ${mockS3.port}`);
 
-  // Start on a random port and propagate the URI via process.env before
-  // spawning the web server, so it inherits the correct MONGODB_URI.
-  const mongod = await MongoMemoryServer.create();
-  process.env.MONGODB_URI = mongod.getUri();
-  (globalThis as GlobalWithMongo).__MONGOD__ = mongod;
-  console.log(`MongoMemoryServer started at ${mongod.getUri()}`);
+  // Bring up the disposable Postgres and apply migrations to it. Export
+  // DATABASE_URL before spawning the web server so it inherits the same one
+  // the fixtures write through.
+  assertDisposable(TEST_DATABASE_URL);
+  process.env.DATABASE_URL = TEST_DATABASE_URL;
+  const repoRoot = path.resolve(__dirname, '../..');
 
-  // Spawn Next.js with the current process.env (which now includes MONGODB_URI)
+  execSync('docker compose up -d db-test --wait', { cwd: repoRoot, stdio: 'inherit' });
+  execSync('npx drizzle-kit migrate', {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+  });
+
+  // Each run starts from an empty database — the container is reused between
+  // runs, so migrating alone would leave the previous run's rows behind.
+  await truncateAll(TEST_DATABASE_URL);
+  console.log(`Test Postgres ready at ${TEST_DATABASE_URL}`);
+
+  // Spawn Next.js with the current process.env (which now includes DATABASE_URL)
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const server = spawn(npmCommand, ['run', 'dev:test'], {
     env: { ...process.env },
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'ignore',
   });
-  (globalThis as GlobalWithMongo).__SERVER__ = server;
+  (globalThis as GlobalWithServers).__SERVER__ = server;
 
   await waitForServer('http://localhost:5005');
   console.log('Next.js dev server ready at http://localhost:5005');

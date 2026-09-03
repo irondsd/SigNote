@@ -1,8 +1,10 @@
+import { eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { v7 as uuidv7 } from 'uuid';
 
-import { DesktopAuthAttemptModel } from '@/models/DesktopAuthAttempt';
+import type { Db } from '@/db/client';
+import { desktopAuthAttempts } from '@/db/schema';
+import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import {
   DESKTOP_ATTEMPT_RATE_LIMIT_MAX,
   DESKTOP_EXCHANGE_ATTEMPT_MAX,
@@ -13,25 +15,26 @@ import {
   hashDesktopAuthValue,
 } from '../desktopAuth';
 
-let mongo: MongoMemoryServer;
+let db: Db;
 
 const state = 's'.repeat(43);
 const verifier = 'v'.repeat(43);
 const challenge = createHash('sha256').update(verifier, 'utf8').digest('base64url');
-const userId = new mongoose.Types.ObjectId().toString();
+const userId = uuidv7();
+
+const findAttempt = async (attemptId: string) => {
+  const rows = await db.select().from(desktopAuthAttempts).where(eq(desktopAuthAttempts.attemptId, attemptId)).limit(1);
+  return rows[0];
+};
 
 beforeAll(async () => {
-  mongo = await MongoMemoryServer.create();
-  await mongoose.connect(mongo.getUri());
+  db = await setupTestDb();
 });
 
-afterAll(async () => {
-  await mongoose.disconnect();
-  await mongo.stop();
-});
+afterAll(teardownTestDb);
 
 beforeEach(async () => {
-  await DesktopAuthAttemptModel.deleteMany({});
+  await resetTestDb(db);
 });
 
 async function createAndAuthorize() {
@@ -44,7 +47,7 @@ async function createAndAuthorize() {
 describe('desktopAuth controller', () => {
   it('stores hashes instead of the state or authorization code', async () => {
     const attempt = await createAndAuthorize();
-    const row = await DesktopAuthAttemptModel.findOne({ attemptId: attempt.attemptId }).lean();
+    const row = await findAttempt(attempt.attemptId);
 
     expect(row?.stateHash).toBe(hashDesktopAuthValue(state));
     expect(row?.stateHash).not.toContain(state);
@@ -63,7 +66,7 @@ describe('desktopAuth controller', () => {
     });
 
     expect(result).toBeNull();
-    expect((await DesktopAuthAttemptModel.findOne({ attemptId: attempt.attemptId }).lean())?.status).toBe('pending');
+    expect((await findAttempt(attempt.attemptId))?.status).toBe('pending');
   });
 
   it('consumes a valid PKCE exchange exactly once', async () => {
@@ -106,7 +109,7 @@ describe('desktopAuth controller', () => {
       }),
     ).resolves.toEqual({ ok: false, reason: 'invalid_or_expired' });
 
-    expect((await DesktopAuthAttemptModel.findOne({ attemptId: attempt.attemptId }).lean())?.status).toBe('authorized');
+    expect((await findAttempt(attempt.attemptId))?.status).toBe('authorized');
   });
 
   it('stops accepting guesses after the exchange-attempt limit', async () => {
@@ -129,10 +132,10 @@ describe('desktopAuth controller', () => {
 
   it('rejects expired attempts', async () => {
     const attempt = await createAndAuthorize();
-    await DesktopAuthAttemptModel.updateOne(
-      { attemptId: attempt.attemptId },
-      { $set: { expiresAt: new Date(Date.now() - 1_000) } },
-    );
+    await db
+      .update(desktopAuthAttempts)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(desktopAuthAttempts.attemptId, attempt.attemptId));
 
     await expect(
       consumeDesktopAuthAttempt({

@@ -1,66 +1,100 @@
-import { AuthIdentityModel } from '@/models/AuthIdentity';
-import { UserModel } from '@/models/User';
-import connectToDatabase from '@/utils/mongoose';
+import { and, eq } from 'drizzle-orm';
 
-export const upsertGoogleUser = async (googleId: string, displayName: string, email?: string, image?: string) => {
+import { getDb } from '@/db/client';
+import { authIdentities, users } from '@/db/schema';
+
+export type UserRow = {
+  _id: string;
+  displayName: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type RawUser = typeof users.$inferSelect;
+
+const mapUser = ({ id, ...rest }: RawUser): UserRow => ({ _id: id, ...rest });
+
+const findUserById = async (userId: string): Promise<UserRow | null> => {
+  const rows = await getDb().select().from(users).where(eq(users.id, userId)).limit(1);
+  return rows[0] ? mapUser(rows[0]) : null;
+};
+
+export const upsertGoogleUser = async (
+  googleId: string,
+  displayName: string,
+  email?: string,
+  image?: string,
+): Promise<UserRow | null> => {
+  const db = getDb();
   const now = new Date();
-  await connectToDatabase();
 
-  const existingIdentity = await AuthIdentityModel.findOne({
-    provider: 'google',
-    providerSubject: googleId,
-  });
+  const existing = await db
+    .select()
+    .from(authIdentities)
+    .where(and(eq(authIdentities.provider, 'google'), eq(authIdentities.providerSubject, googleId)))
+    .limit(1);
 
-  if (existingIdentity) {
-    existingIdentity.lastLoginAt = now;
-    await existingIdentity.save();
-    return UserModel.findById(existingIdentity.userId).lean().exec();
+  if (existing[0]) {
+    await db
+      .update(authIdentities)
+      .set({ lastLoginAt: now, updatedAt: now })
+      .where(eq(authIdentities.id, existing[0].id));
+    return findUserById(existing[0].userId);
   }
 
-  const user = await UserModel.create({ displayName });
-
-  await AuthIdentityModel.create({
-    userId: user._id.toString(),
-    provider: 'google',
-    providerSubject: googleId,
-    lastLoginAt: now,
-    email,
-    rawProfileJson: { displayName, image },
+  return db.transaction(async (tx) => {
+    const inserted = await tx.insert(users).values({ displayName }).returning();
+    const user = inserted[0];
+    await tx.insert(authIdentities).values({
+      userId: user.id,
+      provider: 'google',
+      providerSubject: googleId,
+      lastLoginAt: now,
+      email,
+      rawProfileJson: { displayName, image },
+    });
+    return mapUser(user);
   });
-
-  return user;
 };
 
-export const updateDisplayName = async (userId: string, displayName: string) => {
-  await connectToDatabase();
-  return UserModel.findByIdAndUpdate(userId, { displayName }, { new: true }).lean().exec();
+export const updateDisplayName = async (userId: string, displayName: string): Promise<UserRow | null> => {
+  const rows = await getDb()
+    .update(users)
+    .set({ displayName, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return rows[0] ? mapUser(rows[0]) : null;
 };
 
-export const upsertSiweUser = async (address: string) => {
+export const upsertSiweUser = async (address: string): Promise<UserRow | null> => {
+  const db = getDb();
   const now = new Date();
   const addressLower = address.toLowerCase();
-  await connectToDatabase();
 
-  const existingIdentity = await AuthIdentityModel.findOne({
-    provider: 'siwe',
-    providerSubject: addressLower,
-  });
+  const existing = await db
+    .select()
+    .from(authIdentities)
+    .where(and(eq(authIdentities.provider, 'siwe'), eq(authIdentities.providerSubject, addressLower)))
+    .limit(1);
 
-  if (existingIdentity) {
-    existingIdentity.lastLoginAt = now;
-    await existingIdentity.save();
-    return UserModel.findById(existingIdentity.userId).lean().exec();
+  if (existing[0]) {
+    await db
+      .update(authIdentities)
+      .set({ lastLoginAt: now, updatedAt: now })
+      .where(eq(authIdentities.id, existing[0].id));
+    return findUserById(existing[0].userId);
   }
 
-  const user = await UserModel.create({ displayName: address });
-
-  await AuthIdentityModel.create({
-    userId: user._id.toString(),
-    provider: 'siwe',
-    providerSubject: addressLower,
-    lastLoginAt: now,
-    rawProfileJson: { addressLower, addressChecksum: address },
+  return db.transaction(async (tx) => {
+    const inserted = await tx.insert(users).values({ displayName: address }).returning();
+    const user = inserted[0];
+    await tx.insert(authIdentities).values({
+      userId: user.id,
+      provider: 'siwe',
+      providerSubject: addressLower,
+      lastLoginAt: now,
+      rawProfileJson: { addressLower, addressChecksum: address },
+    });
+    return mapUser(user);
   });
-
-  return user;
 };

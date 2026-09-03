@@ -1,9 +1,7 @@
-import { attachDatabasePool } from '@vercel/functions';
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
-import { getMongoClientFromMongoose } from '@/utils/mongoose';
 import { getRedirectUri } from '../utils';
 
 export const runtime = 'nodejs';
@@ -83,9 +81,6 @@ export async function GET(req: Request) {
   if (!googleId) {
     return NextResponse.redirect(buildProfileUrl('link_error=server_error'));
   }
-
-  const client = await getMongoClientFromMongoose();
-  attachDatabasePool(client);
 
   try {
     await linkIdentity(userId, 'google', googleId, {

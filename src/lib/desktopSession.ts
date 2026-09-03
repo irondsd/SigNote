@@ -1,11 +1,13 @@
-import mongoose from 'mongoose';
+import { eq } from 'drizzle-orm';
 import { encode } from 'next-auth/jwt';
 import type { NextRequest } from 'next/server';
 import { AUTH_SESSION_MAX_AGE_SECONDS } from '@/config/authConstants';
 import { upsertSessionIfMissing } from '@/controllers/authSessions';
 import { getClientIp } from '@/lib/clientIp';
+import { getDb } from '@/db/client';
+import { users } from '@/db/schema';
 import { parseUserAgent } from '@/lib/uaParser';
-import { UserModel } from '@/models/User';
+import { v7 as uuidv7 } from 'uuid';
 
 export type DesktopSessionCookie = {
   name: string;
@@ -24,10 +26,15 @@ export async function createDesktopSession(request: NextRequest, userId: string)
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) throw new Error('Missing NEXTAUTH_SECRET');
 
-  const user = await UserModel.findById(userId).lean().exec();
+  const found = await getDb()
+    .select({ displayName: users.displayName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  const user = found[0];
   if (!user) return null;
 
-  const sid = new mongoose.Types.ObjectId().toString();
+  const sid = uuidv7();
   const userAgent = request.headers.get('user-agent') ?? '';
   const expires = new Date(Date.now() + AUTH_SESSION_MAX_AGE_SECONDS * 1000);
   const token = await encode({

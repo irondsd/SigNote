@@ -1,7 +1,7 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import mongoose from 'mongoose';
 import type { NextAuthOptions } from 'next-auth';
+import { v7 as uuidv7 } from 'uuid';
 
 import { revokeSessionBySid } from '@/controllers/authSessions';
 import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
@@ -69,7 +69,7 @@ export const authOptions: NextAuthOptions = {
         const picture = (profile as { picture?: string }).picture;
         const user = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
         if (!user) return false;
-        // Store MongoDB _id and displayName on the account so jwt callback can use them
+        // Store the user id and displayName on the account so jwt callback can use them
         account.userId = user._id.toString();
         account.displayName = user.displayName;
       }
@@ -91,7 +91,7 @@ export const authOptions: NextAuthOptions = {
           token.provider = 'siwe';
         }
         token.client = resolveSignInClient(account.provider, user?.client);
-        token.sid = new mongoose.Types.ObjectId().toString();
+        token.sid = uuidv7();
       }
       return token;
     },

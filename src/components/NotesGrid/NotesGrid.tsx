@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { NoteDocument } from '@/models/Note';
+import type { CachedNote } from '@/hooks/useNoteMutations';
 import { NoteCard } from '@/components/NoteCard/NoteCard';
 import { SortableNoteCard } from '@/components/NoteCard/SortableNoteCard';
 import { NoteModal } from '@/components/NoteModal/NoteModal';
@@ -11,7 +11,7 @@ import { setNoteIdParam, clearNoteIdParam } from '@/utils/noteIdUrl';
 import { useInitialNoteId } from '@/hooks/useInitialNoteId';
 
 type NotesGridProps = {
-  notes: NoteDocument[] | undefined;
+  notes: CachedNote[] | undefined;
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
@@ -27,7 +27,7 @@ export function NotesGrid({
   showArchivedBadge = false,
   isDragDisabled = false,
 }: NotesGridProps) {
-  const [selected, setSelected] = useState<NoteDocument | null>(null);
+  const [selected, setSelected] = useState<CachedNote | null>(null);
   const [cardRect, setCardRect] = useState<DOMRect | null>(null);
 
   useInitialNoteId(notes, (n) => n._id.toString(), setSelected);
