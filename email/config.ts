@@ -40,11 +40,11 @@ export const brand = {
 export const links = {
   vault: absoluteUrl('/'),
   sessions: absoluteUrl('/sessions'),
+  privacy: absoluteUrl('/docs/privacy'),
   /**
-   * These three routes don't exist yet. They have to before we send anything:
+   * These two routes don't exist yet. They have to before we send anything:
    * an unsubscribe link that 404s is worse than no link at all.
    */
-  privacy: absoluteUrl('/docs/privacy'),
   emailPreferences: absoluteUrl('/profile/notifications'),
   unsubscribe: absoluteUrl('/unsubscribe'),
 } as const;
