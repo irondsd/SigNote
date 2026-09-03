@@ -12,7 +12,7 @@ export function UnauthenticatedState() {
 
       <div className={s.card}>
         <div className={s.logo}>
-          <Image className={s.logoIcon} src="/images/logo.svg" alt="SigNote" width={19} height={32} />
+          <Image className={s.logoIcon} src="/images/logo.svg" alt="SigNote" width={32} height={32} />
           <span className={s.logoText}>SigNote</span>
         </div>
 

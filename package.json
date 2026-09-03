@@ -15,6 +15,7 @@
     "desktop:dist:linux": "bun run --cwd desktop dist:linux",
     "desktop:dist:release": "bun run --cwd desktop dist:release",
     "desktop:test": "bun run --cwd desktop test",
+    "icons:web": "node scripts/build-web-icons.mjs",
     "start": "next start",
     "lint": "eslint && npx tsc --noEmit",
     "format": "prettier --write . | grep -v '(unchanged)'",

@@ -1,10 +1,13 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(0 -2)">
-    <path d="M22 30 L22 20 Q22 8 32 8 Q42 8 42 20 L42 30" stroke="#ffa700" stroke-width="5" stroke-linecap="round" fill="none" />
-    <rect x="10" y="30" width="44" height="30" rx="6" fill="none" stroke="#ffa700" stroke-width="5" />
-    <line x1="10" y1="40" x2="16" y2="40" stroke="#ffa700" stroke-width="5" stroke-linecap="round" />
-    <line x1="10" y1="50" x2="16" y2="50" stroke="#ffa700" stroke-width="5" stroke-linecap="round" />
-    <circle cx="32" cy="44" r="3.5" fill="#ffa700" />
-    <rect x="30" y="47" width="4" height="5" rx="1" fill="#ffa700" />
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <mask id="signote-mark" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+    <rect width="64" height="64" fill="#fff" />
+    <rect x="6" y="30" width="9.5" height="3.8" rx="1.9" fill="#000" />
+    <rect x="6" y="39.6" width="9.5" height="3.8" rx="1.9" fill="#000" />
+    <circle cx="32" cy="33.5" r="5" fill="#000" />
+    <path d="M29.7 37.1h4.6l1.4 8h-7.4z" fill="#000" />
+  </mask>
+  <g mask="url(#signote-mark)">
+    <path d="M23.5 21v-3a8.5 8.5 0 0 1 17 0v3" stroke="#DC7702" stroke-width="7" stroke-linecap="round" />
+    <rect x="8" y="20.5" width="48" height="32.5" rx="8.5" fill="#DC7702" />
   </g>
 </svg>

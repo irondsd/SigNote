@@ -86,9 +86,6 @@ export const metadata: Metadata = {
     title: SITE_NAME,
   },
   manifest: '/manifest.webmanifest',
-  icons: {
-    apple: '/icons/apple-touch-icon.png',
-  },
 };
 
 export function getDocsSlugs() {
