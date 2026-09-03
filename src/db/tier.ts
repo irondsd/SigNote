@@ -6,16 +6,14 @@ import { MAX_SEARCH, MAX_VERSIONS, POSITION_STEP, VERSION_COMPRESSION_WINDOW_MS 
 import { getDb, type Db } from './client';
 
 /**
- * Shared data layer for the three note tiers. This is the Drizzle counterpart
- * of the old `controllers/common.ts` + `controllers/versions.ts` Mongo layer:
- * the tables differ only in their content columns (plaintext `content` vs
- * `encryptedBody` [+ `wrappedNoteKey`]), so each tier hands over a config and
- * gets back the whole operation set.
+ * Shared data layer for the three note tiers. The tables differ only in their
+ * content columns (plaintext `content` vs `encryptedBody` [+ `wrappedNoteKey`]),
+ * so each tier hands over a config and gets back the whole operation set.
  *
  * Internals use contained `any` casts (drizzle's builder generics don't
  * compose over a table-shaped interface); the exported surface is typed and
- * mirrors the JSON the Mongo controllers produced — `_id`, camelCase fields,
- * `tags` as an ordered id array.
+ * defines the JSON the API returns — `_id`, camelCase fields, `tags` as an
+ * ordered id array.
  */
 
 export type TierHeadRow = {
@@ -76,7 +74,7 @@ export type TierConfig = {
   versions: {
     table: AnyPgTable;
     // `seq` is the insertion-order identity column — all history ordering and
-    // the MAX_VERSIONS cap go by it, mirroring Mongo's embedded-array order.
+    // the MAX_VERSIONS cap go by it. See the note on `versionSeq` in schema.ts.
     cols: { id: AnyPgColumn; seq: AnyPgColumn; noteId: AnyPgColumn; title: AnyPgColumn; createdAt: AnyPgColumn };
     contentKeys: string[];
   };
@@ -86,8 +84,8 @@ export type TierConfig = {
   };
 };
 
-// Matches the Mongo TTL `expireAfterSeconds: 3600` grace: while the row still
-// physically exists (cleanup cron hasn't fired), the in-modal user can cancel
+// One-hour grace on top of expiry: while the row still physically exists (the
+// cleanup cron hasn't reaped it yet), a user with the note open can still cancel
 // the self-destruct. Strict-future filtering happens in `list`.
 const EXPIRY_GRACE_MS = 3600_000;
 
@@ -222,8 +220,7 @@ export function makeTierRepo(cfg: TierConfig) {
     return rows[0]?.createdAt ?? null;
   };
 
-  // Insert a snapshot and drop everything beyond the newest MAX_VERSIONS —
-  // the SQL equivalent of Mongo's `$push` + `$slice: -MAX_VERSIONS`.
+  // Insert a snapshot, then drop everything beyond the newest MAX_VERSIONS.
   const insertVersionCapped = async (db: Db, noteId: string, values: Record<string, unknown>): Promise<void> => {
     await (db as any).insert(versions.table).values({ ...values, noteId });
     const keep = (db as any)

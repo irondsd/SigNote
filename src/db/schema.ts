@@ -19,12 +19,13 @@ import type { EncryptedPayload, KdfParams } from '@/types/crypto';
 
 /**
  * All primary keys are TEXT, not UUID columns, on purpose:
- *  - rows migrated from MongoDB keep their ObjectId hex strings verbatim (no
- *    id-mapping table, so client-side caches and JWT `sid` claims survive the
- *    cutover), while new rows get UUIDv7 values;
- *  - malformed ids coming from user input (stale caches, note content) can
- *    never raise a cast error — they simply match nothing, exactly like the
- *    Mongo behaviour the API contract grew around.
+ *  - live data contains both shapes. Rows predating the Postgres move kept
+ *    their original 24-char hex ids verbatim, so caches and JWT `sid` claims
+ *    stayed valid; everything created since gets a UUIDv7. Neither is going
+ *    away, so the column type has to accept both.
+ *  - a malformed id from user input (a stale cache, an id parsed out of note
+ *    content) can never raise a cast error — it simply matches nothing, which
+ *    is the behaviour the API contract is built around: unknown ids 404.
  */
 const id = () =>
   text('id')
@@ -42,9 +43,9 @@ const updatedAt = () =>
     .$defaultFn(() => new Date());
 
 /**
- * `updated_at` that also refreshes itself on every UPDATE — the equivalent of
- * mongoose's `timestamps: true`, which only the auth collections used. The note
- * tiers and tags deliberately keep the plain version: there, `updatedAt` means
+ * `updated_at` that also refreshes itself on every UPDATE. Only the auth tables
+ * want this. The note tiers and tags deliberately keep the plain version: there
+ * `updatedAt` means
  * "when the content was last saved", so a color or position change must not
  * bump it (it drives both the search sort order and the "edited" label).
  */
@@ -58,12 +59,13 @@ const tsvector = customType<{ data: string; driverData: string }>({
   dataType: () => 'tsvector',
 });
 
-// Mongo stored versions as an embedded array, so their order was *insertion*
-// order — which is not always createdAt order (a restore snapshot carries the
-// displaced head's original save time). `seq` reproduces push order exactly.
+// History is ordered by insertion, NOT by createdAt: a restore snapshot carries
+// the displaced head's original save time, so timestamps can go backwards.
+// `seq` is the only correct ordering key — sorting history by createdAt breaks
+// restore.
 const versionSeq = () => bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity();
 
-// Shared metadata columns of the three note tiers (mirrors Mongo's shape).
+// Shared metadata columns of the three note tiers.
 const tierColumns = () => ({
   id: id(),
   userId: text('user_id').notNull(),
@@ -81,10 +83,9 @@ const tierColumns = () => ({
 });
 
 /**
- * Weighted full-text vector, replacing Mongo's `{ title: 'text', content:
- * 'text' }` index with weights `{ title: 10, content: 2 }`. Postgres weight
- * labels are relative, not numeric, so 'A'/'B' carry the same intent: a title
- * hit outranks a body hit (~2.7x under the default ts_rank weighting).
+ * Weighted full-text vector. Postgres weight labels are relative, not numeric:
+ * 'A' on the title and 'B' on the body means a title hit outranks a body hit
+ * (~2.7x under the default ts_rank weighting).
  *
  * `to_tsvector` with an explicit regconfig is IMMUTABLE, which a generated
  * column requires. Its default parser also drops `tag` tokens, so the HTML
@@ -205,7 +206,7 @@ export const sealNoteVersions = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Tags + per-tier ordered join tables (Mongo stored an ordered tag-id array)
+// Tags + per-tier join tables. `sort_order` preserves the picker's ordering.
 
 export const tags = pgTable(
   'tags',

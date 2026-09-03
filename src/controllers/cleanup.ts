@@ -13,16 +13,14 @@ import {
 } from '@/db/schema';
 
 /**
- * Postgres replacement for MongoDB's TTL indexes.
+ * Row expiry sweep — Postgres has no TTL index, so this stands in for one.
  *
  * Nothing here is load-bearing for correctness — every read path already
  * filters on `deletedAt` / `expiresAt` / `revokedAt`, so an expired row is
  * invisible whether or not it has been reaped. What the sweep does is reclaim
  * storage and, crucially, keep `cleanupOrphanedFiles` working: that job spots
- * an orphaned attachment by its parent note no longer existing, which only
- * ever happened because Mongo's TTL had physically removed it.
- *
- * Grace periods mirror the `expireAfterSeconds` values the models declared.
+ * an orphaned attachment by its parent note no longer existing, so if nothing
+ * ever deletes expired notes, orphaned files are never collected either.
  */
 const GRACE_MS = 3600_000;
 

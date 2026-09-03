@@ -62,8 +62,7 @@ export const seedNotes = async (address: Address, seeds: SeedNote[]): Promise<Se
       })
       .returning();
 
-    // Embedded array in Mongo, a child table here. Insert in order so `seq`
-    // reproduces the array order the app reads history by.
+    // Insert in order so `seq` matches the order the app reads history by.
     for (const version of note.versions ?? []) {
       await db.insert(noteVersions).values({
         noteId: row.id,

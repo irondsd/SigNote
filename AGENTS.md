@@ -13,6 +13,8 @@ bun run test         # Run unit tests (Jest)
 bun run test:e2e     # Run all Playwright E2E tests
 bun install          # We use bun as package manager. Everything else is still npm
 bun run db:up        # Start local Postgres (dev on :5434, disposable test DB on :5435)
+bun run db:check     # Preflight: resolve + connect + report schema/migration state
+bun run db:check:prod
 bun run db:push      # Sync schema straight into the LOCAL db (no migration file)
 bun run db:generate  # Generate a migration from src/db/schema.ts into drizzle/
 bun run db:migrate   # Apply pending migrations to the LOCAL db
@@ -44,14 +46,16 @@ Postgres (Supabase in production) via **Drizzle ORM**, using the `postgres` (pos
 - Connection: `src/db/client.ts` — one lazily-created pool, cached on `globalThis` so hot reload doesn't leak pools. Migrations are **not** applied on boot; run `db:migrate` deliberately.
 - Local dev: `docker-compose.yml` (`bun run db:up`) — `signote` on :5434 for dev, `signote_test` on :5435 (tmpfs) for E2E.
 
+**Supabase connection strings.** The direct endpoint (`db.<ref>.supabase.co`) is IPv6-only without the IPv4 add-on and does not resolve on a typical machine — drizzle-kit reports this as a bare `exit 1`, so run `db:check:prod` first. Use pooler strings from Dashboard → Connect: **session mode** (`...pooler.supabase.com:5432`) for drizzle-kit, **transaction mode** (`:6543`) for the serverless runtime. Pooler usernames are `postgres.<project-ref>`, not `postgres`, so copy the whole string rather than swapping the host.
+
 **Which database a command hits.** `.env.local` holds the local container URL and is what the app and every bare drizzle-kit command use. `.env.prod` (gitignored, not committed) holds only the production `DATABASE_URL` and is read solely by the `:prod` scripts via `DRIZZLE_ENV=.env.prod`. `drizzle.config.ts` loads the selected file with `override: true` — that matters, because Bun auto-loads `.env.local` and dotenv won't replace an existing variable, so without it `db:push:prod` would silently hit local. Every drizzle-kit run prints the host it resolved. Day to day: `db:push` locally while iterating, then `db:generate` once the shape settles, commit the SQL, and `db:migrate:prod` at release.
 
 Conventions worth knowing:
 
-- **Ids are `TEXT`, not `uuid`.** Rows migrated from MongoDB keep their ObjectId hex strings verbatim (so client caches and JWT `sid` claims survived the cutover); new rows get UUIDv7. An unknown id therefore can't raise a cast error — it just matches nothing, so a bad id 404s rather than 400s.
+- **Ids are `TEXT`, not `uuid`.** Live data holds two shapes: 24-char hex ids on older rows and UUIDv7 on everything newer. Both are permanent. An unknown id therefore can't raise a cast error — it just matches nothing, so a bad id 404s rather than 400s.
 - **The API still exposes `_id`.** `src/db/tier.ts` maps Postgres `id` → `_id` on the way out so no client code had to change. A rename is a deliberate follow-up, not an accident.
-- **`updatedAt` auto-bumps only on the auth tables** (`updatedAtAuto()` in the schema), mirroring which Mongo collections had `timestamps: true`. On the note tiers it means "when the content was last saved", so a color/position/pin change must not touch it — it drives both the search sort and the "edited" label.
-- **Mongo TTL indexes have no Postgres equivalent.** `src/controllers/cleanup.ts` replaces them and runs from the hourly `/api/service/storage` cron; `cleanupOrphanedFiles` depends on it, since it detects an orphan by its parent note being physically gone.
+- **`updatedAt` auto-bumps only on the auth tables** (`updatedAtAuto()` in the schema). On the note tiers it means "when the content was last saved", so a color/position/pin change must not touch it — it drives both the search sort and the "edited" label.
+- **Nothing expires rows on its own.** Postgres has no TTL index, so `src/controllers/cleanup.ts` is the only thing that deletes expired/soft-deleted rows, driven by the hourly `/api/service/storage` cron. `cleanupOrphanedFiles` depends on it, since it detects an orphan by its parent note being physically gone.
 - **Search is a weighted `tsvector`.** Generated `search_tsv` columns (title weight A, tier-1 content weight B) with GIN indexes, queried through `buildPrefixTsQuery` in `src/db/tier.ts`, which appends `:*` to every term so incremental typing still matches.
 
 ## Architecture
@@ -66,7 +70,7 @@ Notes exist in three security tiers, each with its own table, tRPC router, and U
 | 2 – Secrets | `secrets`   | `secret_notes` + versions + tags        | AES-GCM, shared session key derived from MEK  |
 | 3 – Seals   | `seals`     | `seal_notes` + versions + tags          | AES-GCM, unique per-note key wrapped with MEK |
 
-The three tiers differ only in their content columns, so all shared behaviour — list/search/paginate, version recording with its compression window and `MAX_VERSIONS` cap, restore, tag replacement — lives once in `src/db/tier.ts` (`makeTierRepo`) and is wired per tier in `src/db/tiers.ts`. Mongo's embedded `versions` array became a child table ordered by a `seq` identity column (insertion order, **not** `createdAt` — a restore snapshot carries the displaced head's older save time), and its ordered `tags` id array became a join table with `sort_order`.
+The three tiers differ only in their content columns, so all shared behaviour — list/search/paginate, version recording with its compression window and `MAX_VERSIONS` cap, restore, tag replacement — lives once in `src/db/tier.ts` (`makeTierRepo`) and is wired per tier in `src/db/tiers.ts`. Version history is a child table ordered by a `seq` identity column (insertion order, **not** `createdAt` — a restore snapshot carries the displaced head's older save time, so sorting by timestamp breaks restore); tags are a join table with `sort_order`.
 
 ### Encryption Key Management
 

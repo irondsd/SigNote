@@ -11,8 +11,8 @@ import { trpcMutate, trpcGet } from '../utils/trpc';
 test.describe.configure({ mode: 'parallel' });
 
 // `getById` gates PATCH/DELETE via assertOwner. The lenient grace window
-// matches the TTL `expireAfterSeconds: 3600`: while the doc is still
-// physically in Mongo, an in-modal user can PATCH expiresAt=null to revive.
+// is one hour: while the row still physically exists, an in-modal user can
+// PATCH expiresAt=null to revive it.
 // Outside the grace, PATCH must return 404 even if the TTL sweep hasn't fired.
 
 test.describe('expired note access — getById is grace-aware', () => {

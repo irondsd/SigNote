@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { MAX_CIPHER, MAX_SEARCH, MAX_TAGS_PER_NOTE } from '@/config/constants';
 import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteStyles';
 
-/** An opaque entity id: a Mongo ObjectId hex string (rows migrated from the
- *  old backend) or a UUIDv7 (rows created since the Postgres move). Ids are
- *  TEXT columns, so an unknown format simply matches nothing — there is no
- *  cast to fail, and nothing to validate beyond an anti-abuse length cap. */
+/** An opaque entity id — either a 24-char hex id (older rows) or a UUIDv7.
+ *  Ids are TEXT columns, so an unknown format simply matches nothing: there is
+ *  no cast to fail, and nothing to validate beyond an anti-abuse length cap.
+ *  This is why an unrecognised id 404s rather than 400s. */
 export const objectId = z.string().min(1).max(64);
 
 /** Pagination + filter params shared by the notes/secrets/seals list queries.

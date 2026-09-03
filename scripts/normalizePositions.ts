@@ -7,9 +7,6 @@
  * script rewrites every user's positions, per tier, as multiples of
  * POSITION_STEP in their current order, restoring large integer gaps.
  *
- * (The Mongo version of this script also repaired mixed BSON types for
- * `position`/`pinned`. Postgres types those columns `double precision NOT NULL`
- * and `boolean NOT NULL`, so that failure mode no longer exists.)
  *
  * Run from the project root:
  *   bun run scripts/normalizePositions.ts            # apply changes
