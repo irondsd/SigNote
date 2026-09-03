@@ -1,9 +1,17 @@
 import ky from 'ky';
 
 import { handleUnauthorized } from './authRedirect';
+import { getSessionClientHeaders } from './sessionClient';
 
 export const api = ky.create({
   hooks: {
+    beforeRequest: [
+      (request) => {
+        for (const [name, value] of Object.entries(getSessionClientHeaders())) {
+          request.headers.set(name, value);
+        }
+      },
+    ],
     afterResponse: [
       async (_request, _options, response) => {
         if (response.status === 401) {

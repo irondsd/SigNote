@@ -57,8 +57,13 @@ export function SessionCard({ session, onRevoke, isRevoking }: SessionCardProps)
             {session.client === 'desktop' ? 'SigNote Desktop' : session.browser} <span className={s.muted}>on</span>{' '}
             {session.os}
           </h3>
+          {session.client === 'pwa' && (
+            <Badge variant="outline" className={s.sessionBadge} aria-label="Progressive Web App (PWA)">
+              PWA
+            </Badge>
+          )}
           {session.current && (
-            <Badge variant="secondary" className={s.currentBadge}>
+            <Badge variant="secondary" className={s.sessionBadge}>
               Current
             </Badge>
           )}

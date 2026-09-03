@@ -42,6 +42,12 @@ function buildReq(): NextRequest {
   });
 }
 
+function buildPwaReq(): NextRequest {
+  return new NextRequest('http://localhost/x', {
+    headers: { 'user-agent': 'TestUA', 'x-forwarded-for': '9.9.9.9', 'x-signote-client': 'pwa' },
+  });
+}
+
 describe('RouteAuthError', () => {
   it('exposes status and body { error: message }', () => {
     const err = new RouteAuthError(403, 'Forbidden');
@@ -142,6 +148,40 @@ describe('withSession', () => {
       }),
     );
     expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: 'sid1', provider: 'google', params: {} });
+  });
+
+  it('labels a newly created standalone session as PWA', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
+    mockFindSession.mockResolvedValueOnce(null);
+    const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
+
+    await withSession(handler)(buildPwaReq(), { params: Promise.resolve({}) });
+
+    expect(mockUpsertSession).toHaveBeenCalledWith(expect.objectContaining({ client: 'pwa' }));
+  });
+
+  it('promotes an existing web session when it is opened as a PWA', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
+    mockFindSession.mockResolvedValueOnce({
+      _id: 'sid1',
+      userId: 'u1',
+      provider: 'google',
+      client: 'web',
+      ip: '',
+      userAgent: '',
+      browser: '',
+      os: '',
+      deviceType: 'desktop',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000_000),
+      revokedAt: null,
+    });
+    const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
+
+    await withSession(handler)(buildPwaReq(), { params: Promise.resolve({}) });
+
+    expect(mockTouchSession).toHaveBeenCalledWith('sid1', '9.9.9.9', 'TestUA', 'pwa');
   });
 
   it('does not touch a fresh session row', async () => {

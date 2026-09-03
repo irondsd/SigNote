@@ -11,6 +11,7 @@ import { getClientIp, getClientLocation } from '@/lib/clientIp';
 import { sendSignInAlertEmail } from '@/lib/notificationEmails';
 import { parseUserAgent } from '@/lib/uaParser';
 import type { AuthProvider } from '@/db/schema';
+import { parseWebSessionClient, SESSION_CLIENT_HEADER } from '@/lib/sessionClient';
 
 export class RouteAuthError extends Error {
   readonly status: 401 | 403 | 404;
@@ -51,6 +52,8 @@ export async function authenticateRequest(
 
   const sid = typeof token?.sid === 'string' ? token.sid : null;
   const provider = token?.provider === 'google' || token?.provider === 'siwe' ? token.provider : null;
+  const requestClient =
+    token?.client === 'desktop' ? 'desktop' : parseWebSessionClient(req.headers.get(SESSION_CLIENT_HEADER));
 
   // Per-request session validation. Legacy JWTs (no sid) bypass — they expire
   // naturally within 7 days of the deploy of this feature.
@@ -74,7 +77,7 @@ export async function authenticateRequest(
           sid,
           userId,
           provider,
-          client: token?.client === 'desktop' ? 'desktop' : 'web',
+          client: requestClient,
           ip,
           userAgent,
           ...parsed,
@@ -94,6 +97,13 @@ export async function authenticateRequest(
           );
         }
       }
+    } else if (row.client === 'web' && requestClient === 'pwa') {
+      // A browser session may predate installation or share its cookie with
+      // the installed app. Promote it immediately so the sessions query that
+      // triggered this request can return the PWA badge on its first render.
+      const ip = getClientIp(req);
+      const userAgent = req.headers.get('user-agent') ?? '';
+      await touchSession(sid, ip, userAgent, 'pwa');
     } else if (now - row.updatedAt.getTime() > TOUCH_THROTTLE_MS) {
       // Slide the activity window. Fire-and-forget via `after` so the response
       // isn't held up by the write — serverless-safe.

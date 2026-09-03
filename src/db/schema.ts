@@ -262,7 +262,7 @@ export const users = pgTable('users', {
 });
 
 export type AuthProvider = 'google' | 'siwe';
-export type AuthClient = 'web' | 'desktop';
+export type AuthClient = 'web' | 'pwa' | 'desktop';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'unknown';
 
 export const authIdentities = pgTable(

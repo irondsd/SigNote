@@ -125,6 +125,15 @@ describe('authSessions controller', () => {
       expect(after?.userAgent).toBe('NewUA');
     });
 
+    it('can promote a browser session to PWA', async () => {
+      const params = insertParams();
+      await upsertSessionIfMissing(params);
+
+      await touchSession(params.sid, '5.6.7.8', 'NewUA', 'pwa');
+
+      expect((await getRow(params.sid))?.client).toBe('pwa');
+    });
+
     it('does not touch a revoked row', async () => {
       const params = insertParams();
       await upsertSessionIfMissing(params);

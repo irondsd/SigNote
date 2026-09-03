@@ -76,11 +76,11 @@ export const findSessionForValidation = async (sid: string): Promise<SessionRow 
 };
 
 /**
- * Sliding-window touch: extends expiresAt and refreshes ip/userAgent. Caller
- * is expected to throttle (only touch when updatedAt > TOUCH_THROTTLE_MS old)
- * so we don't write on every request.
+ * Sliding-window touch: extends expiresAt and refreshes request metadata.
+ * Callers normally throttle this (updatedAt > TOUCH_THROTTLE_MS old); the
+ * one-time web-to-PWA promotion is intentionally written immediately.
  */
-export const touchSession = async (sid: string, ip: string, userAgent: string) => {
+export const touchSession = async (sid: string, ip: string, userAgent: string, client?: AuthClient) => {
   if (!sid) return;
   const now = new Date();
   await getDb()
@@ -88,6 +88,7 @@ export const touchSession = async (sid: string, ip: string, userAgent: string) =
     .set({
       ip,
       userAgent,
+      ...(client ? { client } : {}),
       updatedAt: now,
       expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS),
     })
