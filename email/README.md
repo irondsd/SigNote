@@ -2,14 +2,28 @@
 
 Transactional email templates, built with [react-email](https://react.email).
 
-Nothing here is wired to a sender yet — this directory is the rendering half
-only. The send path (provider, queue, suppression list) is separate work.
+This directory is the rendering half. The sending half lives in `src/`:
+
+| File                             | Does                                                       |
+| -------------------------------- | ---------------------------------------------------------- |
+| `src/lib/mailer.ts`              | The Resend transport, and the console fallback             |
+| `src/lib/notificationEmails.tsx` | Resolves the recipient, checks the opt-out, renders, sends |
 
 Templates are rendered at request time, not built: `renderEmail()` turns one
-into `{ html, text }` for whatever the sender wants, and Resend's SDK will take
-the element directly via its `react` option. There is no export step.
-`render()` needs `react-dom/server`, so anything calling it has to be on the
-Node runtime — not edge.
+into `{ html, text }`. There is no export step. `render()` needs
+`react-dom/server`, so anything calling it has to be on the Node runtime — not
+edge.
+
+**`RESEND_API_KEY` is optional.** Without it `sendMail` prints a short summary
+to the server console and returns — recipient, subject, and whatever the caller
+put in `summary`, which is the values that went into the template rather than
+the template's output. A rendered email is mostly footer; printing it per send
+would bury everything else. The sign-in code is in there, which is what makes
+one readable in development. `EMAIL_FROM` must be a sender on a domain verified in
+Resend; it falls back to Resend's sandbox address, which only delivers to the
+account owner.
+
+Import templates from `src/` through the `@email/*` alias.
 
 ```
 theme.ts                     colours and font stacks, mirrored from globals.css

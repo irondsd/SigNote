@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import type { NextAuthOptions } from 'next-auth';
@@ -5,6 +6,7 @@ import { v7 as uuidv7 } from 'uuid';
 
 import { revokeSessionBySid } from '@/controllers/authSessions';
 import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
+import { sendWelcomeEmail } from '@/lib/notificationEmails';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
@@ -52,13 +54,17 @@ export const authOptions: NextAuthOptions = {
         const valid = await validateSiweCredentials(credentials.message, credentials.signature);
         if (!valid) return null;
 
-        const user = await upsertSiweUser(valid.address);
-        if (!user) return null;
+        const result = await upsertSiweUser(valid.address);
+        if (!result) return null;
+
+        // A wallet-only account has no address, so this is a no-op today. It
+        // stays wired so a later-linked identity isn't the only way in.
+        if (result.created) after(() => sendWelcomeEmail(result.user._id));
 
         // This value labels the session in the device list only. It is never
         // used as an authorization or trust boundary.
         const client = credentials.client === 'desktop' ? 'desktop' : 'web';
-        return { id: user._id.toString(), name: user.displayName, client };
+        return { id: result.user._id.toString(), name: result.user.displayName, client };
       },
     }),
   ],
@@ -67,11 +73,14 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && profile?.sub) {
         const displayName = profile.name ?? profile.email ?? profile.sub;
         const picture = (profile as { picture?: string }).picture;
-        const user = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
-        if (!user) return false;
+        const result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
+        if (!result) return false;
+
+        if (result.created) after(() => sendWelcomeEmail(result.user._id));
+
         // Store the user id and displayName on the account so jwt callback can use them
-        account.userId = user._id.toString();
-        account.displayName = user.displayName;
+        account.userId = result.user._id.toString();
+        account.displayName = result.user.displayName;
       }
       return true;
     },

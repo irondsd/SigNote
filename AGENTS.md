@@ -134,14 +134,28 @@ bun run --cwd desktop icon   # desktop/assets/icon.{png,icns,ico} from desktop/a
 
 ### Email
 
-Transactional email templates live in `email/` (outside `src/`, since they are
-rendered by the `react-email` preview server as well as by the app). `email/README.md`
-covers the layout; the short version is that `EmailLayout` is the shell all three
-emails share, and nothing is wired to a sender yet.
+Templates live in `email/` (outside `src/`, since the `react-email` preview
+server renders them too) and reach `src/` through the `@email/*` alias.
+`EmailLayout` is the shell all three share. `email/README.md` has the details.
 
 ```bash
 bun run email        # react-email preview app on :3001
 ```
+
+The send path is `src/lib/mailer.ts` (Resend transport) and
+`src/lib/notificationEmails.tsx` (recipient + opt-out + render). **`RESEND_API_KEY`
+is optional**: without it each message is summarised to the server console
+instead of sent — the template's inputs (code, browser, os, when), never its
+rendered body. Who sends what:
+
+| Email        | Fired from                                                         | Opt-out              |
+| ------------ | ------------------------------------------------------------------ | -------------------- |
+| Welcome      | `config/auth.ts`, when a user row is created                       | none — one-time      |
+| New sign-in  | `lib/routeAuth.ts` / `lib/desktopSession.ts`, on a new session row | "New sign-ins"       |
+| Sign-in code | nothing yet — awaits the email sign-in flow                        | none — transactional |
+
+The two courtesy emails go out through `after()` and swallow their errors; the
+sign-in code throws, because its caller is a sign-in that has to know.
 
 The mark the emails use, `public/images/email/signote-mark-52.png`, is rendered
 from `public/images/logo.svg` by `npm run icons:web` — mail clients don't render SVG.

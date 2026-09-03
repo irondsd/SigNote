@@ -7,7 +7,8 @@ import {
   touchSession,
   upsertSessionIfMissing,
 } from '@/controllers/authSessions';
-import { getClientIp } from '@/lib/clientIp';
+import { getClientIp, getClientLocation } from '@/lib/clientIp';
+import { sendSignInAlertEmail } from '@/lib/notificationEmails';
 import { parseUserAgent } from '@/lib/uaParser';
 import type { AuthProvider } from '@/db/schema';
 
@@ -69,7 +70,7 @@ export async function authenticateRequest(
         const ip = getClientIp(req);
         const userAgent = req.headers.get('user-agent') ?? '';
         const parsed = parseUserAgent(userAgent);
-        await upsertSessionIfMissing({
+        const created = await upsertSessionIfMissing({
           sid,
           userId,
           provider,
@@ -78,6 +79,20 @@ export async function authenticateRequest(
           userAgent,
           ...parsed,
         });
+
+        // One row per sign-in, so this fires once per sign-in and not on every
+        // request. `after` keeps the send off the response path.
+        if (created) {
+          const location = getClientLocation(req);
+          after(() =>
+            sendSignInAlertEmail(userId, {
+              browser: parsed.browser,
+              os: parsed.os,
+              location,
+              when: new Date(),
+            }),
+          );
+        }
       }
     } else if (now - row.updatedAt.getTime() > TOUCH_THROTTLE_MS) {
       // Slide the activity window. Fire-and-forget via `after` so the response

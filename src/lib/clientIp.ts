@@ -1,3 +1,4 @@
+import { geolocation } from '@vercel/functions';
 import type { NextRequest } from 'next/server';
 
 /**
@@ -17,4 +18,17 @@ export const getClientIp = (req: NextRequest | Request): string => {
   if (realIp) return realIp.trim();
 
   return '';
+};
+
+/**
+ * Coarse "City, Country" from the platform's geo headers, for the new-sign-in
+ * email. Undefined off Vercel — locally there are no such headers — and the
+ * template says so rather than inventing a location.
+ */
+export const getClientLocation = (req: NextRequest | Request): string | undefined => {
+  // `geolocation` already percent-decodes the header values, so don't decode
+  // again — a city containing a literal '%' would throw.
+  const { city, country } = geolocation(req as NextRequest);
+  const parts = [city, country].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : undefined;
 };

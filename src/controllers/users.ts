@@ -12,6 +12,9 @@ export type UserRow = {
 
 type RawUser = typeof users.$inferSelect;
 
+/** `created` is what tells the caller to send a welcome email. */
+export type UpsertResult = { user: UserRow; created: boolean } | null;
+
 const mapUser = ({ id, ...rest }: RawUser): UserRow => ({ _id: id, ...rest });
 
 const findUserById = async (userId: string): Promise<UserRow | null> => {
@@ -24,7 +27,7 @@ export const upsertGoogleUser = async (
   displayName: string,
   email?: string,
   image?: string,
-): Promise<UserRow | null> => {
+): Promise<UpsertResult> => {
   const db = getDb();
   const now = new Date();
 
@@ -39,7 +42,8 @@ export const upsertGoogleUser = async (
       .update(authIdentities)
       .set({ lastLoginAt: now, updatedAt: now })
       .where(eq(authIdentities.id, existing[0].id));
-    return findUserById(existing[0].userId);
+    const user = await findUserById(existing[0].userId);
+    return user ? { user, created: false } : null;
   }
 
   return db.transaction(async (tx) => {
@@ -53,7 +57,7 @@ export const upsertGoogleUser = async (
       email,
       rawProfileJson: { displayName, image },
     });
-    return mapUser(user);
+    return { user: mapUser(user), created: true };
   });
 };
 
@@ -66,7 +70,7 @@ export const updateDisplayName = async (userId: string, displayName: string): Pr
   return rows[0] ? mapUser(rows[0]) : null;
 };
 
-export const upsertSiweUser = async (address: string): Promise<UserRow | null> => {
+export const upsertSiweUser = async (address: string): Promise<UpsertResult> => {
   const db = getDb();
   const now = new Date();
   const addressLower = address.toLowerCase();
@@ -82,7 +86,8 @@ export const upsertSiweUser = async (address: string): Promise<UserRow | null> =
       .update(authIdentities)
       .set({ lastLoginAt: now, updatedAt: now })
       .where(eq(authIdentities.id, existing[0].id));
-    return findUserById(existing[0].userId);
+    const user = await findUserById(existing[0].userId);
+    return user ? { user, created: false } : null;
   }
 
   return db.transaction(async (tx) => {
@@ -95,6 +100,6 @@ export const upsertSiweUser = async (address: string): Promise<UserRow | null> =
       lastLoginAt: now,
       rawProfileJson: { addressLower, addressChecksum: address },
     });
-    return mapUser(user);
+    return { user: mapUser(user), created: true };
   });
 };

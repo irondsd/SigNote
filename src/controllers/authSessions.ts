@@ -43,9 +43,9 @@ export const upsertSessionIfMissing = async (params: {
   browser: string;
   os: string;
   deviceType: DeviceType;
-}) => {
-  if (!params.sid) return;
-  await getDb()
+}): Promise<boolean> => {
+  if (!params.sid) return false;
+  const inserted = await getDb()
     .insert(authSessions)
     .values({
       id: params.sid,
@@ -60,7 +60,12 @@ export const upsertSessionIfMissing = async (params: {
       revokedAt: null,
       expiresAt: new Date(Date.now() + SESSION_LIFETIME_MS),
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: authSessions.id });
+
+  // Empty means the row was already there — a retry or a concurrent request,
+  // not a new sign-in. Callers use this to decide whether to alert.
+  return inserted.length > 0;
 };
 
 /** Cheap PK lookup used on every authed request. */
