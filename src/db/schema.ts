@@ -375,6 +375,32 @@ export const encryptionProfiles = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Notification preferences
+
+/**
+ * Opt-outs, not opt-ins: a user with no row here is subscribed to everything
+ * that can be switched off, which is why every column defaults to true and the
+ * read path falls back to the same defaults rather than creating a row on
+ * sign-up. Transactional mail — sign-in codes above all — is deliberately
+ * absent: there is no column to set, because turning it off would lock the
+ * account out of its own sign-in.
+ */
+export const notificationPreferences = pgTable(
+  'notification_preferences',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    /** Product announcements and release notes. */
+    productNews: boolean('product_news').notNull().default(true),
+    /** "New sign-in from …" alerts. */
+    signInAlerts: boolean('sign_in_alerts').notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAtAuto(),
+  },
+  (t) => [uniqueIndex('notification_preferences_user_unique').on(t.userId)],
+);
+
+// ---------------------------------------------------------------------------
 // File attachments (S3-backed)
 
 export type NoteTier = 'note' | 'secret' | 'seal';

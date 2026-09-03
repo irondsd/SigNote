@@ -41,10 +41,11 @@ export const links = {
   vault: absoluteUrl('/'),
   sessions: absoluteUrl('/sessions'),
   privacy: absoluteUrl('/docs/privacy'),
+  emailPreferences: absoluteUrl('/notifications'),
   /**
-   * These two routes don't exist yet. They have to before we send anything:
-   * an unsubscribe link that 404s is worse than no link at all.
+   * The only route here that doesn't exist yet. It has to before we send
+   * anything: a one-click unsubscribe that 404s is worse than no link at all,
+   * and it has to work without a session — the settings page requires one.
    */
-  emailPreferences: absoluteUrl('/profile/notifications'),
   unsubscribe: absoluteUrl('/unsubscribe'),
 } as const;

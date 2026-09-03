@@ -28,7 +28,8 @@ export async function resetTestDb(db: Db): Promise<void> {
       secret_notes, secret_note_versions, secret_note_tags,
       seal_notes, seal_note_versions, seal_note_tags,
       tags, users, auth_identities, auth_sessions, auth_nonces,
-      desktop_auth_attempts, encryption_profiles, file_attachments
+      desktop_auth_attempts, encryption_profiles, file_attachments,
+      notification_preferences
     cascade
   `);
 }

@@ -1,0 +1,143 @@
+.container {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  flex: 1;
+}
+
+.content {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recipient {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.recipientAddress {
+  color: var(--foreground);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+// Shown instead of the recipient line when the account has no address.
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.noticeIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--muted-foreground);
+}
+
+.noticeLink {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.rowInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.rowDesc {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.lockedBadge {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+
+// Keeps the switch aligned with the first line of the label, not centred
+// against a two-line description.
+.rowControl {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 21px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.tooltipWrapper {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.footerRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.skeleton {
+  background: var(--muted);
+  border-radius: 6px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.skeletonRow {
+  height: 44px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

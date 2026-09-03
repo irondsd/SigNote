@@ -19,6 +19,7 @@ import {
   LifeBuoy,
   MonitorSmartphone,
   Tag as TagIcon,
+  Bell,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
 import { useTags } from '@/hooks/useTags';
+import { useIdentities } from '@/hooks/useIdentities';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
@@ -60,6 +62,7 @@ function ProfilePageContent() {
   const searchParams = useSearchParams();
   const { data: profile, isLoading } = useProfile();
   const { tags, isLoading: tagsLoading } = useTags();
+  const { data: identities } = useIdentities();
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -99,6 +102,10 @@ function ProfilePageContent() {
   }, []);
 
   if (status !== 'authenticated') return null;
+
+  // The settings page is only useful once there is somewhere to send mail.
+  // Today that means a linked Google account; email sign-in will qualify too.
+  const hasEmail = Boolean(identities?.some((identity) => identity.email));
 
   const joinedDate = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -277,6 +284,45 @@ function ProfilePageContent() {
                   Manage
                 </Button>
               </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notifications */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>Email notifications</span>
+                <span className={s.actionDesc}>
+                  Choose which emails SigNote sends you. Sign-in codes are always sent.
+                </span>
+              </div>
+              {hasEmail ? (
+                <Link href="/notifications">
+                  <Button variant="outline" size="sm" data-testid="manage-notifications-btn">
+                    <Bell size={14} />
+                    Manage
+                  </Button>
+                </Link>
+              ) : (
+                <TooltipOrPopover
+                  trigger={
+                    <span tabIndex={0} className={s.tooltipWrapper}>
+                      <Button variant="outline" size="sm" disabled data-testid="manage-notifications-btn">
+                        <Bell size={14} />
+                        Manage
+                      </Button>
+                    </span>
+                  }
+                  side="left"
+                >
+                  No email address on this account
+                </TooltipOrPopover>
+              )}
             </div>
           </CardContent>
         </Card>

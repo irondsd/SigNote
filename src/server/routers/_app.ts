@@ -3,6 +3,7 @@ import { encryptionRouter } from './encryption';
 import { eraseRouter } from './erase';
 import { identitiesRouter } from './identities';
 import { notesRouter } from './notes';
+import { notificationsRouter } from './notifications';
 import { profileRouter } from './profile';
 import { sealsRouter } from './seals';
 import { secretsRouter } from './secrets';
@@ -19,6 +20,7 @@ export const appRouter = router({
   tags: tagsRouter,
   sessions: sessionsRouter,
   profile: profileRouter,
+  notifications: notificationsRouter,
   identities: identitiesRouter,
   encryption: encryptionRouter,
   erase: eraseRouter,

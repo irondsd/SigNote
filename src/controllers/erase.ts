@@ -1,7 +1,15 @@
 import { eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
-import { authIdentities, encryptionProfiles, notes, sealNotes, secretNotes, users } from '@/db/schema';
+import {
+  authIdentities,
+  encryptionProfiles,
+  notes,
+  notificationPreferences,
+  sealNotes,
+  secretNotes,
+  users,
+} from '@/db/schema';
 import { deleteFilesByUserId } from './files';
 
 // Version and tag-join rows go with their parents via ON DELETE CASCADE.
@@ -21,5 +29,6 @@ export const eraseAccount = async (userId: string) => {
   await Promise.all([
     getDb().delete(users).where(eq(users.id, userId)),
     getDb().delete(authIdentities).where(eq(authIdentities.userId, userId)),
+    getDb().delete(notificationPreferences).where(eq(notificationPreferences.userId, userId)),
   ]);
 };
