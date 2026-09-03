@@ -104,10 +104,13 @@ export default async function globalSetup() {
   const repoRoot = path.resolve(__dirname, '../..');
 
   execSync('docker compose up -d db-test --wait', { cwd: repoRoot, stdio: 'inherit' });
+  // DRIZZLE_DATABASE_URL, not DATABASE_URL: drizzle.config.ts loads its env file
+  // with `override`, so a plain DATABASE_URL here would lose to .env.local and
+  // migrate the dev database instead of this one.
   execSync('npx drizzle-kit migrate', {
     cwd: repoRoot,
     stdio: 'inherit',
-    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
+    env: { ...process.env, DRIZZLE_DATABASE_URL: TEST_DATABASE_URL },
   });
 
   // Each run starts from an empty database — the container is reused between

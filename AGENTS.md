@@ -13,9 +13,13 @@ bun run test         # Run unit tests (Jest)
 bun run test:e2e     # Run all Playwright E2E tests
 bun install          # We use bun as package manager. Everything else is still npm
 bun run db:up        # Start local Postgres (dev on :5434, disposable test DB on :5435)
+bun run db:push      # Sync schema straight into the LOCAL db (no migration file)
 bun run db:generate  # Generate a migration from src/db/schema.ts into drizzle/
-bun run db:migrate   # Apply pending migrations to $DATABASE_URL
-bun run db:studio    # Drizzle Studio
+bun run db:migrate   # Apply pending migrations to the LOCAL db
+bun run db:studio    # Drizzle Studio against the local db
+bun run db:push:prod # …the same three against PRODUCTION (reads .env.prod)
+bun run db:migrate:prod
+bun run db:studio:prod
 npx playwright test tests/specs/notes.spec.ts  # Run a single test file
 npx playwright test --ui  # Run tests with Playwright UI
 ```
@@ -39,6 +43,8 @@ Postgres (Supabase in production) via **Drizzle ORM**, using the `postgres` (pos
 - Schema: `src/db/schema.ts` — the single source of truth. Change it, then `bun run db:generate` and commit the SQL in `drizzle/`. Never hand-write a migration.
 - Connection: `src/db/client.ts` — one lazily-created pool, cached on `globalThis` so hot reload doesn't leak pools. Migrations are **not** applied on boot; run `db:migrate` deliberately.
 - Local dev: `docker-compose.yml` (`bun run db:up`) — `signote` on :5434 for dev, `signote_test` on :5435 (tmpfs) for E2E.
+
+**Which database a command hits.** `.env.local` holds the local container URL and is what the app and every bare drizzle-kit command use. `.env.prod` (gitignored, not committed) holds only the production `DATABASE_URL` and is read solely by the `:prod` scripts via `DRIZZLE_ENV=.env.prod`. `drizzle.config.ts` loads the selected file with `override: true` — that matters, because Bun auto-loads `.env.local` and dotenv won't replace an existing variable, so without it `db:push:prod` would silently hit local. Every drizzle-kit run prints the host it resolved. Day to day: `db:push` locally while iterating, then `db:generate` once the shape settles, commit the SQL, and `db:migrate:prod` at release.
 
 Conventions worth knowing:
 

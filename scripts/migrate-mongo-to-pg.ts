@@ -21,8 +21,14 @@ import { config } from 'dotenv';
 import { MongoClient, type Db as MongoDb } from 'mongodb';
 import postgres from 'postgres';
 
+// Base env (Mongo credentials, etc.) always comes from .env.local. The
+// Postgres *target* follows the same convention as drizzle.config.ts:
+//   bun run db:migrate:data        → local  (.env.local)
+//   bun run db:migrate:data:prod   → prod   (.env.prod, via DRIZZLE_ENV)
+// DRIZZLE_DATABASE_URL wins over both when a caller sets it deliberately.
 config({ path: '.env.local' });
-config();
+const targetEnv = process.env.DRIZZLE_ENV;
+if (targetEnv) config({ path: targetEnv, override: true });
 
 const BATCH = 500;
 
@@ -33,9 +39,14 @@ const date = (v: any): Date | null => (v == null ? null : new Date(v));
 
 async function main() {
   const mongoUri = process.env.MONGODB_URI;
-  const pgUrl = process.env.DATABASE_URL;
+  const pgUrl = process.env.DRIZZLE_DATABASE_URL ?? process.env.DATABASE_URL;
   if (!mongoUri) throw new Error('Missing MONGODB_URI');
   if (!pgUrl) throw new Error('Missing DATABASE_URL');
+
+  // Say out loud what is about to be read and written — this script is run by
+  // hand, rarely, and writing to the wrong database is the only way to lose.
+  console.log(`  from mongo: ${new URL(mongoUri).host}`);
+  console.log(`  into pg:    ${new URL(pgUrl).host}\n`);
 
   const mongo = new MongoClient(mongoUri);
   await mongo.connect();
