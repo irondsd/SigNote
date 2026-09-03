@@ -23,6 +23,18 @@ for (const [target, size] of pngTargets) {
   await fs.writeFile(path.join(root, target), await render(size));
 }
 
+// Transactional email can't use SVG — most mail clients won't render it — and it
+// wants the bare mark rather than the tile, so it comes from the logo source at
+// 2x the 26px it is displayed at.
+await fs.writeFile(
+  path.join(root, 'public/images/email/signote-mark-52.png'),
+  await sharp(path.join(root, 'public/images/logo.svg'), { density: 384 })
+    .resize(52, 52)
+    .withMetadata({ density: 72 })
+    .png()
+    .toBuffer(),
+);
+
 // Browsers pick a slot per surface: 16px for the tab, 32px for the bookmark
 // bar, 48px for the Windows taskbar shortcut.
 const icoSizes = [16, 32, 48];

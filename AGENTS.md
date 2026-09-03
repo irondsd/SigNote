@@ -22,6 +22,7 @@ bun run db:studio    # Drizzle Studio against the local db
 bun run db:push:prod # …the same three against PRODUCTION (reads .env.prod)
 bun run db:migrate:prod
 bun run db:studio:prod
+bun run email        # react-email preview app for the templates in email/
 npx playwright test tests/specs/notes.spec.ts  # Run a single test file
 npx playwright test --ui  # Run tests with Playwright UI
 ```
@@ -130,6 +131,20 @@ Never hand-edit the PNGs or `.ico`/`.icns`. Change the source SVG, then regenera
 npm run icons:web    # favicon.ico, icon1.png, apple-icon.png, web-app-manifest-*.png
 bun run --cwd desktop icon   # desktop/assets/icon.{png,icns,ico} from desktop/assets/icon.svg
 ```
+
+### Email
+
+Transactional email templates live in `email/` (outside `src/`, since they are
+rendered by the `react-email` preview server as well as by the app). `email/README.md`
+covers the layout; the short version is that `EmailLayout` is the shell all three
+emails share, and nothing is wired to a sender yet.
+
+```bash
+bun run email        # react-email preview app on :3001
+```
+
+The mark the emails use, `public/images/email/signote-mark-52.png`, is rendered
+from `public/images/logo.svg` by `npm run icons:web` — mail clients don't render SVG.
 
 ### Path Alias
 

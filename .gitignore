@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# react-email preview server
+/.react-email/
+
 # serwist generated files
 /public/sw.js
 /public/workbox-*.js
