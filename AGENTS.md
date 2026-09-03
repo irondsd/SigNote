@@ -46,6 +46,12 @@ Postgres (Supabase in production) via **Drizzle ORM**, using the `postgres` (pos
 - Connection: `src/db/client.ts` — one lazily-created pool, cached on `globalThis` so hot reload doesn't leak pools. Migrations are **not** applied on boot; run `db:migrate` deliberately.
 - Local dev: `docker-compose.yml` (`bun run db:up`) — `signote` on :5434 for dev, `signote_test` on :5435 (tmpfs) for E2E.
 
+**The public schema is locked down (`drizzle/0001_lock_down_public_schema.sql`).** Supabase exposes `public` via PostgREST and grants `anon`/`authenticated` full CRUD on every table; the anon key is meant to be published in client code, so that was a full read/delete path around the app. This app never uses PostgREST, so the migration removes the surface rather than writing policies: RLS on with **no policies** (default-deny), the grants revoked, and `ALTER DEFAULT PRIVILEGES` fixed so the next created table isn't silently re-granted. The Supabase-specific statements are guarded on the roles existing, so it's a no-op locally.
+
+`0002_harden_rls_auto_enable.sql` versions the `ensure_rls` event trigger, which enables RLS on any newly created `public` table so one can't ship without it. It was created by hand on production; defining it in a migration keeps every environment identical and pins its `search_path` (it is SECURITY DEFINER, owned by a BYPASSRLS role) while revoking EXECUTE from `PUBLIC`/`anon`/`authenticated`.
+
+Two things not to do: never add `FORCE ROW LEVEL SECURITY` (the app connects as the table owner, which is exempt — forcing it would default-deny the application itself), and if you add a table, make sure RLS is enabled on it. The Supabase linter will flag it as an ERROR if you forget.
+
 **Supabase connection strings.** The direct endpoint (`db.<ref>.supabase.co`) is IPv6-only without the IPv4 add-on and does not resolve on a typical machine — drizzle-kit reports this as a bare `exit 1`, so run `db:check:prod` first. Use pooler strings from Dashboard → Connect: **session mode** (`...pooler.supabase.com:5432`) for drizzle-kit, **transaction mode** (`:6543`) for the serverless runtime. Pooler usernames are `postgres.<project-ref>`, not `postgres`, so copy the whole string rather than swapping the host.
 
 **Which database a command hits.** `.env.local` holds the local container URL and is what the app and every bare drizzle-kit command use. `.env.prod` (gitignored, not committed) holds only the production `DATABASE_URL` and is read solely by the `:prod` scripts via `DRIZZLE_ENV=.env.prod`. `drizzle.config.ts` loads the selected file with `override: true` — that matters, because Bun auto-loads `.env.local` and dotenv won't replace an existing variable, so without it `db:push:prod` would silently hit local. Every drizzle-kit run prints the host it resolved. Day to day: `db:push` locally while iterating, then `db:generate` once the shape settles, commit the SQL, and `db:migrate:prod` at release.
@@ -128,13 +134,3 @@ bun run --cwd desktop icon   # desktop/assets/icon.{png,icns,ico} from desktop/a
 ### Path Alias
 
 `@/*` maps to `src/*`.
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
