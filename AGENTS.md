@@ -118,6 +118,26 @@ The JSON API is **tRPC** (`@trpc/server` v11). Only auth (NextAuth/SIWE/OAuth re
 
 SIWE (Sign-In with Ethereum) via NextAuth credentials provider in `src/config/auth.ts`. Sessions use JWT strategy (7-day max age). Wallet address is injected into the session token and available as `session.user.address`.
 
+**The email address lives on `users`, not on an identity.** "One address = one
+account" is a constraint _across_ providers, and `auth_identities` is keyed
+`(provider, subject)` — it cannot express it. `users.email` carries a unique
+index on `lower(email)`; `auth_identities.email` survives only as a record of
+what a provider reported, verified or not, and must never be mailed.
+
+One rule governs the column (`src/controllers/userEmail.ts`): **an address
+attaches to a user only on proof of control.** A one-time code is proof by
+definition; an OIDC provider is proof only when it asserts `email_verified:
+true`. So an unverified Google sign-in creates an account with _no_ address
+rather than claiming one — and because the claim re-runs on every sign-in, that
+account picks the address up by itself once Google verifies it.
+
+`users.email_owner_identity_id` records which identity proved it, and is what
+makes the address read-only in the UI ("via Google"). Unlinking that identity
+clears the owner but **keeps the address** — removing one sign-in method must
+not silently remove a second. Ownership is stored rather than derived so a
+provider flipping `email_verified` can't move an address or make it
+un-removable behind the user's back.
+
 ### Brand Assets
 
 The logo is one shape, drawn on a 64px grid, used in two forms:

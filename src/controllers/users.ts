@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
 import { authIdentities, users } from '@/db/schema';
+import { claimEmailForUser } from './userEmail';
 
 export type UserRow = {
   _id: string;
@@ -27,6 +28,7 @@ export const upsertGoogleUser = async (
   displayName: string,
   email?: string,
   image?: string,
+  emailVerified?: boolean,
 ): Promise<UpsertResult> => {
   const db = getDb();
   const now = new Date();
@@ -38,27 +40,57 @@ export const upsertGoogleUser = async (
     .limit(1);
 
   if (existing[0]) {
+    // Google's own copy is refreshed every time: the address and its verified
+    // flag can both change, and this row is the audit trail of what the
+    // provider actually told us.
     await db
       .update(authIdentities)
-      .set({ lastLoginAt: now, updatedAt: now })
+      .set({ lastLoginAt: now, updatedAt: now, email, emailVerified })
       .where(eq(authIdentities.id, existing[0].id));
+
     const user = await findUserById(existing[0].userId);
-    return user ? { user, created: false } : null;
+    if (!user) return null;
+
+    // Re-run on every sign-in, not just the first: an account created without
+    // an address because Google hadn't verified it picks one up here as soon
+    // as Google does.
+    await claimIfVerified(user._id, existing[0].id, email, emailVerified);
+    return { user, created: false };
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const inserted = await tx.insert(users).values({ displayName }).returning();
     const user = inserted[0];
-    await tx.insert(authIdentities).values({
-      userId: user.id,
-      provider: 'google',
-      providerSubject: googleId,
-      lastLoginAt: now,
-      email,
-      rawProfileJson: { displayName, image },
-    });
-    return { user: mapUser(user), created: true };
+    const identity = await tx
+      .insert(authIdentities)
+      .values({
+        userId: user.id,
+        provider: 'google',
+        providerSubject: googleId,
+        lastLoginAt: now,
+        email,
+        emailVerified,
+        rawProfileJson: { displayName, image },
+      })
+      .returning({ id: authIdentities.id });
+    return { user: mapUser(user), identityId: identity[0].id };
   });
+
+  // Outside the transaction: an unverified address simply isn't claimed, which
+  // leaves a signed-in account with no email rather than failing the sign-in.
+  await claimIfVerified(result.user._id, result.identityId, email, emailVerified);
+  return { user: result.user, created: true };
+};
+
+/** A provider may only attach an address it says it has verified. */
+const claimIfVerified = async (
+  userId: string,
+  identityId: string,
+  email: string | undefined,
+  emailVerified: boolean | undefined,
+) => {
+  if (!email || emailVerified !== true) return;
+  await claimEmailForUser({ userId, email, ownerIdentityId: identityId });
 };
 
 export const updateDisplayName = async (userId: string, displayName: string): Promise<UserRow | null> => {

@@ -1,5 +1,5 @@
 import type { Db } from '@/db/client';
-import { authIdentities } from '@/db/schema';
+import { users } from '@/db/schema';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import { setNotificationPreferences } from '@/controllers/notifications';
 import { sendSignInAlertEmail, sendSignInCodeEmail, sendWelcomeEmail } from '@/lib/notificationEmails';
@@ -26,15 +26,9 @@ beforeEach(async () => {
 
 const userId = '507f1f77bcf86cd799439011';
 
+/** The address lives on the user, whatever proved it. */
 const giveEmail = (email = 'user@example.com') =>
-  db.insert(authIdentities).values({
-    userId,
-    provider: 'google',
-    providerSubject: 'google-sub',
-    email,
-    emailVerified: true,
-    lastLoginAt: new Date(),
-  });
+  db.insert(users).values({ id: userId, displayName: 'Test', email, emailVerifiedAt: new Date() });
 
 const alert = {
   browser: 'Firefox 120',

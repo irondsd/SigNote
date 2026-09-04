@@ -1,5 +1,5 @@
 import type { Db } from '@/db/client';
-import { authIdentities, notificationPreferences } from '@/db/schema';
+import { authIdentities, notificationPreferences, users } from '@/db/schema';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import {
   getDeliverableEmail,
@@ -33,6 +33,9 @@ const addIdentity = (overrides: Partial<typeof authIdentities.$inferInsert> = {}
     lastLoginAt: new Date(),
     ...overrides,
   });
+
+const addUser = (id: string, email: string | null = null) =>
+  db.insert(users).values({ id, displayName: 'Test', email });
 
 const countRows = async () => (await db.select().from(notificationPreferences)).length;
 
@@ -81,36 +84,32 @@ describe('notifications controller', () => {
 
   describe('getDeliverableEmail', () => {
     it('is null for a wallet-only account', async () => {
+      await addUser(userId);
       await addIdentity({ provider: 'siwe', email: null });
 
       expect(await getDeliverableEmail(userId)).toBeNull();
     });
 
-    it('is null when the account has no identities at all', async () => {
+    it('is null when the user does not exist', async () => {
       expect(await getDeliverableEmail(userId)).toBeNull();
     });
 
-    it('returns the address from a linked Google identity', async () => {
-      await addIdentity({ email: 'a@example.com', emailVerified: true });
+    it('returns the address held on the user', async () => {
+      await addUser(userId, 'a@example.com');
 
       expect(await getDeliverableEmail(userId)).toBe('a@example.com');
     });
 
-    it('prefers a verified address over an unverified one', async () => {
-      await addIdentity({ provider: 'siwe', email: 'unverified@example.com', emailVerified: false });
-      await addIdentity({ email: 'verified@example.com', emailVerified: true });
+    it("never mails an identity's own address, which the provider may not have verified", async () => {
+      await addUser(userId);
+      await addIdentity({ email: 'unverified@example.com', emailVerified: false });
 
-      expect(await getDeliverableEmail(userId)).toBe('verified@example.com');
+      expect(await getDeliverableEmail(userId)).toBeNull();
     });
 
     it("ignores another user's address", async () => {
-      await db.insert(authIdentities).values({
-        userId: otherUserId,
-        provider: 'google',
-        providerSubject: 'other',
-        email: 'other@example.com',
-        lastLoginAt: new Date(),
-      });
+      await addUser(userId);
+      await addUser(otherUserId, 'other@example.com');
 
       expect(await getDeliverableEmail(userId)).toBeNull();
     });
@@ -118,7 +117,7 @@ describe('notifications controller', () => {
 
   describe('getNotificationSettings', () => {
     it('combines the address with the preferences', async () => {
-      await addIdentity({ email: 'a@example.com', emailVerified: true });
+      await addUser(userId, 'a@example.com');
       await setNotificationPreferences(userId, { signInAlerts: false });
 
       expect(await getNotificationSettings(userId)).toEqual({

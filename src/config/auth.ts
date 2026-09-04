@@ -73,7 +73,12 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && profile?.sub) {
         const displayName = profile.name ?? profile.email ?? profile.sub;
         const picture = (profile as { picture?: string }).picture;
-        const result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture);
+        // Only a `true` here lets the address attach to the account. Google
+        // sets it on every real account, so the false branch should never fire
+        // — but an unverified claim is not proof of anything, and the whole
+        // one-address-one-account rule rests on this flag.
+        const emailVerified = (profile as { email_verified?: boolean }).email_verified === true;
+        const result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture, emailVerified);
         if (!result) return false;
 
         if (result.created) after(() => sendWelcomeEmail(result.user._id));

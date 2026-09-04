@@ -16,7 +16,7 @@ export const getProfileData = async (userId: string) => {
 
   const [userRows, notesCount, secretsCount, sealsCount, profileRows] = await Promise.all([
     db
-      .select({ displayName: users.displayName, createdAt: users.createdAt })
+      .select({ displayName: users.displayName, createdAt: users.createdAt, email: users.email })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1),
@@ -36,6 +36,9 @@ export const getProfileData = async (userId: string) => {
   return {
     displayName: user.displayName,
     createdAt: user.createdAt,
+    // Null for a wallet-only account. Gates the notification settings, which
+    // have nothing to act on without an address.
+    email: user.email,
     notesCount,
     secretsCount,
     sealsCount,

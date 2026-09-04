@@ -254,12 +254,44 @@ export const sealNoteTags = pgTable('seal_note_tags', joinColumns(sealNotes), (t
 // ---------------------------------------------------------------------------
 // Users / auth
 
-export const users = pgTable('users', {
-  id: id(),
-  displayName: text('display_name').notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAtAuto(),
-});
+/**
+ * The email lives here rather than on an identity on purpose.
+ *
+ * "One address = one account" is a constraint *across* providers, and
+ * `auth_identities` is keyed `(provider, subject)` — it cannot express it.
+ * Hanging the address off the user gives it a real unique index, and lets a
+ * Google sign-in and an emailed code resolve to the same account without any
+ * merge logic. Identities keep their own `email` column, but only as
+ * provider-reported audit data; this is the authoritative one.
+ */
+export const users = pgTable(
+  'users',
+  {
+    id: id(),
+    displayName: text('display_name').notNull(),
+    /** Null for a wallet-only account, which has no address at all. */
+    email: text('email'),
+    /** Stamped the moment control was proven — an emailed code, or a verified OIDC claim. */
+    emailVerifiedAt: ts('email_verified_at'),
+    /**
+     * The identity that proved the address, when one did. Null means nothing
+     * owns it — proven by a code, or the owning identity has since been
+     * unlinked — and only then may the user detach it by hand.
+     *
+     * Storing the owner rather than deriving it live matters: a provider can
+     * flip `email_verified` under us, and the address must not change hands
+     * (or become un-removable) because of something that happened elsewhere.
+     */
+    emailOwnerIdentityId: text('email_owner_identity_id'),
+    createdAt: createdAt(),
+    updatedAt: updatedAtAuto(),
+  },
+  // Case-insensitive: nobody treats the local part as case-sensitive in
+  // practice, and two accounts differing only in case would be indistinguishable
+  // to the person typing it. Deliberately *not* normalising Gmail dots or
+  // plus-addressing — provider-specific canonicalisation ages badly.
+  (t) => [uniqueIndex('users_email_unique').on(sql`lower(${t.email})`)],
+);
 
 export type AuthProvider = 'google' | 'siwe';
 export type AuthClient = 'web' | 'pwa' | 'desktop';

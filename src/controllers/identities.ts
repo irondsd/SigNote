@@ -1,6 +1,7 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
+import { releaseEmailOwnership } from './userEmail';
 import {
   authIdentities,
   encryptionProfiles,
@@ -105,6 +106,20 @@ export const linkIdentity = async (
       throw new ConflictEncryptedDataError();
     }
 
+    // The merged-away account may hold the only address between the two. It
+    // was proven once and shouldn't evaporate with the row — but it can only
+    // move to an account that doesn't already have one, and only after the old
+    // row is gone, or the two collide on the unique index mid-transaction.
+    const [primaryRow, secondaryRow] = await Promise.all([
+      db.select({ email: users.email }).from(users).where(eq(users.id, primaryUserId)).limit(1),
+      db
+        .select({ email: users.email, verifiedAt: users.emailVerifiedAt, owner: users.emailOwnerIdentityId })
+        .from(users)
+        .where(eq(users.id, secondaryUserId))
+        .limit(1),
+    ]);
+    const inheritedEmail = !primaryRow[0]?.email && secondaryRow[0]?.email ? secondaryRow[0] : null;
+
     await db.transaction(async (tx) => {
       // Migrate notes
       await tx.update(notes).set({ userId: primaryUserId }).where(eq(notes.userId, secondaryUserId));
@@ -112,11 +127,23 @@ export const linkIdentity = async (
       // Remove secondary encryption profile (if any, but no secrets/seals)
       await tx.delete(encryptionProfiles).where(eq(encryptionProfiles.userId, secondaryUserId));
 
-      // Move all identities of secondary to primary
+      // Move all identities of secondary to primary. Their ids don't change,
+      // so an `email_owner_identity_id` pointing at one stays valid.
       await tx.update(authIdentities).set({ userId: primaryUserId }).where(eq(authIdentities.userId, secondaryUserId));
 
       // Delete secondary user record
       await tx.delete(users).where(eq(users.id, secondaryUserId));
+
+      if (inheritedEmail) {
+        await tx
+          .update(users)
+          .set({
+            email: inheritedEmail.email,
+            emailVerifiedAt: inheritedEmail.verifiedAt,
+            emailOwnerIdentityId: inheritedEmail.owner,
+          })
+          .where(eq(users.id, primaryUserId));
+      }
     });
 
     return;
@@ -148,5 +175,11 @@ export const unlinkIdentity = async (userId: string, provider: string): Promise<
     .delete(authIdentities)
     .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as AuthProvider)))
     .returning({ id: authIdentities.id });
+
+  // The address this identity proved stays on the account — removing one
+  // sign-in method must not silently remove a second. It only becomes
+  // unowned, and so detachable by hand.
+  await releaseEmailOwnership(deleted.map((row) => row.id));
+
   return deleted.length > 0;
 };

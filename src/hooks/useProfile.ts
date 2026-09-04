@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 export type ProfileData = {
   displayName: string;
   createdAt: string;
+  email: string | null;
   notesCount: number;
   secretsCount: number;
   sealsCount: number;

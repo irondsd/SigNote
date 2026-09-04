@@ -15,6 +15,13 @@
       "when": 1788476409369,
       "tag": "0003_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788522791237,
+      "tag": "0004_user_email",
+      "breakpoints": true
     }
   ]
 }
