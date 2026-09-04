@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Metadata, Viewport } from 'next';
+import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from '@/config/themeColors';
 
 const SITE_NAME = 'SigNote';
 const SITE_DESCRIPTION =
@@ -44,14 +45,17 @@ export const siteUrl = getSiteUrl();
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
+  // Server-rendered fallbacks, keyed on the OS preference. `ThemeColorMeta`
+  // takes over with a tag of its own once the client knows which theme the app
+  // is actually rendering, which is not always the one the OS asked for.
   themeColor: [
     {
       media: '(prefers-color-scheme: light)',
-      color: '#FDF8F4',
+      color: THEME_COLOR_LIGHT,
     },
     {
       media: '(prefers-color-scheme: dark)',
-      color: '#1E150D',
+      color: THEME_COLOR_DARK,
     },
   ],
 };
