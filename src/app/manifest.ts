@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { BACKGROUND_COLOR_LIGHT, THEME_COLOR_LIGHT } from '@/config/themeColors';
+import { INSTALLED_CHROME_COLOR, INSTALLED_SPLASH_COLOR } from '@/config/themeColors';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -8,11 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Secure note-keeping with Ethereum wallet authentication',
     start_url: '/',
     display: 'standalone',
-    // A manifest takes one value and cannot follow `prefers-color-scheme`, so
-    // these are the light-theme surfaces (the default) and only cover install
-    // and splash; the live status bar comes from the meta tag instead.
-    background_color: BACKGROUND_COLOR_LIGHT,
-    theme_color: THEME_COLOR_LIGHT,
+    // Android paints the installed app's status bar from `theme_color` and
+    // will not vary it by color scheme, so both themes get the same dark system
+    // chrome and `ThemeColorMeta` matches it. See `INSTALLED_CHROME_COLOR`.
+    background_color: INSTALLED_SPLASH_COLOR,
+    theme_color: INSTALLED_CHROME_COLOR,
     icons: [
       { src: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png' },
       { src: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' },
