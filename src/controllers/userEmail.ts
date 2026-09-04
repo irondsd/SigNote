@@ -1,7 +1,7 @@
-import { eq, inArray, sql } from 'drizzle-orm';
+import { count, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
-import { users } from '@/db/schema';
+import { authIdentities, users } from '@/db/schema';
 
 /**
  * Ownership rules for `users.email`.
@@ -100,4 +100,40 @@ export const getUserEmail = async (userId: string): Promise<UserEmail> => {
     verifiedAt: row?.verifiedAt ?? null,
     removable: Boolean(row?.email) && !row?.owner,
   };
+};
+
+export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email';
+
+/**
+ * Removes the address from the account.
+ *
+ * Two things can stop it. An address an identity proved is that identity's to
+ * release — you unlink Google, not the address it vouched for. And an address
+ * may not be removed when it is the only way back in: with the email counted
+ * as a credential, "keep at least one sign-in method" means at least one
+ * identity has to remain.
+ */
+export const detachEmail = async (userId: string): Promise<DetachOutcome> => {
+  const db = getDb();
+
+  const [rows, identities] = await Promise.all([
+    db
+      .select({ email: users.email, owner: users.emailOwnerIdentityId })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1),
+    db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId)),
+  ]);
+
+  const row = rows[0];
+  if (!row?.email) return 'no-email';
+  if (row.owner) return 'owned';
+  if (Number(identities[0].n) === 0) return 'last-credential';
+
+  await db
+    .update(users)
+    .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
+    .where(eq(users.id, userId));
+
+  return 'detached';
 };

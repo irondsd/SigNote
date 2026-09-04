@@ -1,3 +1,5 @@
+import { appendFileSync } from 'fs';
+
 import { Resend } from 'resend';
 
 export type OutgoingMail = {
@@ -51,6 +53,7 @@ export async function sendMail({ to, subject, html, text, summary }: OutgoingMai
   const resend = getClient();
 
   if (!resend) {
+    capture({ to, subject, ...summary });
     console.info(formatUnsent({ to, subject, ...summary }));
     return;
   }
@@ -71,4 +74,21 @@ function formatUnsent(fields: Record<string, string | number | undefined>): stri
     ...entries.map(([key, value]) => `   ${key.padEnd(width)}  ${value}`),
     '──',
   ].join('\n');
+}
+
+/**
+ * Test-only sink. With `MAIL_CAPTURE_PATH` set, every unsent message is
+ * appended as one JSON line, which is how the E2E suite reads a sign-in code
+ * back out of a server it doesn't share a process with — the code is never
+ * stored (only an HMAC of it is), so the mail itself is the only place to get
+ * it. Never set in production, and inert if the write fails.
+ */
+function capture(fields: Record<string, string | number | undefined>): void {
+  const path = process.env.MAIL_CAPTURE_PATH;
+  if (!path) return;
+  try {
+    appendFileSync(path, `${JSON.stringify({ ...fields, at: new Date().toISOString() })}\n`);
+  } catch {
+    // A missing directory shouldn't take a sign-in down with it.
+  }
 }

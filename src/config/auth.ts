@@ -5,7 +5,8 @@ import type { NextAuthOptions } from 'next-auth';
 import { v7 as uuidv7 } from 'uuid';
 
 import { revokeSessionBySid } from '@/controllers/authSessions';
-import { upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
+import { upsertEmailUser, upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
+import { consumeSignInCode } from '@/controllers/emailSignInCodes';
 import { sendWelcomeEmail } from '@/lib/notificationEmails';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
@@ -67,6 +68,33 @@ export const authOptions: NextAuthOptions = {
         return { id: result.user._id.toString(), name: result.user.displayName, client };
       },
     }),
+    CredentialsProvider({
+      // An explicit id, unlike the SIWE provider above: `account.provider` is
+      // how the jwt callback tells the two credentials flows apart.
+      id: 'email-otp',
+      name: 'Email',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        code: { label: 'Code', type: 'text' },
+        client: { label: 'Client', type: 'text' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.code) return null;
+
+        // Burning the code is the whole authentication. Every failure returns
+        // the same null — which of them it was is only useful to a guesser.
+        const outcome = await consumeSignInCode({ email: credentials.email, code: credentials.code });
+        if (outcome !== 'ok') return null;
+
+        const result = await upsertEmailUser(credentials.email);
+        if (!result) return null;
+
+        if (result.created) after(() => sendWelcomeEmail(result.user._id));
+
+        const client = credentials.client === 'desktop' ? 'desktop' : 'web';
+        return { id: result.user._id.toString(), name: result.user.displayName, client };
+      },
+    }),
   ],
   callbacks: {
     async signIn({ account, profile }) {
@@ -80,6 +108,11 @@ export const authOptions: NextAuthOptions = {
         const emailVerified = (profile as { email_verified?: boolean }).email_verified === true;
         const result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture, emailVerified);
         if (!result) return false;
+        if ('error' in result) {
+          // A string return is a redirect. The address belongs to someone, and
+          // Google didn't vouch for it, so there is nothing safe to do here.
+          return '/?auth_error=email_taken';
+        }
 
         if (result.created) after(() => sendWelcomeEmail(result.user._id));
 
@@ -101,6 +134,8 @@ export const authOptions: NextAuthOptions = {
         // is the literal 'credentials' — map it to our internal 'siwe' label.
         if (account.provider === 'google') {
           token.provider = 'google';
+        } else if (account.provider === 'email-otp') {
+          token.provider = 'email';
         } else if (account.provider === 'credentials') {
           token.provider = 'siwe';
         }

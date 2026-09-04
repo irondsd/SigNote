@@ -6,6 +6,7 @@ import {
   authNonces,
   authSessions,
   desktopAuthAttempts,
+  emailSignInCodes,
   fileAttachments,
   notes,
   sealNotes,
@@ -53,6 +54,12 @@ export async function cleanupExpiredRows() {
     .where(lt(authSessions.expiresAt, now))
     .returning({ id: authSessions.id });
   removed.authSessions = sessions.length;
+
+  const codes = await db
+    .delete(emailSignInCodes)
+    .where(lt(emailSignInCodes.expiresAt, now))
+    .returning({ id: emailSignInCodes.id });
+  removed.emailSignInCodes = codes.length;
 
   const attempts = await db
     .delete(desktopAuthAttempts)

@@ -13,6 +13,7 @@ import s from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { AuthErrorToast } from '@/components/AuthErrorToast/AuthErrorToast';
 
 function NotesPage() {
   const { data: session, status } = useSession();
@@ -32,6 +33,7 @@ function NotesPage() {
 
   return (
     <div className={s.page}>
+      <AuthErrorToast />
       <PageHeader
         title="Notes"
         showSearch={isAuthenticated}

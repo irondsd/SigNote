@@ -26,7 +26,9 @@ async function setupFlowRoute(page: Page, flowId: string): Promise<void> {
  */
 export async function configureGoogleUser(
   page: Page,
-  profile: Omit<MockOAuthProfile, 'email_verified'>,
+  // `email_verified` is included: it decides whether the address is claimed at
+  // all, so the unverified branch has to be reachable from a test.
+  profile: MockOAuthProfile,
 ): Promise<void> {
   const res = await fetch(`${mockBaseUrl()}/configure`, {
     method: 'POST',

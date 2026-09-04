@@ -293,7 +293,7 @@ export const users = pgTable(
   (t) => [uniqueIndex('users_email_unique').on(sql`lower(${t.email})`)],
 );
 
-export type AuthProvider = 'google' | 'siwe';
+export type AuthProvider = 'google' | 'siwe' | 'email';
 export type AuthClient = 'web' | 'pwa' | 'desktop';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'unknown';
 
@@ -387,6 +387,37 @@ export const desktopAuthAttempts = pgTable(
     uniqueIndex('desktop_auth_attempts_code_unique')
       .on(t.authorizationCodeHash)
       .where(sql`${t.authorizationCodeHash} is not null`),
+  ],
+);
+
+/**
+ * One-time codes for email sign-in, and for attaching an address to an existing
+ * account. Both are the same question — "do you control this mailbox?" — so
+ * there is one table and no `purpose` column: a code proves control, and what
+ * the caller does with that proof is the caller's business.
+ *
+ * The code itself is never stored. Six digits is a million possibilities, which
+ * a leaked table would give up instantly; the column holds an HMAC and the row
+ * caps its own attempts.
+ */
+export const emailSignInCodes = pgTable(
+  'email_sign_in_codes',
+  {
+    id: id(),
+    /** Always normalised — lowercase, trimmed — so lookups match the users table. */
+    email: text('email').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    consumedAt: ts('consumed_at'),
+    /** Recorded for rate limiting and for the audit trail, as with sign-in nonces. */
+    ip: text('ip').notNull().default(''),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('email_sign_in_codes_email_idx').on(t.email),
+    // Swept by the same cron that reaps nonces and expired sessions.
+    index('email_sign_in_codes_expires_idx').on(t.expiresAt),
   ],
 );
 

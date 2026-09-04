@@ -57,3 +57,6 @@ test-results
 .claude
 CLAUDE.md
 .agents
+
+# e2e captured mail
+.mail-capture.jsonl

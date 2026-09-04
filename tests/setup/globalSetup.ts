@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
@@ -117,6 +118,20 @@ export default async function globalSetup() {
   // runs, so migrating alone would leave the previous run's rows behind.
   await truncateAll(TEST_DATABASE_URL);
   console.log(`Test Postgres ready at ${TEST_DATABASE_URL}`);
+
+  // Where the mailer writes messages it can't send. RESEND_API_KEY is never set
+  // in tests, so every email lands here as one JSON line — which is the only
+  // way the suite can read a sign-in code: the server stores an HMAC of it, not
+  // the code, and runs in a process Playwright doesn't share.
+  // Not under test-results/: Playwright wipes its outputDir around the run.
+  const mailCapture = path.resolve(repoRoot, '.mail-capture.jsonl');
+  fs.writeFileSync(mailCapture, '');
+  process.env.MAIL_CAPTURE_PATH = mailCapture;
+
+  // Every test drives a different account from the same loopback address, so
+  // the per-IP code quota would fire partway through the run. The per-address
+  // limit stays at its real value, and both are unit-tested.
+  process.env.EMAIL_CODE_MAX_PER_IP = '100000';
 
   // Spawn Next.js with the current process.env (which now includes DATABASE_URL)
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';

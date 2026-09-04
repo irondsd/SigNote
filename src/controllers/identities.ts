@@ -166,8 +166,15 @@ export const linkIdentity = async (
 export const unlinkIdentity = async (userId: string, provider: string): Promise<boolean> => {
   const db = getDb();
 
-  const total = await db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId));
-  if (Number(total[0].n) <= 1) {
+  // "Keep at least one sign-in method" now counts the email address too: an
+  // account whose only identity is Google, but which holds an address, can drop
+  // Google and still get back in with a code. The address survives the unlink
+  // (see `releaseEmailOwnership`), so it is a real way in, not a promise.
+  const [total, emailRows] = await Promise.all([
+    db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId)),
+    db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
+  ]);
+  if (Number(total[0].n) <= 1 && !emailRows[0]?.email) {
     throw new LastIdentityError();
   }
 

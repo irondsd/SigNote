@@ -8,10 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useIdentities, useUnlinkIdentity } from '@/hooks/useIdentities';
+import { useEmailMethod } from '@/hooks/useEmailAuth';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { shortenAddress } from '@/utils/shortenAddress';
 import { api } from '@/lib/api';
 import { EthereumIcon, GoogleIcon } from '@/components/icons/SignInIcons';
+import { EmailMethodRow } from './EmailMethodRow';
 import { SignInMethodsSkeleton } from './SignInMethodsSkeleton';
 import s from './SignInMethods.module.scss';
 
@@ -20,7 +22,11 @@ export function WebSignInMethods() {
   const { mutate: unlink, isPending: isUnlinking } = useUnlinkIdentity();
   const { sign, step: siweStep } = useSiweSign();
 
-  const isOnlyOne = (identities?.length ?? 0) <= 1;
+  const { data: emailMethod } = useEmailMethod();
+
+  // The address counts as a sign-in method, so the last identity is only
+  // un-unlinkable when there is no address to fall back to.
+  const isOnlyOne = (identities?.length ?? 0) <= 1 && !emailMethod?.email;
 
   const getApiErrorCode = async (err: unknown) => {
     if (!(err instanceof HTTPError)) return null;
@@ -87,7 +93,7 @@ export function WebSignInMethods() {
       </CardHeader>
       <CardContent className={s.body}>
         {isLoading ? (
-          <SignInMethodsSkeleton rows={2} />
+          <SignInMethodsSkeleton rows={3} />
         ) : (
           providers.map((provider, index) => {
             const identity = identities?.find((item) => item.provider === provider.id);
@@ -152,6 +158,14 @@ export function WebSignInMethods() {
               </React.Fragment>
             );
           })
+        )}
+        {!isLoading && (
+          <>
+            <div className={s.divider} />
+            {/* Prefilled with the address Google reported when it never verified
+                it — that account has no email, and this is how it gets one. */}
+            <EmailMethodRow googleEmail={identities?.find((item) => item.provider === 'google')?.email} />
+          </>
         )}
       </CardContent>
     </Card>

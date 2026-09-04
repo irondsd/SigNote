@@ -29,6 +29,9 @@ export const useUnlinkIdentity = () => {
     mutationFn: (provider: string) => trpcClient.identities.unlink.mutate({ provider: provider as 'siwe' | 'google' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['identities', userId] });
+      // Unlinking can release the address that identity proved, which flips the
+      // Email row from read-only to removable.
+      queryClient.invalidateQueries({ queryKey: ['email-method', userId] });
     },
   });
 };

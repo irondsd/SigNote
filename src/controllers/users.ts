@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
 import { authIdentities, users } from '@/db/schema';
-import { claimEmailForUser } from './userEmail';
+import { claimEmailForUser, findUserIdByEmail, normalizeEmail } from './userEmail';
 
 export type UserRow = {
   _id: string;
@@ -23,13 +23,21 @@ const findUserById = async (userId: string): Promise<UserRow | null> => {
   return rows[0] ? mapUser(rows[0]) : null;
 };
 
+/**
+ * Refused rather than signed in: an unverified address that already belongs to
+ * an account is exactly the case the whole verified-only rule exists for.
+ * Creating a second, address-less account here would look to the user like
+ * they had signed into an empty copy of their own vault.
+ */
+export type GoogleUpsertResult = UpsertResult | { user: null; created: false; error: 'EMAIL_TAKEN_UNVERIFIED' };
+
 export const upsertGoogleUser = async (
   googleId: string,
   displayName: string,
   email?: string,
   image?: string,
   emailVerified?: boolean,
-): Promise<UpsertResult> => {
+): Promise<GoogleUpsertResult> => {
   const db = getDb();
   const now = new Date();
 
@@ -55,6 +63,30 @@ export const upsertGoogleUser = async (
     // an address because Google hadn't verified it picks one up here as soon
     // as Google does.
     await claimIfVerified(user._id, existing[0].id, email, emailVerified);
+    return { user, created: false };
+  }
+
+  // An unknown subject whose address is already spoken for. Whether this
+  // attaches to that account or is refused turns entirely on the verified flag:
+  // both sides proving control of one mailbox is a link, one side asserting it
+  // without proof is not.
+  const holderId = email ? await findUserIdByEmail(email) : null;
+  if (holderId) {
+    if (emailVerified !== true) return { user: null, created: false, error: 'EMAIL_TAKEN_UNVERIFIED' };
+
+    const user = await findUserById(holderId);
+    if (!user) return null;
+
+    await db.insert(authIdentities).values({
+      userId: holderId,
+      provider: 'google',
+      providerSubject: googleId,
+      lastLoginAt: now,
+      email,
+      emailVerified,
+      rawProfileJson: { displayName, image },
+    });
+
     return { user, created: false };
   }
 
@@ -91,6 +123,32 @@ const claimIfVerified = async (
 ) => {
   if (!email || emailVerified !== true) return;
   await claimEmailForUser({ userId, email, ownerIdentityId: identityId });
+};
+
+/**
+ * Resolves the account behind a proven email address, creating one if the
+ * address is new.
+ *
+ * The caller must already have consumed a one-time code for this address —
+ * that consumption *is* the proof, which is why the address is claimed
+ * unconditionally here with no owning identity: nothing owns an address a
+ * mailbox proved, so the user stays free to detach it.
+ */
+export const upsertEmailUser = async (rawEmail: string): Promise<UpsertResult> => {
+  const email = normalizeEmail(rawEmail);
+
+  const existingUserId = await findUserIdByEmail(email);
+  if (existingUserId) {
+    const user = await findUserById(existingUserId);
+    return user ? { user, created: false } : null;
+  }
+
+  const inserted = await getDb()
+    .insert(users)
+    .values({ displayName: email, email, emailVerifiedAt: new Date() })
+    .returning();
+
+  return { user: mapUser(inserted[0]), created: true };
 };
 
 export const updateDisplayName = async (userId: string, displayName: string): Promise<UserRow | null> => {

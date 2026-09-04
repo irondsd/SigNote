@@ -51,7 +51,8 @@ export async function authenticateRequest(
   }
 
   const sid = typeof token?.sid === 'string' ? token.sid : null;
-  const provider = token?.provider === 'google' || token?.provider === 'siwe' ? token.provider : null;
+  const provider =
+    token?.provider === 'google' || token?.provider === 'siwe' || token?.provider === 'email' ? token.provider : null;
   const requestClient =
     token?.client === 'desktop' ? 'desktop' : parseWebSessionClient(req.headers.get(SESSION_CLIENT_HEADER));
 

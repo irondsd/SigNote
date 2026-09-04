@@ -1,4 +1,5 @@
 import { protectedProcedure, publicProcedure, router } from '../trpc';
+import { emailAuthRouter } from './emailAuth';
 import { encryptionRouter } from './encryption';
 import { eraseRouter } from './erase';
 import { identitiesRouter } from './identities';
@@ -21,6 +22,7 @@ export const appRouter = router({
   sessions: sessionsRouter,
   profile: profileRouter,
   notifications: notificationsRouter,
+  emailAuth: emailAuthRouter,
   identities: identitiesRouter,
   encryption: encryptionRouter,
   erase: eraseRouter,

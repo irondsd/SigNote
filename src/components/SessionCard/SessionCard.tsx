@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Monitor, Smartphone, Tablet, HelpCircle, LogOut, KeyRound, Wallet, Loader2 } from 'lucide-react';
+import { Monitor, Smartphone, Tablet, HelpCircle, LogOut, KeyRound, Wallet, Loader2, Mail } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,10 +39,17 @@ const renderDeviceIcon = (deviceType: SessionRow['deviceType'], className: strin
   }
 };
 
-const renderProviderIcon = (provider: SessionRow['provider']) =>
-  provider === 'siwe' ? <Wallet size={12} strokeWidth={1.6} /> : <KeyRound size={12} strokeWidth={1.6} />;
+const renderProviderIcon = (provider: SessionRow['provider']) => {
+  if (provider === 'siwe') return <Wallet size={12} strokeWidth={1.6} />;
+  if (provider === 'email') return <Mail size={12} strokeWidth={1.6} />;
+  return <KeyRound size={12} strokeWidth={1.6} />;
+};
 
-const providerLabelFor = (provider: SessionRow['provider']) => (provider === 'siwe' ? 'Ethereum wallet' : 'Google');
+const providerLabelFor = (provider: SessionRow['provider']) => {
+  if (provider === 'siwe') return 'Ethereum wallet';
+  if (provider === 'email') return 'Email code';
+  return 'Google';
+};
 
 export function SessionCard({ session, onRevoke, isRevoking }: SessionCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);

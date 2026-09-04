@@ -138,6 +138,38 @@ not silently remove a second. Ownership is stored rather than derived so a
 provider flipping `email_verified` can't move an address or make it
 un-removable behind the user's back.
 
+### Signing in with an emailed code
+
+`CredentialsProvider({ id: 'email-otp' })` in `src/config/auth.ts`. Two steps:
+`emailAuth.requestCode` (public tRPC) issues one, then `signIn('email-otp')`
+burns it. It creates the account if the address is new, so signing in and
+signing up are the same call — which is also why there is no account
+enumeration to defend against: the two cases are genuinely identical.
+
+Codes live in `email_sign_in_codes` (`src/controllers/emailSignInCodes.ts`).
+The code is **never stored** — the column holds an HMAC peppered with
+`NEXTAUTH_SECRET`, six digits being a space a leaked table would give up
+instantly. One live code per address, single-use, 10 minutes, five wrong
+guesses and it dies. Rate limited per address and per IP; the per-IP cap is
+overridable via `EMAIL_CODE_MAX_PER_IP` because the E2E suite drives every
+account from loopback.
+
+Every failure mode — wrong, expired, never issued — returns the same thing to
+the caller on purpose. Which one it was is only useful to someone guessing.
+
+Attaching an address to an account that already exists (`emailAuth.requestLinkCode`
+/ `verifyLink`) runs the same two steps and then calls `claimEmailForUser` with
+no owning identity, so a code-proved address stays detachable. Unlike sign-in it
+_does_ refuse a taken address before sending anything: the caller is a known
+user, so there is nothing to enumerate.
+
+**Reading a code in tests.** With no `RESEND_API_KEY` the mailer prints each
+message and, when `MAIL_CAPTURE_PATH` is set, appends it as one JSON line.
+`globalSetup` points that at `.mail-capture.jsonl` and `tests/utils/emailInbox.ts`
+reads codes back out — the only way to get one, since the server stores a hash
+and runs in a process Playwright doesn't share. `tests/specs/email.spec.ts`
+covers the flows end to end.
+
 ### Brand Assets
 
 The logo is one shape, drawn on a 64px grid, used in two forms:
@@ -183,3 +215,13 @@ from `public/images/logo.svg` by `npm run icons:web` — mail clients don't rend
 ### Path Alias
 
 `@/*` maps to `src/*`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

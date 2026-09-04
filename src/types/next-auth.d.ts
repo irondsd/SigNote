@@ -26,7 +26,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     sid?: string;
-    provider?: 'google' | 'siwe';
+    provider?: 'google' | 'siwe' | 'email';
     client?: 'web' | 'desktop';
   }
 }
