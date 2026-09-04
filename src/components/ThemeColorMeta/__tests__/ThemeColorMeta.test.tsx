@@ -3,6 +3,8 @@
 import { render } from '@testing-library/react';
 import { useTheme } from 'next-themes';
 import {
+  INSTALLED_CHROME_COLOR,
+  INSTALLED_DISPLAY_QUERY,
   THEME_COLOR_DARK,
   THEME_COLOR_LIGHT,
   THEME_COLOR_META_ATTR,
@@ -33,28 +35,37 @@ function themeColorTags() {
 }
 
 function appliedColor() {
-  return document
-    .querySelector(`meta[name="theme-color"][${THEME_COLOR_META_ATTR}]`)
-    ?.getAttribute('content');
+  return document.querySelector(`meta[name="theme-color"][${THEME_COLOR_META_ATTR}]`)?.getAttribute('content');
 }
 
-function mockPrefersDark(matches: boolean) {
-  window.matchMedia = jest.fn().mockReturnValue({ matches }) as unknown as typeof window.matchMedia;
+/** Stands in for the two media queries the app asks about: install state and OS preference. */
+function mockMatchMedia({ installed = false, prefersDark = false } = {}) {
+  window.matchMedia = jest
+    .fn()
+    .mockImplementation((query: string) => ({
+      matches: query === INSTALLED_DISPLAY_QUERY ? installed : prefersDark,
+    })) as unknown as typeof window.matchMedia;
 }
 
 beforeEach(() => {
   document.head.innerHTML = '';
   localStorage.clear();
+  mockMatchMedia();
 });
 
 describe('themeColorFor', () => {
-  it('maps the resolved theme onto the header surface', () => {
-    expect(themeColorFor('dark')).toBe(THEME_COLOR_DARK);
-    expect(themeColorFor('light')).toBe(THEME_COLOR_LIGHT);
+  it('tracks the rendered theme in a browser tab, where the toolbar follows the tag', () => {
+    expect(themeColorFor('dark', false)).toBe(THEME_COLOR_DARK);
+    expect(themeColorFor('light', false)).toBe(THEME_COLOR_LIGHT);
+  });
+
+  it('pins the installed app to the one color its system bar can be', () => {
+    expect(themeColorFor('dark', true)).toBe(INSTALLED_CHROME_COLOR);
+    expect(themeColorFor('light', true)).toBe(INSTALLED_CHROME_COLOR);
   });
 
   it('falls back to light when the theme is not resolved yet', () => {
-    expect(themeColorFor(undefined)).toBe(THEME_COLOR_LIGHT);
+    expect(themeColorFor(undefined, false)).toBe(THEME_COLOR_LIGHT);
   });
 });
 
@@ -85,8 +96,10 @@ describe('applyThemeColor', () => {
 });
 
 describe('<ThemeColorMeta />', () => {
-  it('follows the in-app theme rather than the OS preference', () => {
-    seedRenderedMetaTags();
+  beforeEach(seedRenderedMetaTags);
+
+  it('follows the in-app theme rather than the OS preference in a browser tab', () => {
+    mockMatchMedia({ prefersDark: false });
     mockedUseTheme.mockReturnValue({ resolvedTheme: 'dark' } as ReturnType<typeof useTheme>);
 
     render(<ThemeColorMeta />);
@@ -94,8 +107,16 @@ describe('<ThemeColorMeta />', () => {
     expect(appliedColor()).toBe(THEME_COLOR_DARK);
   });
 
+  it('keeps the installed app on its fixed chrome even in the light theme', () => {
+    mockMatchMedia({ installed: true });
+    mockedUseTheme.mockReturnValue({ resolvedTheme: 'light' } as ReturnType<typeof useTheme>);
+
+    render(<ThemeColorMeta />);
+
+    expect(appliedColor()).toBe(INSTALLED_CHROME_COLOR);
+  });
+
   it('leaves the rendered tags to decide until the theme resolves', () => {
-    seedRenderedMetaTags();
     mockedUseTheme.mockReturnValue({ resolvedTheme: undefined } as ReturnType<typeof useTheme>);
 
     render(<ThemeColorMeta />);
@@ -105,10 +126,11 @@ describe('<ThemeColorMeta />', () => {
 });
 
 describe('themeColorInitScript', () => {
+  beforeEach(seedRenderedMetaTags);
+
   it('paints the stored theme before hydration, overriding a lighter OS preference', () => {
-    seedRenderedMetaTags();
     localStorage.setItem(THEME_STORAGE_KEY, 'dark');
-    mockPrefersDark(false);
+    mockMatchMedia({ prefersDark: false });
 
     eval(themeColorInitScript);
 
@@ -116,19 +138,26 @@ describe('themeColorInitScript', () => {
   });
 
   it('falls back to the OS preference when the theme follows the system', () => {
-    seedRenderedMetaTags();
     localStorage.setItem(THEME_STORAGE_KEY, 'system');
-    mockPrefersDark(true);
+    mockMatchMedia({ prefersDark: true });
 
     eval(themeColorInitScript);
 
     expect(appliedColor()).toBe(THEME_COLOR_DARK);
   });
 
+  it('matches the manifest from the first paint of the installed app', () => {
+    localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    mockMatchMedia({ installed: true });
+
+    eval(themeColorInitScript);
+
+    expect(appliedColor()).toBe(INSTALLED_CHROME_COLOR);
+  });
+
   it('is picked up by the effect rather than duplicated', () => {
-    seedRenderedMetaTags();
     localStorage.setItem(THEME_STORAGE_KEY, 'dark');
-    mockPrefersDark(false);
+    mockMatchMedia({ prefersDark: false });
     eval(themeColorInitScript);
 
     mockedUseTheme.mockReturnValue({ resolvedTheme: 'light' } as ReturnType<typeof useTheme>);
