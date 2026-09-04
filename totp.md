@@ -3,6 +3,8 @@
 Status: proposed design for future development  
 Recorded: 2026-09-02
 
+Reviewed against PostgreSQL/Drizzle implementation: 2026-09-04
+
 ## Summary
 
 SigNote should add a dedicated **Authenticator** tab for storing and generating TOTP codes. OTP credentials are structured security records, not a rendering mode for Notes, Secrets, or Seals.
@@ -169,7 +171,7 @@ The encrypted record should contain at least:
 - period (30 seconds by default);
 - optional display metadata and notes.
 
-The server-side document should contain only the minimum synchronization metadata plus an opaque encrypted payload, for example:
+The server-side PostgreSQL row should contain only the minimum synchronization metadata plus an opaque encrypted payload, for example:
 
 - user ID;
 - encrypted payload;
@@ -177,6 +179,27 @@ The server-side document should contain only the minimum synchronization metadat
 - schema/encryption version;
 - creation and update timestamps;
 - deletion state.
+
+### PostgreSQL and Drizzle implementation
+
+The database migration does not change the client-side encryption or offline-access contract. It does change how persistence, authorization, migrations, and synchronization should be implemented:
+
+- Define a dedicated `otp_records` table in `src/db/schema.ts`, with a dedicated repository using `getDb()` from `src/db/client.ts`. Do not extend `makeTierRepo` or reuse `tierColumns`: those assume note behavior, including plaintext titles, search vectors, and note-specific expiry.
+- Follow the existing ID convention: `TEXT` primary keys with UUIDv7 for new records, and a `TEXT` user ID. Treat IDs as opaque strings, not Mongo ObjectIds or PostgreSQL UUID columns. The existing note API's `_id` mapping is a compatibility layer; choose and document the new router's ID field explicitly.
+- Store the AES-GCM envelope (`alg`, `iv`, `ciphertext`) in a non-null, typed `jsonb` column using `EncryptedPayload`. Keep payload-format/encryption version, position, timezone-aware creation/update timestamps, and nullable `deleted_at` as separate columns. Add a record revision for optimistic concurrency; format version and mutation revision have different purposes.
+- Add user-scoped indexes for the chosen list/sync queries. Do not add plaintext issuer/account columns, a `search_tsv`, or full-text indexes: authenticator search remains local.
+- Register a dedicated router in `src/server/routers/_app.ts`. Cloud operations use `protectedProcedure`, derive ownership from `ctx.userId`, and include it in every read/update/delete predicate. Validate envelope shape and size with Zod; a Drizzle JSON type alone is not runtime validation.
+- Declare schema changes first, run `bun run db:generate`, and commit the generated migration. Apply migrations deliberately; app startup does not migrate. Verify RLS is enabled on every new public table and that `anon`/`authenticated` have no grants or policies. The existing `ensure_rls` trigger is a safety net, but its installation can be skipped for insufficient privileges. Do not enable `FORCE ROW LEVEL SECURITY`: the application currently connects as the table owner, so application ownership checks remain essential.
+
+### Synchronization and deletion rules
+
+Define the sync protocol before implementing persistence. A record revision should advance atomically on every synchronized change, including reorder and deletion; writes should compare the expected revision and report conflicts. Do not copy note `updatedAt` behavior: note metadata changes intentionally leave it untouched. Timestamps alone must not be treated as a lossless incremental-sync cursor; choose a consistent full-snapshot protocol or design a change feed with explicit cursor and resync semantics.
+
+Postgres has no TTL cleanup. `src/controllers/cleanup.ts` currently purges soft-deleted notes after an hour; do not add OTP records to that sweep. Offline clients need deletion tombstones or an authoritative full resync to discover removals. Define retention and stale-client recovery before purging tombstones, and prevent a stale write from resurrecting a deleted credential. Offline code generation is required; offline editing and queued-write conflict handling need a separate scope decision.
+
+Wire OTP data into account erasure and encryption-profile reset through `src/controllers/erase.ts` and `src/server/routers/erase.ts`. Current user ownership columns do not generally provide automatic user-delete cascades. A destructive encryption reset must remove associated OTP ciphertext and invalidate device enrollment; distinguish it from a passphrase change that preserves the MEK. Local stores must be scoped to the account and encryption-profile generation so old keys and caches cannot be reused after account switching or reset.
+
+Trusted authenticator enrollment must outlive an ordinary auth session. If remote device revocation ships, give it durable enrollment/revocation state rather than relying solely on `auth_sessions`, whose expired rows are removed by cleanup. Define an authenticated revocation check after reconnection or reauthentication. A generic 401 cannot distinguish expiry from revocation and must only pause sync, not wipe the offline vault. Review the shared sign-out path triggered by `src/lib/trpcLinks.ts` so the local authenticator remains reachable without a valid cloud session.
 
 Issuer and account name should be encrypted because they reveal which services and identities the user has. Search should happen locally after decryption.
 
@@ -233,6 +256,8 @@ The first useful release should include:
 - countdown indicator and explicit copy action;
 - individual portable export;
 - RFC test vectors, time-boundary tests, leading-zero tests, and Base32 validation;
+- database/repository tests using `src/test/db.ts` (PGlite with real Drizzle migrations), covering ownership isolation, revision conflicts, deletion reconciliation, and erasure/reset;
+- browser tests covering restart/offline access, session expiry, account switching, and explicit device removal;
 - threat-model and recovery documentation updates.
 
 Defer until later:
