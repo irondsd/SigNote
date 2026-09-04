@@ -134,11 +134,11 @@ export function EmailCodeForm({
             ref={codeRef}
             className={s.codeInput}
             value={code}
+            // Strip separators before limiting digits; maxLength would truncate a spaced paste first.
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
             disabled={busy}
             aria-label="Sign-in code"
             data-testid={`${testIdPrefix}-code-input`}
