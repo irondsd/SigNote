@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Metadata, Viewport } from 'next';
-import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from '@/config/themeColors';
+import { SYSTEM_BAR_COLOR } from '@/config/themeColors';
 
 const SITE_NAME = 'SigNote';
 const SITE_DESCRIPTION =
@@ -45,13 +45,9 @@ export const siteUrl = getSiteUrl();
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
-  // Server-rendered fallbacks, keyed on the OS preference — correct whenever the
-  // user leaves `ThemeToggle` on "system", and the no-JS answer. `ThemeColorMeta`
-  // takes over with a tag of its own once the client knows the rendered theme.
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: THEME_COLOR_LIGHT },
-    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR_DARK },
-  ],
+  // One value, not a `prefers-color-scheme` pair: it has to agree with the
+  // manifest's `theme_color`, which cannot vary by scheme. See `SYSTEM_BAR_COLOR`.
+  themeColor: SYSTEM_BAR_COLOR,
 };
 
 export const metadata: Metadata = {

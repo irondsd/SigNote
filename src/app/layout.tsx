@@ -8,9 +8,7 @@ import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration/ServiceWorkerRegistration';
-import { ThemeColorMeta } from '@/components/ThemeColorMeta/ThemeColorMeta';
 import { PostHogIdentify } from '@/components/PostHogIdentify/PostHogIdentify';
-import { THEME_STORAGE_KEY, themeColorInitScript } from '@/config/themeColors';
 export { metadata, viewport } from '@/config/meta';
 
 export default async function RootLayout({
@@ -20,11 +18,8 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeColorInitScript }} />
-      </head>
       <body className={cn(inter.variable, 'antialiased', s.body)}>
-        <ThemeProvider attribute="class" defaultTheme="system" storageKey={THEME_STORAGE_KEY}>
+        <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <PostHogIdentify />
             <ReactQueryProvider>
@@ -33,7 +28,6 @@ export default async function RootLayout({
           </AuthSessionProvider>
           <Toaster />
           <ServiceWorkerRegistration />
-          <ThemeColorMeta />
         </ThemeProvider>
       </body>
     </html>
