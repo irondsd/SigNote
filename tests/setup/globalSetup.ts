@@ -1,5 +1,6 @@
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
+import { chromium } from '@playwright/test';
 import path from 'path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
@@ -144,4 +145,37 @@ export default async function globalSetup() {
 
   await waitForServer('http://localhost:5005');
   console.log('Next.js dev server ready at http://localhost:5005');
+
+  await warmSignInModal('http://localhost:5005');
+}
+
+/**
+ * Compiles the signed-out page and both lazily-loaded sign-in chunks before any
+ * test runs.
+ *
+ * In dev those chunks are built on first import, and the wallet specs drive
+ * RainbowKit's animated modal — which is timing-sensitive enough that a compile
+ * happening underneath it leaves the wallet button "not stable" until the test
+ * times out. Paying it once here costs a couple of seconds and takes the race
+ * away from every spec.
+ */
+async function warmSignInModal(baseUrl: string): Promise<void> {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.getByTestId('sign-in-button').first().click({ timeout: 30000 });
+    // Both are dynamic imports; waiting on them is what forces the build.
+    await page.getByTestId('email-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByTestId('email-sign-in-btn').click();
+    await page.getByTestId('signin-email-email-input').waitFor({ state: 'visible', timeout: 30000 });
+    await page.getByTestId('siwe-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
+    console.log('Sign-in modal chunks warmed');
+  } catch (err) {
+    // A failed warm-up is not a reason to fail the run; the specs still work,
+    // they just pay the compile themselves.
+    console.warn('Sign-in modal warm-up skipped:', err instanceof Error ? err.message : err);
+  } finally {
+    await browser.close();
+  }
 }

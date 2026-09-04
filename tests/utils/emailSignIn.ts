@@ -1,5 +1,8 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { countCodes, waitForCode } from './emailInbox';
+
+/** For waits gated on a code being issued and mailed, not on a render. */
+export const SERVER_ROUND_TRIP_MS = 20000;
 import { clearSession } from './clearSession';
 
 /**
@@ -9,11 +12,7 @@ import { clearSession } from './clearSession';
 export async function signInWithEmail(page: Page, email: string): Promise<void> {
   const before = countCodes(email);
 
-  await neutraliseDevOverlay(page);
-  const signInButton = page.getByTestId('sign-in-button').first();
-  await expect(signInButton).toBeVisible();
-  await signInButton.click();
-
+  await openSignInModal(page);
   await requestCodeInModal(page, email);
 
   const code = await waitForCode(email, before + 1);
@@ -26,14 +25,30 @@ export async function requestCodeInModal(page: Page, email: string): Promise<voi
   await emailBtn.waitFor({ state: 'visible' });
   await emailBtn.click();
 
-  await page.getByTestId('signin-email-email-input').fill(email);
+  await fillStable(page.getByTestId('signin-email-email-input'), email);
   await page.getByTestId('signin-email-submit').click();
-  await expect(page.getByTestId('signin-email-code-input')).toBeVisible();
+  // Longer than the global expect timeout on purpose: this waits on a server
+  // round trip that renders an email template, on a dev server compiling the
+  // route for the first time under whatever parallel load the run has.
+  await expect(page.getByTestId('signin-email-code-input')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
 }
 
 export async function submitCode(page: Page, code: string): Promise<void> {
-  await page.getByTestId('signin-email-code-input').fill(code);
+  await fillStable(page.getByTestId('signin-email-code-input'), code);
   await page.getByTestId('signin-email-submit').click();
+}
+
+/**
+ * Fills a controlled input and waits for the value to survive a render.
+ *
+ * In dev mode Playwright can type into the DOM before React has attached its
+ * handlers: the box looks filled, component state is still empty, and the form
+ * submits nothing. `toHaveValue` retries, so this waits out hydration.
+ */
+export async function fillStable(locator: Locator, value: string): Promise<void> {
+  await locator.waitFor({ state: 'visible' });
+  await locator.fill(value);
+  await expect(locator).toHaveValue(value);
 }
 
 export const expectSignedIn = async (page: Page) => {
@@ -45,7 +60,6 @@ export const expectSignedIn = async (page: Page) => {
  * only renders NextAuth's confirmation form and leaves the session intact.
  */
 export async function signOut(page: Page): Promise<void> {
-  await neutraliseDevOverlay(page);
   const button = page.getByTestId('sign-out-button').first();
   await button.waitFor({ state: 'visible' });
   await button.click();
@@ -55,13 +69,27 @@ export async function signOut(page: Page): Promise<void> {
 
 /**
  * The Next.js dev overlay renders a full-viewport portal that swallows clicks
- * whenever it has something to say. Tests aren't interested in it, and the
- * Google spec already does exactly this.
+ * whenever it has something to say, and it shows up more the busier the run is.
+ *
+ * A stylesheet rather than the one-shot `querySelectorAll` the Google spec
+ * uses: the rule is installed before any page script and applies to the portal
+ * however late it mounts, so a re-render mid-test can't put it back.
  */
-export async function neutraliseDevOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll<HTMLElement>('nextjs-portal').forEach((el) => {
-      el.style.pointerEvents = 'none';
-    });
+export async function disableDevOverlay(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const install = () => {
+      const style = document.createElement('style');
+      style.textContent = 'nextjs-portal { pointer-events: none !important; }';
+      document.head?.appendChild(style);
+    };
+    if (document.head) install();
+    else document.addEventListener('DOMContentLoaded', install, { once: true });
   });
+}
+
+/** Opens the sign-in modal from the unauthenticated state. */
+export async function openSignInModal(page: Page): Promise<void> {
+  const signInButton = page.getByTestId('sign-in-button').first();
+  await expect(signInButton).toBeVisible();
+  await signInButton.click();
 }

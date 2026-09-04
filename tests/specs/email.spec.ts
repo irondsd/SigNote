@@ -4,9 +4,25 @@ import { eq, sql } from 'drizzle-orm';
 import { schema, testDb } from '../fixtures/db';
 import { configureGoogleUser } from '../utils/googleAuth';
 import { countMail, readMailbox, waitForCode } from '../utils/emailInbox';
-import { expectSignedIn, requestCodeInModal, signInWithEmail, signOut, submitCode } from '../utils/emailSignIn';
+import {
+  disableDevOverlay,
+  expectSignedIn,
+  openSignInModal,
+  requestCodeInModal,
+  fillStable,
+  SERVER_ROUND_TRIP_MS,
+  signInWithEmail,
+  signOut,
+  submitCode,
+} from '../utils/emailSignIn';
 
 test.describe.configure({ mode: 'parallel' });
+
+// The dev overlay intercepts pointer events, and does it more the busier the
+// run is — so this file was passing at three workers and failing at six.
+test.beforeEach(async ({ page }) => {
+  await disableDevOverlay(page);
+});
 
 /** Unique per test so the suite can run in parallel against one database. */
 const uniqueEmail = (label: string) => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -34,12 +50,7 @@ async function signInWithGoogle(
   profile: { sub: string; name: string; email: string; email_verified?: boolean },
 ) {
   await configureGoogleUser(page, profile);
-  await page.evaluate(() => {
-    document.querySelectorAll<HTMLElement>('nextjs-portal').forEach((el) => {
-      el.style.pointerEvents = 'none';
-    });
-  });
-  await page.getByTestId('sign-in-button').first().click();
+  await openSignInModal(page);
   const googleBtn = page.getByTestId('google-sign-in-btn');
   await googleBtn.waitFor({ state: 'visible' });
   await googleBtn.click();
@@ -95,13 +106,13 @@ test.describe('sign in with an emailed code', () => {
   test('a wrong code is refused and grants no session', async ({ page }) => {
     const email = uniqueEmail('wrong');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
 
     const real = await waitForCode(email);
     await submitCode(page, real === '000000' ? '111111' : '000000');
 
-    await expect(page.getByTestId('signin-email-error')).toBeVisible();
+    await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
     await expect(page.getByTestId('display-name').first()).not.toBeVisible();
     expect(await userByEmail(email)).toBeNull();
   });
@@ -109,7 +120,7 @@ test.describe('sign in with an emailed code', () => {
   test('a code works once and never again', async ({ page }) => {
     const email = uniqueEmail('replay');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
 
     const code = await waitForCode(email);
@@ -118,31 +129,31 @@ test.describe('sign in with an emailed code', () => {
 
     // Same code, fresh session: the row is consumed, so it is worthless now.
     await signOut(page);
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
     await submitCode(page, code);
 
-    await expect(page.getByTestId('signin-email-error')).toBeVisible();
+    await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
   });
 
   test('an expired code is refused', async ({ page }) => {
     const email = uniqueEmail('expired');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
 
     const code = await waitForCode(email);
     await expireCodesFor(email);
     await submitCode(page, code);
 
-    await expect(page.getByTestId('signin-email-error')).toBeVisible();
+    await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
     expect(await userByEmail(email)).toBeNull();
   });
 
   test('requesting a second code retires the first', async ({ page }) => {
     const email = uniqueEmail('resend');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
 
     const first = await waitForCode(email, 1);
@@ -151,9 +162,9 @@ test.describe('sign in with an emailed code', () => {
     expect(second).not.toBe(first);
 
     await submitCode(page, first);
-    await expect(page.getByTestId('signin-email-error')).toBeVisible();
+    await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
 
-    await page.getByTestId('signin-email-code-input').fill(second);
+    await fillStable(page.getByTestId('signin-email-code-input'), second);
     await page.getByTestId('signin-email-submit').click();
     await expectSignedIn(page);
   });
@@ -161,7 +172,7 @@ test.describe('sign in with an emailed code', () => {
   test('five wrong guesses kill the code, even before it expires', async ({ page }) => {
     const email = uniqueEmail('bruteforce');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
 
     const code = await waitForCode(email);
@@ -169,18 +180,18 @@ test.describe('sign in with an emailed code', () => {
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await submitCode(page, wrong);
-      await expect(page.getByTestId('signin-email-error')).toBeVisible();
+      await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
     }
 
     await submitCode(page, code);
-    await expect(page.getByTestId('signin-email-error')).toBeVisible();
+    await expect(page.getByTestId('signin-email-error')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
     expect(await userByEmail(email)).toBeNull();
   });
 
   test('the emailed code never reaches the console log in full-body form', async ({ page }) => {
     const email = uniqueEmail('summary');
     await page.goto('/');
-    await page.getByTestId('sign-in-button').first().click();
+    await openSignInModal(page);
     await requestCodeInModal(page, email);
     await waitForCode(email);
 
@@ -306,11 +317,13 @@ test.describe('attaching an address to an existing account', () => {
 
     await page.goto('/profile');
     await page.getByTestId('connect-email').click();
-    await page.getByTestId('link-email-email-input').fill(taken);
+    await fillStable(page.getByTestId('link-email-email-input'), taken);
     const before = countMail(taken);
     await page.getByTestId('link-email-submit').click();
 
-    await expect(page.getByTestId('link-email-error')).toContainText('different SigNote account');
+    await expect(page.getByTestId('link-email-error')).toContainText('different SigNote account', {
+      timeout: SERVER_ROUND_TRIP_MS,
+    });
     // Refused before a code was ever sent — no mail, nothing to guess against.
     expect(countMail(taken)).toBe(before);
   });
@@ -330,15 +343,17 @@ test.describe('attaching an address to an existing account', () => {
 
     await page.goto('/profile');
     await page.getByTestId('connect-email').click();
-    await page.getByTestId('link-email-email-input').fill(attached);
+    await fillStable(page.getByTestId('link-email-email-input'), attached);
     await page.getByTestId('link-email-submit').click();
 
     const code = await waitForCode(attached);
-    await page.getByTestId('link-email-code-input').fill(code);
+    await fillStable(page.getByTestId('link-email-code-input'), code);
     await page.getByTestId('link-email-submit').click();
 
     // Proved by a code, so nothing owns it and it can be removed again.
-    await expect(page.getByTestId('email-method-address')).toContainText(attached.toLowerCase());
+    await expect(page.getByTestId('email-method-address')).toContainText(attached.toLowerCase(), {
+      timeout: SERVER_ROUND_TRIP_MS,
+    });
     await expect(page.getByTestId('unlink-email')).toBeEnabled();
 
     const user = await userByEmail(attached);
@@ -368,10 +383,10 @@ test.describe('attaching an address to an existing account', () => {
 
     await page.goto('/profile');
     await page.getByTestId('connect-email').click();
-    await page.getByTestId('link-email-email-input').fill(attached);
+    await fillStable(page.getByTestId('link-email-email-input'), attached);
     await page.getByTestId('link-email-submit').click();
     const code = await waitForCode(attached);
-    await page.getByTestId('link-email-code-input').fill(code);
+    await fillStable(page.getByTestId('link-email-code-input'), code);
     await page.getByTestId('link-email-submit').click();
     await expect(page.getByTestId('unlink-email')).toBeEnabled();
 
