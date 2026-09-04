@@ -22,7 +22,7 @@ export type OutgoingMail = {
  * sandbox sender and only delivers to the account owner's own address, which
  * is enough for a smoke test and nothing else.
  */
-const FROM = process.env.EMAIL_FROM ?? 'SigNote <onboarding@resend.dev>';
+const FROM = process.env.EMAIL_FROM ?? 'SigNote <noreply@signote.tech>';
 
 let client: Resend | null = null;
 
