@@ -25,6 +25,12 @@ export default defineConfig({
     /* Run headless by default, override with --headed flag */
     headless: true,
 
+    // E2E tests run against a production build. Do not let the app's
+    // production service worker cache navigations or session responses across
+    // assertions; cache behavior is covered by the unit tests and is not part
+    // of these browser-flow tests.
+    serviceWorkers: 'block',
+
     /* Take a screenshot on failure */
     screenshot: 'only-on-failure',
   },
@@ -42,9 +48,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // The dev server is started inside globalSetup (after Postgres is up and
-  // migrated) so that it inherits DATABASE_URL. webServer is intentionally
-  // omitted here.
+  // The test server and its production build are started inside globalSetup
+  // (after Postgres is up and migrated) so that both inherit DATABASE_URL.
+  // webServer is intentionally omitted here.
   globalSetup: './tests/setup/globalSetup.ts',
   globalTeardown: './tests/setup/globalTeardown.ts',
 });

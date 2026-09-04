@@ -7,13 +7,33 @@ import type { APIRequestContext, APIResponse, Response } from '@playwright/test'
 
 const BASE = '/api/trpc';
 
+const TRANSIENT_GET_ERROR = /(?:ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket hang up)/i;
+
+/**
+ * Playwright's API client can try to reuse a socket just as the Node server
+ * closes an idle keep-alive connection. Queries are safe to repeat, so absorb
+ * that transport-only race here instead of turning a successful UI action
+ * into a test failure. Mutations intentionally do not use this helper.
+ */
+async function getWithRetry(request: APIRequestContext, url: string): Promise<APIResponse> {
+  const delays = [100, 250];
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await request.get(url);
+    } catch (error) {
+      if (attempt >= delays.length || !TRANSIENT_GET_ERROR.test(String(error))) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+}
+
 /** Calls a query procedure (GET). Returns the raw APIResponse so callers can
  *  assert on status (e.g. 401) before unwrapping. Pass `input` for procedures
  *  that require one (e.g. the tier `list` procedures). */
 export function trpcQuery(request: APIRequestContext, path: string, input?: unknown) {
   const url =
     input === undefined ? `${BASE}/${path}` : `${BASE}/${path}?input=${encodeURIComponent(JSON.stringify(input))}`;
-  return request.get(url);
+  return getWithRetry(request, url);
 }
 
 /** Calls a mutation procedure (POST). Pass `input` as the body, or omit it.

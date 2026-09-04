@@ -1,4 +1,4 @@
-import { type Locator } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 import { trpcMutationOf, trpcQuery, trpcData } from '../utils/trpc';
 
@@ -11,7 +11,17 @@ export class NotesPage extends BasePage {
 
   async openInEditMode(title: string): Promise<void> {
     await this.noteCard(title).click();
-    await this.page.getByTestId('edit-btn').click();
+    // `page.goto()` waits for the document, not for React hydration. A click
+    // on the server-rendered Edit button can therefore be lost occasionally
+    // under parallel-worker load. Retry the transition until the editing-only
+    // Save button is actually mounted.
+    const saveButton = this.page.getByTestId('save-btn');
+    await expect(async () => {
+      if (!(await saveButton.isVisible().catch(() => false))) {
+        await this.page.getByTestId('edit-btn').click({ timeout: 1000 });
+      }
+      await expect(saveButton).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 10000, intervals: [100, 250, 500] });
     await this.page.getByTestId('tiptap-editor').click();
   }
 

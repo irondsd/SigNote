@@ -3,6 +3,8 @@ import { countCodes, waitForCode } from './emailInbox';
 
 /** For waits gated on a code being issued and mailed, not on a render. */
 export const SERVER_ROUND_TRIP_MS = 20000;
+/** OAuth callbacks can include several local server round trips under load. */
+export const AUTH_NAVIGATION_TIMEOUT_MS = 30000;
 import { clearSession } from './clearSession';
 
 /**
@@ -28,8 +30,8 @@ export async function requestCodeInModal(page: Page, email: string): Promise<voi
   await fillStable(page.getByTestId('signin-email-email-input'), email);
   await page.getByTestId('signin-email-submit').click();
   // Longer than the global expect timeout on purpose: this waits on a server
-  // round trip that renders an email template, on a dev server compiling the
-  // route for the first time under whatever parallel load the run has.
+  // round trip that renders an email template under whatever parallel load the
+  // run has.
   await expect(page.getByTestId('signin-email-code-input')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
 }
 
@@ -41,9 +43,9 @@ export async function submitCode(page: Page, code: string): Promise<void> {
 /**
  * Fills a controlled input and waits for the value to survive a render.
  *
- * In dev mode Playwright can type into the DOM before React has attached its
- * handlers: the box looks filled, component state is still empty, and the form
- * submits nothing. `toHaveValue` retries, so this waits out hydration.
+ * Playwright can type into the DOM before React has attached its handlers: the
+ * box looks filled, component state is still empty, and the form submits
+ * nothing. `toHaveValue` retries, so this waits out hydration.
  */
 export async function fillStable(locator: Locator, value: string): Promise<void> {
   await locator.waitFor({ state: 'visible' });
@@ -52,7 +54,7 @@ export async function fillStable(locator: Locator, value: string): Promise<void>
 }
 
 export const expectSignedIn = async (page: Page) => {
-  await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 15000 });
+  await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: AUTH_NAVIGATION_TIMEOUT_MS });
 };
 
 /**
@@ -68,8 +70,8 @@ export async function signOut(page: Page): Promise<void> {
 }
 
 /**
- * The Next.js dev overlay renders a full-viewport portal that swallows clicks
- * whenever it has something to say, and it shows up more the busier the run is.
+ * The Next.js error overlay renders a full-viewport portal that swallows clicks
+ * whenever it has something to say.
  *
  * A stylesheet rather than the one-shot `querySelectorAll` the Google spec
  * uses: the rule is installed before any page script and applies to the portal

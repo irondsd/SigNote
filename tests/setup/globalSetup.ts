@@ -21,18 +21,25 @@ type GlobalWithServers = typeof globalThis & {
   __MOCK_S3__?: MockS3Server;
 };
 
-async function waitForServer(url: string, timeoutMs = 20000): Promise<void> {
+const repoRoot = path.resolve(__dirname, '../..');
+
+async function waitForServer(url: string, server: ChildProcess, timeoutMs = 30000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  let lastError = 'no response';
   while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error(`Next.js exited before becoming ready (code=${server.exitCode}, signal=${server.signalCode})`);
+    }
     try {
       const res = await fetch(url);
       if (res.status < 500) return;
+      lastError = `HTTP ${res.status}`;
     } catch {
-      // not ready yet
+      lastError = 'connection refused';
     }
     await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
+  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms (${lastError})`);
 }
 
 export default async function globalSetup() {
@@ -51,7 +58,7 @@ export default async function globalSetup() {
 async function setup() {
   // Build the mock provider bundle
   execSync('bun run test:bundle', {
-    cwd: path.resolve(__dirname, '../..'),
+    cwd: repoRoot,
     stdio: 'inherit',
   });
 
@@ -84,7 +91,6 @@ async function setup() {
   const database = await startTestPostgres();
   (globalThis as GlobalWithServers).__POSTGRES__ = database;
   process.env.DATABASE_URL = database.url;
-  const repoRoot = path.resolve(__dirname, '../..');
   execSync('bun x --no-install drizzle-kit migrate', {
     cwd: repoRoot,
     stdio: 'inherit',
@@ -106,19 +112,87 @@ async function setup() {
   // limit stays at its real value, and both are unit-tested.
   process.env.EMAIL_CODE_MAX_PER_IP = '100000';
 
-  // Spawn Next.js with the current process.env (which now includes DATABASE_URL)
-  const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'dev', '-p', '5005'], {
-    detached: process.platform !== 'win32',
-    env: { ...process.env },
-    cwd: path.resolve(__dirname, '../..'),
-    stdio: 'ignore',
+  // Build before starting the server. Running E2E against `next dev` makes the
+  // first test that visits each route also compile it. Several workers can hit
+  // the same cold route at once, which is exactly the race that used to leave
+  // concurrent /tags navigations aborted until the test timeout.
+  execSync('bun run build', {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '',
+      NEXT_PUBLIC_POSTHOG_HOST: '',
+    },
   });
+
+  // Serve the complete, already-built app. Keep the test database and mock
+  // service values from the parent process, but use production mode so Next
+  // does not run a development compiler or HMR while workers are active.
+  let serverOutput = '';
+  const server = spawn(
+    process.execPath,
+    [require.resolve('next/dist/bin/next'), 'start', '-p', '5005', '--keepAliveTimeout', '120000'],
+    {
+      detached: process.platform !== 'win32',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        // Do not let Next's automatic .env.local loading put real analytics
+        // credentials into the bundle used by the test browser.
+        NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: '',
+        NEXT_PUBLIC_POSTHOG_HOST: '',
+      },
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   (globalThis as GlobalWithServers).__SERVER__ = server;
 
-  await waitForServer('http://localhost:5005');
-  console.log('Next.js dev server ready at http://localhost:5005');
+  // Drain the detached child's pipes so it cannot block on a full buffer, but
+  // keep email contents and other request logs out of normal test output. If
+  // startup fails, include only the recent server output in the setup error.
+  const captureServerOutput = (chunk: Buffer) => {
+    serverOutput = `${serverOutput}${chunk.toString()}`.slice(-12000);
+  };
+  server.stdout?.on('data', captureServerOutput);
+  server.stderr?.on('data', captureServerOutput);
 
+  try {
+    await waitForServer('http://localhost:5005', server);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${message}\nNext.js output:\n${serverOutput}`, { cause: error });
+  }
+  console.log('Next.js production server ready at http://localhost:5005');
+
+  await warmServerEndpoints('http://localhost:5005');
   await warmSignInModal('http://localhost:5005');
+}
+
+/** Load the shared server route modules before six workers hit them together. */
+async function warmServerEndpoints(baseUrl: string): Promise<void> {
+  const paths = [
+    '/api/auth/providers',
+    '/api/auth/session',
+    '/api/auth/callback/google?error=warmup&state=warmup',
+    '/api/trpc/notes.list?input=%7B%7D',
+  ];
+
+  try {
+    await Promise.all(
+      paths.map(async (endpoint) => {
+        const response = await fetch(`${baseUrl}${endpoint}`, { redirect: 'manual' });
+        if (response.status >= 500) throw new Error(`${endpoint} returned HTTP ${response.status}`);
+      }),
+    );
+    console.log('Shared auth and tRPC endpoints warmed');
+  } catch (err) {
+    // The specs can still exercise a route that did not warm; this is only a
+    // startup optimization, not a second health check for the server.
+    console.warn('Server endpoint warm-up skipped:', err instanceof Error ? err.message : err);
+  }
 }
 
 /**
@@ -146,7 +220,8 @@ async function warmSignInModal(baseUrl: string): Promise<void> {
       }
       await expect(page.getByTestId('email-sign-in-btn')).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15000, intervals: [250, 500, 1000] });
-    // Both are dynamic imports; waiting on them is what forces the build.
+    // Both are dynamic imports; waiting on them is what forces the chunks to
+    // load before the parallel workers start clicking through the modal.
     await page.getByTestId('email-sign-in-btn').click();
     await page.getByTestId('signin-email-email-input').waitFor({ state: 'visible', timeout: 30000 });
     await page.getByTestId('siwe-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
