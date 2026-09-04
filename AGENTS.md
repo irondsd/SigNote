@@ -10,9 +10,10 @@ bun run build        # Production build
 bun run lint         # ESLint + TypeScript type check (tsc --noEmit)
 bun run format       # Prettier format
 bun run test         # Run unit tests (Jest)
-bun run test:e2e     # Run all Playwright E2E tests
+bun run test:e2e:prepare # Explicitly download PostgreSQL + Playwright Chromium
+bun run test:e2e     # Run all Playwright E2E tests (no Docker required)
 bun install          # We use bun as package manager. Everything else is still npm
-bun run db:up        # Start local Postgres (dev on :5434, disposable test DB on :5435)
+bun run db:up        # Start local development Postgres on :5434
 bun run db:check     # Preflight: resolve + connect + report schema/migration state
 bun run db:check:prod
 bun run db:push      # Sync schema straight into the LOCAL db (no migration file)
@@ -29,7 +30,18 @@ npx playwright test --ui  # Run tests with Playwright UI
 
 Unit tests use Jest + ts-jest. Test files are co-located at `src/**/__tests__/*.test.ts`. DB-backed unit tests run against an in-process **PGlite** instance (`src/test/db.ts`) with the real Drizzle migrations applied — this is why the `test` script sets `NODE_OPTIONS=--experimental-vm-modules` (PGlite loads its wasm through a dynamic import).
 
-E2E tests need a running dev server and a real Postgres; the global setup (`tests/setup/globalSetup.ts`) brings up the `db-test` compose service, migrates it, truncates it, and spawns `npm run dev:test`. It reads **`TEST_DATABASE_URL`**, never `DATABASE_URL`, and refuses to run against anything that isn't a local database whose name ends in `_test` — the suite truncates every table.
+E2E tests own their database and dev server. Run `bun run test:e2e:prepare` once
+(after `bun install`) to download pinned native PostgreSQL binaries and Playwright
+Chromium. PostgreSQL is installed in `.cache/e2e/postgres/` with all install
+scripts disabled; the prepare command explicitly restores its binary symlinks.
+No Docker or preinstalled PostgreSQL is needed. Re-run prepare after changing
+Playwright or the PostgreSQL version; use `bun run test:e2e:prepare --with-deps`
+on Linux CI if browser OS libraries are missing, then run the suite as a non-root user.
+Global setup creates a fresh temporary cluster on an available loopback port,
+applies the real Drizzle migrations, and exports its `DATABASE_URL` to Next.js
+and all parallel workers. It never uses an incoming `DATABASE_URL` or
+`TEST_DATABASE_URL`. Teardown stops the owned processes and deletes test data;
+setup failures also clean up. `.env.test` still supplies the app's test settings.
 
 ## Node / npm
 
@@ -45,7 +57,7 @@ Postgres (Supabase in production) via **Drizzle ORM**, using the `postgres` (pos
 
 - Schema: `src/db/schema.ts` — the single source of truth. Change it, then `bun run db:generate` and commit the SQL in `drizzle/`. Never hand-write a migration.
 - Connection: `src/db/client.ts` — one lazily-created pool, cached on `globalThis` so hot reload doesn't leak pools. Migrations are **not** applied on boot; run `db:migrate` deliberately.
-- Local dev: `docker-compose.yml` (`bun run db:up`) — `signote` on :5434 for dev, `signote_test` on :5435 (tmpfs) for E2E.
+- Local dev: `docker-compose.yml` (`bun run db:up`) — `signote` on :5434 for dev. E2E uses a fresh native PostgreSQL cluster on an automatically selected port.
 
 **The public schema is locked down (`drizzle/0001_lock_down_public_schema.sql`).** Supabase exposes `public` via PostgREST and grants `anon`/`authenticated` full CRUD on every table; the anon key is meant to be published in client code, so that was a full read/delete path around the app. This app never uses PostgREST, so the migration removes the surface rather than writing policies: RLS on with **no policies** (default-deny), the grants revoked, and `ALTER DEFAULT PRIVILEGES` fixed so the next created table isn't silently re-granted. The Supabase-specific statements are guarded on the roles existing, so it's a no-op locally.
 

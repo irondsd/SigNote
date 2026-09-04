@@ -60,3 +60,6 @@ CLAUDE.md
 
 # e2e captured mail
 .mail-capture.jsonl
+
+# Explicitly prepared E2E binaries
+/.cache/
