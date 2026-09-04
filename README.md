@@ -281,3 +281,30 @@ As with any cryptography-heavy app, treat this as evolving software and review t
 SigNote is being opened up as a reference project for wallet-based auth, note security tiers, and client-side encryption workflows in a modern Next.js app.
 
 Issues, ideas, and contributions are welcome.
+
+## Running E2E tests
+
+```bash
+bun install
+bun run test:e2e:prepare
+bun run test:e2e
+```
+
+The explicit prepare command downloads Playwright Chromium and pinned PostgreSQL
+18 binaries for your platform. It disables package install scripts and restores
+the PostgreSQL symlinks explicitly. Nothing downloads PostgreSQL during ordinary
+`bun install` or a test run. Re-run prepare after upgrading Playwright or the
+PostgreSQL version in `tests/setup/postgresRuntime.ts`.
+
+Each run starts a fresh temporary PostgreSQL cluster, applies Drizzle migrations,
+and starts the app and mock services. All six local Playwright workers share that
+cluster, using separate test accounts. Teardown removes the cluster and stops the
+processes, including on setup failure. No Docker, PostgreSQL service, or database
+URL is required; incoming database URLs are ignored. Keep the app's test settings
+in `.env.test` as usual.
+
+Supported binary targets: macOS arm64/x64, Linux arm64/x64, and Windows x64.
+On Linux CI, `bun run test:e2e:prepare --with-deps` also installs Chromium's system
+libraries. Run the tests as a non-root user, as required by PostgreSQL. Binaries
+are cached under `.cache/e2e/postgres/`; deleting that directory requires running
+prepare again. Docker Compose remains available for the development database.

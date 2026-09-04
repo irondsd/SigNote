@@ -1,9 +1,10 @@
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import path from 'path';
 import { config } from 'dotenv';
-import postgres from 'postgres';
+import { startTestPostgres } from './postgres';
+import globalTeardown from './globalTeardown';
 import type { ChildProcess } from 'child_process';
 import { startMockOAuthServer } from '../oauth/mockOAuthServer';
 import type { MockOAuthServer } from '../oauth/mockOAuthServer';
@@ -15,43 +16,10 @@ config({ path: path.resolve(__dirname, '../../.env.test') });
 
 type GlobalWithServers = typeof globalThis & {
   __SERVER__?: ChildProcess;
+  __POSTGRES__?: Awaited<ReturnType<typeof startTestPostgres>>;
   __MOCK_OAUTH__?: MockOAuthServer;
   __MOCK_S3__?: MockS3Server;
 };
-
-// The disposable Postgres from docker-compose (`db-test`, tmpfs-backed).
-//
-// Deliberately NOT read from DATABASE_URL: this setup truncates every table,
-// and DATABASE_URL is the variable that points at Supabase in .env.local.
-// Override with TEST_DATABASE_URL, which nothing else in the repo sets.
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://signote:signote@localhost:5435/signote_test';
-
-/** Refuse to wipe anything that isn't unmistakably a local test database. */
-function assertDisposable(url: string): void {
-  const { hostname, pathname } = new URL(url);
-  const isLocalHost = ['localhost', '127.0.0.1', '::1', 'db-test'].includes(hostname);
-  const isTestDatabase = pathname.replace('/', '').endsWith('_test');
-  if (!isLocalHost || !isTestDatabase) {
-    throw new Error(
-      `Refusing to run E2E against ${hostname}${pathname}: the suite truncates every table. ` +
-        'TEST_DATABASE_URL must point at a local database whose name ends in "_test".',
-    );
-  }
-}
-
-async function truncateAll(url: string): Promise<void> {
-  const sql = postgres(url, { max: 1 });
-  try {
-    const tables = await sql<{ tablename: string }[]>`
-      select tablename from pg_tables
-      where schemaname = 'public' and tablename <> '__drizzle_migrations'`;
-    if (tables.length > 0) {
-      await sql`truncate table ${sql(tables.map((t) => t.tablename))} cascade`;
-    }
-  } finally {
-    await sql.end();
-  }
-}
 
 async function waitForServer(url: string, timeoutMs = 20000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -68,6 +36,19 @@ async function waitForServer(url: string, timeoutMs = 20000): Promise<void> {
 }
 
 export default async function globalSetup() {
+  try {
+    await setup();
+  } catch (error) {
+    try {
+      await globalTeardown();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'E2E setup and cleanup failed');
+    }
+    throw error;
+  }
+}
+
+async function setup() {
   // Build the mock provider bundle
   execSync('bun run test:bundle', {
     cwd: path.resolve(__dirname, '../..'),
@@ -98,27 +79,18 @@ export default async function globalSetup() {
   (globalThis as GlobalWithServers).__MOCK_S3__ = mockS3;
   console.log(`Mock S3 server started on port ${mockS3.port}`);
 
-  // Bring up the disposable Postgres and apply migrations to it. Export
-  // DATABASE_URL before spawning the web server so it inherits the same one
-  // the fixtures write through.
-  assertDisposable(TEST_DATABASE_URL);
-  process.env.DATABASE_URL = TEST_DATABASE_URL;
+  // A fresh, locally owned cluster per run; never use an environment-provided
+  // database URL. The app and every Playwright worker inherit this same URL.
+  const database = await startTestPostgres();
+  (globalThis as GlobalWithServers).__POSTGRES__ = database;
+  process.env.DATABASE_URL = database.url;
   const repoRoot = path.resolve(__dirname, '../..');
-
-  execSync('docker compose up -d db-test --wait', { cwd: repoRoot, stdio: 'inherit' });
-  // DRIZZLE_DATABASE_URL, not DATABASE_URL: drizzle.config.ts loads its env file
-  // with `override`, so a plain DATABASE_URL here would lose to .env.local and
-  // migrate the dev database instead of this one.
-  execSync('npx drizzle-kit migrate', {
+  execSync('bun x --no-install drizzle-kit migrate', {
     cwd: repoRoot,
     stdio: 'inherit',
-    env: { ...process.env, DRIZZLE_DATABASE_URL: TEST_DATABASE_URL },
+    env: { ...process.env, DRIZZLE_DATABASE_URL: database.url },
   });
-
-  // Each run starts from an empty database — the container is reused between
-  // runs, so migrating alone would leave the previous run's rows behind.
-  await truncateAll(TEST_DATABASE_URL);
-  console.log(`Test Postgres ready at ${TEST_DATABASE_URL}`);
+  console.log(`Test PostgreSQL ready at ${database.url}`);
 
   // Where the mailer writes messages it can't send. RESEND_API_KEY is never set
   // in tests, so every email lands here as one JSON line — which is the only
@@ -135,8 +107,8 @@ export default async function globalSetup() {
   process.env.EMAIL_CODE_MAX_PER_IP = '100000';
 
   // Spawn Next.js with the current process.env (which now includes DATABASE_URL)
-  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const server = spawn(npmCommand, ['run', 'dev:test'], {
+  const server = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'dev', '-p', '5005'], {
+    detached: process.platform !== 'win32',
     env: { ...process.env },
     cwd: path.resolve(__dirname, '../..'),
     stdio: 'ignore',
@@ -160,17 +132,25 @@ export default async function globalSetup() {
  * away from every spec.
  */
 async function warmSignInModal(baseUrl: string): Promise<void> {
+  const started = Date.now();
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await page.getByTestId('sign-in-button').first().click({ timeout: 30000 });
+    // The server-rendered button can be clickable before React has attached
+    // its handler. Retry the interaction until it opens the modal: waiting
+    // for the result of a lost hydration-time click just burns the timeout.
+    await expect(async () => {
+      if (!(await page.getByTestId('email-sign-in-btn').isVisible())) {
+        await page.getByTestId('sign-in-button').first().click({ timeout: 1000 });
+      }
+      await expect(page.getByTestId('email-sign-in-btn')).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 15000, intervals: [250, 500, 1000] });
     // Both are dynamic imports; waiting on them is what forces the build.
-    await page.getByTestId('email-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
     await page.getByTestId('email-sign-in-btn').click();
     await page.getByTestId('signin-email-email-input').waitFor({ state: 'visible', timeout: 30000 });
     await page.getByTestId('siwe-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
-    console.log('Sign-in modal chunks warmed');
+    console.log(`Sign-in modal chunks warmed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   } catch (err) {
     // A failed warm-up is not a reason to fail the run; the specs still work,
     // they just pay the compile themselves.
