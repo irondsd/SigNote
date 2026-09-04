@@ -45,18 +45,12 @@ export const siteUrl = getSiteUrl();
 
 export const viewport: Viewport = {
   colorScheme: 'light dark',
-  // Server-rendered fallbacks, keyed on the OS preference. `ThemeColorMeta`
-  // takes over with a tag of its own once the client knows which theme the app
-  // is actually rendering, which is not always the one the OS asked for.
+  // Server-rendered fallbacks, keyed on the OS preference — correct whenever the
+  // user leaves `ThemeToggle` on "system", and the no-JS answer. `ThemeColorMeta`
+  // takes over with a tag of its own once the client knows the rendered theme.
   themeColor: [
-    {
-      media: '(prefers-color-scheme: light)',
-      color: THEME_COLOR_LIGHT,
-    },
-    {
-      media: '(prefers-color-scheme: dark)',
-      color: THEME_COLOR_DARK,
-    },
+    { media: '(prefers-color-scheme: light)', color: THEME_COLOR_LIGHT },
+    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR_DARK },
   ],
 };
 
