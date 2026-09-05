@@ -6,6 +6,7 @@ import {
   encryptionProfiles,
   notes,
   notificationPreferences,
+  otpRecords,
   sealNotes,
   secretNotes,
   users,
@@ -19,6 +20,10 @@ export const eraseSeals = (userId: string) => getDb().delete(sealNotes).where(eq
 export const eraseSecrets = (userId: string) => getDb().delete(secretNotes).where(eq(secretNotes.userId, userId));
 
 export const eraseNotes = (userId: string) => getDb().delete(notes).where(eq(notes.userId, userId));
+
+/** Authenticator rows are keyed only by `userId`; nothing cascades from `users`
+ *  today, so without this step a wipe would leave orphaned ciphertext behind. */
+export const eraseOtp = (userId: string) => getDb().delete(otpRecords).where(eq(otpRecords.userId, userId));
 
 export const eraseEncryptionProfile = (userId: string) =>
   getDb().delete(encryptionProfiles).where(eq(encryptionProfiles.userId, userId));

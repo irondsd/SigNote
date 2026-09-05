@@ -29,6 +29,13 @@
       "when": 1788523838249,
       "tag": "0005_email_sign_in_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788628501615,
+      "tag": "0006_otp_records",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ const STEPS: StepConfig[] = [
   { key: 'seals', label: 'Seals', requiresEncryptionProfile: true },
   { key: 'secrets', label: 'Secrets', requiresEncryptionProfile: true },
   { key: 'notes', label: 'Notes', requiresEncryptionProfile: false },
+  { key: 'otp', label: 'Authenticator', requiresEncryptionProfile: true },
   { key: 'encryption', label: 'Encryption Profile', requiresEncryptionProfile: true },
   { key: 'account', label: 'User Account', requiresEncryptionProfile: false },
 ];

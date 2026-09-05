@@ -10,6 +10,7 @@ import s from '@/components/erase/EraseFlow.module.scss';
 const STEPS: StepConfig[] = [
   { key: 'seals', label: 'Seals' },
   { key: 'secrets', label: 'Secrets' },
+  { key: 'otp', label: 'Authenticator' },
   { key: 'encryption', label: 'Encryption Profile' },
 ];
 

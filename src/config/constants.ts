@@ -34,8 +34,30 @@ export const HKDF_INFO_SECRET_BODY = 'secret-body:v1';
 export const HKDF_INFO_VERIFY_KEY = 'key-verify:v1';
 export const HKDF_INFO_SEAL_WRAP_PREFIX = 'seal-wrap:v1';
 export const HKDF_INFO_FILE_ENC = 'file-enc:v1';
+export const HKDF_INFO_OTP_VAULT = 'otp-vault:v1';
 export const KEY_CHECK_PLAINTEXT = 'notes-key-check:v1';
 
 export function getSealKeyString(sealId: string) {
   return `${HKDF_INFO_SEAL_WRAP_PREFIX}:${sealId}`;
 }
+
+// Authenticator (TOTP)
+export const OTP_AAD_PREFIX = 'otp-record:v1';
+
+/** AAD binding a ciphertext to its row. Without it a stale or malicious server
+ *  could move one record's payload onto another id, or replay it. */
+export function getOtpRecordAad(recordId: string) {
+  return `${OTP_AAD_PREFIX}:${recordId}`;
+}
+
+/** Payload-format version stored on the row, independent of `revision`. */
+export const OTP_PAYLOAD_VERSION = 1;
+
+/** An OTP envelope is a few hundred bytes. MAX_CIPHER is sized for note bodies
+ *  and would let the table be used as free blob storage. */
+export const MAX_OTP_CIPHER = 4096;
+export const MAX_OTP_RECORDS_PER_USER = 500;
+
+/** Tombstones are kept this long so a device offline for a while still learns
+ *  a credential was deleted rather than resurrecting it from its local cache. */
+export const OTP_TOMBSTONE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;

@@ -493,3 +493,49 @@ export const fileAttachments = pgTable(
     index('file_attachments_storage_deleted_idx').on(t.storageDeletedAt),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Authenticator (TOTP)
+
+/**
+ * OTP credentials, opaque to the server.
+ *
+ * Deliberately not a note tier: `makeTierRepo` and `tierColumns` assume a
+ * plaintext title, a search vector and note expiry, none of which may exist
+ * here. Issuer and account name live inside `payload` because they reveal which
+ * services the user has accounts with, so there is nothing indexable on the
+ * row and search happens locally after decryption.
+ *
+ * `revision` — not `updatedAt` — is the concurrency token. Every write advances
+ * it, reorders and soft-deletes included, so a tombstone always beats a stale
+ * edit and a deleted credential cannot be resurrected. Note `updatedAt` means
+ * "when the content was last saved" and intentionally ignores metadata changes,
+ * which makes it useless as a cursor; here timestamps are informational only.
+ *
+ * A soft-deleted row keeps its id and drops its `payload` to NULL. It stays as
+ * a tombstone for OTP_TOMBSTONE_RETENTION_MS so a device that has been offline
+ * still learns the credential is gone.
+ */
+export const otpRecords = pgTable(
+  'otp_records',
+  {
+    // Generated on the client (uuidv7) so the payload can be sealed with the id
+    // as AAD before it is ever sent, and a create can be retried idempotently.
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** AES-GCM envelope; NULL once the row is a tombstone. */
+    payload: jsonb('payload').$type<EncryptedPayload>(),
+    /** Payload *format* version. Distinct from `revision`, which counts writes. */
+    payloadVersion: integer('payload_version').notNull().default(1),
+    position: doublePrecision('position').notNull(),
+    revision: integer('revision').notNull().default(1),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    deletedAt: ts('deleted_at'),
+  },
+  (t) => [
+    index('otp_records_user_idx').on(t.userId),
+    // Drives the tombstone sweep in controllers/cleanup.ts.
+    index('otp_records_deleted_idx').on(t.deletedAt),
+  ],
+);
