@@ -5,6 +5,7 @@ import { seedSecrets } from '../fixtures/seedSecrets';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { clearSession } from '../utils/clearSession';
+import { settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -64,7 +65,7 @@ test.describe('modal close - backdrop click', () => {
     await page.reload();
 
     await notesPage.noteCard('NoClose Edit').click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await settleModal(page);
 
     // Enter edit mode
     await page.getByTestId('edit-btn').click();

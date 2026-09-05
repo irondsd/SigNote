@@ -5,6 +5,7 @@ import { seedSeals } from '../fixtures/seedSeals';
 import { SealsPage } from '../pages/SealsPage';
 import { clearSession } from '../utils/clearSession';
 import { trpcMutationOf, trpcGet } from '../utils/trpc';
+import { pickNoteStyle, settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -70,8 +71,7 @@ test.describe('create seal', () => {
     await page.getByRole('button', { name: 'New Seal' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTitle('Note style').click();
-    await page.getByTitle('Yellow').click();
+    await pickNoteStyle(page, 'Yellow');
 
     const postPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('save-seal-btn').click();
@@ -392,6 +392,7 @@ test.describe('archive and unarchive seal', () => {
 
     await sealsPage.sealCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
 
     const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('archive-btn').click();
@@ -417,6 +418,7 @@ test.describe('archive and unarchive seal', () => {
 
     await sealsPage.sealCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
 
     const patchPromise = page.waitForResponse(trpcMutationOf('seals.'));
     await page.getByTestId('archive-btn').click();

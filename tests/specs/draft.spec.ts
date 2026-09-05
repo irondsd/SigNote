@@ -6,6 +6,7 @@ import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { clearSession } from '../utils/clearSession';
 import { trpcMutationOf } from '../utils/trpc';
+import { settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -399,7 +400,7 @@ test.describe('unsaved changes confirmation', () => {
 
     // Open note modal and edit
     await notesPage.noteCard('Unsaved Test').click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type(' modified');
@@ -422,7 +423,7 @@ test.describe('unsaved changes confirmation', () => {
 
     // Open, edit, close, discard
     await notesPage.noteCard('Discard Test').click();
-    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type(' extra');

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { MockOAuthProfile } from '../oauth/mockOAuthServer';
+import { FLOW_COOKIE, type MockOAuthProfile } from '../oauth/mockOAuthServer';
 
 function mockBaseUrl() {
   const port = process.env.MOCK_OAUTH_PORT;
@@ -7,17 +7,24 @@ function mockBaseUrl() {
   return `http://localhost:${port}`;
 }
 
-async function setupFlowRoute(page: Page, flowId: string): Promise<void> {
-  const port = process.env.MOCK_OAUTH_PORT!;
-  await page.route(
-    (url) => url.hostname === 'localhost' && url.port === port && url.pathname === '/auth',
-    (route) => {
-      const target = new URL(route.request().url());
-      target.searchParams.set('_flow_key', flowId);
-      return route.continue({ url: target.toString() });
-    },
-    { times: 1 },
-  );
+/**
+ * Queues one flow for this browser context by naming it in a cookie on the mock
+ * provider's own origin.
+ *
+ * A cookie rather than a `page.route` that rewrites the authorization URL: that
+ * route had to be armed per flow and removed after one use, and dropping the
+ * last handler tears down Chromium's request interception. A navigation issued
+ * in that same moment — and the provider's redirect back to
+ * `/api/auth/callback/google` always is — can be left paused for good: the
+ * browser reports the request as sent, the server never receives it, and the
+ * test spends its timeout on a page that never navigates. Cookies need no
+ * interception at all.
+ *
+ * Cookies ignore ports, so this one also rides along to the app on :5005, where
+ * it means nothing. The mock clears it the moment it is used.
+ */
+async function armFlow(page: Page, flowId: string): Promise<void> {
+  await page.context().addCookies([{ name: FLOW_COOKIE, value: flowId, url: mockBaseUrl() }]);
 }
 
 /**
@@ -36,7 +43,7 @@ export async function configureGoogleUser(
     body: JSON.stringify(profile),
   });
   const { flowId } = (await res.json()) as { flowId: string };
-  await setupFlowRoute(page, flowId);
+  await armFlow(page, flowId);
 }
 
 /**
@@ -50,5 +57,5 @@ export async function setGoogleError(page: Page, error: string): Promise<void> {
     body: JSON.stringify({ error }),
   });
   const { flowId } = (await res.json()) as { flowId: string };
-  await setupFlowRoute(page, flowId);
+  await armFlow(page, flowId);
 }

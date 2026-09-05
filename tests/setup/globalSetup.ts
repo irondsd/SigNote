@@ -153,7 +153,12 @@ async function setup() {
   // Drain the detached child's pipes so it cannot block on a full buffer, but
   // keep email contents and other request logs out of normal test output. If
   // startup fails, include only the recent server output in the setup error.
+  // `E2E_SERVER_LOG=<path>` keeps the whole stream instead, timestamped — which
+  // is how you tell a request the server was slow to answer from one it never
+  // received at all.
+  const debugLog = process.env.E2E_SERVER_LOG ? fs.createWriteStream(process.env.E2E_SERVER_LOG) : null;
   const captureServerOutput = (chunk: Buffer) => {
+    debugLog?.write(`${new Date().toISOString()} ${chunk.toString()}`);
     serverOutput = `${serverOutput}${chunk.toString()}`.slice(-12000);
   };
   server.stdout?.on('data', captureServerOutput);

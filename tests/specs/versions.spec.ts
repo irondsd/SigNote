@@ -1,26 +1,10 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
+import { settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
-
-/** Wait for the modal's open-from-card animation to settle. */
-async function waitForModalStable(page: Page) {
-  await page.getByTestId('note-modal').evaluate(async (el) => {
-    let prev = -1;
-    let stable = 0;
-    for (let i = 0; i < 180; i++) {
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-      const animating = el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
-      const h = el.getBoundingClientRect().height;
-      if (!animating && Math.abs(h - prev) < 0.5) stable++;
-      else stable = 0;
-      prev = h;
-      if (stable >= 6) return;
-    }
-  });
-}
 
 const HOUR = 3600_000;
 
@@ -40,7 +24,7 @@ async function openHistory(notesPage: NotesPage, title: string) {
   const page = notesPage.page;
   await notesPage.noteCard(title).click();
   await expect(page.getByTestId('note-title')).toBeVisible();
-  await waitForModalStable(page);
+  await settleModal(page);
   await page.getByTestId('more-actions-btn').click();
   await page.getByTestId('version-history-item').click();
   await expect(page.getByTestId('version-sidebar')).toBeVisible();
@@ -57,7 +41,7 @@ test.describe('version history', () => {
 
     await notesPage.noteCard(`${tag} head`).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
-    await waitForModalStable(page);
+    await settleModal(page);
     await page.getByTestId('more-actions-btn').click();
 
     await page.getByTestId('version-history-item').click();
@@ -141,7 +125,7 @@ test.describe('version history', () => {
     await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(`${tag} note`).click();
-    await waitForModalStable(page);
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('note-title-input').fill(`${tag} edited`);
 

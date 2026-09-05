@@ -1,9 +1,10 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
 import { trpcMutationOf, trpcQuery, trpcData } from '../utils/trpc';
+import { pickNoteStyle, settleModal } from '../utils/settleModal';
 
 type NoteRow = { _id: string; title: string; content: string; color: string | null; updatedAt: string };
 
@@ -59,8 +60,7 @@ test.describe('create note', () => {
     const title = `Color Note ${Date.now()}`;
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTitle('Note style').click();
-    await page.getByTitle('Yellow').click();
+    await pickNoteStyle(page, 'Yellow');
 
     const postPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('save-note-btn').click();
@@ -86,6 +86,7 @@ test.describe('archive and unarchive', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
+    await settleModal(page);
     const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
@@ -120,6 +121,7 @@ test.describe('archive and unarchive', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
 
+    await settleModal(page);
     const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('archive-btn').click();
     await patchPromise;
@@ -145,6 +147,7 @@ test.describe('delete note', () => {
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('delete-btn').click();
 
     await expect(notesPage.noteCard(title)).not.toBeVisible();
@@ -161,6 +164,7 @@ test.describe('delete note', () => {
     await notesPage.noteCard(title).click();
     // Wait for the delete to actually commit server-side before reloading —
     // the optimistic UI removal alone doesn't guarantee the request flushed.
+    await settleModal(page);
     const deletePromise = page.waitForResponse(trpcMutationOf('notes.'));
     await page.getByTestId('delete-btn').click();
     await expect(notesPage.noteCard(title)).not.toBeVisible();
@@ -181,6 +185,7 @@ test.describe('delete note', () => {
     await notesPage.signInDirectly(account.address);
 
     await notesPage.noteCard(title).click();
+    await settleModal(page);
     await page.getByTestId('delete-btn').click();
     await expect(notesPage.noteCard(title)).not.toBeVisible();
 
@@ -203,6 +208,7 @@ test.describe('edit note', () => {
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
 
     await page.getByTestId('tiptap-editor').click();
@@ -230,6 +236,7 @@ test.describe('edit note', () => {
 
     await notesPage.noteCard(originalTitle).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
 
     await page.getByTestId('note-title-input').fill(updatedTitle);
@@ -257,6 +264,7 @@ test.describe('edit note', () => {
 
     await notesPage.noteCard(originalTitle).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
 
     // Change title and content
@@ -300,8 +308,7 @@ test.describe('note color', () => {
     await expect(page.getByTestId('note-title')).toBeVisible();
 
     const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
-    await page.getByTestId('style-picker-btn').click();
-    await page.getByTitle('Yellow').click();
+    await pickNoteStyle(page, 'Yellow');
     await patchPromise;
 
     // Card should have a non-default background color
@@ -328,8 +335,7 @@ test.describe('note color', () => {
     await expect(page.getByTestId('note-title')).toBeVisible();
 
     const patchPromise = page.waitForResponse(trpcMutationOf('notes.'));
-    await page.getByTestId('style-picker-btn').click();
-    await page.getByTitle('Default').click();
+    await pickNoteStyle(page, 'Default');
     await patchPromise;
 
     const notes = await trpcData<NoteRow[]>(await trpcQuery(page.request, 'notes.list', {}));
@@ -351,6 +357,7 @@ test.describe('date update after save', () => {
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
 
     await page.getByTestId('note-title-input').fill(`${title} edited`);
@@ -368,37 +375,6 @@ test.describe('date update after save', () => {
 test.describe('modal max height', () => {
   const bigContent = Array.from({ length: 200 }, (_, i) => `<p>Line ${i + 1}</p>`).join('');
 
-  const waitForModalToBeStable = async (page: Page) => {
-    await page.getByTestId('note-modal').evaluate(async (el) => {
-      const hasRunningAnimations = () =>
-        el.getAnimations({ subtree: true }).some((animation) => animation.playState === 'running');
-
-      let previousHeight = -1;
-      let stableFrames = 0;
-      const maxFramesToWait = 180;
-      const minStableFrames = 6;
-
-      for (let frame = 0; frame < maxFramesToWait; frame++) {
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-        const currentHeight = el.getBoundingClientRect().height;
-        const heightStable = Math.abs(currentHeight - previousHeight) < 0.5;
-
-        if (heightStable && !hasRunningAnimations()) {
-          stableFrames += 1;
-        } else {
-          stableFrames = 0;
-        }
-
-        previousHeight = currentHeight;
-
-        if (stableFrames >= minStableFrames) {
-          return;
-        }
-      }
-    });
-  };
-
   test('new note modal height is capped at 90% of window height', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
@@ -412,7 +388,7 @@ test.describe('modal max height', () => {
       await page.keyboard.press('Enter');
     }
 
-    await waitForModalToBeStable(page);
+    await settleModal(page);
 
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);
@@ -431,7 +407,7 @@ test.describe('modal max height', () => {
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
 
-    await waitForModalToBeStable(page);
+    await settleModal(page);
 
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);
@@ -449,9 +425,10 @@ test.describe('modal max height', () => {
 
     await notesPage.noteCard(title).click();
     await expect(page.getByTestId('note-modal')).toBeVisible();
+    await settleModal(page);
     await page.getByTestId('edit-btn').click();
 
-    await waitForModalToBeStable(page);
+    await settleModal(page);
 
     const modalBox = await page.getByTestId('note-modal').boundingBox();
     const windowHeight = await page.evaluate(() => window.innerHeight);

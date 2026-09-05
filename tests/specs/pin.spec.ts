@@ -1,28 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { makeAccount } from '../utils/makeAccount';
 import { seedNotes } from '../fixtures/seedNotes';
 import { NotesPage } from '../pages/NotesPage';
 import { clearSession } from '../utils/clearSession';
 import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
+import { settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
-
-/** Wait for the modal's open-from-card animation to settle. */
-async function waitForModalStable(page: Page) {
-  await page.getByTestId('note-modal').evaluate(async (el) => {
-    let prev = -1;
-    let stable = 0;
-    for (let i = 0; i < 180; i++) {
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-      const animating = el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
-      const h = el.getBoundingClientRect().height;
-      if (!animating && Math.abs(h - prev) < 0.5) stable++;
-      else stable = 0;
-      prev = h;
-      if (stable >= 6) return;
-    }
-  });
-}
 
 /** Read the visible titles of `note-card`s in DOM order. */
 async function cardTitles(notesPage: NotesPage): Promise<string[]> {
@@ -47,7 +31,7 @@ async function openMoreActionsAndClickPinToggle(notesPage: NotesPage, title: str
   await expect(page.getByTestId('note-title')).toBeVisible();
 
   // The modal animates in (≈350ms transform) — wait for it before clicking.
-  await waitForModalStable(page);
+  await settleModal(page);
   await page.getByTestId('more-actions-btn').click();
 
   // Wait for the PATCH that the menu item click will trigger.
@@ -56,7 +40,7 @@ async function openMoreActionsAndClickPinToggle(notesPage: NotesPage, title: str
   await patchPromise;
 
   // Close the modal so the grid behind is interactive again.
-  await waitForModalStable(page);
+  await settleModal(page);
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByTestId('note-title')).toHaveCount(0);
 }

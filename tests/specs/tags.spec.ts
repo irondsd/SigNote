@@ -5,6 +5,7 @@ import { SealsPage } from '../pages/SealsPage';
 import { makeAccount } from '../utils/makeAccount';
 import { seedTags } from '../fixtures/seedTags';
 import { trpcGet, trpcPost, trpcMutate, trpcBatchData } from '../utils/trpc';
+import { settleModal } from '../utils/settleModal';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -29,6 +30,7 @@ test.describe('tags', () => {
 
     // Open it, reveal the tags strip, and create a brand-new tag from the palette.
     await notesPage.noteCard(title).click();
+    await settleModal(page);
     await page.getByTestId('tag-toggle-btn').click(); // show the "Tags" strip
     await page.getByTestId('add-tag-btn').click(); // open the command palette
 
@@ -286,6 +288,7 @@ test.describe('tag management UI', () => {
 
     await page.goto('/');
     await notesPage.noteCard(title).click();
+    await settleModal(page);
 
     // The strip defaults open when the note already has tags.
     const patched = page.waitForResponse(
@@ -312,6 +315,7 @@ test.describe('tag management UI', () => {
     const title = `Preselected ${Date.now()}`;
     await page.getByTestId('new-note-btn').click();
     await page.getByTestId('note-title-input').fill(title);
+    await settleModal(page);
     await page.getByTestId('tag-toggle-btn').click();
     await page.getByTestId('add-tag-btn').click();
 
@@ -360,6 +364,7 @@ test.describe('tags on encrypted tiers', () => {
     const tagName = `sec${Date.now()}`;
     await page.getByRole('button', { name: 'New Secret' }).click();
     await page.getByTestId('note-title-input').fill(title);
+    await settleModal(page);
     await page.getByTestId('tag-toggle-btn').click();
     await page.getByTestId('add-tag-btn').click();
 
@@ -388,6 +393,7 @@ test.describe('tags on encrypted tiers', () => {
     const tagName = `seal${Date.now()}`;
     await page.getByRole('button', { name: 'New Seal' }).click();
     await page.getByTestId('note-title-input').fill(title);
+    await settleModal(page);
     await page.getByTestId('tag-toggle-btn').click();
     await page.getByTestId('add-tag-btn').click();
 

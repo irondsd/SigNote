@@ -5,6 +5,7 @@ import { seedSecrets } from '../fixtures/seedSecrets';
 import { SecretsPage } from '../pages/SecretsPage';
 import { clearSession } from '../utils/clearSession';
 import { trpcMutationOf, trpcQueryOf, trpcQuery, trpcData } from '../utils/trpc';
+import { pickNoteStyle, settleModal } from '../utils/settleModal';
 
 type SecretRow = { _id: string; title: string; color: string | null; updatedAt: string; encryptedBody: unknown };
 
@@ -72,8 +73,7 @@ test.describe('create secret', () => {
     await page.getByRole('button', { name: 'New Secret' }).click();
     await page.getByTestId('note-title-input').fill(title);
 
-    await page.getByTitle('Note style').click();
-    await page.getByTitle('Yellow').click();
+    await pickNoteStyle(page, 'Yellow');
 
     const postPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('save-secret-btn').click();
@@ -346,6 +346,7 @@ test.describe('archive and unarchive secret', () => {
 
     await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
 
     const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('archive-btn').click();
@@ -371,6 +372,7 @@ test.describe('archive and unarchive secret', () => {
 
     await secretsPage.secretCard(title).click();
     await expect(page.getByTestId('note-title')).toBeVisible();
+    await settleModal(page);
 
     const patchPromise = page.waitForResponse(trpcMutationOf('secrets.'));
     await page.getByTestId('archive-btn').click();

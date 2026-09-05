@@ -8,6 +8,7 @@ import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
+import { settleModal } from '../utils/settleModal';
 
 // The list GET is often batched behind other procedures (e.g.
 // `/api/trpc/profile.get,notes.list?batch=1`), so match the procedure anywhere
@@ -20,30 +21,9 @@ test.describe.configure({ mode: 'parallel' });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/**
- * Wait for the modal's open-from-card transform animation (≈350ms) to finish
- * AND its size to stabilize. Without this, buttons inside the modal are flaky
- * targets because they're mid-transform.
- */
-async function waitForModalStable(page: Page) {
-  await page.getByTestId('note-modal').evaluate(async (el) => {
-    let prev = -1;
-    let stable = 0;
-    for (let i = 0; i < 180; i++) {
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
-      const animating = el.getAnimations({ subtree: true }).some((a) => a.playState === 'running');
-      const h = el.getBoundingClientRect().height;
-      if (!animating && Math.abs(h - prev) < 0.5) stable++;
-      else stable = 0;
-      prev = h;
-      if (stable >= 6) return;
-    }
-  });
-}
-
 /** Open the more-actions popover and navigate into the Self-destruct picker. */
 async function openSelfDestructPicker(page: Page) {
-  await waitForModalStable(page);
+  await settleModal(page);
   await page.getByTestId('more-actions-btn').click();
   await page.getByRole('button', { name: /^self-destruct timer/i }).click();
   await expect(page.getByRole('button', { name: /set timer|update timer/i })).toBeVisible();
@@ -51,7 +31,7 @@ async function openSelfDestructPicker(page: Page) {
 
 /** Click Close on the note modal once layout has settled. */
 async function closeModal(page: Page) {
-  await waitForModalStable(page);
+  await settleModal(page);
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByTestId('note-title')).toHaveCount(0);
 }

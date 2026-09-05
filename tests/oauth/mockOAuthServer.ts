@@ -43,6 +43,19 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
 const publicKeyJwk = crypto.createPublicKey(publicKey).export({ format: 'jwk' }) as Record<string, unknown>;
 const KEY_ID = 'mock-key-1';
 
+/** The cookie a test sets on this server's origin to name the queued flow. */
+export const FLOW_COOKIE = 'mock_oauth_flow';
+
+function readCookie(req: http.IncomingMessage, name: string): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) return decodeURIComponent(rest.join('='));
+  }
+  return null;
+}
+
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     let data = '';
@@ -77,6 +90,17 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
   const tokenProfiles = new Map<string, MockOAuthProfile>();
 
   const server = http.createServer(async (req, res) => {
+    // `MOCK_OAUTH_LOG=1` traces the provider side of every sign-in; pair it with
+    // `E2E_SERVER_LOG` to place a stalled OAuth flow on one timeline.
+    if (process.env.MOCK_OAUTH_LOG) {
+      const started = Date.now();
+      console.log(`[mock-oauth] ${new Date().toISOString()} -> ${req.method} ${req.url}`);
+      res.on('finish', () =>
+        console.log(
+          `[mock-oauth] ${new Date().toISOString()} <- ${req.method} ${req.url} in ${Date.now() - started}ms`,
+        ),
+      );
+    }
     const port = (server.address() as AddressInfo).port;
     const base = `http://localhost:${port}`;
     const url = new URL(req.url ?? '/', base);
@@ -109,8 +133,15 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
     if (req.method === 'GET' && url.pathname === '/auth') {
       const redirectUri = url.searchParams.get('redirect_uri')!;
       const state = url.searchParams.get('state') ?? '';
-      const flowKey = url.searchParams.get('_flow_key') ?? null;
+      // Which queued flow this browser is running, named by the cookie the test
+      // set on this origin. A cookie rather than a rewritten query param
+      // because rewriting one needs Playwright request interception, and
+      // tearing that down mid-redirect can strand the callback navigation —
+      // see the note in tests/utils/googleAuth.ts.
+      const flowKey = readCookie(req, FLOW_COOKIE);
       const callbackUrl = new URL(redirectUri);
+      // One flow per arming: clear it however this request ends.
+      const headers: http.OutgoingHttpHeaders = flowKey ? { 'Set-Cookie': `${FLOW_COOKIE}=; Path=/; Max-Age=0` } : {};
 
       const error = flowKey ? (flowErrors.get(flowKey) ?? null) : nextError;
       if (flowKey) flowErrors.delete(flowKey);
@@ -119,7 +150,7 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
       if (error) {
         callbackUrl.searchParams.set('error', error);
         callbackUrl.searchParams.set('state', state);
-        res.writeHead(302, { Location: callbackUrl.toString() });
+        res.writeHead(302, { ...headers, Location: callbackUrl.toString() });
         return res.end();
       }
 
@@ -130,7 +161,7 @@ export async function startMockOAuthServer(): Promise<MockOAuthServer> {
       codeProfiles.set(code, { ...profile });
       callbackUrl.searchParams.set('code', code);
       callbackUrl.searchParams.set('state', state);
-      res.writeHead(302, { Location: callbackUrl.toString() });
+      res.writeHead(302, { ...headers, Location: callbackUrl.toString() });
       return res.end();
     }
 
