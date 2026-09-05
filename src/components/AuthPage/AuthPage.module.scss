@@ -49,10 +49,6 @@
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-
-  @media (max-width: 560px) {
-    display: none;
-  }
 }
 
 .banner,

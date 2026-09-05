@@ -19,6 +19,11 @@
   width: 100%;
   min-width: 0;
   height: 100%;
+  // As on NoteCardBase. Besides clipping the pattern layer, this makes the card
+  // a scroll container, so its automatic minimum size is zero and it can shrink
+  // with its track instead of forcing it wider. The actions popover is
+  // portalled, so it is not clipped by this.
+  overflow: hidden;
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -41,9 +46,6 @@
     transform: scale(1.01);
   }
 
-  // No `overflow: hidden` here, unlike NoteCardBase: the pattern layer clips
-  // itself with `border-radius: inherit`, and clipping the card would also clip
-  // the focus ring on the actions button in the corner.
   &[data-archived='true'] {
     opacity: 0.62;
   }
@@ -160,6 +162,7 @@
 // ─── Code ────────────────────────────────────────────────────────────────────
 
 .codeWrap {
+  min-width: 0;
   transition: filter 0.16s ease;
   will-change: filter;
 }
@@ -183,6 +186,8 @@
 
 .code {
   display: flex;
+  min-width: 0;
+  overflow: hidden;
   gap: 11px;
   font-family: var(--font-mono);
   font-size: 28px;

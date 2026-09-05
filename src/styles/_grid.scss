@@ -1,0 +1,42 @@
+/**
+ * The card grid shared by every list page — notes, secrets, seals and auth.
+ *
+ * `minmax(0, 1fr)` rather than a bare `1fr`: a bare `1fr` is `minmax(auto, 1fr)`,
+ * whose floor is the item's min-content width, so a card that cannot wrap pushes
+ * its track wider than its share and the row overflows the page. Note cards get
+ * away with `1fr` because their text wraps to almost nothing; auth cards do not,
+ * because a 28px monospace code and a nowrap issuer/account line have a hard
+ * minimum. Pinning the floor to 0 makes the tracks behave the same either way.
+ *
+ * `min-width: 0` on the children is the same fix one level down, for the
+ * SortableWrapper each card is mounted inside.
+ */
+@mixin card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 4px 0;
+
+  > * {
+    min-width: 0;
+  }
+
+  @media (min-width: 480px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (min-width: 1600px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  // Stagger card entrance animations via inherited CSS custom property
+  @for $i from 1 through 24 {
+    & > *:nth-child(#{$i}) {
+      --animation-index: #{$i - 1};
+    }
+  }
+}
