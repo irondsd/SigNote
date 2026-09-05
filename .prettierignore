@@ -1,0 +1,3 @@
+# drizzle-kit generated migration snapshots — reformatting them creates
+# unrelated churn every time someone runs `npm run format`.
+drizzle/meta/
