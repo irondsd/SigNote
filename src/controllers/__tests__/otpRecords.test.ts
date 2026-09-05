@@ -124,12 +124,12 @@ describe('listOtpRecords — the sync snapshot', () => {
     expect(alice[0].payload).toEqual(payload('a'));
   });
 
-  it('orders by position', async () => {
-    await add(ALICE, 'third', 3000);
-    await add(ALICE, 'first', 1000);
+  it('orders by position, highest first — as the note tiers do', async () => {
+    await add(ALICE, 'third', 1000);
+    await add(ALICE, 'first', 3000);
     await add(ALICE, 'second', 2000);
 
-    expect((await listOtpRecords(ALICE)).map((r) => r.position)).toEqual([1000, 2000, 3000]);
+    expect((await listOtpRecords(ALICE)).map((r) => r.position)).toEqual([3000, 2000, 1000]);
   });
 
   it('includes tombstones with a null payload', async () => {
@@ -261,16 +261,33 @@ describe('deleteOtpRecord', () => {
 
 describe('reorderOtpRecords', () => {
   it('applies every position and bumps each revision', async () => {
-    const a = await add(ALICE, 'a', 1000);
-    const b = await add(ALICE, 'b', 2000);
+    const a = await add(ALICE, 'a', 2000);
+    const b = await add(ALICE, 'b', 1000);
 
     const rows = await reorderOtpRecords(ALICE, [
-      { id: a.id, position: 2000 },
-      { id: b.id, position: 1000 },
+      { id: a.id, position: 1000 },
+      { id: b.id, position: 2000 },
     ]);
 
     expect(rows.map((r) => r.id)).toEqual([b.id, a.id]);
     expect(rows.every((r) => r.revision === 2)).toBe(true);
+  });
+
+  it('renumbers a list whose positions had collided', async () => {
+    // The state the old ascending arithmetic could leave behind: two records
+    // sharing a position, which no midpoint can ever separate.
+    const a = await add(ALICE, 'a', 1000);
+    const b = await add(ALICE, 'b', 1000);
+    const c = await add(ALICE, 'c', 1000);
+
+    const rows = await reorderOtpRecords(ALICE, [
+      { id: c.id, position: 3000 },
+      { id: b.id, position: 2000 },
+      { id: a.id, position: 1000 },
+    ]);
+
+    expect(rows.map((r) => r.id)).toEqual([c.id, b.id, a.id]);
+    expect(new Set(rows.map((r) => r.position)).size).toBe(3);
   });
 
   it('ignores ids belonging to another user', async () => {
@@ -283,6 +300,18 @@ describe('reorderOtpRecords', () => {
     ]);
 
     expect((await listOtpRecords(BOB))[0].position).toBe(1000);
+  });
+
+  it('leaves a style-only update where it is in the order', async () => {
+    // Recolouring must not move a card: `position` is untouched, so the list
+    // order is identical before and after.
+    const top = await add(ALICE, 'top', 3000);
+    const mid = await add(ALICE, 'mid', 2000);
+    const low = await add(ALICE, 'low', 1000);
+
+    await updateOtpRecord(ALICE, { id: mid.id, expectedRevision: 1, color: 'teal' });
+
+    expect((await listOtpRecords(ALICE)).map((r) => r.id)).toEqual([top.id, mid.id, low.id]);
   });
 
   it('skips tombstones', async () => {

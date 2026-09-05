@@ -1,4 +1,4 @@
-import { and, count, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { MAX_OTP_RECORDS_PER_USER } from '@/config/constants';
 import { getDb } from '@/db/client';
@@ -84,7 +84,12 @@ export class OtpLimitError extends Error {
  * that is absent here was purged server-side and should be dropped locally.
  */
 export const listOtpRecords = async (userId: string): Promise<OtpRecordRow[]> =>
-  getDb().select(columns).from(otpRecords).where(eq(otpRecords.userId, userId)).orderBy(otpRecords.position);
+  getDb()
+    .select(columns)
+    .from(otpRecords)
+    .where(eq(otpRecords.userId, userId))
+    // Descending, as the note tiers order their lists: highest position first.
+    .orderBy(desc(otpRecords.position));
 
 const getRecord = async (userId: string, id: string): Promise<OtpRecordRow | null> => {
   const rows = await getDb()

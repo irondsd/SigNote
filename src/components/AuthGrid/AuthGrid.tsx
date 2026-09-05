@@ -19,6 +19,7 @@ import { SortableWrapper } from '@/components/SortableWrapper/SortableWrapper';
 import { AuthCard } from '@/components/AuthCard/AuthCard';
 import { useOtpVault, type AuthRecord } from '@/contexts/OtpVaultContext';
 import { useAuthCodes } from '@/hooks/useAuthCodes';
+import { isDegeneratePosition } from '@/lib/otp/order';
 import { calculatePosition } from '@/utils/calculatePosition';
 import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
@@ -34,12 +35,11 @@ type AuthGridProps = {
 };
 
 export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps) {
-  const { serverTimeOffsetMs, setPosition, setStyle, setArchived, syncState } = useOtpVault();
+  const { serverTimeOffsetMs, setPosition, renumber, setStyle, setArchived, syncState } = useOtpVault();
   const { byId } = useAuthCodes(records, serverTimeOffsetMs);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dragSize, setDragSize] = useState<{ width: number; height: number } | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // v1 queues nothing offline, so every write needs a live session. The menu
   // says why rather than failing silently when the button is pressed.
@@ -53,12 +53,13 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const ids = useMemo(() => records.map((r) => r.id), [records]);
   const dragEnabled = !readOnly && records.length > 1;
 
-  const handleCopy = useCallback(async (record: AuthRecord, code: string | undefined) => {
+  const handleCopy = useCallback(async (code: string | undefined) => {
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
-      setCopiedId(record.id);
-      setTimeout(() => setCopiedId((id) => (id === record.id ? null : id)), 1400);
+      // The same toast the editor and version history use, rather than a badge
+      // of the card's own — one copy affordance across the app.
+      toast.success('Copied to clipboard');
     } catch {
       toast.error('Could not copy the code');
     }
@@ -86,27 +87,37 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
 
       // Unlike the note tiers there is no pinned group here, so the neighbours
       // are simply the entries either side of the drop once the dragged card is
-      // taken out of the list.
+      // taken out of the list. The list is sorted descending, so `above` holds
+      // the higher position — which is the order `calculatePosition` expects.
       const without = records.filter((_, i) => i !== oldIndex);
       const above = newIndex > 0 ? (without[newIndex - 1]?.position ?? null) : null;
       const below = without[newIndex]?.position ?? null;
+      const position = calculatePosition(above, below);
 
+      // A midpoint only works while the neighbours still have a gap between
+      // them. Once they collide — repeated bisection, or positions left equal
+      // by an earlier bug — no single value can sit between them, and the drop
+      // would silently do nothing. Renumber the whole list instead, which also
+      // repairs the rows that had collided.
       try {
-        await setPosition(active.id as string, calculatePosition(above, below));
+        if (isDegeneratePosition(position, above, below)) {
+          await renumber([...without.slice(0, newIndex), records[oldIndex], ...without.slice(newIndex)]);
+        } else {
+          await setPosition(active.id as string, position);
+        }
       } catch {
         toast.error('Could not reorder');
       }
     },
-    [records, setPosition],
+    [records, setPosition, renumber],
   );
 
   const cardProps = (record: AuthRecord) => ({
     record,
     state: byId[record.id] ?? { seconds: 0, fraction: 1 },
-    copied: copiedId === record.id,
     readOnly,
     readOnlyReason,
-    onCopy: () => handleCopy(record, byId[record.id]?.code),
+    onCopy: () => handleCopy(byId[record.id]?.code),
     onEdit: () => onEdit(record),
     onExport: () => onExport(record),
     onStyleChange: (patch: { color?: NoteColor | null; pattern?: NotePattern | null }) =>

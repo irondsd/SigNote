@@ -4,9 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useSession } from 'next-auth/react';
 import { v7 as uuidv7 } from 'uuid';
 
-import { POSITION_STEP } from '@/config/constants';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import { deriveOtpVaultKey } from '@/lib/crypto';
+import { compareAuthRecords, nextAuthPosition, renumberPositions } from '@/lib/otp/order';
 import { decryptOtpRecord, encryptOtpRecord, type OtpSecrets } from '@/lib/otp/record';
 import {
   clearLastActiveUserId,
@@ -91,6 +91,8 @@ type OtpVaultValue = {
   setStyle: (id: string, patch: { color?: NoteColor | null; pattern?: NotePattern | null }) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
   setPosition: (id: string, position: number) => Promise<void>;
+  /** Rewrites every position from the given order. See `renumber`. */
+  renumber: (ordered: AuthRecord[]) => Promise<void>;
   remove: (id: string) => Promise<void>;
 };
 
@@ -148,7 +150,7 @@ async function decryptAll(key: CryptoKey, cached: OtpCachedRecord[]): Promise<Au
       };
     }),
   );
-  return out.sort((a, b) => a.position - b.position);
+  return out.sort(compareAuthRecords);
 }
 
 // ─── Provider ────────────────────────────────────────────────────────────────
@@ -383,7 +385,14 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     async (row: WireRecord) => {
       const userId = vaultUserId;
       if (!userId) return;
-      const next = [...cached.filter((r) => r.id !== row.id), toCached(userId, row)];
+      // In place. Filtering the record out and pushing it back on the end
+      // reorders the array, and with a stable sort that moved the card to the
+      // end of any group sharing its position — which is what made recolouring
+      // a card appear to send it to the bottom of the list.
+      const updated = toCached(userId, row);
+      const next = cached.some((r) => r.id === row.id)
+        ? cached.map((r) => (r.id === row.id ? updated : r))
+        : [...cached, updated];
       if (trustedRef.current) await replaceRecords(userId, next);
       await refresh(next);
     },
@@ -399,8 +408,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       // is ever sent, which is what makes the AAD binding possible.
       const id = uuidv7();
       const payload = await encryptOtpRecord(key, id, secrets);
-      const lowest = records.reduce((min, r) => Math.min(min, r.position), Number.POSITIVE_INFINITY);
-      const position = Number.isFinite(lowest) ? lowest - POSITION_STEP : 0;
+      const position = nextAuthPosition(records);
 
       const row = (await otpTrpcClient.otp.create.mutate({
         id,
@@ -454,6 +462,25 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const setArchived = useCallback((id: string, archived: boolean) => mutate(id, { archived }), [mutate]);
   const setPosition = useCallback((id: string, position: number) => mutate(id, { position }), [mutate]);
 
+  /**
+   * Rewrites every position with fresh, evenly spaced values, in the order
+   * given. The escape hatch for a list whose gaps have been bisected away (or
+   * collapsed onto each other by the inverted arithmetic this used to use):
+   * once two neighbours share a position, no midpoint can separate them.
+   */
+  const renumber = useCallback(
+    async (ordered: AuthRecord[]) => {
+      const userId = vaultUserId;
+      if (!userId) return;
+      const items = renumberPositions(ordered);
+      const { records: wire } = (await otpTrpcClient.otp.reorder.mutate({ items })) as { records: WireRecord[] };
+      const next = wire.map((r) => toCached(userId, r));
+      if (trustedRef.current) await replaceRecords(userId, next);
+      await refresh(next);
+    },
+    [vaultUserId, refresh],
+  );
+
   const remove = useCallback(
     async (id: string) => {
       const current = cached.find((r) => r.id === id);
@@ -491,6 +518,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       setStyle,
       setArchived,
       setPosition,
+      renumber,
       remove,
     }),
     [
@@ -511,6 +539,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       setStyle,
       setArchived,
       setPosition,
+      renumber,
       remove,
     ],
   );

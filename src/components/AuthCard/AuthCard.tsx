@@ -29,7 +29,6 @@ function splitCode(code: string): [string, string] {
 export type AuthCardProps = {
   record: AuthRecord;
   state: AuthCodeState;
-  copied: boolean;
   readOnly: boolean;
   readOnlyReason?: string;
   onCopy: () => void;
@@ -43,7 +42,6 @@ export type AuthCardProps = {
 export function AuthCard({
   record,
   state,
-  copied,
   readOnly,
   readOnlyReason,
   onCopy,
@@ -145,8 +143,6 @@ export function AuthCard({
           <p className={s.unreadable}>This credential cannot be decrypted with the current key.</p>
         )}
       </div>
-
-      {copied && <span className={s.copied}>Copied</span>}
 
       <AuthCardMenu
         color={record.color}
