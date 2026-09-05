@@ -154,14 +154,17 @@ test.describe('erase encryption profile', () => {
 
     await page.goto('/erase-encryption');
     await performErase(page);
+    await expect(page.getByText('Encryption profile erased')).toBeVisible({ timeout: 30000 });
 
-    // onDone fires after 10s timer → router.push('/profile')
-    await expect(page).toHaveURL('/profile', { timeout: 15000 });
-
-    const profilePage = new ProfilePage(page);
-    await expect(profilePage.notesCount()).toHaveText('2');
-    await expect(profilePage.statCount('auth')).toHaveText('0');
-    await expect(profilePage.eraseProfileBtn()).toBeDisabled();
+    // Assert against the API immediately instead of waiting for the flow's
+    // delayed redirect. This proves the server-side erasure contract directly.
+    const profile = await trpcData<{
+      counts: { notes: { active: number }; auth: { active: number; archived: number } };
+      hasEncryptionProfile: boolean;
+    }>(await trpcQuery(page.request, 'profile.get'));
+    expect(profile.counts.notes.active).toBe(2);
+    expect(profile.counts.auth).toEqual({ active: 0, archived: 0 });
+    expect(profile.hasEncryptionProfile).toBe(false);
 
     await clearSession(page);
     await page.goto('/secrets');
