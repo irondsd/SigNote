@@ -337,7 +337,7 @@ export function NewAuthModal({ onClose }: NewAuthModalProps) {
             )}
 
             {error && (
-              <p className={s.error} role="alert">
+              <p className={s.error} role="alert" data-testid="auth-error">
                 {error}
               </p>
             )}

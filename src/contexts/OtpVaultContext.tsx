@@ -310,6 +310,26 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     if (phase === 'ready' && sessionStatus === 'authenticated') void sync();
   }, [phase, sessionStatus, sync]);
 
+  /**
+   * Losing the network has to mark sync stale immediately. Waiting for the next
+   * request to fail would leave `syncState` reading 'online' for as long as
+   * nothing happened to be in flight — long enough for the user to open the add
+   * dialog, fill it in and only then discover the write cannot land.
+   */
+  useEffect(() => {
+    const goOffline = () => setSyncState((state) => (state === 'signed-out' ? state : 'offline'));
+    const goOnline = () => {
+      if (phase === 'ready' && sessionStatus === 'authenticated') void sync();
+    };
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    if (!navigator.onLine) goOffline();
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, [phase, sessionStatus, sync]);
+
   // ── Enrollment ─────────────────────────────────────────────────────────────
 
   const enroll = useCallback(
