@@ -52,6 +52,8 @@ type EncryptionContextValue = {
   lockSerial: number;
   mek: CryptoKey | null;
   unlock: (passphrase: string) => Promise<void>;
+  /** Checks the encryption passphrase without changing the vault lock state. */
+  verifyPassphrase: (passphrase: string) => Promise<void>;
   lock: () => void;
   softLock: () => void;
   rehydrate: () => Promise<void>;
@@ -71,6 +73,14 @@ async function reconstructMek(deviceShare: Uint8Array, material: MaterialRespons
   return (await verifyKeyCheck(candidate, material.keyCheck)) ? candidate : null;
 }
 
+async function verifiedMekFromPassphrase(passphrase: string): Promise<{ mek: CryptoKey; deviceShare: Uint8Array }> {
+  const material = await fetchMaterialRequest();
+  const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
+  const mek = await reconstructMek(deviceShare, material);
+  if (!mek) throw new Error('Incorrect passphrase');
+  return { mek, deviceShare };
+}
+
 // ─── Internal hook ────────────────────────────────────────────────────────────
 
 function useMekRehydration(
@@ -79,9 +89,12 @@ function useMekRehydration(
 ): { mek: CryptoKey | null; setMek: (key: CryptoKey | null) => void } {
   const [mek, setMek] = useState<CryptoKey | null>(null);
 
-  // Silent rehydration: if deviceShare is in sessionStorage, reconstruct MEK on mount
+  // Silent rehydration resumes an ordinarily unlocked session after a reload.
+  // An explicit soft lock is different: keep the share, but wait for a guarded
+  // action before reconstructing the MEK so sensitive content is not exposed.
   useEffect(() => {
     if (sessionStatus !== 'authenticated' || !profileExists || mek) return;
+    if (sessionStorage.getItem(SOFT_LOCK_TS_KEY)) return;
 
     const deviceShare = loadDeviceShare();
     if (!deviceShare) return;
@@ -154,10 +167,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   const unlock = useCallback(
     async (passphrase: string): Promise<void> => {
-      const material = await fetchMaterialRequest();
-      const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
-      const key = await reconstructMek(deviceShare, material);
-      if (!key) throw new Error('Incorrect passphrase');
+      const { mek: key, deviceShare } = await verifiedMekFromPassphrase(passphrase);
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
@@ -165,6 +175,10 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     },
     [setMek],
   );
+
+  const verifyPassphrase = useCallback(async (passphrase: string): Promise<void> => {
+    await verifiedMekFromPassphrase(passphrase);
+  }, []);
 
   const lock = useCallback(() => {
     posthog.capture('vault_locked', { type: 'hard' });
@@ -242,7 +256,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <EncryptionContext.Provider
-      value={{ phase, lockType, lockSerial, mek, unlock, lock, softLock, rehydrate, setupProfile }}
+      value={{ phase, lockType, lockSerial, mek, unlock, verifyPassphrase, lock, softLock, rehydrate, setupProfile }}
     >
       {children}
     </EncryptionContext.Provider>

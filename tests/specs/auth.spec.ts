@@ -1,8 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { eq } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
 
 import { AuthenticatorPage } from '../pages/AuthenticatorPage';
 import { seedOtpRecords, TEST_SEED } from '../fixtures/seedOtpRecords';
 import { trpcGet, trpcMutationOf } from '../utils/trpc';
+import { seedSecrets } from '../fixtures/seedSecrets';
+import { makeAccount } from '../utils/makeAccount';
+import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
+import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
+import { testDb } from '../fixtures/db';
+import { encryptionProfiles } from '../../src/db/schema';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -59,6 +67,34 @@ test.describe('authenticator', () => {
     // Nothing was written to the vault store, so a reload starts over.
     await page.reload();
     await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible();
+  });
+
+  test('enrollment leaves Secrets softly locked while remembering the passphrase', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await seedSecrets(address, mekBytes, [{ title: 'Still locked', content: 'Available after soft unlock' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    // Reloading must preserve the explicit soft lock. The authenticator vault
+    // remains available through its own key, but the MEK is not reconstructed
+    // until a guarded Secrets interaction asks for it.
+    await page.reload();
+    await expect(authPage.card('Alpha')).toBeVisible();
+
+    await page.goto('/secrets');
+    const card = page.getByTestId('secret-card').filter({ hasText: 'Still locked' });
+    await expect(page.getByRole('button', { name: 'Unlock', exact: true })).toBeVisible();
+    await expect(card.getByTestId('encrypted-placeholder')).toBeVisible();
+
+    // The retained device share gives ordinary soft-lock behavior: clicking a
+    // card silently reconstructs the MEK instead of asking again.
+    await card.click();
+    await expect(page.getByTestId('tiptap-editor').getByText('Available after soft unlock')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByPlaceholder('Your passphrase')).toBeHidden();
   });
 
   // ─── Codes ────────────────────────────────────────────────────────────────
@@ -276,9 +312,25 @@ test.describe('authenticator', () => {
     await expect(page.getByText(/anyone who has it can generate your codes/i)).toBeVisible();
     await expect(page.getByTestId('auth-export-uri')).toHaveCount(0);
 
+    await page.getByLabel('Encryption passphrase').fill(AuthenticatorPage.PASSPHRASE);
     await page.getByRole('button', { name: 'Reveal the setup link' }).click();
     await expect(page.getByTestId('auth-export-uri')).toContainText('otpauth://totp/');
     await expect(page.getByTestId('auth-export-uri')).toContainText('JBSWY3DPEHPK3PXP');
+  });
+
+  test('export refuses an incorrect passphrase without revealing the seed', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha', secret: 'JBSWY3DPEHPK3PXP' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    await authPage.openExport('Alpha');
+    await page.getByLabel('Encryption passphrase').fill('definitely-wrong');
+    await page.getByRole('button', { name: 'Reveal the setup link' }).click();
+
+    await expect(page.getByText('Incorrect passphrase. Try again.')).toBeVisible();
+    await expect(page.getByTestId('auth-export-uri')).toHaveCount(0);
   });
 
   // ─── Offline ──────────────────────────────────────────────────────────────
@@ -304,6 +356,98 @@ test.describe('authenticator', () => {
     await expect(page.getByText(/Offline\. Codes keep working/i)).toBeVisible();
 
     await context.setOffline(false);
+  });
+
+  test('session expiry keeps codes and immediately disables writes', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    // Expire only this browser context. The app's visible sign-out control also
+    // broadcasts to every same-origin tab, which would interfere with this
+    // deliberately parallel spec file.
+    await page.context().clearCookies();
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+    await expect(authPage.card('Alpha').getByTestId('auth-code')).toHaveText(/^\d{3}\s*\d{3}$/);
+    await expect(page.getByTestId('auth-new')).toBeDisabled();
+    await expect(page.getByText(/Sync is paused/i)).toBeVisible();
+  });
+
+  test('switching accounts never carries decrypted records into the next vault', async ({ page }) => {
+    const accountA = makeAccount();
+    const accountB = makeAccount();
+    const { mekBytes: mekA } = await seedEncryptionProfile(accountA.account.address, AuthenticatorPage.PASSPHRASE);
+    const { mekBytes: mekB } = await seedEncryptionProfile(accountB.account.address, AuthenticatorPage.PASSPHRASE);
+    await seedOtpRecords(accountA.account.address, mekA, [{ issuer: 'Only Alpha' }]);
+    await seedOtpRecords(accountB.account.address, mekB, [{ issuer: 'Only Bravo' }]);
+
+    const authPage = new AuthenticatorPage(page);
+    await authPage.signInDirectly(accountA.account.address);
+    await authPage.enroll();
+    await expect(authPage.card('Only Alpha')).toBeVisible();
+
+    await page.context().clearCookies();
+    await page.reload();
+    await expect(page.getByTestId('sign-in-button').first()).toBeVisible();
+    await authPage.signInDirectly(accountB.account.address);
+
+    await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible();
+    await expect(authPage.card('Only Alpha')).toHaveCount(0);
+    await authPage.enroll();
+    await expect(authPage.card('Only Bravo')).toBeVisible();
+    await expect(authPage.card('Only Alpha')).toHaveCount(0);
+  });
+
+  test('returning focus synchronizes records added elsewhere', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Arrived remotely' }]);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+    await expect(authPage.card('Arrived remotely')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('a changed encryption profile generation invalidates the trusted device', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    const userId = await getOrCreateUserId(address);
+    await testDb().update(encryptionProfiles).set({ id: uuidv7() }).where(eq(encryptionProfiles.userId, userId));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+
+    await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible({ timeout: 10000 });
+    await expect(authPage.cards).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible();
+  });
+
+  test('a trusted device can be forgotten from Profile', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll();
+
+    await page.goto('/profile');
+    await expect(page.getByTestId('auth-device-section')).toBeVisible();
+    await page.getByTestId('forget-auth-device-btn').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Forget device' }).click();
+    await expect(page.getByTestId('auth-device-section')).toHaveCount(0);
+
+    await page.goto('/auth');
+    await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /Set up the authenticator/i })).toBeVisible();
   });
 
   // ─── Privacy ──────────────────────────────────────────────────────────────

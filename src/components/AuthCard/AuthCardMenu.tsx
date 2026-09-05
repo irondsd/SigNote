@@ -108,7 +108,8 @@ export function AuthCardMenu({
             <MenuItem
               icon={<QrCode size={16} />}
               label="Export"
-              hint="Reveals the seed — confirm first"
+              hint={readOnly ? 'Sign in and reconnect to export' : 'Reveals the seed — passphrase required'}
+              disabled={readOnly}
               onClick={run(onExport)}
             />
 

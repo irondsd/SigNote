@@ -86,3 +86,32 @@
   word-break: break-all;
   user-select: all;
 }
+
+.verifyForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.passphraseWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passphraseInput {
+  flex: 1;
+  padding-right: 2.25rem;
+}
+
+.passphraseToggle {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  color: var(--muted-foreground);
+
+  &:hover {
+    background: transparent;
+  }
+}

@@ -88,8 +88,13 @@ function run<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore)
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(store, mode);
         const req = fn(tx.objectStore(store));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error ?? new Error('Authenticator storage failed'));
+        let result: T;
+        req.onsuccess = () => {
+          result = req.result;
+        };
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error ?? req.error ?? new Error('Authenticator storage failed'));
+        tx.onabort = () => reject(tx.error ?? req.error ?? new Error('Authenticator storage was interrupted'));
       }),
   );
 }
@@ -179,14 +184,38 @@ export async function putRecord(record: OtpCachedRecord): Promise<void> {
 
 /** Explicit device removal, or a profile-generation mismatch. Nothing else. */
 export async function removeVault(userId: string): Promise<void> {
-  try {
-    await replaceRecords(userId, []);
-    await run(VAULTS, 'readwrite', (s) => s.delete(userId));
-  } catch {
-    // Already gone, or storage is unavailable — either way there is nothing left
-    // to remove and the caller's in-memory key is dropped regardless.
-  }
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    // Key and cache disappear in one commit. Most importantly, a failed
+    // transaction is reported instead of telling the user the device was
+    // forgotten while a usable key remains on disk.
+    const tx = db.transaction([VAULTS, RECORDS], 'readwrite');
+    const vaults = tx.objectStore(VAULTS);
+    const records = tx.objectStore(RECORDS);
+    const cursorReq = records.index('byUser').openKeyCursor(userId);
+
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        records.delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+    vaults.delete(userId);
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Could not forget this authenticator device'));
+    tx.onabort = () => reject(tx.error ?? new Error('Authenticator removal was interrupted'));
+  });
   if (getLastActiveUserId() === userId) clearLastActiveUserId();
+}
+
+/** Disarms tabs that may already hold the removed key in memory. */
+export function announceVaultRemoval(userId: string): void {
+  if (typeof BroadcastChannel === 'undefined') return;
+  const channel = new BroadcastChannel('signote-otp');
+  channel.postMessage({ type: 'vault-removed', userId });
+  channel.close();
 }
 
 // ─── Last active account ─────────────────────────────────────────────────────

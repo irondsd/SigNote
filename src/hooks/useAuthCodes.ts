@@ -101,13 +101,15 @@ export function useAuthCodes(records: AuthRecord[], offsetMs: number) {
  * seconds, not codes, and calling the full hook for it would run the whole HMAC
  * derivation a second time on every step.
  */
-export function useStepClock(period = 30): number {
-  const [now, setNow] = useState(() => Date.now());
+export function useStepClock(period = 30, offsetMs = 0): number {
+  const [now, setNow] = useState(() => Date.now() + offsetMs);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), TICK_MS);
+    const tick = () => setNow(Date.now() + offsetMs);
+    tick();
+    const timer = setInterval(tick, TICK_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [offsetMs]);
 
   return secondsRemaining(now, period);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { Archive, SquarePlus } from 'lucide-react';
@@ -30,7 +30,7 @@ import {
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useOtpVault, type AuthRecord } from '@/contexts/OtpVaultContext';
 import { useStepClock } from '@/hooks/useAuthCodes';
-import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { AuthEmptyState } from './AuthEmptyState';
 import s from './AuthPage.module.scss';
@@ -39,10 +39,10 @@ import s from './AuthPage.module.scss';
 type AuthPageProps = { archived: boolean };
 
 export function AuthPage({ archived }: AuthPageProps) {
-  const { status } = useSession();
-  const { phase: encryptionPhase } = useEncryption();
+  const { data: session, status } = useSession();
+  const { phase: encryptionPhase, softLock } = useEncryption();
   const vault = useOtpVault();
-  const { execute, PassphraseGuard } = useSimpleEncryptionGuard();
+  const { execute, PassphraseGuard, isMekAvailable } = useEncryptionGuard();
   const isOnline = useOnlineStatus();
 
   const [showNew, setShowNew] = useState(false);
@@ -51,16 +51,45 @@ export function AuthPage({ archived }: AuthPageProps) {
   const [deleting, setDeleting] = useState<AuthRecord | null>(null);
 
   const records = useMemo(() => vault.records.filter((r) => r.archived === archived), [vault.records, archived]);
-  const headerSeconds = useStepClock(records[0]?.secrets?.period ?? 30);
+  const headerSeconds = useStepClock(records[0]?.secrets?.period ?? 30, vault.serverTimeOffsetMs);
 
   const readOnly = vault.syncState !== 'online';
 
-  const handleEnroll = (trust: boolean) =>
+  // Dialog state can retain decrypted record objects after the visible list is
+  // gated during an account/session transition. Close every sensitive action
+  // as soon as the identity changes or authenticated sync is lost.
+  useEffect(() => {
+    setShowNew(false);
+    setEditing(null);
+    setExporting(null);
+    setDeleting(null);
+  }, [session?.user?.id, status]);
+
+  useEffect(() => {
+    if (!['signed-out', 'offline', 'error'].includes(vault.syncState)) return;
+    setShowNew(false);
+    setEditing(null);
+    setExporting(null);
+    setDeleting(null);
+  }, [vault.syncState]);
+
+  const handleEnroll = (trust: boolean) => {
+    // If Auth had to ask for the passphrase, retain only the device share after
+    // enrollment. That gives the next Secrets visit the normal soft-lock UX
+    // without leaving every Secret rendered in plaintext merely because the
+    // user set up Auth. A vault that was already unlocked stays unlocked.
+    const restoreSoftLock = !isMekAvailable;
+
     // Reuses the MEK when Secrets/Seals are already unlocked, and prompts for
     // the passphrase only when they are not.
-    execute(async (mek) => {
-      await vault.enroll(mek, { trust });
+    return execute(async (mek) => {
+      try {
+        await vault.enroll(mek, { trust });
+      } finally {
+        if (restoreSoftLock) softLock();
+      }
     });
+  };
 
   const body = () => {
     if (vault.phase === 'loading' || status === 'loading') {

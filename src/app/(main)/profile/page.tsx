@@ -24,12 +24,23 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
 import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
+import { announceVaultRemoval, loadVault, removeVault } from '@/lib/otpStore';
 
 function StatItem({
   icon: Icon,
@@ -56,7 +67,7 @@ function StatItem({
 }
 
 function ProfilePageContent() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile, isLoading } = useProfile();
@@ -64,10 +75,49 @@ function ProfilePageContent() {
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [trustedAuthenticator, setTrustedAuthenticator] = useState(false);
+  const [confirmForgetAuth, setConfirmForgetAuth] = useState(false);
+  const [forgettingAuth, setForgettingAuth] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
   }, [status, router]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    let cancelled = false;
+    if (status !== 'authenticated' || !userId) {
+      setTrustedAuthenticator(false);
+      return;
+    }
+    void loadVault(userId)
+      .then((vault) => {
+        if (!cancelled) setTrustedAuthenticator(vault !== null);
+      })
+      .catch(() => {
+        if (!cancelled) setTrustedAuthenticator(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session?.user?.id]);
+
+  const forgetAuthenticator = async () => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    setForgettingAuth(true);
+    try {
+      await removeVault(userId);
+      announceVaultRemoval(userId);
+      setTrustedAuthenticator(false);
+      setConfirmForgetAuth(false);
+      toast.success('This device no longer stores your Authenticator key.');
+    } catch {
+      toast.error('Could not forget the Authenticator on this device. Try again.');
+    } finally {
+      setForgettingAuth(false);
+    }
+  };
 
   useEffect(() => {
     const linked = searchParams.get('linked');
@@ -263,6 +313,36 @@ function ProfilePageContent() {
             </div>
           </CardContent>
         </Card>
+
+        {/* A memory-only Authenticator session has nothing stored to manage,
+            so this section exists only for a genuinely trusted device. */}
+        {trustedAuthenticator && (
+          <Card data-testid="auth-device-section">
+            <CardHeader>
+              <CardTitle>Authenticator</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={s.actionRow}>
+                <div className={s.actionInfo}>
+                  <span className={s.actionLabel}>Trusted on this device</span>
+                  <span className={s.actionDesc}>
+                    This browser stores your Authenticator key so codes work offline. Forgetting it removes the local
+                    key and cache; your synced credentials stay in your account.
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmForgetAuth(true)}
+                  data-testid="forget-auth-device-btn"
+                >
+                  <ShieldOff size={14} />
+                  Forget this device
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Tags */}
         <Card>
@@ -514,6 +594,31 @@ function ProfilePageContent() {
             </div>
           </CardContent>
         </Card>
+
+        <AlertDialog open={confirmForgetAuth} onOpenChange={setConfirmForgetAuth}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Forget Authenticator on this device?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Offline codes will stop working in this browser. Your encrypted credentials remain synced, and you can
+                trust this device again later with your passphrase.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={forgettingAuth}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={forgettingAuth}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void forgetAuthenticator();
+                }}
+              >
+                {forgettingAuth ? 'Forgetting…' : 'Forget device'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

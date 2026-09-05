@@ -9,6 +9,7 @@ import { deriveOtpVaultKey } from '@/lib/crypto';
 import { compareAuthRecords, nextAuthPosition, renumberPositions } from '@/lib/otp/order';
 import { decryptOtpRecord, encryptOtpRecord, type OtpSecrets } from '@/lib/otp/record';
 import {
+  announceVaultRemoval,
   clearLastActiveUserId,
   getLastActiveUserId,
   listVaultUserIds,
@@ -107,6 +108,7 @@ export function useOtpVault(): OtpVaultValue {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const CHANNEL = 'signote-otp';
+const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 type WireRecord = {
   id: string;
@@ -158,8 +160,12 @@ async function decryptAll(key: CryptoKey, cached: OtpCachedRecord[]): Promise<Au
 export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status: sessionStatus } = useSession();
   const sessionUserId = session?.user?.id ?? null;
+  const sessionKey = `${sessionStatus}:${sessionUserId ?? ''}`;
 
   const [phase, setPhase] = useState<OtpPhase>('loading');
+  /** Which session identity the visible state was resolved for. Until these
+   *  match, old plaintext is hidden synchronously during an account change. */
+  const [resolvedSessionKey, setResolvedSessionKey] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<OtpSyncState>('idle');
   const [trusted, setTrusted] = useState(false);
   const [vaultUserId, setVaultUserId] = useState<string | null>(null);
@@ -173,6 +179,11 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const keyRef = useRef<CryptoKey | null>(null);
   const profileIdRef = useRef<string | null>(null);
   const trustedRef = useRef(false);
+  const vaultUserIdRef = useRef<string | null>(vaultUserId);
+  const sessionUserIdRef = useRef<string | null>(sessionUserId);
+  const syncGenerationRef = useRef(0);
+  vaultUserIdRef.current = vaultUserId;
+  sessionUserIdRef.current = sessionUserId;
 
   const setKey = useCallback((key: CryptoKey | null, isTrusted: boolean) => {
     keyRef.current = key;
@@ -182,9 +193,15 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
 
   /** Re-derives the rendered list from the encrypted cache. */
   const refresh = useCallback(async (next: OtpCachedRecord[]) => {
-    setCached(next);
+    const userId = vaultUserIdRef.current;
     const key = keyRef.current;
-    setRecords(key ? await decryptAll(key, next) : []);
+    const decrypted = key ? await decryptAll(key, next) : [];
+    // Account/key changes are allowed while AES operations are in flight. A
+    // result belongs only to the exact vault that started the work.
+    if (userId === vaultUserIdRef.current && key === keyRef.current) {
+      setCached(next);
+      setRecords(decrypted);
+    }
   }, []);
 
   // ── Local resolution ───────────────────────────────────────────────────────
@@ -192,6 +209,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (sessionStatus === 'loading') return;
     let cancelled = false;
+    const resolvingSessionKey = sessionKey;
 
     (async () => {
       // IndexedDB is per origin, not per account. With a session the answer is
@@ -208,8 +226,15 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       setStranded(target ? all.filter((id) => id !== target) : []);
 
       if (!target) {
+        setKey(null, false);
+        profileIdRef.current = null;
         setVaultUserId(null);
+        setCached([]);
+        setRecords([]);
+        setOffset(0);
+        setSyncState('signed-out');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setResolvedSessionKey(resolvingSessionKey);
         return;
       }
 
@@ -219,15 +244,28 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
 
       if (!vault) {
         setKey(null, false);
+        profileIdRef.current = null;
+        setCached([]);
+        setRecords([]);
+        setOffset(0);
+        setSyncState('idle');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setResolvedSessionKey(resolvingSessionKey);
         return;
       }
+
+      const next = await loadRecords(target);
+      const decrypted = await decryptAll(vault.key, next);
+      if (cancelled) return;
 
       setKey(vault.key, true);
       profileIdRef.current = vault.profileId;
       setOffset(vault.serverTimeOffsetMs);
-      await refresh(await loadRecords(target));
-      if (!cancelled) setPhase('ready');
+      setCached(next);
+      setRecords(decrypted);
+      setSyncState(sessionStatus === 'authenticated' ? 'idle' : 'signed-out');
+      setPhase('ready');
+      setResolvedSessionKey(resolvingSessionKey);
     })();
 
     return () => {
@@ -235,8 +273,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     };
     // A memory-only session must survive re-renders; only a real session change
     // re-resolves the vault.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStatus, sessionUserId]);
+  }, [sessionStatus, sessionUserId, sessionKey, setKey]);
 
   // ── Cross-tab removal ──────────────────────────────────────────────────────
 
@@ -256,18 +293,21 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     return () => channel.close();
   }, [vaultUserId, sessionUserId, setKey]);
 
-  const announceRemoval = (userId: string) => {
-    if (typeof BroadcastChannel === 'undefined') return;
-    const channel = new BroadcastChannel(CHANNEL);
-    channel.postMessage({ type: 'vault-removed', userId });
-    channel.close();
-  };
-
   // ── Sync ───────────────────────────────────────────────────────────────────
 
   const sync = useCallback(async () => {
     const userId = vaultUserId;
-    if (!userId || !keyRef.current || sessionStatus !== 'authenticated') return;
+    const key = keyRef.current;
+    const profileId = profileIdRef.current;
+    const persist = trustedRef.current;
+    if (!userId || !key || sessionStatus !== 'authenticated' || sessionUserIdRef.current !== userId) return;
+
+    const generation = ++syncGenerationRef.current;
+    const isCurrent = () =>
+      generation === syncGenerationRef.current &&
+      sessionUserIdRef.current === userId &&
+      vaultUserIdRef.current === userId &&
+      keyRef.current === key;
 
     setSyncState('syncing');
     try {
@@ -279,28 +319,36 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       // The profile generation is the only remote kill switch in v1. A new id
       // means the encryption profile was reset, so this key can no longer
       // decrypt anything and the device returns to not-enrolled.
-      if (profile.exists && profileIdRef.current && profile.profileId !== profileIdRef.current) {
-        await removeVault(userId);
-        announceRemoval(userId);
-        setKey(null, false);
-        setCached([]);
-        setRecords([]);
-        setPhase('not-enrolled');
-        setSyncState('online');
+      if (!isCurrent()) return;
+
+      if (!profile.exists || !profileId || profile.profileId !== profileId) {
+        try {
+          await removeVault(userId);
+        } finally {
+          announceVaultRemoval(userId);
+          if (isCurrent()) {
+            setKey(null, false);
+            setCached([]);
+            setRecords([]);
+            setPhase('not-enrolled');
+            setSyncState('online');
+          }
+        }
         return;
       }
 
       const offset = serverTime - Date.now();
-      setOffset(offset);
-
       const next = wire.map((r) => toCached(userId, r));
-      if (trustedRef.current) {
+      if (persist) {
         await replaceRecords(userId, next);
         await updateVault(userId, { serverTimeOffsetMs: offset });
       }
+      if (!isCurrent()) return;
+      setOffset(offset);
       await refresh(next);
-      setSyncState('online');
+      if (isCurrent()) setSyncState('online');
     } catch (err) {
+      if (!isCurrent()) return;
       // A 401 pauses sync and nothing else — it must never sign the user out.
       setSyncState(isUnauthorized(err) ? 'signed-out' : navigator.onLine ? 'error' : 'offline');
     }
@@ -308,6 +356,25 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (phase === 'ready' && sessionStatus === 'authenticated') void sync();
+  }, [phase, sessionStatus, sync]);
+
+  useEffect(() => {
+    if (phase === 'ready' && sessionStatus === 'unauthenticated') setSyncState('signed-out');
+  }, [phase, sessionStatus]);
+
+  useEffect(() => {
+    if (phase !== 'ready' || sessionStatus !== 'authenticated') return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void sync();
+    };
+    const timer = window.setInterval(() => void sync(), SYNC_INTERVAL_MS);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [phase, sessionStatus, sync]);
 
   /**
@@ -370,7 +437,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const forgetUser = useCallback(
     async (userId: string) => {
       await removeVault(userId);
-      announceRemoval(userId);
+      announceVaultRemoval(userId);
       setStranded((prev) => prev.filter((id) => id !== userId));
       if (userId === vaultUserId) {
         setKey(null, false);
@@ -405,6 +472,8 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     async (row: WireRecord) => {
       const userId = vaultUserId;
       if (!userId) return;
+      const key = keyRef.current;
+      const persist = trustedRef.current;
       // In place. Filtering the record out and pushing it back on the end
       // reorders the array, and with a stable sort that moved the card to the
       // end of any group sharing its position — which is what made recolouring
@@ -413,7 +482,8 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       const next = cached.some((r) => r.id === row.id)
         ? cached.map((r) => (r.id === row.id ? updated : r))
         : [...cached, updated];
-      if (trustedRef.current) await replaceRecords(userId, next);
+      if (persist) await replaceRecords(userId, next);
+      if (vaultUserIdRef.current !== userId || keyRef.current !== key) return;
       await refresh(next);
     },
     [cached, vaultUserId, refresh],
@@ -492,10 +562,13 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     async (ordered: AuthRecord[]) => {
       const userId = vaultUserId;
       if (!userId) return;
+      const key = keyRef.current;
+      const persist = trustedRef.current;
       const items = renumberPositions(ordered);
       const { records: wire } = (await otpTrpcClient.otp.reorder.mutate({ items })) as { records: WireRecord[] };
       const next = wire.map((r) => toCached(userId, r));
-      if (trustedRef.current) await replaceRecords(userId, next);
+      if (persist) await replaceRecords(userId, next);
+      if (vaultUserIdRef.current !== userId || keyRef.current !== key) return;
       await refresh(next);
     },
     [vaultUserId, refresh],
@@ -515,17 +588,25 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   );
 
   const clockSuspect = useMemo(() => {
-    const halfPeriod = 15_000;
+    const shortestPeriod = records.reduce(
+      (shortest, record) => Math.min(shortest, record.secrets?.period ?? Number.POSITIVE_INFINITY),
+      Number.POSITIVE_INFINITY,
+    );
+    const halfPeriod = (Number.isFinite(shortestPeriod) ? shortestPeriod : 30) * 500;
     return Math.abs(serverTimeOffsetMs) > halfPeriod;
-  }, [serverTimeOffsetMs]);
+  }, [records, serverTimeOffsetMs]);
+
+  const stateResolved = resolvedSessionKey === sessionKey;
+  const visiblePhase: OtpPhase = stateResolved ? phase : 'loading';
+  const visibleRecords = useMemo(() => (stateResolved ? records : []), [stateResolved, records]);
 
   const value = useMemo<OtpVaultValue>(
     () => ({
-      phase,
+      phase: visiblePhase,
       syncState,
       trusted,
       vaultUserId,
-      records,
+      records: visibleRecords,
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
@@ -542,11 +623,11 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       remove,
     }),
     [
-      phase,
+      visiblePhase,
       syncState,
       trusted,
       vaultUserId,
-      records,
+      visibleRecords,
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
