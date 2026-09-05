@@ -374,3 +374,60 @@ describe('the cleanup sweep', () => {
     expect(await listOtpRecords(ALICE)).toHaveLength(1);
   });
 });
+
+describe('presentation columns', () => {
+  it('defaults to unarchived with no style', async () => {
+    expect(await add(ALICE)).toMatchObject({ archived: false, color: null, pattern: null });
+  });
+
+  it('stores a style given at create time', async () => {
+    const row = await createOtpRecord(ALICE, {
+      id: uuidv7(),
+      payload: payload('styled'),
+      payloadVersion: 1,
+      position: 1000,
+      color: 'teal',
+      pattern: 'dots',
+    });
+    expect(row).toMatchObject({ color: 'teal', pattern: 'dots' });
+  });
+
+  it('archives and restores without touching the payload', async () => {
+    const row = await add(ALICE, 'body');
+
+    const archived = await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 1, archived: true });
+    expect(archived).toMatchObject({ archived: true, revision: 2 });
+    expect(archived.payload).toEqual(payload('body'));
+
+    const restored = await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 2, archived: false });
+    expect(restored).toMatchObject({ archived: false, revision: 3 });
+  });
+
+  it('clears a colour with an explicit null', async () => {
+    const row = await add(ALICE);
+    await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 1, color: 'rose' });
+    const cleared = await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 2, color: null });
+    expect(cleared.color).toBeNull();
+  });
+
+  it('keeps archived rows in the snapshot — the client filters, not the server', async () => {
+    const row = await add(ALICE);
+    await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 1, archived: true });
+
+    const rows = await listOtpRecords(ALICE);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].archived).toBe(true);
+  });
+
+  it('counts an archived record against the per-user cap', async () => {
+    const row = await add(ALICE);
+    await updateOtpRecord(ALICE, { id: row.id, expectedRevision: 1, archived: true });
+    // Archiving parks a credential; it does not free a slot.
+    expect(await countLiveOtpRecords(ALICE)).toBe(1);
+  });
+
+  it('still refuses an update that carries no field at all', async () => {
+    const row = await add(ALICE);
+    await expect(updateOtpRecord(ALICE, { id: row.id, expectedRevision: 1 })).rejects.toThrow('nothing to update');
+  });
+});

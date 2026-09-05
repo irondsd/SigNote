@@ -1,0 +1,245 @@
+@use '../../styles/patterns';
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--note-bg, var(--card));
+  cursor: pointer;
+  text-align: left;
+  transform: scale(1);
+  animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+
+  &[data-color] {
+    border: none;
+  }
+
+  @include patterns.pattern-base;
+
+  &:hover {
+    transform: scale(1.01);
+  }
+
+  // No `overflow: hidden` here, unlike NoteCardBase: the pattern layer clips
+  // itself with `border-radius: inherit`, and clipping the card would also clip
+  // the focus ring on the actions button in the corner.
+  &[data-archived='true'] {
+    opacity: 0.62;
+  }
+
+  &[data-unreadable='true'] {
+    cursor: default;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+// ─── Ring + monogram ─────────────────────────────────────────────────────────
+
+.dial {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: var(--pattern-color);
+  stroke-width: 2.5;
+}
+
+.ringProgress {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  // No transition: the value is recomputed four times a second, and easing
+  // between samples makes the arc lag visibly behind the seconds readout.
+}
+
+.ringExpiring {
+  stroke: var(--destructive);
+}
+
+.monogram {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  opacity: 0.7;
+  user-select: none;
+}
+
+// ─── Body ────────────────────────────────────────────────────────────────────
+
+.body {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.identity {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  // Clears the ⋯ button in the corner.
+  padding-right: 24px;
+}
+
+.issuer {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--foreground);
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archivedBadge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--foreground);
+  opacity: 0.5;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+// ─── Code ────────────────────────────────────────────────────────────────────
+
+.codeWrap {
+  transition: filter 0.16s ease;
+  will-change: filter;
+}
+
+/**
+ * Blur-on-hover is a pointer-device rule only. It doubles as screenshare
+ * protection — a screenshot of the list has no readable codes — but on a
+ * touch screen nothing ever hovers, so applying it there would simply hide
+ * every code behind a tap.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .codeWrap {
+    filter: blur(7px);
+  }
+
+  .card:hover .codeWrap,
+  .card:focus-visible .codeWrap {
+    filter: none;
+  }
+}
+
+.code {
+  display: flex;
+  gap: 11px;
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.codePlaceholder {
+  color: var(--muted-foreground);
+  opacity: 0.4;
+}
+
+.unreadable {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--destructive);
+}
+
+.copied {
+  position: absolute;
+  right: 44px;
+  top: 14px;
+  z-index: 3;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+// ─── Menu trigger ────────────────────────────────────────────────────────────
+
+.menuButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  opacity: 0.55;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    opacity 0.1s ease;
+
+  &:hover,
+  &[data-state='open'] {
+    background: var(--pattern-color);
+    opacity: 1;
+  }
+}

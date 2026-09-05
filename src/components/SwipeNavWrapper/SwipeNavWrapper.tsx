@@ -3,7 +3,7 @@
 import { useRef, useLayoutEffect, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-const PAGES = ['/', '/secrets', '/seals'];
+const PAGES = ['/', '/secrets', '/seals', '/auth'];
 const THRESHOLD_RATIO = 0.3; // fraction of screen width to commit navigation
 const ANGLE_RATIO = 2.0; // deltaX must be 2× greater than deltaY to count as horizontal (~26°)
 const ANIM_MS = 220;

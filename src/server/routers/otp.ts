@@ -12,7 +12,7 @@ import {
   updateOtpRecord,
   type OtpRecordRow,
 } from '@/controllers/otpRecords';
-import { objectId } from '@/server/schemas/common';
+import { noteColor, notePattern, objectId } from '@/server/schemas/common';
 import { protectedProcedure, router } from '@/server/trpc';
 
 /**
@@ -32,6 +32,13 @@ const otpPayload = z.object({
 const revision = z.number().int().positive();
 const position = z.number().finite();
 
+/** Presentation only, and the same palette the note tiers use. */
+const style = {
+  archived: z.boolean().optional(),
+  color: noteColor.optional(),
+  pattern: notePattern.optional(),
+};
+
 /** Dates cross the wire as ISO strings; there is no superjson transformer here. */
 const toWire = (row: OtpRecordRow) => ({
   id: row.id,
@@ -39,6 +46,9 @@ const toWire = (row: OtpRecordRow) => ({
   payloadVersion: row.payloadVersion,
   position: row.position,
   revision: row.revision,
+  archived: row.archived,
+  color: row.color,
+  pattern: row.pattern,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   deletedAt: row.deletedAt?.toISOString() ?? null,
@@ -86,6 +96,7 @@ export const otpRouter = router({
         payload: otpPayload,
         payloadVersion: z.number().int().positive().default(OTP_PAYLOAD_VERSION),
         position,
+        ...style,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -103,6 +114,7 @@ export const otpRouter = router({
         expectedRevision: revision,
         payload: otpPayload.optional(),
         position: position.optional(),
+        ...style,
       }),
     )
     .mutation(async ({ ctx, input }) => {

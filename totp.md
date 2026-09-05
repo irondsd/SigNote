@@ -388,6 +388,70 @@ Recorded 2026-09-05 against `main`. Each item names what the current code does a
 
 29. `src/docs/` is the rendered documentation set. Add `13.authenticator.md`, extend `10.encryption.md`'s key-hierarchy section with `otpVaultKey`, and add an "Authenticator on a trusted device" subsection to `11.threat-model.md` covering the persisted-key boundary, the shared-browser case, and the desktop limitation. While there, `11.threat-model.md` still says "No recovery mechanism", which the recovery file made false.
 
+## Implementation notes and TODO
+
+Recorded 2026-09-05, as the first implementation landed. This section records
+where the shipped code deliberately departs from the design above, and what is
+knowingly left for later.
+
+### Decisions that differ from the design
+
+1. **Colour, pattern and archived state are plaintext columns**, not envelope
+   contents (`archived boolean`, `color text`, `pattern text` on `otp_records`).
+   The design said the row should hold "only the minimum synchronization
+   metadata plus an opaque encrypted payload"; these three are presentation and
+   mirror `tierColumns()` on the note tiers, so a card can be styled and the
+   archive filtered before anything is decrypted. Unlike issuer and account they
+   say nothing about _which_ services the user has accounts with. They still
+   travel through the ordinary compare-and-set path, so an archive or a recolour
+   bumps `revision` like any other write.
+
+2. **The archive is a separate page** (`/auth/archive`), like archived notes,
+   rather than dimming cards in place. Archived credentials stay fully live
+   there and keep generating codes — archiving means "get this out of my main
+   list", not "park it".
+
+3. **Trusted enrollment is a choice, not a default.** `AuthEnrollment` offers
+   "Trust this device" (key persisted in IndexedDB; offline and restart-proof)
+   and "Don't trust — this visit only" (key held in memory; nothing written to
+   IndexedDB, no record cache). This covers both "Quick access" and "Strict
+   mode" from the local-security-modes section above. The untrusted mode shows a
+   persistent banner offering to upgrade.
+
+4. **Conflicts throw a real `CONFLICT` that still carries the row.** A generic
+   `errorFormatter` in `src/server/trpc.ts` attaches anything on an error's
+   `cause.conflictData` to the wire error under `data.conflict`, so a 409 stays
+   a 409 while the client still gets the current row to re-apply or discard.
+
+5. **`jsqr` is a runtime dependency.** `BarcodeDetector` is used where present
+   (Chromium, Android) and jsQR is the fallback everywhere else. A WASM decoder
+   is still ruled out by the CSP, as the design notes.
+
+### TODO — not yet built
+
+- **QR _image_ export.** `ExportAuthDialog` reveals and copies the `otpauth://`
+  URI behind an explicit confirmation, but does not render a scannable QR code;
+  that needs a QR _encoder_, which is not a dependency yet.
+- **The shared-browser removal prompt.** `OtpVaultProvider` already computes
+  `strandedUserIds` (vaults belonging to accounts other than the one signed in),
+  and `forgetUser` removes one, but nothing renders the one-time "remove the
+  other account's authenticator from this device?" prompt described in review
+  item 11. The sign-out confirmation likewise has no "Also remove the
+  authenticator from this device" checkbox yet.
+- **Offline route precaching.** `/auth` is only available offline once it has
+  been visited online, because the service worker caches navigations
+  `NetworkFirst` at runtime. Either add the route to the precache manifest or
+  say so on the enrollment screen.
+- **Documentation.** `src/docs/13.authenticator.md`, the `otpVaultKey` addition
+  to `10.encryption.md`, and the trusted-device subsection of `11.threat-model.md`
+  are all still unwritten — as is fixing that file's stale "No recovery
+  mechanism" line.
+- **E2E coverage.** No Playwright specs yet for in-session offline access,
+  session expiry, account switching or explicit device removal, and no second
+  project with service workers enabled for the restart-and-reload case.
+- **App lock** (WebAuthn / OS biometric) remains future work, as does HOTP,
+  bulk import, issuer icons, and independent OTP-key rotation.
+
 ## Security invariants
 
 Implementation and review should preserve these invariants:

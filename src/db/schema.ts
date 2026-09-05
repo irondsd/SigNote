@@ -15,6 +15,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import type { EncryptedPayload, KdfParams } from '@/types/crypto';
 
 /**
@@ -529,6 +530,17 @@ export const otpRecords = pgTable(
     payloadVersion: integer('payload_version').notNull().default(1),
     position: doublePrecision('position').notNull(),
     revision: integer('revision').notNull().default(1),
+    // Presentation only, and plaintext on purpose so the list can be filtered
+    // and styled before anything is decrypted. Unlike issuer and account these
+    // say nothing about *which* services the user holds accounts with, so they
+    // do not belong inside the envelope. Same palette as the note tiers.
+    archived: boolean('archived').notNull().default(false),
+    // `$type` where the note tiers use a bare `text`: the client reads these
+    // straight onto a card's data-color/data-pattern attributes, so a precise
+    // type here saves a cast at every call site. The router's Zod enums are
+    // still what actually validates a write.
+    color: text('color').$type<NoteColor>(),
+    pattern: text('pattern').$type<NotePattern>(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: ts('deleted_at'),

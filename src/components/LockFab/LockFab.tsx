@@ -9,7 +9,7 @@ import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
 import s from './LockFab.module.scss';
 import { cn } from '@/utils/cn';
 
-const HIDDEN_ON_ROUTES = ['/backup-recovery'];
+const HIDDEN_ON_ROUTES = ['/backup-recovery', '/auth', '/auth/archive'];
 
 export function LockFab() {
   const { data: session } = useSession();

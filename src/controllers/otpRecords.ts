@@ -3,6 +3,7 @@ import { and, count, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { MAX_OTP_RECORDS_PER_USER } from '@/config/constants';
 import { getDb } from '@/db/client';
 import { otpRecords } from '@/db/schema';
+import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import type { EncryptedPayload } from '@/types/crypto';
 
 /**
@@ -24,9 +25,19 @@ export type OtpRecordRow = {
   payloadVersion: number;
   position: number;
   revision: number;
+  archived: boolean;
+  color: NoteColor | null;
+  pattern: NotePattern | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+};
+
+/** Presentation fields, plaintext columns rather than envelope contents. */
+export type OtpStyle = {
+  archived?: boolean;
+  color?: NoteColor | null;
+  pattern?: NotePattern | null;
 };
 
 const columns = {
@@ -35,6 +46,9 @@ const columns = {
   payloadVersion: otpRecords.payloadVersion,
   position: otpRecords.position,
   revision: otpRecords.revision,
+  archived: otpRecords.archived,
+  color: otpRecords.color,
+  pattern: otpRecords.pattern,
   createdAt: otpRecords.createdAt,
   updatedAt: otpRecords.updatedAt,
   deletedAt: otpRecords.deletedAt,
@@ -94,7 +108,7 @@ type CreateInput = {
   payload: EncryptedPayload;
   payloadVersion: number;
   position: number;
-};
+} & OtpStyle;
 
 /**
  * Insert-only. A create whose id already exists — live *or* tombstoned — is a
@@ -118,6 +132,9 @@ export const createOtpRecord = async (userId: string, input: CreateInput): Promi
       payload: input.payload,
       payloadVersion: input.payloadVersion,
       position: input.position,
+      archived: input.archived ?? false,
+      color: input.color ?? null,
+      pattern: input.pattern ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -138,7 +155,7 @@ type UpdateInput = {
   expectedRevision: number;
   payload?: EncryptedPayload;
   position?: number;
-};
+} & OtpStyle;
 
 /**
  * Compare-and-set on `revision`. Zero rows updated means the caller's view is
@@ -146,13 +163,15 @@ type UpdateInput = {
  * so the current row travels back with the conflict.
  */
 export const updateOtpRecord = async (userId: string, input: UpdateInput): Promise<OtpRecordRow> => {
-  if (input.payload === undefined && input.position === undefined) {
-    throw new Error('updateOtpRecord: nothing to update');
-  }
-
   const patch: Record<string, unknown> = { revision: sql`${otpRecords.revision} + 1`, updatedAt: new Date() };
   if (input.payload !== undefined) patch.payload = input.payload;
   if (input.position !== undefined) patch.position = input.position;
+  if (input.archived !== undefined) patch.archived = input.archived;
+  if (input.color !== undefined) patch.color = input.color;
+  if (input.pattern !== undefined) patch.pattern = input.pattern;
+
+  // Only the revision bump left: the caller asked for nothing.
+  if (Object.keys(patch).length === 2) throw new Error('updateOtpRecord: nothing to update');
 
   const rows = await getDb()
     .update(otpRecords)
