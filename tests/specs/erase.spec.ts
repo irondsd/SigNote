@@ -6,6 +6,7 @@ import { seedNotes } from '../fixtures/seedNotes';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
+import { seedOtpRecords } from '../fixtures/seedOtpRecords';
 import { ProfilePage } from '../pages/ProfilePage';
 import { clearSession } from '../utils/clearSession';
 import { trpcQuery, trpcData } from '../utils/trpc';
@@ -75,10 +76,10 @@ test.describe('erase account', () => {
 
     await reSignIn(page, account.address);
 
-    const newProfile = await trpcData<{ notesCount: number; createdAt: string }>(
+    const newProfile = await trpcData<{ counts: { notes: { active: number } }; createdAt: string }>(
       await trpcQuery(page.request, 'profile.get'),
     );
-    expect(newProfile.notesCount).toBe(0);
+    expect(newProfile.counts.notes.active).toBe(0);
     expect(new Date(newProfile.createdAt).getTime()).toBeGreaterThan(new Date(oldCreatedAt).getTime());
   });
 
@@ -139,12 +140,13 @@ test.describe('erase account', () => {
 // ─── Erase encryption profile ─────────────────────────────────────────────────
 
 test.describe('erase encryption profile', () => {
-  test('erases encrypted data while regular notes survive', async ({ page }) => {
+  test('erases encrypted data and Authenticator credentials while regular notes survive', async ({ page }) => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, TEST_PASSPHRASE);
     await seedNotes(account.address, [{ title: 'Note A' }, { title: 'Note B' }]);
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret A' }]);
     await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }]);
+    await seedOtpRecords(account.address, mekBytes, [{ issuer: 'Authenticator A' }]);
 
     const token = await createTestSession(account.address);
     await injectSession(page, token);
@@ -158,6 +160,7 @@ test.describe('erase encryption profile', () => {
 
     const profilePage = new ProfilePage(page);
     await expect(profilePage.notesCount()).toHaveText('2');
+    await expect(profilePage.statCount('auth')).toHaveText('0');
     await expect(profilePage.eraseProfileBtn()).toBeDisabled();
 
     await clearSession(page);

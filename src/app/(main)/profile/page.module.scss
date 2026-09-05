@@ -69,8 +69,14 @@
 // Stats grid
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .statItem {
@@ -84,6 +90,8 @@
 }
 
 .statIcon {
+  width: 20px;
+  height: 20px;
   color: var(--muted-foreground);
   margin-top: 4px;
   margin-bottom: 8px;
@@ -100,6 +108,20 @@
   font-size: 12px;
   color: var(--muted-foreground);
   font-weight: 500;
+}
+
+.statArchived {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted-foreground);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+// Nothing archived: the line keeps its space so the tiles stay level.
+.statArchivedEmpty {
+  opacity: 0;
 }
 
 // Security card

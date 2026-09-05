@@ -8,10 +8,7 @@ import {
   Save,
   KeyRound,
   Loader2,
-  NotebookText,
-  BookLock,
   Pencil,
-  SquareAsterisk,
   Trash2,
   ShieldOff,
   ShieldCheck,
@@ -21,6 +18,7 @@ import {
   Tag as TagIcon,
   Bell,
 } from 'lucide-react';
+import { InlineSvg } from '@irondsd/inline-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,33 +33,46 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
-import { useProfile, useUpdateDisplayName } from '@/hooks/useProfile';
+import { useProfile, useUpdateDisplayName, type TierCounts } from '@/hooks/useProfile';
 import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import s from './page.module.scss';
 import Link from 'next/link';
 import { announceVaultRemoval, loadVault, removeVault } from '@/lib/otpStore';
 
+// The same four icons the nav uses, so a tile reads as the section it counts.
+const STATS = [
+  { key: 'notes', label: 'Notes', icon: 'notes.svg' },
+  { key: 'secrets', label: 'Secrets', icon: 'secrets.svg' },
+  { key: 'seals', label: 'Seals', icon: 'seals.svg' },
+  { key: 'auth', label: 'Auth', icon: 'auth.svg' },
+] as const;
+
 function StatItem({
-  icon: Icon,
+  icon,
   label,
-  value,
+  counts,
   testId,
   isLoading,
 }: {
-  icon: React.ElementType;
+  icon: string;
   label: string;
-  value: number | undefined;
+  counts: TierCounts | undefined;
   testId: string;
   isLoading?: boolean;
 }) {
   return (
     <div className={s.statItem}>
-      <Icon size={20} strokeWidth={1.6} className={s.statIcon} />
-      <span className={s.statValue} data-testid={testId}>
-        {isLoading && value === undefined ? <Loader2 size={20} className={s.spinner} /> : (value ?? '—')}
+      <InlineSvg src={`/icons/${icon}`} className={s.statIcon} />
+      <span className={s.statValue} data-testid={`${testId}-count`}>
+        {isLoading && counts === undefined ? <Loader2 size={20} className={s.spinner} /> : (counts?.active ?? '—')}
       </span>
       <span className={s.statLabel}>{label}</span>
+      {/* Always rendered, faded out at zero: the tiles keep the same height and
+          the count stays readable to tests either way. */}
+      <span className={`${s.statArchived} ${counts?.archived ? '' : s.statArchivedEmpty}`}>
+        <span data-testid={`${testId}-archived-count`}>{counts?.archived ?? 0}</span> archived
+      </span>
     </div>
   );
 }
@@ -263,27 +274,16 @@ function ProfilePageContent() {
           </CardHeader>
           <CardContent>
             <div className={s.statsGrid}>
-              <StatItem
-                icon={NotebookText}
-                label="Notes"
-                value={profile?.notesCount}
-                testId="notes-count"
-                isLoading={isLoading}
-              />
-              <StatItem
-                icon={SquareAsterisk}
-                label="Secrets"
-                value={profile?.secretsCount}
-                testId="secrets-count"
-                isLoading={isLoading}
-              />
-              <StatItem
-                icon={BookLock}
-                label="Seals"
-                value={profile?.sealsCount}
-                testId="seals-count"
-                isLoading={isLoading}
-              />
+              {STATS.map(({ key, label, icon }) => (
+                <StatItem
+                  key={key}
+                  icon={icon}
+                  label={label}
+                  counts={profile?.counts[key]}
+                  testId={key}
+                  isLoading={isLoading}
+                />
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -546,8 +546,8 @@ function ProfilePageContent() {
               <div className={s.actionInfo}>
                 <span className={s.actionLabel}>Erase encryption profile</span>
                 <span className={s.actionDesc}>
-                  Permanently removes your encryption profile. All secrets and seals will be deleted and cannot be
-                  recovered.
+                  Permanently deletes your encryption profile, all secrets and seals, and all synced Authenticator
+                  credentials. This cannot be recovered.
                 </span>
               </div>
               {profile?.hasEncryptionProfile ? (
@@ -582,7 +582,8 @@ function ProfilePageContent() {
               <div className={s.actionInfo}>
                 <span className={s.actionLabel}>Delete account</span>
                 <span className={s.actionDesc}>
-                  Permanently deletes your account and all associated data including notes, secrets, and seals.
+                  Permanently deletes your account and all associated data, including notes, secrets, seals, and
+                  Authenticator credentials.
                 </span>
               </div>
               <Link href="/erase">

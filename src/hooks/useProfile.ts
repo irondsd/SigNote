@@ -3,13 +3,18 @@ import { useSession } from 'next-auth/react';
 import { trpcClient } from '@/lib/trpcClient';
 import { toast } from 'sonner';
 
+export type TierCounts = { active: number; archived: number };
+
 export type ProfileData = {
   displayName: string;
   createdAt: string;
   email: string | null;
-  notesCount: number;
-  secretsCount: number;
-  sealsCount: number;
+  counts: {
+    notes: TierCounts;
+    secrets: TierCounts;
+    seals: TierCounts;
+    auth: TierCounts;
+  };
   hasEncryptionProfile: boolean;
   encryptionProfileCreatedAt: string | null;
 };

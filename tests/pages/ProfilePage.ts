@@ -4,16 +4,25 @@ import { BasePage } from './BasePage';
 export class ProfilePage extends BasePage {
   protected defaultUrl = '/profile';
 
+  /** Active (non-archived) count for a stats tile. */
+  statCount(tier: 'notes' | 'secrets' | 'seals' | 'auth'): Locator {
+    return this.page.getByTestId(`${tier}-count`);
+  }
+
+  archivedCount(tier: 'notes' | 'secrets' | 'seals' | 'auth'): Locator {
+    return this.page.getByTestId(`${tier}-archived-count`);
+  }
+
   notesCount(): Locator {
-    return this.page.getByTestId('notes-count');
+    return this.statCount('notes');
   }
 
   secretsCount(): Locator {
-    return this.page.getByTestId('secrets-count');
+    return this.statCount('secrets');
   }
 
   sealsCount(): Locator {
-    return this.page.getByTestId('seals-count');
+    return this.statCount('seals');
   }
 
   eraseProfileBtn(): Locator {
