@@ -371,6 +371,10 @@ export const desktopAuthAttempts = pgTable(
     codeChallengeMethod: text('code_challenge_method').$type<'S256'>().notNull(),
     authorizationCodeHash: text('authorization_code_hash'),
     userId: text('user_id'),
+    // How the browser session that authorized this attempt was signed in. The
+    // desktop session it mints inherits the label, so the device list shows
+    // what actually happened rather than assuming Google.
+    provider: text('provider').$type<AuthProvider>(),
     status: text('status').$type<DesktopAuthAttemptStatus>().notNull().default('pending'),
     ip: text('ip').notNull().default(''),
     exchangeAttempts: integer('exchange_attempts').notNull().default(0),

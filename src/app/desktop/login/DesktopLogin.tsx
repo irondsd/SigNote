@@ -2,15 +2,15 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { signIn, useSession } from 'next-auth/react';
-import { CheckCircle2, ExternalLink, KeyRound, Loader2, Monitor, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { CheckCircle2, ExternalLink, Loader2, Monitor, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GoogleIcon } from '@/components/icons/SignInIcons';
 import { Logo } from '@/components/Logo/Logo';
+import { SignInOptions } from '@/components/SignInModal/SignInOptions';
 import s from './page.module.scss';
 
-type AuthorizeState = 'idle' | 'authorizing' | 'ready' | 'error' | 'google_required';
+type AuthorizeState = 'idle' | 'authorizing' | 'ready' | 'error';
 
 export function DesktopLogin() {
   const searchParams = useSearchParams();
@@ -20,10 +20,6 @@ export function DesktopLogin() {
   const attemptId = searchParams.get('attempt');
   const state = searchParams.get('state');
   const isValidRequest = !!attemptId && !!state;
-
-  const continueWithGoogle = () => {
-    void signIn('google', { callbackUrl: window.location.href });
-  };
 
   const authorize = async () => {
     if (!attemptId || !state) return;
@@ -38,10 +34,6 @@ export function DesktopLogin() {
       });
       const body = (await response.json().catch(() => ({}))) as { deepLink?: string };
 
-      if (response.status === 403) {
-        setAuthorizeState('google_required');
-        return;
-      }
       if (!response.ok || !body.deepLink) {
         setAuthorizeState('error');
         return;
@@ -87,27 +79,10 @@ export function DesktopLogin() {
               <Loader2 aria-hidden="true" className="animate-spin" />
               Checking your browser session…
             </div>
-          ) : !isSignedIn || authorizeState === 'google_required' ? (
-            <>
-              {authorizeState === 'google_required' && (
-                <div className={s.feedback} role="alert">
-                  <KeyRound aria-hidden="true" />
-                  <div>
-                    <strong>Google sign-in is required for this desktop release.</strong>
-                    <p>You can continue with a different Google account below.</p>
-                  </div>
-                </div>
-              )}
-              <Button
-                type="button"
-                onClick={continueWithGoogle}
-                data-testid="desktop-browser-google-sign-in"
-                className={s.googleButton}
-              >
-                <GoogleIcon />
-                Continue with Google
-              </Button>
-            </>
+          ) : !isSignedIn ? (
+            // Google leaves the page and needs to land back here; email and the
+            // wallet sign in in place and `useSession` flips to authenticated.
+            <SignInOptions googleCallbackUrl={window.location.href} />
           ) : authorizeState === 'ready' && deepLink ? (
             <div className={s.success} role="status" aria-live="polite">
               <CheckCircle2 aria-hidden="true" />
@@ -161,7 +136,7 @@ export function DesktopLogin() {
 
       <p className={s.securityNote}>
         <ShieldCheck aria-hidden="true" />
-        Your Google credentials are never shared with the desktop app.
+        Your credentials are never shared with the desktop app.
       </p>
     </div>
   );

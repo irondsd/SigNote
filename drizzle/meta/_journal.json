@@ -36,6 +36,13 @@
       "when": 1788628501615,
       "tag": "0006_otp_records",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788703307454,
+      "tag": "0007_desktop_auth_attempt_provider",
+      "breakpoints": true
     }
   ]
 }

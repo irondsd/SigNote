@@ -39,7 +39,12 @@ beforeEach(async () => {
 
 async function createAndAuthorize() {
   const attempt = await createDesktopAuthAttempt({ state, codeChallenge: challenge, ip: '127.0.0.1' });
-  const authorization = await authorizeDesktopAuthAttempt({ attemptId: attempt.attemptId, state, userId });
+  const authorization = await authorizeDesktopAuthAttempt({
+    attemptId: attempt.attemptId,
+    state,
+    userId,
+    provider: 'siwe',
+  });
   expect(authorization).not.toBeNull();
   return { ...attempt, authorizationCode: authorization!.authorizationCode };
 }
@@ -56,6 +61,11 @@ describe('desktopAuth controller', () => {
     expect(row?.status).toBe('authorized');
   });
 
+  it('records how the authorizing browser session signed in', async () => {
+    const attempt = await createAndAuthorize();
+    expect((await findAttempt(attempt.attemptId))?.provider).toBe('siwe');
+  });
+
   it('requires the original state to authorize a pending attempt', async () => {
     const attempt = await createDesktopAuthAttempt({ state, codeChallenge: challenge, ip: '127.0.0.1' });
 
@@ -63,6 +73,7 @@ describe('desktopAuth controller', () => {
       attemptId: attempt.attemptId,
       state: 'x'.repeat(43),
       userId,
+      provider: 'siwe',
     });
 
     expect(result).toBeNull();
@@ -78,7 +89,7 @@ describe('desktopAuth controller', () => {
       codeVerifier: verifier,
     };
 
-    await expect(consumeDesktopAuthAttempt(credentials)).resolves.toEqual({ ok: true, userId });
+    await expect(consumeDesktopAuthAttempt(credentials)).resolves.toEqual({ ok: true, userId, provider: 'siwe' });
     await expect(consumeDesktopAuthAttempt(credentials)).resolves.toEqual({ ok: false, reason: 'already_consumed' });
   });
 

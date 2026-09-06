@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Desktop sign-in request is invalid or expired' }, { status });
   }
 
-  const cookie = await createDesktopSession(request, consumed.userId);
+  const cookie = await createDesktopSession(request, consumed.userId, consumed.provider);
   if (!cookie) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
   const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });

@@ -10,14 +10,17 @@ export const POST = withSession(async (request, { userId, provider }) => {
   if (!acceptsJson(request) || !isSameOriginMutation(request)) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-  if (provider !== 'google') {
-    throw new RouteAuthError(403, 'Google sign-in required');
+  // Any signed-in browser session may authorize the desktop app; the provider
+  // only labels the session it mints. A JWT without the claim predates the
+  // sessions feature and has to be re-issued before it can vouch for a device.
+  if (!provider) {
+    throw new RouteAuthError(403, 'Sign in again to authorize the desktop app');
   }
 
   const input = authorizeDesktopAttemptSchema.safeParse(await request.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
 
-  const authorized = await authorizeDesktopAuthAttempt({ ...input.data, userId });
+  const authorized = await authorizeDesktopAuthAttempt({ ...input.data, userId, provider });
   if (!authorized) {
     return NextResponse.json({ error: 'Desktop sign-in request is invalid or expired' }, { status: 400 });
   }

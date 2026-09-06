@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { createGoogleTestSession } from '../utils/createGoogleTestSession';
+import { createTestSession } from '../utils/createTestSession';
+import { disableDevOverlay, expectSignedIn, signInWithEmail } from '../utils/emailSignIn';
 import { injectSession } from '../utils/injectSession';
+import { makeAccount } from '../utils/makeAccount';
+import { trpcData, trpcQuery } from '../utils/trpc';
 
 test.describe('desktop mode', () => {
   test.beforeEach(async ({ page }) => {
+    await disableDevOverlay(page);
     await page.addInitScript(() => {
       Object.defineProperty(window, 'signoteDesktop', {
         configurable: false,
@@ -21,11 +26,12 @@ test.describe('desktop mode', () => {
     await page.goto('/');
   });
 
-  test('shows browser-based Google and WalletConnect SIWE sign-in', async ({ page }) => {
+  test('shows browser-based Google, email, and WalletConnect SIWE sign-in', async ({ page }) => {
     await page.getByTestId('sign-in-button').first().click();
 
     await expect(page.getByTestId('desktop-google-sign-in-btn')).toBeVisible();
     await expect(page.getByTestId('google-sign-in-btn')).toHaveCount(0);
+    await expect(page.getByTestId('email-sign-in-btn')).toBeVisible();
     await expect(page.getByTestId('siwe-sign-in-btn')).toBeVisible();
 
     await page.getByTestId('desktop-google-sign-in-btn').click();
@@ -40,7 +46,21 @@ test.describe('desktop mode', () => {
     expect(new URL(browserLoginUrl!).searchParams.get('state')).toHaveLength(43);
   });
 
-  test('offers WalletConnect Ethereum identity management on the profile', async ({ page }) => {
+  test('labels an in-app email sign-in as a desktop session', async ({ page }) => {
+    const email = `desktop-email-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+
+    await signInWithEmail(page, email);
+    await expectSignedIn(page);
+
+    const { sessions } = await trpcData<{ sessions: Array<{ provider: string; client: string; current: boolean }> }>(
+      await trpcQuery(page.request, 'sessions.list'),
+    );
+    expect(sessions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ provider: 'email', client: 'desktop', current: true })]),
+    );
+  });
+
+  test('offers the same sign-in methods on the profile as the web app', async ({ page }) => {
     const token = await createGoogleTestSession('desktop-mode-google-user', 'desktop-mode@example.com');
     await injectSession(page, token);
     await page.goto('/profile');
@@ -48,6 +68,16 @@ test.describe('desktop mode', () => {
     await expect(page.getByTestId('identity-google')).toBeVisible();
     await expect(page.getByTestId('identity-siwe')).toBeVisible();
     await expect(page.getByTestId('connect-siwe')).toBeVisible();
+    await expect(page.getByTestId('identity-email')).toBeVisible();
+  });
+
+  test('cannot start the Google OAuth redirect from inside the app', async ({ page }) => {
+    const token = await createTestSession(makeAccount().account.address);
+    await injectSession(page, token);
+    await page.goto('/profile');
+
+    await expect(page.getByTestId('connect-google')).toBeDisabled();
+    await expect(page.getByTestId('connect-email')).toBeVisible();
   });
 
   test('offers only the QR-compatible WalletConnect connector', async ({ page }) => {

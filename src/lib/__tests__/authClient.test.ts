@@ -5,6 +5,10 @@ describe('resolveSignInClient', () => {
     expect(resolveSignInClient('credentials', 'desktop')).toBe('desktop');
   });
 
+  it('labels a desktop email-code session as desktop', () => {
+    expect(resolveSignInClient('email-otp', 'desktop')).toBe('desktop');
+  });
+
   it('defaults missing and unrecognized hints to web', () => {
     expect(resolveSignInClient('credentials', undefined)).toBe('web');
     expect(resolveSignInClient('credentials', 'native')).toBe('web');

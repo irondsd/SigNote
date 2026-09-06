@@ -1,26 +1,14 @@
 'use client';
 
-import { Mail, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { signIn, useSession } from 'next-auth/react';
-import posthog from 'posthog-js';
+import { X } from 'lucide-react';
+import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
-import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButton/DesktopGoogleSignInButton';
-import { GoogleIcon } from '@/components/icons/SignInIcons';
 import { useDesktopApp } from '@/hooks/useDesktopApp';
+import { SignInOptions } from './SignInOptions';
 import s from './SignInModal.module.scss';
-
-// Loaded on demand: see the note in EmailSignInForm about keeping the tRPC
-// client off the signed-out page's critical path.
-const EmailSignInForm = dynamic(() => import('./EmailSignInForm'), { ssr: false });
-
-const SiweSignInButton = dynamic(
-  () => import('@/components/SiweSignInButton/SiweSignInButton').then((module) => module.SiweSignInButton),
-  { ssr: false },
-);
 
 type SignInModalProps = {
   onClose: () => void;
@@ -29,24 +17,6 @@ type SignInModalProps = {
 export function SignInModal({ onClose }: SignInModalProps) {
   const isDesktop = useDesktopApp();
   const { status } = useSession();
-  const [emailOpen, setEmailOpen] = useState(false);
-
-  const emailBlock = emailOpen ? (
-    <EmailSignInForm isDesktop={isDesktop} />
-  ) : (
-    <Button
-      variant="outline"
-      onClick={() => {
-        posthog.capture('sign_in_started', { method: 'email' });
-        setEmailOpen(true);
-      }}
-      data-testid="email-sign-in-btn"
-      className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
-    >
-      <Mail size={18} />
-      Continue with email
-    </Button>
-  );
 
   useEffect(() => {
     if (isDesktop && status === 'authenticated') onClose();
@@ -63,41 +33,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
         </div>
 
         <div className={s.body}>
-          {isDesktop ? (
-            <>
-              <DesktopGoogleSignInButton />
-
-              <div className={s.divider}>
-                <span>or</span>
-              </div>
-
-              {emailBlock}
-
-              <SiweSignInButton client="desktop" />
-            </>
-          ) : (
-            <>
-              <Button
-                onClick={() => {
-                  posthog.capture('sign_in_started', { method: 'google' });
-                  signIn('google');
-                }}
-                data-testid="google-sign-in-btn"
-                className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
-              >
-                <GoogleIcon />
-                Sign in with Google
-              </Button>
-
-              <div className={s.divider}>
-                <span>or</span>
-              </div>
-
-              {emailBlock}
-
-              <SiweSignInButton />
-            </>
-          )}
+          <SignInOptions isDesktop={isDesktop} />
         </div>
       </Modal>
     </Backdrop>

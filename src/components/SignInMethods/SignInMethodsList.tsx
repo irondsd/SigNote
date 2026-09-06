@@ -7,6 +7,7 @@ import { HTTPError } from 'ky';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
+import { useDesktopApp } from '@/hooks/useDesktopApp';
 import { useIdentities, useUnlinkIdentity } from '@/hooks/useIdentities';
 import { useEmailMethod } from '@/hooks/useEmailAuth';
 import { useSiweSign } from '@/hooks/useSiweSign';
@@ -17,7 +18,14 @@ import { EmailMethodRow } from './EmailMethodRow';
 import { SignInMethodsSkeleton } from './SignInMethodsSkeleton';
 import s from './SignInMethods.module.scss';
 
-export function WebSignInMethods() {
+/**
+ * One list for both clients. The only thing the desktop app cannot do here is
+ * start Google's OAuth redirect — Google refuses to run in an embedded webview
+ * — so that single Connect is disabled there; email and WalletConnect run in
+ * place on both.
+ */
+export function SignInMethodsList() {
+  const isDesktop = useDesktopApp();
   const { data: identities, isLoading } = useIdentities();
   const { mutate: unlink, isPending: isUnlinking } = useUnlinkIdentity();
   const { sign, step: siweStep } = useSiweSign();
@@ -139,6 +147,19 @@ export function WebSignInMethods() {
                         Unlink
                       </Button>
                     )
+                  ) : provider.id === 'google' && isDesktop ? (
+                    <TooltipOrPopover
+                      trigger={
+                        <span tabIndex={0} className={s.tooltipWrapper}>
+                          <Button variant="outline" size="sm" disabled data-testid="connect-google">
+                            Connect
+                          </Button>
+                        </span>
+                      }
+                      side="left"
+                    >
+                      Google can only be linked from SigNote in your browser
+                    </TooltipOrPopover>
                   ) : (
                     <Button
                       variant="outline"

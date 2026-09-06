@@ -2,7 +2,7 @@ import { and, count, eq, gt, lt, sql } from 'drizzle-orm';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { getDb } from '@/db/client';
-import { desktopAuthAttempts } from '@/db/schema';
+import { desktopAuthAttempts, type AuthProvider } from '@/db/schema';
 
 export const DESKTOP_ATTEMPT_TTL_MS = 5 * 60 * 1000;
 export const DESKTOP_AUTH_CODE_TTL_MS = 60 * 1000;
@@ -49,7 +49,12 @@ export async function createDesktopAuthAttempt(params: { state: string; codeChal
   return { attemptId, expiresAt };
 }
 
-export async function authorizeDesktopAuthAttempt(params: { attemptId: string; state: string; userId: string }) {
+export async function authorizeDesktopAuthAttempt(params: {
+  attemptId: string;
+  state: string;
+  userId: string;
+  provider: AuthProvider;
+}) {
   const db = getDb();
   const now = new Date();
 
@@ -78,6 +83,7 @@ export async function authorizeDesktopAuthAttempt(params: { attemptId: string; s
     .set({
       authorizationCodeHash: hashDesktopAuthValue(authorizationCode),
       userId: params.userId,
+      provider: params.provider,
       status: 'authorized',
       authorizedAt: now,
       expiresAt: codeExpiresAt,
@@ -95,7 +101,8 @@ export async function authorizeDesktopAuthAttempt(params: { attemptId: string; s
 }
 
 export type ConsumeDesktopAuthResult =
-  { ok: true; userId: string } | { ok: false; reason: 'invalid_or_expired' | 'rate_limited' | 'already_consumed' };
+  | { ok: true; userId: string; provider: AuthProvider }
+  | { ok: false; reason: 'invalid_or_expired' | 'rate_limited' | 'already_consumed' };
 
 export async function consumeDesktopAuthAttempt(params: {
   attemptId: string;
@@ -141,7 +148,7 @@ export async function consumeDesktopAuthAttempt(params: {
     safeEqual(candidate.authorizationCodeHash ?? '', hashDesktopAuthValue(params.authorizationCode)) &&
     safeEqual(candidate.codeChallenge, expectedChallenge);
 
-  if (!credentialsMatch || !candidate.userId) return { ok: false, reason: 'invalid_or_expired' };
+  if (!credentialsMatch || !candidate.userId || !candidate.provider) return { ok: false, reason: 'invalid_or_expired' };
 
   const consumed = await db
     .update(desktopAuthAttempts)
@@ -155,5 +162,7 @@ export async function consumeDesktopAuthAttempt(params: {
     )
     .returning({ attemptId: desktopAuthAttempts.attemptId });
 
-  return consumed.length > 0 ? { ok: true, userId: candidate.userId } : { ok: false, reason: 'already_consumed' };
+  return consumed.length > 0
+    ? { ok: true, userId: candidate.userId, provider: candidate.provider }
+    : { ok: false, reason: 'already_consumed' };
 }

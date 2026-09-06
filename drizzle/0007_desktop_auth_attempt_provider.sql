@@ -1,0 +1,1 @@
+ALTER TABLE "desktop_auth_attempts" ADD COLUMN "provider" text;

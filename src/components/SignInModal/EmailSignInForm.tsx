@@ -45,7 +45,7 @@ export default function EmailSignInForm({ isDesktop }: { isDesktop: boolean }) {
         // NextAuth turns a null from `authorize` into ok:false rather than a
         // throw, so the form only learns about it if we throw here.
         if (!result?.ok) throw new Error('BAD_CODE');
-        posthog.capture('sign_in_completed', { method: 'email' });
+        posthog.capture('sign_in_completed', { method: 'email', client: isDesktop ? 'desktop' : 'web' });
       }}
     />
   );

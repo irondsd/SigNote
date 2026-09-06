@@ -6,7 +6,7 @@ import { upsertSessionIfMissing } from '@/controllers/authSessions';
 import { getClientIp, getClientLocation } from '@/lib/clientIp';
 import { sendSignInAlertEmail } from '@/lib/notificationEmails';
 import { getDb } from '@/db/client';
-import { users } from '@/db/schema';
+import { users, type AuthProvider } from '@/db/schema';
 import { parseUserAgent } from '@/lib/uaParser';
 import { v7 as uuidv7 } from 'uuid';
 
@@ -23,7 +23,17 @@ export type DesktopSessionCookie = {
   };
 };
 
-export async function createDesktopSession(request: NextRequest, userId: string): Promise<DesktopSessionCookie | null> {
+/**
+ * Mints the desktop app's own session after a successful PKCE exchange.
+ * `provider` is how the *browser* session that authorized the attempt was
+ * signed in — the desktop session inherits the label so the device list is
+ * honest about it. Display metadata only, never a trust boundary.
+ */
+export async function createDesktopSession(
+  request: NextRequest,
+  userId: string,
+  provider: AuthProvider,
+): Promise<DesktopSessionCookie | null> {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) throw new Error('Missing NEXTAUTH_SECRET');
 
@@ -43,7 +53,7 @@ export async function createDesktopSession(request: NextRequest, userId: string)
       sub: userId,
       name: user.displayName,
       sid,
-      provider: 'google',
+      provider,
       client: 'desktop',
     },
     secret,
@@ -54,7 +64,7 @@ export async function createDesktopSession(request: NextRequest, userId: string)
   const created = await upsertSessionIfMissing({
     sid,
     userId,
-    provider: 'google',
+    provider,
     client: 'desktop',
     ip: getClientIp(request),
     userAgent,

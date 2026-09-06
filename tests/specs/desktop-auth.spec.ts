@@ -35,20 +35,61 @@ test.describe('desktop browser sign-in', () => {
     expect((await page.request.post('/api/desktop-auth/authorize', { data: { attemptId, state } })).status()).toBe(401);
   });
 
-  test('does not let a SIWE browser session authorize the desktop app', async ({ page }) => {
+  test('offers every sign-in method on the browser authorization page', async ({ page }) => {
     const state = randomBytes(32).toString('base64url');
-    const verifier = randomBytes(32).toString('base64url');
-    const codeChallenge = createHash('sha256').update(verifier, 'utf8').digest('base64url');
+    const codeChallenge = createHash('sha256').update(randomBytes(32).toString('base64url'), 'utf8').digest('base64url');
     const attemptResponse = await page.request.post('/api/desktop-auth/attempts', {
+      data: { state, codeChallenge, codeChallengeMethod: 'S256' },
+    });
+    const { loginUrl } = (await attemptResponse.json()) as { loginUrl: string };
+
+    await page.goto(loginUrl);
+
+    await expect(page.getByTestId('google-sign-in-btn')).toBeVisible();
+    await expect(page.getByTestId('email-sign-in-btn')).toBeVisible();
+    await expect(page.getByTestId('siwe-sign-in-btn')).toBeVisible();
+  });
+
+  test('lets a wallet browser session authorize the desktop app and labels the session after it', async ({
+    browser,
+  }) => {
+    const browserContext = await browser.newContext();
+    const desktopContext = await browser.newContext({ userAgent: 'SigNoteDesktop/e2e' });
+    const browserPage = await browserContext.newPage();
+    const desktopPage = await desktopContext.newPage();
+
+    const state = randomBytes(32).toString('base64url');
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = createHash('sha256').update(codeVerifier, 'utf8').digest('base64url');
+    const attemptResponse = await desktopPage.request.post('/api/desktop-auth/attempts', {
       data: { state, codeChallenge, codeChallengeMethod: 'S256' },
     });
     const { attemptId } = (await attemptResponse.json()) as { attemptId: string };
 
     const walletToken = await createTestSession(makeAccount().account.address);
-    await injectSession(page, walletToken);
-    const response = await page.request.post('/api/desktop-auth/authorize', { data: { attemptId, state } });
+    await injectSession(browserPage, walletToken);
+    const authorizeResponse = await browserPage.request.post('/api/desktop-auth/authorize', {
+      data: { attemptId, state },
+    });
+    expect(authorizeResponse.ok()).toBeTruthy();
+    const { deepLink } = (await authorizeResponse.json()) as { deepLink: string };
+    const code = new URL(deepLink).searchParams.get('code');
 
-    expect(response.status()).toBe(403);
+    const exchangeResponse = await desktopPage.request.post('/api/desktop-auth/exchange', {
+      data: { attemptId, state, code, codeVerifier },
+    });
+    expect(exchangeResponse.ok()).toBeTruthy();
+
+    // The desktop session inherits how the browser signed in — not a hardcoded Google.
+    const { sessions } = await trpcData<{ sessions: Array<{ provider: string; client: string; current: boolean }> }>(
+      await trpcQuery(desktopPage.request, 'sessions.list'),
+    );
+    expect(sessions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ provider: 'siwe', client: 'desktop', current: true })]),
+    );
+
+    await browserContext.close();
+    await desktopContext.close();
   });
 
   test('exchanges a browser-authorized PKCE code for a distinct desktop session', async ({ browser }) => {
