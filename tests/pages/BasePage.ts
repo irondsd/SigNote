@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import type { Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mockProvider } from '../utils/mockProvider';
@@ -54,14 +54,47 @@ export class BasePage {
    * Fast sign-in by injecting a NextAuth session cookie directly — no UI flow.
    * - No arg: creates a fresh account.
    * - With address: uses the provided address (assumes DB fixtures already exist).
+   * `navigate: false` leaves the browser on about:blank, with the cookie in place
+   * for `page.request`. Use it when a spec builds data over the API first: the
+   * query cache is persisted to IndexedDB, so a page loaded beforehand snapshots
+   * an empty list and keeps serving it for the whole staleTime.
    * Returns { address }.
    */
-  async signInDirectly(address?: Address): Promise<{ address: Address }> {
+  async signInDirectly(address?: Address, { navigate = true }: { navigate?: boolean } = {}): Promise<{
+    address: Address;
+  }> {
     const resolvedAddress = address ?? makeAccount().account.address;
     const token = await createTestSession(resolvedAddress);
     await injectSession(this.page, token);
-    await this.goto();
+    if (navigate) await this.goto();
     return { address: resolvedAddress };
+  }
+
+  /**
+   * Open the passphrase modal and unlock the vault.
+   *
+   * `page.goto()` waits for the document, not for React, so under parallel-worker
+   * load a submit click occasionally never reaches the handler — the same hazard
+   * NotesPage.openInEditMode guards against. Re-press the modal's Unlock while it
+   * sits idle (visible and not deriving) instead of assuming one click landed.
+   */
+  async unlockVault(passphrase: string): Promise<void> {
+    const unlockButton = this.page.getByTestId('unlock-button');
+    const field = this.page.getByPlaceholder('Your passphrase');
+    const submit = this.page.getByRole('button', { name: 'Unlock' }).last();
+
+    await unlockButton.click();
+    await expect(field).toBeVisible();
+    await field.fill(passphrase);
+
+    await expect(async () => {
+      // The submit button is disabled while PBKDF2 runs, so an enabled one next
+      // to a filled field means the previous click was dropped, not slow.
+      const idle = (await field.isVisible().catch(() => false)) && (await submit.isEnabled().catch(() => false));
+      if (idle) await submit.click({ timeout: 1000 });
+      // PBKDF2 at 600k iterations can be slow; allow enough time
+      await expect(unlockButton).toHaveAttribute('aria-pressed', 'true', { timeout: 5000 });
+    }).toPass({ timeout: 30000, intervals: [250, 500] });
   }
 
   /** Simulate tab becoming hidden (soft-lock trigger). */
