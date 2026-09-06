@@ -11,11 +11,22 @@ export type SignInCodeEmailProps = {
 };
 
 /**
- * `418207` reads as one long number; `418 207` is what people can copy by eye.
- * The separator is non-breaking so the code can never wrap in half.
+ * `418207` reads as one long number; a gap in the middle is what people can copy
+ * by eye. The gap is padding on the first half rather than a space character, so
+ * the six digits stay one word: a double-click or tap selects the whole code, and
+ * what lands on the clipboard has nothing to strip. Outlook desktop drops padding
+ * on inline elements and simply renders the digits evenly spaced, which is fine.
  */
 function group(code: string) {
-  return code.length % 2 === 0 ? `${code.slice(0, code.length / 2)}\u00a0${code.slice(code.length / 2)}` : code;
+  if (code.length % 2 !== 0) return code;
+  const half = code.length / 2;
+
+  return (
+    <>
+      <span style={firstHalf}>{code.slice(0, half)}</span>
+      {code.slice(half)}
+    </>
+  );
 }
 
 export function SignInCodeEmail({ code, expiresInMinutes = 10 }: SignInCodeEmailProps) {
@@ -81,6 +92,11 @@ const codeCell: EmailStyle = {
   fontWeight: 'bold',
   letterSpacing: '0.22em',
   color: colors.heading,
+};
+
+/** Roughly the advance of the space this replaces, so the grouping reads the same. */
+const firstHalf: EmailStyle = {
+  paddingRight: '0.75em',
 };
 
 const finePrint: EmailStyle = {
