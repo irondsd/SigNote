@@ -1,8 +1,8 @@
 # SigNote
 
-SigNote is a wallet-native notes app with three security tiers.
+SigNote is an end-to-end encrypted notes app with three security tiers.
 
-It supports **Sign-In with Ethereum (SIWE)** and **Google OAuth** for authentication, and uses a passphrase-based encryption system for higher-security notes. The goal is simple: let users choose their identity (privacy or convenience) while choosing the right privacy level for each note.
+Sign-in is passwordless — an emailed one-time code, **Google OAuth**, or **Sign-In with Ethereum (SIWE)**, with passkeys planned — and higher-security notes are protected by a passphrase-derived key the server never sees. The goal is simple: let users pick how they identify themselves (privacy or convenience) while picking the right privacy level for each note.
 
 ## Core idea
 
@@ -278,7 +278,7 @@ As with any cryptography-heavy app, treat this as evolving software and review t
 
 ## Open source
 
-SigNote is being opened up as a reference project for wallet-based auth, note security tiers, and client-side encryption workflows in a modern Next.js app.
+SigNote is being opened up as a reference project for client-side encryption, note security tiers, and passwordless authentication in a modern Next.js app.
 
 Issues, ideas, and contributions are welcome.
 

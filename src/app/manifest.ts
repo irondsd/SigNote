@@ -1,12 +1,18 @@
 import type { MetadataRoute } from 'next';
 import { SPLASH_COLOR, SYSTEM_BAR_COLOR } from '@/config/themeColors';
+import { SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from '@/config/meta';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'SigNote',
-    short_name: 'SigNote',
-    description: 'Secure note-keeping with Ethereum wallet authentication',
+    id: '/',
+    name: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    short_name: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    lang: 'en',
+    dir: 'ltr',
+    categories: ['productivity', 'utilities', 'security'],
     start_url: '/',
+    scope: '/',
     display: 'standalone',
     // The installed app's status bar is frozen at this value — baked into the
     // WebAPK at install time, and no runtime tag can repaint it — so

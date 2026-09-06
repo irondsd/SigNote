@@ -8,7 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return getSitemapRoutes().map((route) => ({
     url: new URL(route, siteUrl).toString(),
     lastModified,
-    changeFrequency: route.startsWith('/docs/') ? 'monthly' : 'weekly',
-    priority: route === '/' ? 1 : route === '/docs' ? 0.9 : 0.8,
+    changeFrequency: route === '/' ? 'weekly' : 'monthly',
+    priority: route === '/' ? 1 : route === '/docs/about' ? 0.9 : 0.7,
   }));
 }

@@ -1,8 +1,10 @@
 import fs from 'fs';
-import path from 'path';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { getDoc, getDocs } from '@/config/docs';
+import { OG_IMAGE_PATH, SITE_DESCRIPTION, SITE_NAME } from '@/config/meta';
 import s from '../docs.module.scss';
 
 type Props = {
@@ -26,39 +28,56 @@ const markdownComponents: Components = {
   },
 };
 
-function slugToFilename(docsDir: string, slug: string): string | null {
-  const files = fs.readdirSync(docsDir).filter((f) => f.endsWith('.md'));
-  const match = files.find((f) => {
-    const withoutExt = f.replace(/\.md$/, '');
-    const dotPos = withoutExt.indexOf('.');
-    return dotPos !== -1 && withoutExt.slice(dotPos + 1) === slug;
-  });
-  return match ? path.join(docsDir, match) : null;
+export async function generateStaticParams() {
+  return getDocs().map(({ slug }) => ({ slug }));
 }
 
-export async function generateStaticParams() {
-  const docsDir = path.join(process.cwd(), 'src/docs');
-  return fs
-    .readdirSync(docsDir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => {
-      const withoutExt = f.replace(/\.md$/, '');
-      const dotPos = withoutExt.indexOf('.');
-      return dotPos !== -1 ? { slug: withoutExt.slice(dotPos + 1) } : null;
-    })
-    .filter((p): p is { slug: string } => p !== null);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const doc = getDoc(slug);
+
+  if (!doc) {
+    return {};
+  }
+
+  const description = doc.description || SITE_DESCRIPTION;
+  const title = `${doc.title} | ${SITE_NAME}`;
+
+  // Naming `openGraph` here replaces the root layout's wholesale, and the
+  // generated `opengraph-image` goes with it — so the card needs it back.
+  const images = [OG_IMAGE_PATH];
+
+  return {
+    title: doc.title,
+    description,
+    alternates: { canonical: doc.href },
+    openGraph: {
+      type: 'article',
+      url: doc.href,
+      siteName: SITE_NAME,
+      locale: 'en_US',
+      title,
+      description,
+      images,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images,
+    },
+  };
 }
 
 export default async function DocsSlugPage({ params }: Props) {
   const { slug } = await params;
-  const docsDir = path.join(process.cwd(), 'src/docs');
-  const filePath = slugToFilename(docsDir, slug);
+  const doc = getDoc(slug);
 
-  if (!filePath) {
+  if (!doc) {
     notFound();
   }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = fs.readFileSync(doc.file, 'utf-8');
 
   return (
     <article className={s.prose}>
