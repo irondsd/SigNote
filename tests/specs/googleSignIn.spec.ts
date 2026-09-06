@@ -85,6 +85,26 @@ test.describe('Google sign-in', () => {
     expect(secondUserId).toBe(firstUserId);
   });
 
+  test('remembers the last successful sign-in method on this browser', async ({ page }) => {
+    await configureGoogleUser(page, {
+      sub: 'g-last-used-003',
+      name: 'Remembered User',
+      email: 'remembered@example.com',
+    });
+
+    await page.goto('/');
+    await clickGoogleSignIn(page);
+    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 20000 });
+
+    await page.getByTestId('sign-out-button').first().click();
+    await expect(page.getByTestId('sign-in-button').first()).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('sign-in-button').first().click();
+
+    await expect(page.getByTestId('google-sign-in-btn')).toContainText('Last used');
+    await expect(page.getByTestId('email-sign-in-btn')).not.toContainText('Last used');
+    await expect(page.getByTestId('siwe-sign-in-btn')).not.toContainText('Last used');
+  });
+
   test('Google OAuth error leaves the user unauthenticated', async ({ page }) => {
     await setGoogleError(page, 'access_denied');
 

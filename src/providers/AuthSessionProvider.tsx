@@ -7,13 +7,19 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { queryCacheStorage } from '@/lib/idb';
 import { clearDraft } from '@/lib/draft';
 import { DesktopAuthCallbackHandler } from '@/components/DesktopAuthCallbackHandler/DesktopAuthCallbackHandler';
+import { rememberLastSignInMethod } from '@/lib/lastSignInMethod';
 
 type AuthSessionProviderProps = {
   children: ReactNode;
 };
 
 function SessionCleanup() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  useEffect(() => {
+    if (status === 'authenticated' && session?.authProvider) {
+      rememberLastSignInMethod(session.authProvider);
+    }
+  }, [session?.authProvider, status]);
   useEffect(() => {
     if (status === 'unauthenticated') {
       // The query cache is account data and must be removed on sign-out. Drafts

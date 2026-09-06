@@ -9,6 +9,7 @@ declare module 'next-auth' {
     user: {
       id: string;
     } & DefaultSession['user'];
+    authProvider?: 'google' | 'siwe' | 'email';
   }
 }
 

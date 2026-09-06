@@ -11,6 +11,8 @@ import { Modal } from '@/components/Modal/Modal';
 import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButton/DesktopGoogleSignInButton';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
 import { useDesktopApp } from '@/hooks/useDesktopApp';
+import { useLastSignInMethod } from '@/hooks/useLastSignInMethod';
+import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
 import s from './SignInModal.module.scss';
 
 // Loaded on demand: see the note in EmailSignInForm about keeping the tRPC
@@ -30,6 +32,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
   const isDesktop = useDesktopApp();
   const { status } = useSession();
   const [emailOpen, setEmailOpen] = useState(false);
+  const lastSignInMethod = useLastSignInMethod();
 
   const emailBlock = emailOpen ? (
     <EmailSignInForm isDesktop={isDesktop} />
@@ -43,8 +46,9 @@ export function SignInModal({ onClose }: SignInModalProps) {
       data-testid="email-sign-in-btn"
       className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
     >
-      <Mail size={18} />
-      Continue with email
+      <SignInMethodButtonContent icon={<Mail size={18} />} isLastUsed={lastSignInMethod === 'email'}>
+        Continue with email
+      </SignInMethodButtonContent>
     </Button>
   );
 
@@ -65,7 +69,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
         <div className={s.body}>
           {isDesktop ? (
             <>
-              <DesktopGoogleSignInButton />
+              <DesktopGoogleSignInButton isLastUsed={lastSignInMethod === 'google'} />
 
               <div className={s.divider}>
                 <span>or</span>
@@ -73,7 +77,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
 
               {emailBlock}
 
-              <SiweSignInButton client="desktop" />
+              <SiweSignInButton client="desktop" isLastUsed={lastSignInMethod === 'siwe'} />
             </>
           ) : (
             <>
@@ -85,8 +89,9 @@ export function SignInModal({ onClose }: SignInModalProps) {
                 data-testid="google-sign-in-btn"
                 className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
               >
-                <GoogleIcon />
-                Sign in with Google
+                <SignInMethodButtonContent icon={<GoogleIcon />} isLastUsed={lastSignInMethod === 'google'}>
+                  Sign in with Google
+                </SignInMethodButtonContent>
               </Button>
 
               <div className={s.divider}>
@@ -95,7 +100,7 @@ export function SignInModal({ onClose }: SignInModalProps) {
 
               {emailBlock}
 
-              <SiweSignInButton />
+              <SiweSignInButton isLastUsed={lastSignInMethod === 'siwe'} />
             </>
           )}
         </div>
