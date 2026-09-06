@@ -9,10 +9,11 @@ import { getDesktopBridge } from '@/lib/desktop';
 import { beginDesktopAuth, DesktopAuthError } from '@/lib/desktopAuth';
 import { onDesktopAuthUiEvent } from '@/lib/desktopAuthEvents';
 import s from './DesktopGoogleSignInButton.module.scss';
+import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
 
 type BrowserLoginState = 'idle' | 'opening' | 'waiting' | 'exchanging' | 'error';
 
-export function DesktopGoogleSignInButton() {
+export function DesktopGoogleSignInButton({ isLastUsed = false }: { isLastUsed?: boolean }) {
   const [state, setState] = useState<BrowserLoginState>('idle');
   const [errorMessage, setErrorMessage] = useState("SigNote couldn't open your browser. Please try again.");
 
@@ -72,8 +73,12 @@ export function DesktopGoogleSignInButton() {
         data-testid="desktop-google-sign-in-btn"
         className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
       >
-        {isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <GoogleIcon />}
-        {label}
+        <SignInMethodButtonContent
+          icon={isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <GoogleIcon />}
+          isLastUsed={isLastUsed}
+        >
+          {label}
+        </SignInMethodButtonContent>
       </Button>
 
       {state === 'waiting' && (
