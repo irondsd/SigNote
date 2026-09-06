@@ -223,7 +223,9 @@ test.describe('tag API routes', () => {
 test.describe('tag management UI', () => {
   test('rename persists and propagates to the note card', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInDirectly();
+    // Build the tag over the API before any page loads: the persisted query cache
+    // would otherwise keep serving the empty tags.list snapshot taken on the way in.
+    await notesPage.signInDirectly(undefined, { navigate: false });
 
     const name = `old${Date.now()}`;
     const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
@@ -254,7 +256,7 @@ test.describe('tag management UI', () => {
   });
 
   test('recolor persists across reload', async ({ page }) => {
-    await new NotesPage(page).signInDirectly();
+    await new NotesPage(page).signInDirectly(undefined, { navigate: false });
 
     const name = `paint${Date.now()}`;
     const tagRes = await trpcPost(page.request, 'tags.create', { name, color: 'red' });
@@ -279,7 +281,7 @@ test.describe('tag management UI', () => {
 
   test('removing a tag chip in the modal removes it from the card', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInDirectly();
+    await notesPage.signInDirectly(undefined, { navigate: false });
 
     const name = `strip${Date.now()}`;
     const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
@@ -306,11 +308,11 @@ test.describe('tag management UI', () => {
 
   test('creating a note with a tag pre-selected persists the tag', async ({ page }) => {
     const notesPage = new NotesPage(page);
-    await notesPage.signInDirectly();
+    await notesPage.signInDirectly(undefined, { navigate: false });
 
     const name = `pre${Date.now()}`;
     const tag = await (await trpcPost(page.request, 'tags.create', { name })).json();
-    await page.goto('/'); // full reload so the tags cache includes the seeded tag
+    await page.goto('/'); // first load, so the tags cache is built with the seeded tag
 
     const title = `Preselected ${Date.now()}`;
     await page.getByTestId('new-note-btn').click();

@@ -6,6 +6,7 @@ import {
   ENC_SESSION_KEY,
   ENC_VERSION,
   HKDF_INFO_FILE_ENC,
+  HKDF_INFO_OTP_VAULT,
   HKDF_INFO_SECRET_BODY,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
@@ -94,6 +95,21 @@ export async function deriveVerifyKey(mek: CryptoKey): Promise<CryptoKey> {
 
 export async function deriveSealWrapKey(mek: CryptoKey, sealId: string): Promise<CryptoKey> {
   return hkdfDeriveAesKey(mek, getSealKeyString(sealId));
+}
+
+/**
+ * The authenticator's working key. Domain-separated from the note tiers on
+ * purpose: this key is the one that gets persisted on a trusted device, and
+ * possession of it must not reveal the MEK or reach Secrets, Seals or files
+ * (security invariant 3). HKDF is one-way and `hkdfDeriveAesKey` already
+ * returns a non-extractable AES-GCM key, which is exactly the shape needed.
+ *
+ * It survives a passphrase change and a recovery-file restore, because both
+ * keep the MEK and recompute `serverShare` instead. Only an encryption-profile
+ * reset replaces the MEK, and that invalidates every enrolled device by design.
+ */
+export async function deriveOtpVaultKey(mek: CryptoKey): Promise<CryptoKey> {
+  return hkdfDeriveAesKey(mek, HKDF_INFO_OTP_VAULT);
 }
 
 // ─── AES-GCM primitives ──────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ const NAV_LINKS = [
   { href: '/', label: 'Notes', icon: 'notes.svg' },
   { href: '/secrets', label: 'Secrets', icon: 'secrets.svg' },
   { href: '/seals', label: 'Seals', icon: 'seals.svg' },
+  { href: '/auth', label: 'Auth', icon: 'auth.svg' },
 ];
 
 type SidebarNavProps = {

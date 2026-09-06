@@ -1,0 +1,9 @@
+@use '../../styles/grid';
+
+/**
+ * Identical sizing to the note tiers — same breakpoints, same gap, same
+ * entrance stagger — so an auth card is exactly as wide as a note card.
+ */
+.grid {
+  @include grid.card-grid;
+}

@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { and, isNotNull, lt, or, sql } from 'drizzle-orm';
 
+import { OTP_TOMBSTONE_RETENTION_MS } from '@/config/constants';
 import { getDb } from '@/db/client';
+import { purgeOtpTombstones } from './otpRecords';
 import {
   authNonces,
   authSessions,
@@ -66,6 +68,12 @@ export async function cleanupExpiredRows() {
     .where(lt(desktopAuthAttempts.expiresAt, now))
     .returning({ id: desktopAuthAttempts.attemptId });
   removed.desktopAuthAttempts = attempts.length;
+
+  // Authenticator tombstones, on their own 30-day clock rather than the note
+  // sweep's one hour: a tombstone is what tells a device that has been offline
+  // that a credential was deleted, so purging one early lets that device
+  // resurrect it from its local cache on the next full-snapshot sync.
+  removed.otpRecords = await purgeOtpTombstones(new Date(now.getTime() - OTP_TOMBSTONE_RETENTION_MS));
 
   // Attachment rows whose S3 object was already removed an hour ago.
   const files = await db

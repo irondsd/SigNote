@@ -58,7 +58,12 @@ test.describe('lock / unlock state', () => {
     await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('session persists across page reload', async ({ page }) => {
+  // A reload leaves the vault soft locked, exactly like switching away from the
+  // tab: the document fires visibilitychange → hidden on its way out. What
+  // survives the reload is the device share in sessionStorage, so unlocking is
+  // one click and no passphrase — until the soft lock escalates to a hard one
+  // after HARD_LOCK_MS, which is what auto-lock.spec covers.
+  test('reload soft locks, and unlocking again needs no passphrase', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -66,8 +71,12 @@ test.describe('lock / unlock state', () => {
     await page.reload();
     await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
 
-    // Should still be unlocked (sessionStorage rehydration)
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('lock-button')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByTestId('unlock-button').click();
     await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+    await expect(page.getByPlaceholder('Your passphrase')).toBeHidden();
   });
 });
 

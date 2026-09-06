@@ -12,14 +12,17 @@ const STEPS: StepConfig[] = [
   { key: 'seals', label: 'Seals', requiresEncryptionProfile: true },
   { key: 'secrets', label: 'Secrets', requiresEncryptionProfile: true },
   { key: 'notes', label: 'Notes', requiresEncryptionProfile: false },
+  { key: 'otp', label: 'Authenticator', requiresEncryptionProfile: true },
   { key: 'encryption', label: 'Encryption Profile', requiresEncryptionProfile: true },
   { key: 'account', label: 'User Account', requiresEncryptionProfile: false },
 ];
 
 const EXPLANATION = (
   <p className={s.explanationText}>
-    This will permanently delete <strong>all data</strong> associated with your account — notes, secrets, seals, your
-    encryption profile, and your account itself. <strong>This cannot be undone.</strong>
+    This will permanently delete <strong>all data</strong> associated with your account — notes, secrets, seals,
+    Authenticator credentials, your encryption profile, and the account itself. A trusted device that stays offline may
+    continue generating Authenticator codes until it reconnects and removes its obsolete local cache.{' '}
+    <strong>This cannot be undone.</strong>
   </p>
 );
 

@@ -1,12 +1,29 @@
 import fs from 'fs';
 import path from 'path';
 import { notFound } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import s from '../docs.module.scss';
 
 type Props = {
   params: Promise<{ slug: string }>;
+};
+
+const markdownComponents: Components = {
+  a: ({ href, title, children }) => {
+    const isExternal = href?.startsWith('http://') || href?.startsWith('https://');
+
+    return (
+      <a
+        href={href}
+        title={title}
+        target={isExternal ? '_blank' : undefined}
+        rel={isExternal ? 'noopener noreferrer' : undefined}
+      >
+        {children}
+      </a>
+    );
+  },
 };
 
 function slugToFilename(docsDir: string, slug: string): string | null {
@@ -45,7 +62,9 @@ export default async function DocsSlugPage({ params }: Props) {
 
   return (
     <article className={s.prose}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {content}
+      </ReactMarkdown>
     </article>
   );
 }

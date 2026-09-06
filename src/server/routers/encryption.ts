@@ -51,6 +51,12 @@ export const encryptionRouter = router({
     if (!profile) return { exists: false as const };
     return {
       exists: true as const,
+      // The profile *generation*, and the only remote kill switch the
+      // authenticator has. A passphrase change and a recovery restore update
+      // this row in place; only an encryption reset creates a new one, so a
+      // changed id is exactly the signal an enrolled device must wipe on. The
+      // id is an opaque uuid and not secret.
+      profileId: profile._id,
       version: profile.version,
       salt: profile.salt,
       kdf: profile.kdf,

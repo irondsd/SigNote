@@ -1,0 +1,117 @@
+.modal {
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 16px 8px;
+}
+
+.heading {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--foreground);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--destructive);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--destructive);
+  border-radius: 10px;
+  color: var(--destructive);
+
+  svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+}
+
+.uri {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg, var(--muted));
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--foreground);
+  word-break: break-all;
+  user-select: all;
+}
+
+.verifyForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.passphraseWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passphraseInput {
+  flex: 1;
+  padding-right: 2.25rem;
+}
+
+.passphraseToggle {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  color: var(--muted-foreground);
+
+  &:hover {
+    background: transparent;
+  }
+}

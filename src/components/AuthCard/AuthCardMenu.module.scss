@@ -1,0 +1,132 @@
+@use '../../styles/patterns';
+
+.trigger {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--foreground);
+  opacity: 0.55;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    opacity 0.1s ease;
+
+  &:hover,
+  &:focus-visible,
+  &[data-state='open'] {
+    background: var(--pattern-color);
+    opacity: 1;
+  }
+}
+
+.chevron {
+  color: var(--muted-foreground);
+}
+
+.divider {
+  height: 1px;
+  margin: 5px 12px;
+  background: var(--border);
+}
+
+// ─── Style pane ──────────────────────────────────────────────────────────────
+
+.stylePane {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 4px;
+}
+
+.paneHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 8px;
+}
+
+.back {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--accent);
+  }
+}
+
+.paneTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--card-foreground);
+}
+
+.paneBody {
+  padding: 2px 12px 0;
+}
+
+.label {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.labelSpaced {
+  margin-top: 14px;
+}
+
+.patterns {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.patternTile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--note-bg, var(--muted));
+  cursor: pointer;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.12s ease;
+
+  @include patterns.pattern-base;
+
+  &[data-color] {
+    border-color: transparent;
+  }
+
+  &.selected {
+    outline-color: var(--primary);
+  }
+}
+
+.patternGlyph {
+  position: relative;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  color: var(--foreground);
+  opacity: 0.7;
+}

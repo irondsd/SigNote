@@ -1,7 +1,7 @@
 export type StepStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
 
 // Discriminator for both the erase procedure (trpc.erase[key]) and display.
-export type EraseKey = 'notes' | 'seals' | 'secrets' | 'encryption' | 'account';
+export type EraseKey = 'notes' | 'seals' | 'secrets' | 'otp' | 'encryption' | 'account';
 
 export type EraseStep = {
   key: EraseKey;

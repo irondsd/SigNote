@@ -33,6 +33,7 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
   const pendingActionRef = useRef<((mek: CryptoKey) => Promise<void>) | null>(null);
   const rehydrateCallbackRef = useRef<(() => void | Promise<void>) | null>(options?.onRehydrate ?? null);
   const resolvePassphraseRef = useRef<(() => void) | null>(null);
+  const rejectPassphraseRef = useRef<((reason: unknown) => void) | null>(null);
   const waitingForMekRef = useRef(false);
 
   const execute = useCallback(
@@ -42,8 +43,9 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
         pendingActionRef.current = action;
         waitingForMekRef.current = true;
         setShowPassphrase(true);
-        return new Promise<void>((resolve) => {
+        return new Promise<void>((resolve, reject) => {
           resolvePassphraseRef.current = resolve;
+          rejectPassphraseRef.current = reject;
         });
       }
       await action(mek);
@@ -68,22 +70,24 @@ export function useEncryptionGuard(options?: { onRehydrate?: () => void | Promis
     if (resolvePassphraseRef.current) {
       resolvePassphraseRef.current();
       resolvePassphraseRef.current = null;
+      rejectPassphraseRef.current = null;
     }
   }, []);
 
   useEffect(() => {
     if (!mek || !waitingForMekRef.current || !pendingActionRef.current) return;
 
-    (async () => {
-      await pendingActionRef.current!(mek);
-      pendingActionRef.current = null;
-      waitingForMekRef.current = false;
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    waitingForMekRef.current = false;
 
-      if (resolvePassphraseRef.current) {
-        resolvePassphraseRef.current();
+    void action(mek)
+      .then(() => resolvePassphraseRef.current?.())
+      .catch((err) => rejectPassphraseRef.current?.(err))
+      .finally(() => {
         resolvePassphraseRef.current = null;
-      }
-    })();
+        rejectPassphraseRef.current = null;
+      });
   }, [mek]);
 
   const onRehydrate = useCallback((callback: () => void | Promise<void>) => {

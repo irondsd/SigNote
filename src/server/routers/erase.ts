@@ -5,6 +5,7 @@ import {
   eraseEncryptionProfile,
   eraseFiles,
   eraseNotes,
+  eraseOtp,
   eraseSeals,
   eraseSecrets,
 } from '@/controllers/erase';
@@ -47,6 +48,12 @@ export const eraseRouter = router({
   secrets: protectedProcedure.input(tokenInput).mutation(async ({ ctx, input }) => {
     assertEraseToken(input.token, ctx.userId, ALL_OR_ENC);
     await eraseSecrets(ctx.userId);
+    return { ok: true as const };
+  }),
+
+  otp: protectedProcedure.input(tokenInput).mutation(async ({ ctx, input }) => {
+    assertEraseToken(input.token, ctx.userId, ALL_OR_ENC);
+    await eraseOtp(ctx.userId);
     return { ok: true as const };
   }),
 

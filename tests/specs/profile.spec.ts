@@ -5,6 +5,7 @@ import { injectSession } from '../utils/injectSession';
 import { seedNotes } from '../fixtures/seedNotes';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
+import { seedOtpRecords } from '../fixtures/seedOtpRecords';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { clearSession } from '../utils/clearSession';
 
@@ -57,7 +58,7 @@ test.describe('overview', () => {
 // ─── Statistics ───────────────────────────────────────────────────────────────
 
 test.describe('statistics', () => {
-  test('shows correct note count including archived', async ({ page }) => {
+  test('splits the note count into active and archived', async ({ page }) => {
     const { account } = await setup(page);
 
     await seedNotes(account.address, [
@@ -69,7 +70,8 @@ test.describe('statistics', () => {
     await clearSession(page);
     await page.goto('/profile');
 
-    await expect(page.getByTestId('notes-count')).toHaveText('3');
+    await expect(page.getByTestId('notes-count')).toHaveText('2');
+    await expect(page.getByTestId('notes-archived-count')).toHaveText('1');
   });
 
   test('does not count soft-deleted notes', async ({ page }) => {
@@ -83,27 +85,37 @@ test.describe('statistics', () => {
     await expect(page.getByTestId('notes-count')).toHaveText('1');
   });
 
-  test('shows correct secret and seal counts', async ({ page }) => {
+  test('shows correct secret, seal and auth counts', async ({ page }) => {
     const { account } = await setup(page);
     const { mekBytes } = await seedEncryptionProfile(account.address, 'test-passphrase-abc-123');
 
     await seedSecrets(account.address, mekBytes, [{ title: 'Secret A' }, { title: 'Secret B' }]);
-    await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }]);
+    await seedSeals(account.address, mekBytes, [{ title: 'Seal A' }, { title: 'Seal B', archived: true }]);
+    await seedOtpRecords(account.address, mekBytes, [
+      { issuer: 'GitHub' },
+      { issuer: 'Google' },
+      { issuer: 'Old service', archived: true },
+    ]);
 
     await clearSession(page);
     await page.goto('/profile');
 
     await expect(page.getByTestId('secrets-count')).toHaveText('2');
+    await expect(page.getByTestId('secrets-archived-count')).toHaveText('0');
     await expect(page.getByTestId('seals-count')).toHaveText('1');
+    await expect(page.getByTestId('seals-archived-count')).toHaveText('1');
+    await expect(page.getByTestId('auth-count')).toHaveText('2');
+    await expect(page.getByTestId('auth-archived-count')).toHaveText('1');
   });
 
   test('shows zero counts for new account with no data', async ({ page }) => {
     await setup(page);
     await page.goto('/profile');
 
-    await expect(page.getByTestId('notes-count')).toHaveText('0');
-    await expect(page.getByTestId('secrets-count')).toHaveText('0');
-    await expect(page.getByTestId('seals-count')).toHaveText('0');
+    for (const tier of ['notes', 'secrets', 'seals', 'auth']) {
+      await expect(page.getByTestId(`${tier}-count`)).toHaveText('0');
+      await expect(page.getByTestId(`${tier}-archived-count`)).toHaveText('0');
+    }
   });
 });
 
