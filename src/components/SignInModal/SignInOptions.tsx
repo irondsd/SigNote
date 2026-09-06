@@ -1,6 +1,6 @@
 'use client';
 
-import { Mail } from 'lucide-react';
+import { ArrowLeft, Mail } from 'lucide-react';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { signIn } from 'next-auth/react';
@@ -39,6 +39,27 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
   const [emailOpen, setEmailOpen] = useState(false);
   const lastSignInMethod = useLastSignInMethod();
 
+  // Picking email replaces the list rather than expanding inside it: the two
+  // inputs and their button are the whole task now, and the other methods
+  // would only be noise next to a code field. Back returns to the full list;
+  // a code already sent survives the round trip (EmailCodeForm parks it).
+  if (emailOpen) {
+    return (
+      <>
+        <button
+          type="button"
+          className={s.backButton}
+          onClick={() => setEmailOpen(false)}
+          data-testid="sign-in-back"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+          Other ways to sign in
+        </button>
+        <EmailSignInForm isDesktop={isDesktop} />
+      </>
+    );
+  }
+
   return (
     <>
       {isDesktop ? (
@@ -62,23 +83,19 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
         <span>or</span>
       </div>
 
-      {emailOpen ? (
-        <EmailSignInForm isDesktop={isDesktop} />
-      ) : (
-        <Button
-          variant="outline"
-          onClick={() => {
-            posthog.capture('sign_in_started', { method: 'email', client: isDesktop ? 'desktop' : 'web' });
-            setEmailOpen(true);
-          }}
-          data-testid="email-sign-in-btn"
-          className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
-        >
-          <SignInMethodButtonContent icon={<Mail size={18} />} isLastUsed={lastSignInMethod === 'email'}>
-            Continue with email
-          </SignInMethodButtonContent>
-        </Button>
-      )}
+      <Button
+        variant="outline"
+        onClick={() => {
+          posthog.capture('sign_in_started', { method: 'email', client: isDesktop ? 'desktop' : 'web' });
+          setEmailOpen(true);
+        }}
+        data-testid="email-sign-in-btn"
+        className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
+      >
+        <SignInMethodButtonContent icon={<Mail size={18} />} isLastUsed={lastSignInMethod === 'email'}>
+          Continue with email
+        </SignInMethodButtonContent>
+      </Button>
 
       <SiweSignInButton client={isDesktop ? 'desktop' : 'web'} isLastUsed={lastSignInMethod === 'siwe'} />
     </>

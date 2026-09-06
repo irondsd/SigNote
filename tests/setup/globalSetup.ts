@@ -226,10 +226,11 @@ async function warmSignInModal(baseUrl: string): Promise<void> {
       await expect(page.getByTestId('email-sign-in-btn')).toBeVisible({ timeout: 1000 });
     }).toPass({ timeout: 15000, intervals: [250, 500, 1000] });
     // Both are dynamic imports; waiting on them is what forces the chunks to
-    // load before the parallel workers start clicking through the modal.
+    // load before the parallel workers start clicking through the modal. The
+    // wallet button first: choosing email replaces the list, hiding it.
+    await page.getByTestId('siwe-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
     await page.getByTestId('email-sign-in-btn').click();
     await page.getByTestId('signin-email-email-input').waitFor({ state: 'visible', timeout: 30000 });
-    await page.getByTestId('siwe-sign-in-btn').waitFor({ state: 'visible', timeout: 30000 });
     console.log(`Sign-in modal chunks warmed in ${((Date.now() - started) / 1000).toFixed(1)}s`);
   } catch (err) {
     // A failed warm-up is not a reason to fail the run; the specs still work,

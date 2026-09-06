@@ -103,6 +103,23 @@ test.describe('sign in with an emailed code', () => {
     expect(user!.email).toBe(email.toLowerCase());
   });
 
+  test('choosing email hides the other methods until you go back', async ({ page }) => {
+    await page.goto('/');
+    await openSignInModal(page);
+    await expect(page.getByTestId('siwe-sign-in-btn')).toBeVisible();
+
+    await page.getByTestId('email-sign-in-btn').click();
+    await expect(page.getByTestId('signin-email-email-input')).toBeVisible();
+    await expect(page.getByTestId('google-sign-in-btn')).toHaveCount(0);
+    await expect(page.getByTestId('siwe-sign-in-btn')).toHaveCount(0);
+
+    await page.getByTestId('sign-in-back').click();
+    await expect(page.getByTestId('signin-email-email-input')).toHaveCount(0);
+    await expect(page.getByTestId('google-sign-in-btn')).toBeVisible();
+    await expect(page.getByTestId('email-sign-in-btn')).toBeVisible();
+    await expect(page.getByTestId('siwe-sign-in-btn')).toBeVisible();
+  });
+
   test('a wrong code is refused and grants no session', async ({ page }) => {
     const email = uniqueEmail('wrong');
     await page.goto('/');
