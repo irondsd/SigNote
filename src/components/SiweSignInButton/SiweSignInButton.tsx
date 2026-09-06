@@ -7,8 +7,15 @@ import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { EthereumIcon } from '../icons/SignInIcons';
+import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
 
-export function SiweSignInButton({ client = 'web' }: { client?: 'web' | 'desktop' }) {
+export function SiweSignInButton({
+  client = 'web',
+  isLastUsed = false,
+}: {
+  client?: 'web' | 'desktop';
+  isLastUsed?: boolean;
+}) {
   const { sign, step } = useSiweSign();
 
   const handleSignIn = async () => {
@@ -45,8 +52,9 @@ export function SiweSignInButton({ client = 'web' }: { client?: 'web' | 'desktop
       disabled={step !== 'idle'}
       className="w-full bg-black text-white hover:bg-zinc-800 border-0 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
     >
-      <EthereumIcon />
-      {label}
+      <SignInMethodButtonContent icon={<EthereumIcon />} isLastUsed={isLastUsed}>
+        {label}
+      </SignInMethodButtonContent>
     </Button>
   );
 }

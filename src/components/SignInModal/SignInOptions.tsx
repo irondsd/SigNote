@@ -8,6 +8,8 @@ import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButton/DesktopGoogleSignInButton';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
+import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
+import { useLastSignInMethod } from '@/hooks/useLastSignInMethod';
 import s from './SignInModal.module.scss';
 
 // Loaded on demand: see the note in EmailSignInForm about keeping the tRPC
@@ -35,11 +37,12 @@ type SignInOptionsProps = {
  */
 export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOptionsProps) {
   const [emailOpen, setEmailOpen] = useState(false);
+  const lastSignInMethod = useLastSignInMethod();
 
   return (
     <>
       {isDesktop ? (
-        <DesktopGoogleSignInButton />
+        <DesktopGoogleSignInButton isLastUsed={lastSignInMethod === 'google'} />
       ) : (
         <Button
           onClick={() => {
@@ -49,8 +52,9 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
           data-testid="google-sign-in-btn"
           className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
         >
-          <GoogleIcon />
-          Sign in with Google
+          <SignInMethodButtonContent icon={<GoogleIcon />} isLastUsed={lastSignInMethod === 'google'}>
+            Sign in with Google
+          </SignInMethodButtonContent>
         </Button>
       )}
 
@@ -70,12 +74,13 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
           data-testid="email-sign-in-btn"
           className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
         >
-          <Mail size={18} />
-          Continue with email
+          <SignInMethodButtonContent icon={<Mail size={18} />} isLastUsed={lastSignInMethod === 'email'}>
+            Continue with email
+          </SignInMethodButtonContent>
         </Button>
       )}
 
-      <SiweSignInButton client={isDesktop ? 'desktop' : 'web'} />
+      <SiweSignInButton client={isDesktop ? 'desktop' : 'web'} isLastUsed={lastSignInMethod === 'siwe'} />
     </>
   );
 }
