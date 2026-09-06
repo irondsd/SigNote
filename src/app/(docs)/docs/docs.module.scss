@@ -124,6 +124,16 @@
     border-radius: 8px;
   }
 
+  img[src='/images/factura-favicon.ico'] {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: 0.25em;
+    border-radius: 3px;
+    object-fit: contain;
+    vertical-align: -0.15em;
+  }
+
   @media (max-width: 767px) {
     padding: 24px 16px;
 
