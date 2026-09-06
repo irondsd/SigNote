@@ -116,7 +116,16 @@ describe('sendSignInCodeEmail', () => {
     const mail = mockSendMail.mock.calls[0][0];
     expect(mail.subject).toBe('418207 is your SigNote sign-in code');
     expect(mail.summary).toMatchObject({ template: 'sign-in code', code: '418207' });
-    expect(mail.text).toContain('418');
+    expect(mail.text).toContain('418207');
+  });
+
+  // The halves are spaced with padding, not a separator: a double-click on the
+  // first three digits has to select the whole code.
+  it('keeps the six digits unbroken by any character', async () => {
+    await sendSignInCodeEmail('user@example.com', '418207');
+
+    const { html } = mockSendMail.mock.calls[0][0];
+    expect(html).toContain('>418</span>207');
   });
 
   // Transactional: the sign-in attempt has to know the code never went out.
