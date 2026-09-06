@@ -121,6 +121,8 @@ export function NewAuthModal({ onClose }: NewAuthModalProps) {
     [acceptUri],
   );
 
+  const acceptScan = useCallback((text: string) => void acceptUri(text, 'scan'), [acceptUri]);
+
   // A screenshot on the clipboard is the most common way a QR code exists on a
   // desktop, so paste works anywhere in the modal rather than only in a field.
   useEffect(() => {
@@ -192,7 +194,7 @@ export function NewAuthModal({ onClose }: NewAuthModalProps) {
           </div>
 
           <div className={s.body}>
-            {mode === 'scan' && <QrScanner onResult={(text) => void acceptUri(text, 'scan')} />}
+            {mode === 'scan' && <QrScanner onResult={acceptScan} />}
 
             {mode === 'image' && (
               <div

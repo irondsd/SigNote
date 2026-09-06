@@ -24,6 +24,16 @@ export function QrScanner({ onResult }: QrScannerProps) {
   const [error, setError] = useState<string | null>(null);
   const doneRef = useRef(false);
 
+  // The camera effect must not depend on the callback's identity. The page
+  // behind this modal re-renders on a 250ms TOTP tick, so a caller passing an
+  // inline arrow used to tear the stream down and re-acquire it four times a
+  // second — the camera visibly reopening, and never live long enough to
+  // decode anything but the easiest code.
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
   const stop = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop());
   }, []);
@@ -55,10 +65,12 @@ export function QrScanner({ onResult }: QrScannerProps) {
           const text = await decodeQrFrom(el, el.videoWidth, el.videoHeight);
           if (text && !doneRef.current) {
             doneRef.current = true;
-            onResult(text);
+            onResultRef.current(text);
           }
         }, SCAN_INTERVAL_MS);
       } catch (err) {
+        // Unmounting aborts `play()`; that is not a camera failure.
+        if (cancelled) return;
         // The message is ours, never the browser's: a DOMException message can
         // name devices and is not something to surface verbatim.
         setError(
@@ -74,7 +86,9 @@ export function QrScanner({ onResult }: QrScannerProps) {
       clearInterval(timer);
       stop(stream);
     };
-  }, [onResult, stop]);
+    // Mount-scoped on purpose: acquiring the camera is the expensive, visible
+    // part, and nothing about it depends on a prop.
+  }, [stop]);
 
   if (error) {
     return (
