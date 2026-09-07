@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, screen, session, shell } from 'electron';
 import { AuthCallbackQueue, focusDesktopWindow } from './authCallbackQueue.js';
+import { installContextMenu } from './contextMenu.js';
 import { findDesktopAuthCallback, parseDesktopAuthCallback } from './deepLinks.js';
 import {
   AUTH_CALLBACK_CHANNEL,
@@ -120,6 +121,7 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      spellcheck: true,
       devTools: !app.isPackaged,
       additionalArguments: [`--signote-app-version=${app.getVersion()}`],
     },
@@ -157,6 +159,10 @@ function createWindow(): BrowserWindow {
   window.webContents.setWindowOpenHandler(({ url }) => {
     openExternal(url);
     return { action: 'deny' };
+  });
+  installContextMenu(window, {
+    canOpenExternal: isSafeExternalUrl,
+    openExternal,
   });
 
   window.once('ready-to-show', () => window.show());
