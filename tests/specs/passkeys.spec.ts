@@ -13,8 +13,26 @@ test('signs up, signs back in, and manages passkeys', async ({ page }) => {
   try {
     await page.goto('/');
     await openSignInModal(page);
-    await expect(page.getByTestId('passkey-sign-up-btn')).toBeVisible();
-    await page.getByTestId('passkey-sign-up-btn').click();
+    await expect(page.getByTestId('passkey-create-account-btn')).toHaveCount(0);
+    await page.getByTestId('passkey-sign-in-btn').click();
+    await expect(page.getByText('We couldn’t sign you in with a passkey')).toBeVisible();
+    await expect(page.getByText('A new account will not have access to your existing notes.')).toBeVisible();
+
+    const retry = page.getByTestId('passkey-retry-btn');
+    await retry.click();
+    await expect(retry).toBeEnabled();
+
+    await page.getByTestId('passkey-failure-back').click();
+    await expect(page.getByTestId('email-sign-in-btn')).toBeVisible();
+    await page.getByTestId('passkey-sign-in-btn').click();
+
+    await page.getByTestId('passkey-create-account-btn').click();
+    await expect(page.getByTestId('passkey-create-account-dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Go back' }).click();
+    await expect(page.getByTestId('passkey-create-account-dialog')).toHaveCount(0);
+
+    await page.getByTestId('passkey-create-account-btn').click();
+    await page.getByTestId('passkey-confirm-create-account-btn').click();
     await expectSignedIn(page);
 
     await page.goto('/profile');
@@ -66,7 +84,9 @@ test('account erasure deletes the passkey and makes it unusable', async ({ page 
   try {
     await page.goto('/');
     await openSignInModal(page);
-    await page.getByTestId('passkey-sign-up-btn').click();
+    await page.getByTestId('passkey-sign-in-btn').click();
+    await page.getByTestId('passkey-create-account-btn').click();
+    await page.getByTestId('passkey-confirm-create-account-btn').click();
     await expectSignedIn(page);
 
     const { userId } = await trpcData<{ userId: string }>(await trpcQuery(page.request, 'me'));
@@ -85,7 +105,7 @@ test('account erasure deletes the passkey and makes it unusable', async ({ page 
     await page.goto('/');
     await openSignInModal(page);
     await page.getByTestId('passkey-sign-in-btn').click();
-    await expect(page.getByText('Passkey sign-in failed. Please try again.')).toBeVisible();
+    await expect(page.getByText('We couldn’t sign you in with a passkey')).toBeVisible();
     expect(await testDb().select().from(schema.users).where(eq(schema.users.id, userId))).toHaveLength(0);
   } finally {
     await authenticator.dispose();
