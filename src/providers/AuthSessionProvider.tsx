@@ -8,6 +8,7 @@ import { queryCacheStorage } from '@/lib/idb';
 import { clearDraft } from '@/lib/draft';
 import { DesktopAuthCallbackHandler } from '@/components/DesktopAuthCallbackHandler/DesktopAuthCallbackHandler';
 import { rememberLastSignInMethod } from '@/lib/lastSignInMethod';
+import { removeAllVaults } from '@/lib/otpStore';
 
 type AuthSessionProviderProps = {
   children: ReactNode;
@@ -22,11 +23,16 @@ function SessionCleanup() {
   }, [session?.authProvider, status]);
   useEffect(() => {
     if (status === 'unauthenticated') {
-      // The query cache is account data and must be removed on sign-out. Drafts
-      // are recovery data, though: an expired session may be the very reason a
-      // save failed, so deleting them here would turn an auth failure into data
-      // loss. They are cleared only after a confirmed save or explicit discard.
+      // Account data must be removed once sign-out is confirmed. The service
+      // worker supplies the cached authenticated session when the network is
+      // unavailable, so ordinary offline use does not enter this branch.
       queryCacheStorage.removeItem('signote-query-cache');
+      void removeAllVaults().catch(() => undefined);
+
+      // Drafts are recovery data, though: an expired session may be the very
+      // reason a save failed, so deleting them here would turn an auth failure
+      // into data loss. They are cleared only after a confirmed save or
+      // explicit discard.
     }
   }, [status]);
   useEffect(() => {

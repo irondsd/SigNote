@@ -1,9 +1,9 @@
 export const LAST_SIGN_IN_METHOD_KEY = 'signote-last-sign-in-method';
 
-export type SignInMethod = 'google' | 'email' | 'siwe';
+export type SignInMethod = 'google' | 'email' | 'siwe' | 'passkey';
 
 const isSignInMethod = (value: string | null): value is SignInMethod =>
-  value === 'google' || value === 'email' || value === 'siwe';
+  value === 'google' || value === 'email' || value === 'siwe' || value === 'passkey';
 
 export function getLastSignInMethod(): SignInMethod | null {
   if (typeof window === 'undefined') return null;

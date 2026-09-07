@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Fingerprint, Loader2 } from 'lucide-react';
 import { HTTPError } from 'ky';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover
 import { useDesktopApp } from '@/hooks/useDesktopApp';
 import { useIdentities, useUnlinkIdentity } from '@/hooks/useIdentities';
 import { useEmailMethod } from '@/hooks/useEmailAuth';
+import { usePasskeys } from '@/hooks/usePasskeys';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { shortenAddress } from '@/utils/shortenAddress';
 import { api } from '@/lib/api';
@@ -26,15 +28,18 @@ import s from './SignInMethods.module.scss';
  */
 export function SignInMethodsList() {
   const isDesktop = useDesktopApp();
-  const { data: identities, isLoading } = useIdentities();
+  const { data: identities, isLoading: identitiesLoading } = useIdentities();
+  const { data: passkeys, isLoading: passkeysLoading } = usePasskeys();
   const { mutate: unlink, isPending: isUnlinking } = useUnlinkIdentity();
   const { sign, step: siweStep } = useSiweSign();
 
-  const { data: emailMethod } = useEmailMethod();
+  const { data: emailMethod, isLoading: emailLoading } = useEmailMethod();
+  const isLoading = identitiesLoading || passkeysLoading || emailLoading;
+  const passkeyCount = passkeys?.length ?? 0;
 
   // The address counts as a sign-in method, so the last identity is only
   // un-unlinkable when there is no address to fall back to.
-  const isOnlyOne = (identities?.length ?? 0) <= 1 && !emailMethod?.email;
+  const isOnlyOne = (identities?.length ?? 0) + passkeyCount <= 1 && !emailMethod?.email;
 
   const getApiErrorCode = async (err: unknown) => {
     if (!(err instanceof HTTPError)) return null;
@@ -101,7 +106,7 @@ export function SignInMethodsList() {
       </CardHeader>
       <CardContent className={s.body}>
         {isLoading ? (
-          <SignInMethodsSkeleton rows={3} />
+          <SignInMethodsSkeleton rows={4} />
         ) : (
           providers.map((provider, index) => {
             const identity = identities?.find((item) => item.provider === provider.id);
@@ -182,6 +187,23 @@ export function SignInMethodsList() {
         )}
         {!isLoading && (
           <>
+            <div className={s.divider} />
+            <div className={s.identityRow} data-testid="identity-passkey">
+              <div className={s.identityIcon}>
+                <Fingerprint size={17} strokeWidth={1.8} aria-hidden="true" />
+              </div>
+              <div className={s.identityInfo}>
+                <span className={s.identityLabel}>Passkeys</span>
+                {passkeyCount > 0 && (
+                  <span className={s.identitySubject}>
+                    {passkeyCount} {passkeyCount === 1 ? 'passkey' : 'passkeys'}
+                  </span>
+                )}
+              </div>
+              <Button variant="outline" size="sm" asChild data-testid="manage-passkeys-btn">
+                <Link href="/passkeys">{passkeyCount === 0 ? 'Set up' : 'Manage'}</Link>
+              </Button>
+            </div>
             <div className={s.divider} />
             {/* Prefilled with the address Google reported when it never verified
                 it — that account has no email, and this is how it gets one. */}

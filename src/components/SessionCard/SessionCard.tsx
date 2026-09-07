@@ -1,7 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { Monitor, Smartphone, Tablet, HelpCircle, LogOut, KeyRound, Wallet, Loader2, Mail } from 'lucide-react';
+import {
+  Monitor,
+  Smartphone,
+  Tablet,
+  HelpCircle,
+  LogOut,
+  KeyRound,
+  Wallet,
+  Loader2,
+  Mail,
+  Fingerprint,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,12 +53,14 @@ const renderDeviceIcon = (deviceType: SessionRow['deviceType'], className: strin
 const renderProviderIcon = (provider: SessionRow['provider']) => {
   if (provider === 'siwe') return <Wallet size={12} strokeWidth={1.6} />;
   if (provider === 'email') return <Mail size={12} strokeWidth={1.6} />;
+  if (provider === 'passkey') return <Fingerprint size={12} strokeWidth={1.6} />;
   return <KeyRound size={12} strokeWidth={1.6} />;
 };
 
 const providerLabelFor = (provider: SessionRow['provider']) => {
   if (provider === 'siwe') return 'Ethereum wallet';
   if (provider === 'email') return 'Email code';
+  if (provider === 'passkey') return 'Passkey';
   return 'Google';
 };
 

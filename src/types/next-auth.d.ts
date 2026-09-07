@@ -9,7 +9,7 @@ declare module 'next-auth' {
     user: {
       id: string;
     } & DefaultSession['user'];
-    authProvider?: 'google' | 'siwe' | 'email';
+    authProvider?: 'google' | 'siwe' | 'email' | 'passkey';
   }
 }
 
@@ -27,7 +27,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     sid?: string;
-    provider?: 'google' | 'siwe' | 'email';
+    provider?: 'google' | 'siwe' | 'email' | 'passkey';
     client?: 'web' | 'desktop';
   }
 }

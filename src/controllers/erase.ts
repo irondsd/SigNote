@@ -7,6 +7,7 @@ import {
   notes,
   notificationPreferences,
   otpRecords,
+  passkeyCredentials,
   sealNotes,
   secretNotes,
   users,
@@ -35,5 +36,6 @@ export const eraseAccount = async (userId: string) => {
     getDb().delete(users).where(eq(users.id, userId)),
     getDb().delete(authIdentities).where(eq(authIdentities.userId, userId)),
     getDb().delete(notificationPreferences).where(eq(notificationPreferences.userId, userId)),
+    getDb().delete(passkeyCredentials).where(eq(passkeyCredentials.userId, userId)),
   ]);
 };

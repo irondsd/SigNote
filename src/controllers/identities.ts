@@ -6,11 +6,15 @@ import {
   authIdentities,
   encryptionProfiles,
   notes,
+  passkeyCredentials,
   sealNotes,
   secretNotes,
   users,
-  type AuthProvider,
+  type IdentityProvider,
 } from '@/db/schema';
+import { countSignInMethods, lockSignInMethods } from './signInMethods';
+
+export { countSignInMethods } from './signInMethods';
 
 export class ConflictEncryptedDataError extends Error {
   constructor() {
@@ -36,7 +40,7 @@ export class LastIdentityError extends Error {
 export type IdentityRow = {
   _id: string;
   userId: string;
-  provider: AuthProvider;
+  provider: IdentityProvider;
   providerSubject: string;
   email?: string;
   emailVerified?: boolean;
@@ -70,7 +74,7 @@ export const getUserIdentities = async (userId: string): Promise<IdentityRow[]> 
 
 export const linkIdentity = async (
   primaryUserId: string,
-  provider: AuthProvider,
+  provider: IdentityProvider,
   providerSubject: string,
   identityData: Record<string, unknown>,
 ) => {
@@ -131,6 +135,13 @@ export const linkIdentity = async (
       // so an `email_owner_identity_id` pointing at one stays valid.
       await tx.update(authIdentities).set({ userId: primaryUserId }).where(eq(authIdentities.userId, secondaryUserId));
 
+      // Passkeys are sibling sign-in methods rather than auth identities, but
+      // they must follow the account through the same merge.
+      await tx
+        .update(passkeyCredentials)
+        .set({ userId: primaryUserId })
+        .where(eq(passkeyCredentials.userId, secondaryUserId));
+
       // Delete secondary user record
       await tx.delete(users).where(eq(users.id, secondaryUserId));
 
@@ -166,27 +177,31 @@ export const linkIdentity = async (
 export const unlinkIdentity = async (userId: string, provider: string): Promise<boolean> => {
   const db = getDb();
 
-  // "Keep at least one sign-in method" now counts the email address too: an
-  // account whose only identity is Google, but which holds an address, can drop
-  // Google and still get back in with a code. The address survives the unlink
-  // (see `releaseEmailOwnership`), so it is a real way in, not a promise.
-  const [total, emailRows] = await Promise.all([
-    db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId)),
-    db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
-  ]);
-  if (Number(total[0].n) <= 1 && !emailRows[0]?.email) {
-    throw new LastIdentityError();
-  }
+  return db.transaction(async (tx) => {
+    if (!(await lockSignInMethods(userId, tx))) return false;
 
-  const deleted = await db
-    .delete(authIdentities)
-    .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as AuthProvider)))
-    .returning({ id: authIdentities.id });
+    const identity = await tx
+      .select({ id: authIdentities.id })
+      .from(authIdentities)
+      .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
+      .limit(1);
+    if (!identity[0]) return false;
 
-  // The address this identity proved stays on the account — removing one
-  // sign-in method must not silently remove a second. It only becomes
-  // unowned, and so detachable by hand.
-  await releaseEmailOwnership(deleted.map((row) => row.id));
+    if ((await countSignInMethods(userId, tx)) <= 1) throw new LastIdentityError();
 
-  return deleted.length > 0;
+    const deleted = await tx
+      .delete(authIdentities)
+      .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
+      .returning({ id: authIdentities.id });
+
+    // The address this identity proved stays on the account — removing one
+    // sign-in method must not silently remove a second. It only becomes
+    // unowned, and so detachable by hand.
+    await releaseEmailOwnership(
+      deleted.map((row) => row.id),
+      tx,
+    );
+
+    return deleted.length > 0;
+  });
 };

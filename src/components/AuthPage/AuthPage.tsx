@@ -100,10 +100,7 @@ export function AuthPage({ archived }: AuthPageProps) {
       );
     }
 
-    // Unlike every other vault page this one does not redirect when the session
-    // goes away: a stored code is often exactly what the user needs in order to
-    // sign back in. The sign-in card appears only when there is nothing local.
-    if (vault.phase === 'signed-out') return <UnauthenticatedState />;
+    if (status === 'unauthenticated' || vault.phase === 'signed-out') return <UnauthenticatedState />;
 
     if (encryptionPhase === 'setup') return <EncryptionSetup />;
 
@@ -119,6 +116,7 @@ export function AuthPage({ archived }: AuthPageProps) {
   };
 
   const banner = () => {
+    if (status !== 'authenticated') return null;
     if (vault.phase !== 'ready') return null;
     if (vault.syncState === 'signed-out') {
       return <p className={s.banner}>Sync is paused — sign in again to add or change credentials.</p>;
@@ -156,7 +154,7 @@ export function AuthPage({ archived }: AuthPageProps) {
           title="Auth"
           showSearch={false}
           actions={
-            vault.phase === 'ready' ? (
+            status === 'authenticated' && vault.phase === 'ready' ? (
               <>
                 {records.length > 0 && (
                   <span className={s.clock} data-testid="auth-clock">
@@ -187,11 +185,11 @@ export function AuthPage({ archived }: AuthPageProps) {
       {banner()}
       {body()}
 
-      {PassphraseGuard}
+      {status === 'authenticated' && PassphraseGuard}
 
-      {showNew && <NewAuthModal onClose={() => setShowNew(false)} />}
+      {status === 'authenticated' && showNew && <NewAuthModal onClose={() => setShowNew(false)} />}
 
-      {editing?.secrets && (
+      {status === 'authenticated' && editing?.secrets && (
         <EditAuthDialog
           secrets={editing.secrets}
           onSave={(next) => vault.updateSecrets(editing.id, next)}
@@ -199,9 +197,11 @@ export function AuthPage({ archived }: AuthPageProps) {
         />
       )}
 
-      {exporting?.secrets && <ExportAuthDialog secrets={exporting.secrets} onClose={() => setExporting(null)} />}
+      {status === 'authenticated' && exporting?.secrets && (
+        <ExportAuthDialog secrets={exporting.secrets} onClose={() => setExporting(null)} />
+      )}
 
-      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+      <AlertDialog open={status === 'authenticated' && !!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this credential?</AlertDialogTitle>

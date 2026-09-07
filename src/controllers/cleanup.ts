@@ -11,6 +11,7 @@ import {
   emailSignInCodes,
   fileAttachments,
   notes,
+  passkeyChallenges,
   sealNotes,
   secretNotes,
 } from '@/db/schema';
@@ -62,6 +63,12 @@ export async function cleanupExpiredRows() {
     .where(lt(emailSignInCodes.expiresAt, now))
     .returning({ id: emailSignInCodes.id });
   removed.emailSignInCodes = codes.length;
+
+  const passkeyChallengeRows = await db
+    .delete(passkeyChallenges)
+    .where(lt(passkeyChallenges.expiresAt, now))
+    .returning({ challenge: passkeyChallenges.challenge });
+  removed.passkeyChallenges = passkeyChallengeRows.length;
 
   const attempts = await db
     .delete(desktopAuthAttempts)

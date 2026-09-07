@@ -17,7 +17,14 @@ export const handleUnauthorized = async () => {
     // BroadcastChannel unavailable (e.g. very old browser); harmless.
   }
 
-  const [{ signOut }, { toast }] = await Promise.all([import('next-auth/react'), import('sonner')]);
+  const [{ signOut }, { toast }, { removeAllVaults }] = await Promise.all([
+    import('next-auth/react'),
+    import('sonner'),
+    import('@/lib/otpStore'),
+  ]);
+  // A browser storage failure must not prevent the revoked server session from
+  // being removed client-side. The Auth page is gated by session state too.
+  await removeAllVaults().catch(() => undefined);
   toast.error('Your session ended. Please sign in again.');
   await signOut({ callbackUrl: '/' });
 };

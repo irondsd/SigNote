@@ -1,7 +1,8 @@
-import { count, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
-import { getDb } from '@/db/client';
-import { authIdentities, users } from '@/db/schema';
+import { getDb, type Db } from '@/db/client';
+import { users } from '@/db/schema';
+import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
 /**
  * Ownership rules for `users.email`.
@@ -68,12 +69,9 @@ export const claimEmailForUser = async (params: {
  * removing a different one is how people get locked out. It simply becomes
  * unowned, and therefore detachable by hand.
  */
-export const releaseEmailOwnership = async (identityIds: string[]): Promise<void> => {
+export const releaseEmailOwnership = async (identityIds: string[], db: Db = getDb()): Promise<void> => {
   if (identityIds.length === 0) return;
-  await getDb()
-    .update(users)
-    .set({ emailOwnerIdentityId: null })
-    .where(inArray(users.emailOwnerIdentityId, identityIds));
+  await db.update(users).set({ emailOwnerIdentityId: null }).where(inArray(users.emailOwnerIdentityId, identityIds));
 };
 
 export type UserEmail = {
@@ -111,29 +109,31 @@ export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email
  * release — you unlink Google, not the address it vouched for. And an address
  * may not be removed when it is the only way back in: with the email counted
  * as a credential, "keep at least one sign-in method" means at least one
- * identity has to remain.
+ * another method has to remain.
  */
 export const detachEmail = async (userId: string): Promise<DetachOutcome> => {
   const db = getDb();
 
-  const [rows, identities] = await Promise.all([
-    db
+  return db.transaction(async (tx) => {
+    if (!(await lockSignInMethods(userId, tx))) return 'no-email';
+
+    const rows = await tx
       .select({ email: users.email, owner: users.emailOwnerIdentityId })
       .from(users)
       .where(eq(users.id, userId))
-      .limit(1),
-    db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId)),
-  ]);
+      .limit(1);
 
-  const row = rows[0];
-  if (!row?.email) return 'no-email';
-  if (row.owner) return 'owned';
-  if (Number(identities[0].n) === 0) return 'last-credential';
+    const row = rows[0];
+    if (!row?.email) return 'no-email';
+    if (row.owner) return 'owned';
+    // The count includes the address being removed.
+    if ((await countSignInMethods(userId, tx)) <= 1) return 'last-credential';
 
-  await db
-    .update(users)
-    .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
-    .where(eq(users.id, userId));
+    await tx
+      .update(users)
+      .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
+      .where(eq(users.id, userId));
 
-  return 'detached';
+    return 'detached';
+  });
 };
