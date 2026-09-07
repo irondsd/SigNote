@@ -1,3 +1,4 @@
+import { withPostHogConfig } from '@posthog/nextjs-config';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
 
@@ -73,4 +74,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+export default withPostHogConfig(withSerwist(nextConfig), {
+  personalApiKey: process.env.POSTHOG_API_KEY!,
+  projectId: process.env.POSTHOG_PROJECT_ID,
+  host: process.env.POSTHOG_HOST,
+  sourcemaps: {
+    enabled: true,
+    deleteAfterUpload: true,
+  },
+});

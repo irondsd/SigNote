@@ -42,6 +42,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@irondsd/inline-svg": "^1.0.1",
+    "@posthog/nextjs-config": "^1.11.1",
     "@rainbow-me/rainbowkit": "^2.2.11",
     "@react-email/components": "^1.0.12",
     "@serwist/next": "^9.5.12",
