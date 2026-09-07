@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { AuthCallbackQueue, focusDesktopWindow } from '../src/authCallbackQueue';
 import { createDesktopBridge, type DesktopIpc } from '../src/bridge';
-import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from '../src/security';
+import {
+  isAllowedAppNavigation,
+  isAllowedBrowserLoginUrl,
+  isAllowedPermission,
+  isSafeExternalUrl,
+  resolveAppOrigin,
+} from '../src/security';
 import { findDesktopAuthCallback, parseDesktopAuthCallback } from '../src/deepLinks';
 import { AUTH_CALLBACK_CHANNEL, AUTH_CALLBACK_READY_CHANNEL, START_BROWSER_LOGIN_CHANNEL } from '../src/ipc';
 
@@ -158,5 +164,33 @@ describe('navigation policy', () => {
     expect(isSafeExternalUrl('mailto:user@example.com')).toBe(false);
     expect(isSafeExternalUrl('https://user:password@example.com')).toBe(false);
     expect(isSafeExternalUrl('signote://auth/callback')).toBe(false);
+  });
+});
+
+describe('permission policy', () => {
+  const appOrigin = new URL('https://signote.tech');
+
+  test('grants clipboard write to the application origin', () => {
+    expect(isAllowedPermission('clipboard-sanitized-write', 'https://signote.tech/notes', appOrigin)).toBe(true);
+  });
+
+  test('denies clipboard write from any other origin', () => {
+    expect(isAllowedPermission('clipboard-sanitized-write', 'https://evil.signote.tech', appOrigin)).toBe(false);
+    expect(isAllowedPermission('clipboard-sanitized-write', 'http://signote.tech', appOrigin)).toBe(false);
+    expect(isAllowedPermission('clipboard-sanitized-write', 'not a url', appOrigin)).toBe(false);
+  });
+
+  test('denies every other permission, clipboard reads included', () => {
+    for (const permission of [
+      'clipboard-read',
+      'deprecated-sync-clipboard-read',
+      'geolocation',
+      'media',
+      'notifications',
+      'openExternal',
+      'unknown',
+    ]) {
+      expect(isAllowedPermission(permission, 'https://signote.tech', appOrigin)).toBe(false);
+    }
   });
 });

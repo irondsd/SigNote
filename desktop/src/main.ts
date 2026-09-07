@@ -8,7 +8,13 @@ import {
   START_BROWSER_LOGIN_CHANNEL,
   type DesktopAuthCallback,
 } from './ipc.js';
-import { isAllowedAppNavigation, isAllowedBrowserLoginUrl, isSafeExternalUrl, resolveAppOrigin } from './security.js';
+import {
+  isAllowedAppNavigation,
+  isAllowedBrowserLoginUrl,
+  isAllowedPermission,
+  isSafeExternalUrl,
+  resolveAppOrigin,
+} from './security.js';
 import { isWindowVisible, loadWindowState, saveWindowState } from './windowState.js';
 
 const PROTOCOL = 'signote';
@@ -58,8 +64,12 @@ function openExternal(rawUrl: string): void {
 async function configureSession(): Promise<void> {
   const desktopSession = session.fromPartition(SESSION_PARTITION);
 
-  desktopSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  desktopSession.setPermissionCheckHandler(() => false);
+  desktopSession.setPermissionRequestHandler((_webContents, permission, callback, details) =>
+    callback(isAllowedPermission(permission, details.requestingUrl, appOrigin)),
+  );
+  desktopSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) =>
+    isAllowedPermission(permission, requestingOrigin, appOrigin),
+  );
   await desktopSession.clearStorageData({ storages: ['serviceworkers'] });
 }
 

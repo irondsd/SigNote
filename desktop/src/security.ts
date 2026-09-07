@@ -62,3 +62,20 @@ export function isAllowedBrowserLoginUrl(rawUrl: string, appOrigin: URL): boolea
     return false;
   }
 }
+
+// The renderer's only permission. `navigator.clipboard.writeText` goes through
+// Chromium's permission layer, so the deny-everything handler took "copy" with
+// it — a 2FA code that is blurred until hover cannot be read any other way.
+// Sanitized write is the narrow half of the clipboard pair: the page hands the
+// OS a string, and never gets to read what is already there.
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write']);
+
+export function isAllowedPermission(permission: string, requestingOrigin: string, appOrigin: URL): boolean {
+  if (!ALLOWED_PERMISSIONS.has(permission)) return false;
+
+  try {
+    return new URL(requestingOrigin).origin === appOrigin.origin;
+  } catch {
+    return false;
+  }
+}
