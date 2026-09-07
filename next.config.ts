@@ -3,6 +3,8 @@ import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const posthogProjectId = process.env.POSTHOG_PROJECT_ID;
+const posthogApiKey = process.env.POSTHOG_API_KEY;
 
 const withSerwist = withSerwistInit({
   swSrc: 'src/sw.ts',
@@ -74,12 +76,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPostHogConfig(withSerwist(nextConfig), {
-  personalApiKey: process.env.POSTHOG_API_KEY!,
-  projectId: process.env.POSTHOG_PROJECT_ID,
-  host: process.env.POSTHOG_HOST,
-  sourcemaps: {
-    enabled: true,
-    deleteAfterUpload: true,
-  },
-});
+const configWithSerwist = withSerwist(nextConfig);
+
+// Sourcemap uploads are opt-in so local and E2E builds do not need PostHog's
+// private build-time credentials. Vercel enables them by setting the project ID.
+export default posthogProjectId && posthogApiKey
+  ? withPostHogConfig(configWithSerwist, {
+      personalApiKey: posthogApiKey,
+      projectId: posthogProjectId,
+      host: process.env.POSTHOG_HOST,
+      sourcemaps: {
+        enabled: true,
+        deleteAfterUpload: true,
+      },
+    })
+  : configWithSerwist;
