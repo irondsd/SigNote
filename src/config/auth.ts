@@ -16,12 +16,7 @@ import {
   recordPasskeyUse,
 } from '@/controllers/passkeys';
 import { sendWelcomeEmail } from '@/lib/notificationEmails';
-import {
-  readWebAuthnChallenge,
-  readWebAuthnUserHandle,
-  verifyPasskeyAuthentication,
-  verifyPasskeyRegistration,
-} from '@/lib/passkeys';
+import { readWebAuthnChallenge, verifyPasskeyAuthentication, verifyPasskeyRegistration } from '@/lib/passkeys';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
@@ -130,7 +125,6 @@ export const authOptions: NextAuthOptions = {
 
             const passkey = await findPasskeyByCredentialId(response.id);
             if (!passkey) return null;
-            if (readWebAuthnUserHandle(response) !== passkey.userId) return null;
             const verified = await verifyPasskeyAuthentication(response, challengeRow.challenge, passkey);
             if (!verified) return null;
 
@@ -145,10 +139,9 @@ export const authOptions: NextAuthOptions = {
             const challenge = readWebAuthnChallenge(response);
             if (!challenge) return null;
 
-            // No expected user here: sign-up challenges carry a provisional id.
-            // `createPasskeyUser` rejects the row if that id already belongs to
-            // a real account, so a protected link challenge cannot become a signup.
-            const challengeRow = await consumeChallenge({ challenge, kind: 'register' });
+            // Sign-up has its own challenge pool. A protected registration can
+            // never be burned or redeemed through this signed-out flow.
+            const challengeRow = await consumeChallenge({ challenge, kind: 'signup' });
             if (!challengeRow?.userId) return null;
             const verified = await verifyPasskeyRegistration(response, challengeRow.challenge);
             if (!verified) return null;

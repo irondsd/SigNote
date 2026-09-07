@@ -66,15 +66,6 @@ export function readWebAuthnChallenge(response: RegistrationResponseJSON | Authe
   }
 }
 
-export function readWebAuthnUserHandle(response: AuthenticationResponseJSON): string | null {
-  if (!response.response.userHandle) return null;
-  try {
-    return Buffer.from(response.response.userHandle, 'base64url').toString('utf8');
-  } catch {
-    return null;
-  }
-}
-
 export async function verifyPasskeyRegistration(response: RegistrationResponseJSON, expectedChallenge: string) {
   const config = getPasskeyRpConfig();
   const result = await verifyRegistrationResponse({

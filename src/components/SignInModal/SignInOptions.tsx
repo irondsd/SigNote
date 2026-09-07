@@ -51,7 +51,7 @@ type SignInOptionsProps = {
  */
 export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOptionsProps) {
   const [emailOpen, setEmailOpen] = useState(false);
-  const [passkeyFailed, setPasskeyFailed] = useState(false);
+  const [passkeyOutcome, setPasskeyOutcome] = useState<'cancelled' | 'failed' | null>(null);
   const [passkeyAction, setPasskeyAction] = useState<'sign-in' | 'sign-up' | null>(null);
   const lastSignInMethod = useLastSignInMethod();
   const supportsPasskeys = usePasskeySupport();
@@ -63,7 +63,7 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
     if (outcome === 'success') return;
 
     if (flow === 'sign-in') {
-      setPasskeyFailed(true);
+      setPasskeyOutcome(outcome);
       return;
     }
 
@@ -86,13 +86,13 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
     );
   }
 
-  if (passkeyFailed && !isDesktop) {
+  if (passkeyOutcome && !isDesktop) {
     return (
       <>
         <button
           type="button"
           className={s.backButton}
-          onClick={() => setPasskeyFailed(false)}
+          onClick={() => setPasskeyOutcome(null)}
           data-testid="passkey-failure-back"
         >
           <ArrowLeft size={16} aria-hidden="true" />
@@ -104,7 +104,11 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
             <Fingerprint size={22} aria-hidden="true" />
           </span>
           <div>
-            <h3>We couldn’t sign you in with a passkey</h3>
+            <h3>
+              {passkeyOutcome === 'cancelled'
+                ? 'Passkey sign-in wasn’t completed'
+                : 'We couldn’t sign you in with a passkey'}
+            </h3>
             <p>
               Your passkey may be saved on another device or in a different password manager. Try again and choose “Use
               another device” if your browser offers it.

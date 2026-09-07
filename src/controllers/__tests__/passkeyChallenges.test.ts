@@ -32,6 +32,14 @@ describe('passkey challenges', () => {
     expect(await consumeChallenge({ challenge: 'challenge-2', kind: 'register', userId: 'user-a' })).not.toBeNull();
   });
 
+  it('keeps protected registration and signed-out signup in separate challenge pools', async () => {
+    await createChallenge({ challenge: 'link-challenge', kind: 'register', userId: 'user-a', ip: '' });
+
+    expect(await consumeChallenge({ challenge: 'link-challenge', kind: 'signup' })).toBeNull();
+    // A cross-pool attempt neither redeems nor burns the protected challenge.
+    expect(await consumeChallenge({ challenge: 'link-challenge', kind: 'register', userId: 'user-a' })).not.toBeNull();
+  });
+
   it('rejects expired challenges', async () => {
     await createChallenge({ challenge: 'expired', kind: 'register', userId: 'user-a', ip: '' });
     await db

@@ -4,6 +4,7 @@ import type { Db } from '@/db/client';
 import { authIdentities, passkeyCredentials, users } from '@/db/schema';
 import { LastIdentityError, countSignInMethods } from '@/controllers/identities';
 import {
+  createPasskeyUser,
   deletePasskey,
   findPasskeyByCredentialId,
   insertPasskey,
@@ -85,5 +86,48 @@ describe('passkeys controller', () => {
 
     expect(await countSignInMethods(userId)).toBe(3);
     expect(await db.select().from(passkeyCredentials)).toHaveLength(1);
+  });
+
+  it('creates a passkey-only user and credential atomically', async () => {
+    const result = await createPasskeyUser({
+      userId: 'new-passkey-user',
+      credentialId: 'new-user-credential',
+      publicKey: 'cHVibGljLWtleQ',
+      counter: 0,
+      transports: ['internal'],
+      aaguid: '00000000-0000-0000-0000-000000000000',
+      deviceType: 'singleDevice',
+      backedUp: false,
+      nickname: 'Laptop',
+    });
+
+    expect(result).toMatchObject({
+      user: { id: 'new-passkey-user', displayName: 'Passkey user' },
+      credential: { userId: 'new-passkey-user', credentialId: 'new-user-credential' },
+      created: true,
+    });
+    expect(await db.select().from(users).where(eq(users.id, 'new-passkey-user'))).toHaveLength(1);
+    expect(
+      await db.select().from(passkeyCredentials).where(eq(passkeyCredentials.userId, 'new-passkey-user')),
+    ).toHaveLength(1);
+  });
+
+  it('refuses to create a passkey account with an existing user id', async () => {
+    const result = await createPasskeyUser({
+      userId,
+      credentialId: 'must-not-be-inserted',
+      publicKey: 'cHVibGljLWtleQ',
+      counter: 0,
+      transports: [],
+      aaguid: '00000000-0000-0000-0000-000000000000',
+      deviceType: 'multiDevice',
+      backedUp: true,
+      nickname: 'Synced passkey',
+    });
+
+    expect(result).toBeNull();
+    expect(
+      await db.select().from(passkeyCredentials).where(eq(passkeyCredentials.credentialId, 'must-not-be-inserted')),
+    ).toHaveLength(0);
   });
 });

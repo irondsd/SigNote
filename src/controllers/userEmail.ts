@@ -1,8 +1,8 @@
 import { eq, inArray, sql } from 'drizzle-orm';
 
-import { getDb } from '@/db/client';
+import { getDb, type Db } from '@/db/client';
 import { users } from '@/db/schema';
-import { countSignInMethods } from './signInMethods';
+import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
 /**
  * Ownership rules for `users.email`.
@@ -69,12 +69,9 @@ export const claimEmailForUser = async (params: {
  * removing a different one is how people get locked out. It simply becomes
  * unowned, and therefore detachable by hand.
  */
-export const releaseEmailOwnership = async (identityIds: string[]): Promise<void> => {
+export const releaseEmailOwnership = async (identityIds: string[], db: Db = getDb()): Promise<void> => {
   if (identityIds.length === 0) return;
-  await getDb()
-    .update(users)
-    .set({ emailOwnerIdentityId: null })
-    .where(inArray(users.emailOwnerIdentityId, identityIds));
+  await db.update(users).set({ emailOwnerIdentityId: null }).where(inArray(users.emailOwnerIdentityId, identityIds));
 };
 
 export type UserEmail = {
@@ -117,25 +114,26 @@ export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email
 export const detachEmail = async (userId: string): Promise<DetachOutcome> => {
   const db = getDb();
 
-  const [rows, methods] = await Promise.all([
-    db
+  return db.transaction(async (tx) => {
+    if (!(await lockSignInMethods(userId, tx))) return 'no-email';
+
+    const rows = await tx
       .select({ email: users.email, owner: users.emailOwnerIdentityId })
       .from(users)
       .where(eq(users.id, userId))
-      .limit(1),
-    countSignInMethods(userId),
-  ]);
+      .limit(1);
 
-  const row = rows[0];
-  if (!row?.email) return 'no-email';
-  if (row.owner) return 'owned';
-  // The count includes the address being removed.
-  if (methods <= 1) return 'last-credential';
+    const row = rows[0];
+    if (!row?.email) return 'no-email';
+    if (row.owner) return 'owned';
+    // The count includes the address being removed.
+    if ((await countSignInMethods(userId, tx)) <= 1) return 'last-credential';
 
-  await db
-    .update(users)
-    .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
-    .where(eq(users.id, userId));
+    await tx
+      .update(users)
+      .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
+      .where(eq(users.id, userId));
 
-  return 'detached';
+    return 'detached';
+  });
 };

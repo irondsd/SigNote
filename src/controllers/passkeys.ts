@@ -3,7 +3,7 @@ import { and, count, desc, eq } from 'drizzle-orm';
 import { getDb } from '@/db/client';
 import { passkeyCredentials, users, type PasskeyDeviceType } from '@/db/schema';
 import { LastIdentityError } from './identities';
-import { countSignInMethods } from './signInMethods';
+import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
 export type PasskeyInsert = {
   userId: string;
@@ -77,19 +77,23 @@ export async function renamePasskey(userId: string, id: string, nickname: string
 }
 
 export async function deletePasskey(userId: string, id: string): Promise<boolean> {
-  const existing = await getDb()
-    .select({ id: passkeyCredentials.id })
-    .from(passkeyCredentials)
-    .where(and(eq(passkeyCredentials.id, id), eq(passkeyCredentials.userId, userId)))
-    .limit(1);
-  if (!existing[0]) return false;
-  if ((await countSignInMethods(userId)) <= 1) throw new LastIdentityError();
+  return getDb().transaction(async (tx) => {
+    if (!(await lockSignInMethods(userId, tx))) return false;
 
-  const rows = await getDb()
-    .delete(passkeyCredentials)
-    .where(and(eq(passkeyCredentials.id, id), eq(passkeyCredentials.userId, userId)))
-    .returning({ id: passkeyCredentials.id });
-  return rows.length > 0;
+    const existing = await tx
+      .select({ id: passkeyCredentials.id })
+      .from(passkeyCredentials)
+      .where(and(eq(passkeyCredentials.id, id), eq(passkeyCredentials.userId, userId)))
+      .limit(1);
+    if (!existing[0]) return false;
+    if ((await countSignInMethods(userId, tx)) <= 1) throw new LastIdentityError();
+
+    const rows = await tx
+      .delete(passkeyCredentials)
+      .where(and(eq(passkeyCredentials.id, id), eq(passkeyCredentials.userId, userId)))
+      .returning({ id: passkeyCredentials.id });
+    return rows.length > 0;
+  });
 }
 
 /** Creates a passkey-only account after the provisional registration verifies. */

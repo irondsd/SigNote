@@ -1,4 +1,6 @@
-import { getPasskeyRpConfig } from '@/lib/passkeys';
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
+
+import { getPasskeyRpConfig, readWebAuthnChallenge } from '@/lib/passkeys';
 
 describe('passkey RP configuration', () => {
   const originalUrl = process.env.NEXTAUTH_URL;
@@ -27,5 +29,24 @@ describe('passkey RP configuration', () => {
     process.env.PASSKEY_RP_ID = 'example.com';
 
     expect(getPasskeyRpConfig().rpID).toBe('example.com');
+  });
+
+  it('reads a challenge from signed client data', () => {
+    const response = {
+      response: {
+        clientDataJSON: Buffer.from(JSON.stringify({ challenge: 'challenge-123' })).toString('base64url'),
+      },
+    } as RegistrationResponseJSON;
+
+    expect(readWebAuthnChallenge(response)).toBe('challenge-123');
+  });
+
+  it.each([
+    ['malformed JSON', Buffer.from('{').toString('base64url')],
+    ['missing challenge', Buffer.from(JSON.stringify({ type: 'webauthn.get' })).toString('base64url')],
+    ['non-string challenge', Buffer.from(JSON.stringify({ challenge: 123 })).toString('base64url')],
+  ])('returns null for %s client data', (_label, clientDataJSON) => {
+    const response = { response: { clientDataJSON } } as AuthenticationResponseJSON;
+    expect(readWebAuthnChallenge(response)).toBeNull();
   });
 });

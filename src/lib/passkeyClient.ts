@@ -36,7 +36,9 @@ export async function signInWithPasskey(): Promise<PasskeyAuthOutcome> {
     posthog.capture('sign_in_completed', { method: 'passkey', client: 'web' });
     return 'success';
   } catch (error) {
-    const cancelled = error instanceof DOMException && error.name === 'NotAllowedError';
+    // SimpleWebAuthn preserves the native DOMException name on its wrapper,
+    // but the wrapper is an Error rather than a DOMException itself.
+    const cancelled = error instanceof Error && (error.name === 'NotAllowedError' || error.name === 'AbortError');
     posthog.capture('sign_in_failed', {
       method: 'passkey',
       client: 'web',
@@ -66,7 +68,7 @@ export async function signUpWithPasskey(): Promise<PasskeyAuthOutcome> {
     posthog.capture('sign_in_completed', { method: 'passkey', client: 'web', flow: 'sign_up' });
     return 'success';
   } catch (error) {
-    const cancelled = error instanceof DOMException && error.name === 'NotAllowedError';
+    const cancelled = error instanceof Error && (error.name === 'NotAllowedError' || error.name === 'AbortError');
     posthog.capture('sign_in_failed', {
       method: 'passkey',
       client: 'web',

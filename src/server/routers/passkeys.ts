@@ -49,7 +49,7 @@ export const passkeysRouter = router({
     });
     await createChallenge({
       challenge: options.challenge,
-      kind: 'register',
+      kind: 'signup',
       userId: provisionalUserId,
       ip,
     });
@@ -91,7 +91,10 @@ export const passkeysRouter = router({
         const nickname = input.nickname?.trim() || (verified.backedUp ? 'Synced passkey' : 'Passkey');
         const passkey = await insertPasskey({ userId: ctx.userId, ...verified, nickname });
         return { passkey };
-      } catch {
+      } catch (error) {
+        // Keep one public error to avoid credential/account enumeration, but
+        // retain the real failure server-side for operations and debugging.
+        console.error('[passkeys] registration failed:', error);
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'PASSKEY_REGISTRATION_FAILED' });
       }
     }),

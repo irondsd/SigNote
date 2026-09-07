@@ -12,7 +12,7 @@ import {
   users,
   type IdentityProvider,
 } from '@/db/schema';
-import { countSignInMethods } from './signInMethods';
+import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
 export { countSignInMethods } from './signInMethods';
 
@@ -177,24 +177,31 @@ export const linkIdentity = async (
 export const unlinkIdentity = async (userId: string, provider: string): Promise<boolean> => {
   const db = getDb();
 
-  const identity = await db
-    .select({ id: authIdentities.id })
-    .from(authIdentities)
-    .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
-    .limit(1);
-  if (!identity[0]) return false;
+  return db.transaction(async (tx) => {
+    if (!(await lockSignInMethods(userId, tx))) return false;
 
-  if ((await countSignInMethods(userId)) <= 1) throw new LastIdentityError();
+    const identity = await tx
+      .select({ id: authIdentities.id })
+      .from(authIdentities)
+      .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
+      .limit(1);
+    if (!identity[0]) return false;
 
-  const deleted = await db
-    .delete(authIdentities)
-    .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
-    .returning({ id: authIdentities.id });
+    if ((await countSignInMethods(userId, tx)) <= 1) throw new LastIdentityError();
 
-  // The address this identity proved stays on the account — removing one
-  // sign-in method must not silently remove a second. It only becomes
-  // unowned, and so detachable by hand.
-  await releaseEmailOwnership(deleted.map((row) => row.id));
+    const deleted = await tx
+      .delete(authIdentities)
+      .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, provider as IdentityProvider)))
+      .returning({ id: authIdentities.id });
 
-  return deleted.length > 0;
+    // The address this identity proved stays on the account — removing one
+    // sign-in method must not silently remove a second. It only becomes
+    // unowned, and so detachable by hand.
+    await releaseEmailOwnership(
+      deleted.map((row) => row.id),
+      tx,
+    );
+
+    return deleted.length > 0;
+  });
 };

@@ -431,7 +431,7 @@ export const emailSignInCodes = pgTable(
 // Passkeys (WebAuthn)
 
 export type PasskeyDeviceType = 'singleDevice' | 'multiDevice';
-export type PasskeyChallengeKind = 'register' | 'authenticate';
+export type PasskeyChallengeKind = 'register' | 'signup' | 'authenticate';
 
 /**
  * A passkey is a sign-in method, not an auth identity: one account can have
