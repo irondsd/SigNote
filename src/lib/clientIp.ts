@@ -20,6 +20,19 @@ export const getClientIp = (req: NextRequest | Request): string => {
   return '';
 };
 
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+/** Turn Vercel's ISO 3166-1 country code into the name used in the email. */
+const getCountryName = (country: string | undefined): string | undefined => {
+  if (!country) return undefined;
+
+  const code = country.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(code)) return country;
+
+  // `of` may return the input for a well-formed code that ICU does not know.
+  return countryNames.of(code) ?? country;
+};
+
 /**
  * Coarse "City, Country" from the platform's geo headers, for the new-sign-in
  * email. Undefined off Vercel — locally there are no such headers — and the
@@ -29,6 +42,6 @@ export const getClientLocation = (req: NextRequest | Request): string | undefine
   // `geolocation` already percent-decodes the header values, so don't decode
   // again — a city containing a literal '%' would throw.
   const { city, country } = geolocation(req as NextRequest);
-  const parts = [city, country].filter(Boolean);
+  const parts = [city, getCountryName(country)].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : undefined;
 };
