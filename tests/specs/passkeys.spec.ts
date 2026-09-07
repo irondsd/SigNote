@@ -36,7 +36,9 @@ test('signs up, signs back in, and manages passkeys', async ({ page }) => {
     await expect(page.getByTestId('passkey-create-account-btn')).toHaveCount(0);
     await page.getByTestId('passkey-sign-in-btn').click();
     await expect(page.getByText('Passkey sign-in wasn’t completed')).toBeVisible();
-    await expect(page.getByText('A new account will not have access to your existing notes.')).toBeVisible();
+    await expect(
+      page.getByText('A new account starts empty — it won’t have access to your existing notes.'),
+    ).toBeVisible();
 
     const retry = page.getByTestId('passkey-retry-btn');
     await retry.click();

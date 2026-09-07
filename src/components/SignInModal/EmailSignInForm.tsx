@@ -32,7 +32,11 @@ export default function EmailSignInForm({ isDesktop }: { isDesktop: boolean }) {
   return (
     <EmailCodeForm
       testIdPrefix="signin-email"
-      submitLabel="Sign in"
+      submitLabel="Verify and continue"
+      intro={{
+        title: 'Sign in with an email code',
+        description: 'We’ll send a 6-digit code to your email — no password to remember.',
+      }}
       describeError={describeSignInError}
       onRequestCode={(email) => requestCode(email)}
       onSubmitCode={async (email, code) => {

@@ -1,35 +1,98 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 18px;
   width: 100%;
 }
 
-.label {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  line-height: 1.5;
-  margin: 0;
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--card-foreground);
+    text-wrap: pretty;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    text-wrap: pretty;
+  }
 }
 
 .sentTo {
-  color: var(--foreground);
+  color: var(--card-foreground);
   font-weight: 500;
   word-break: break-all;
 }
 
-.codeInput {
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Six drawn boxes with one real input laid invisibly over them: the value is a
+   single field (so paste, autofill and `one-time-code` all work), the boxes
+   are only how it is shown. */
+.codeField {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+
+.codeBox {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--input);
+  border-radius: 10px;
+  background: var(--card);
   font-family: var(--font-mono);
   font-size: 20px;
-  letter-spacing: 0.3em;
-  text-align: center;
+  font-weight: 500;
+  color: var(--card-foreground);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.codeBoxActive {
+  border-color: var(--primary);
+  box-shadow: var(--ring-focus);
+}
+
+.codeInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  /* 16px keeps iOS from zooming the page when the field takes focus. */
+  font-size: 16px;
 }
 
 .error {
-  font-size: 13px;
-  color: var(--destructive);
-  line-height: 1.4;
   margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--destructive);
 }
 
 .actions {
@@ -37,24 +100,34 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted-foreground);
 }
 
 .textButton {
   background: none;
   border: none;
   padding: 0;
-  font-size: 13px;
-  color: var(--muted-foreground);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--primary-400);
   cursor: pointer;
 
+  :global(.dark) & {
+    color: var(--primary);
+  }
+
   &:hover:not(:disabled) {
-    color: var(--foreground);
+    color: var(--primary-300);
   }
 
   &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    color: var(--muted-foreground);
+    cursor: default;
   }
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
 }

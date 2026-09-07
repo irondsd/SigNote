@@ -10,7 +10,7 @@ export const signIn = async (page: Page): Promise<void> => {
   await expect(connectButton).toBeVisible();
   await connectButton.click();
 
-  // Wait for SignInModal and click "Sign in with Ethereum"
+  // Wait for SignInModal and click "Continue with Ethereum"
   const siweBtn = page.getByTestId('siwe-sign-in-btn');
   await siweBtn.waitFor({ state: 'visible' });
   await siweBtn.click();

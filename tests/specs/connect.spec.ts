@@ -24,7 +24,7 @@ test.describe('connect wallet', () => {
       // Click sign-in — opens SignInModal
       await signInButton.click();
 
-      // Click "Sign in with Ethereum" in the modal
+      // Click "Continue with Ethereum" in the modal
       const siweBtn = page.getByTestId('siwe-sign-in-btn');
       await siweBtn.waitFor({ state: 'visible' });
       await siweBtn.click();
@@ -71,7 +71,7 @@ test.describe('connect wallet', () => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await signInButton.click();
 
-      // Click "Sign in with Ethereum" in SignInModal to trigger the SIWE flow
+      // Click "Continue with Ethereum" in SignInModal to trigger the SIWE flow
       const siweBtn = page.getByTestId('siwe-sign-in-btn');
       await siweBtn.waitFor({ state: 'visible' });
       await siweBtn.click();
@@ -100,7 +100,7 @@ test.describe('connect wallet', () => {
 
       // After rejection the SIWE button must return to idle (enabled, original label)
       await expect(siweBtn).toBeEnabled({ timeout: 15000 });
-      await expect(siweBtn).toContainText('Sign in with Ethereum');
+      await expect(siweBtn).toContainText('Continue with Ethereum');
       // User should not be signed in
       await expect(page.getByTestId('display-name').first()).not.toBeVisible();
     });
@@ -138,7 +138,7 @@ test.describe('connect wallet', () => {
       const signInButton = page.getByTestId('sign-in-button').first();
       await signInButton.click();
 
-      // Click "Sign in with Ethereum" in SignInModal to trigger RainbowKit
+      // Click "Continue with Ethereum" in SignInModal to trigger RainbowKit
       const siweBtn = page.getByTestId('siwe-sign-in-btn');
       await siweBtn.waitFor({ state: 'visible' });
       await siweBtn.click();
@@ -158,7 +158,7 @@ test.describe('connect wallet', () => {
 
       // SIWE button must return to idle (enabled, original label)
       await expect(siweBtn).toBeEnabled();
-      await expect(siweBtn).toContainText('Sign in with Ethereum');
+      await expect(siweBtn).toContainText('Continue with Ethereum');
     });
   });
 });

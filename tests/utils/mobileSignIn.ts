@@ -10,7 +10,7 @@ export const mobileSignIn = async (page: Page): Promise<void> => {
   await page.getByTestId('mobile-menu-btn').click();
   await drawer.getByTestId('sign-in-button').click();
 
-  // Wait for SignInModal and click "Sign in with Ethereum"
+  // Wait for SignInModal and click "Continue with Ethereum"
   const siweBtn = page.getByTestId('siwe-sign-in-btn');
   await siweBtn.waitFor({ state: 'visible' });
   await expect(siweBtn).toBeEnabled({ timeout: 10000 });

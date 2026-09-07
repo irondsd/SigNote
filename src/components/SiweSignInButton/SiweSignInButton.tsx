@@ -3,11 +3,10 @@
 import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
-import { Button } from '@/components/ui/button';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useSiweSign } from '@/hooks/useSiweSign';
 import { EthereumIcon } from '../icons/SignInIcons';
-import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
+import { SignInMethodButton } from '@/components/SignInMethodButton/SignInMethodButton';
 
 export function SiweSignInButton({
   client = 'web',
@@ -43,18 +42,18 @@ export function SiweSignInButton({
       ? 'Connecting wallet…'
       : step === 'signing'
         ? 'Sign in your wallet…'
-        : 'Sign in with Ethereum';
+        : 'Continue with Ethereum';
 
   return (
-    <Button
+    <SignInMethodButton
       data-testid="siwe-sign-in-btn"
       onClick={handleSignIn}
       disabled={step !== 'idle'}
-      className="w-full bg-black text-white hover:bg-zinc-800 border-0 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
+      busy={step !== 'idle'}
+      icon={<EthereumIcon />}
+      isLastUsed={isLastUsed}
     >
-      <SignInMethodButtonContent icon={<EthereumIcon />} isLastUsed={isLastUsed}>
-        {label}
-      </SignInMethodButtonContent>
-    </Button>
+      {label}
+    </SignInMethodButton>
   );
 }

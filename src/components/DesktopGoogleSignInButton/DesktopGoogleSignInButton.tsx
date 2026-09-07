@@ -1,15 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import posthog from 'posthog-js';
-import { Button } from '@/components/ui/button';
 import { GoogleIcon } from '@/components/icons/SignInIcons';
+import { SignInMethodButton } from '@/components/SignInMethodButton/SignInMethodButton';
 import { getDesktopBridge } from '@/lib/desktop';
 import { beginDesktopAuth, DesktopAuthError } from '@/lib/desktopAuth';
 import { onDesktopAuthUiEvent } from '@/lib/desktopAuthEvents';
 import s from './DesktopGoogleSignInButton.module.scss';
-import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
 
 type BrowserLoginState = 'idle' | 'opening' | 'waiting' | 'exchanging' | 'error';
 
@@ -66,20 +64,16 @@ export function DesktopGoogleSignInButton({ isLastUsed = false }: { isLastUsed?:
 
   return (
     <div className={s.container} aria-busy={isPending}>
-      <Button
-        type="button"
+      <SignInMethodButton
         onClick={startBrowserLogin}
         disabled={isPending}
+        busy={isPending}
         data-testid="desktop-google-sign-in-btn"
-        className="w-full bg-white text-zinc-800 hover:bg-zinc-100 border border-zinc-200 rounded-lg h-11 font-medium flex items-center gap-3 px-4"
+        icon={<GoogleIcon />}
+        isLastUsed={isLastUsed}
       >
-        <SignInMethodButtonContent
-          icon={isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <GoogleIcon />}
-          isLastUsed={isLastUsed}
-        >
-          {label}
-        </SignInMethodButtonContent>
-      </Button>
+        {label}
+      </SignInMethodButton>
 
       {state === 'waiting' && (
         <p className={s.message} role="status" aria-live="polite">
