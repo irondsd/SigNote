@@ -1,0 +1,237 @@
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  flex: 1;
+}
+
+.content {
+  width: 100%;
+  max-width: 720px;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro,
+.unsupported {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.passkeyCard {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  animation: cardIn 0.3s calc(var(--animation-index, 0) * 35ms) ease both;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: color-mix(in oklch, var(--muted-foreground) 45%, var(--border));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+}
+
+.iconCol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: color-mix(in oklch, var(--primary) 10%, var(--muted));
+  color: var(--primary);
+
+  @media (max-width: 520px) {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.passkeyInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.passkeyName {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renameInput {
+  width: min(240px, 100%);
+  height: 29px;
+  padding: 4px 8px;
+  border: 1px solid var(--primary);
+  border-radius: 7px;
+  outline: none;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent);
+  }
+
+  @media (max-width: 520px) {
+    font-size: 16px;
+  }
+}
+
+.syncedBadge {
+  height: 18px;
+  padding-inline: 7px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.dot {
+  opacity: 0.6;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-self: end;
+
+  @media (max-width: 520px) {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.removeButton {
+  color: var(--muted-foreground);
+
+  &:hover {
+    color: var(--destructive);
+  }
+}
+
+.tooltipWrapper {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  color: var(--muted-foreground);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 120px;
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted-foreground);
+
+  h2 {
+    margin: 0 0 3px;
+    color: var(--foreground);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--muted);
+}

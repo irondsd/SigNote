@@ -43,6 +43,13 @@
       "when": 1788703307454,
       "tag": "0007_desktop_auth_attempt_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788796431627,
+      "tag": "0008_passkeys",
+      "breakpoints": true
     }
   ]
 }

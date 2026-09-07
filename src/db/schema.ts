@@ -294,7 +294,8 @@ export const users = pgTable(
   (t) => [uniqueIndex('users_email_unique').on(sql`lower(${t.email})`)],
 );
 
-export type AuthProvider = 'google' | 'siwe' | 'email';
+export type IdentityProvider = 'google' | 'siwe';
+export type AuthProvider = IdentityProvider | 'email' | 'passkey';
 export type AuthClient = 'web' | 'pwa' | 'desktop';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'unknown';
 
@@ -303,7 +304,7 @@ export const authIdentities = pgTable(
   {
     id: id(),
     userId: text('user_id').notNull(),
-    provider: text('provider').$type<AuthProvider>().notNull(),
+    provider: text('provider').$type<IdentityProvider>().notNull(),
     providerSubject: text('provider_subject').notNull(),
     email: text('email'),
     emailVerified: boolean('email_verified'),
@@ -423,6 +424,58 @@ export const emailSignInCodes = pgTable(
     index('email_sign_in_codes_email_idx').on(t.email),
     // Swept by the same cron that reaps nonces and expired sessions.
     index('email_sign_in_codes_expires_idx').on(t.expiresAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Passkeys (WebAuthn)
+
+export type PasskeyDeviceType = 'singleDevice' | 'multiDevice';
+export type PasskeyChallengeKind = 'register' | 'authenticate';
+
+/**
+ * A passkey is a sign-in method, not an auth identity: one account can have
+ * several credentials, each with its own public key and lifecycle.
+ */
+export const passkeyCredentials = pgTable(
+  'passkey_credentials',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    credentialId: text('credential_id').notNull(),
+    /** Base64url-encoded COSE public key returned by SimpleWebAuthn. */
+    publicKey: text('public_key').notNull(),
+    counter: bigint('counter', { mode: 'number' }).notNull().default(0),
+    transports: jsonb('transports').$type<string[]>().notNull().default([]),
+    aaguid: text('aaguid').notNull(),
+    deviceType: text('device_type').$type<PasskeyDeviceType>().notNull(),
+    backedUp: boolean('backed_up').notNull().default(false),
+    nickname: text('nickname').notNull(),
+    lastUsedAt: ts('last_used_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAtAuto(),
+  },
+  (t) => [
+    uniqueIndex('passkey_credentials_credential_unique').on(t.credentialId),
+    index('passkey_credentials_user_idx').on(t.userId),
+  ],
+);
+
+/** Short-lived, single-use state for registration and authentication. */
+export const passkeyChallenges = pgTable(
+  'passkey_challenges',
+  {
+    challenge: text('challenge').primaryKey(),
+    kind: text('kind').$type<PasskeyChallengeKind>().notNull(),
+    userId: text('user_id'),
+    ip: text('ip').notNull().default(''),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    usedAt: ts('used_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('passkey_challenges_ip_created_idx').on(t.ip, t.createdAt),
+    index('passkey_challenges_expires_idx').on(t.expiresAt),
   ],
 );
 

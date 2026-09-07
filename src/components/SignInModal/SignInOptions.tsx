@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Mail } from 'lucide-react';
+import { ArrowLeft, Fingerprint, Loader2, Mail } from 'lucide-react';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { signIn } from 'next-auth/react';
@@ -10,6 +10,9 @@ import { DesktopGoogleSignInButton } from '@/components/DesktopGoogleSignInButto
 import { GoogleIcon } from '@/components/icons/SignInIcons';
 import { SignInMethodButtonContent } from '@/components/LastUsedBadge/LastUsedBadge';
 import { useLastSignInMethod } from '@/hooks/useLastSignInMethod';
+import { usePasskeySupport } from '@/hooks/usePasskeys';
+import { signInWithPasskey, signUpWithPasskey } from '@/lib/passkeyClient';
+import { toast } from 'sonner';
 import s from './SignInModal.module.scss';
 
 // Loaded on demand: see the note in EmailSignInForm about keeping the tRPC
@@ -23,7 +26,7 @@ const SiweSignInButton = dynamic(
 
 type SignInOptionsProps = {
   /** Inside the Electron app: Google hands off to the system browser, the
-   * other two run in place and label their session as desktop. */
+   * email and wallet options run in place; passkeys stay browser-only. */
   isDesktop?: boolean;
   /** Where Google should land after the OAuth round-trip. Only meaningful in
    * a browser, where the flow leaves the page. */
@@ -31,13 +34,22 @@ type SignInOptionsProps = {
 };
 
 /**
- * Every way into SigNote, in one list. The same three options are offered in
+ * Every way into SigNote, in one list. The same browser options are offered in
  * the sign-in modal and on the browser page that authorizes the desktop app,
  * so a method added here reaches both.
  */
 export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOptionsProps) {
   const [emailOpen, setEmailOpen] = useState(false);
+  const [passkeyAction, setPasskeyAction] = useState<'sign-in' | 'sign-up' | null>(null);
   const lastSignInMethod = useLastSignInMethod();
+  const supportsPasskeys = usePasskeySupport();
+
+  const runPasskey = async (flow: 'sign-in' | 'sign-up') => {
+    setPasskeyAction(flow);
+    const outcome = await (flow === 'sign-in' ? signInWithPasskey() : signUpWithPasskey());
+    setPasskeyAction(null);
+    if (outcome === 'failed') toast.error('Passkey sign-in failed. Please try again.');
+  };
 
   // Picking email replaces the list rather than expanding inside it: the two
   // inputs and their button are the whole task now, and the other methods
@@ -46,12 +58,7 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
   if (emailOpen) {
     return (
       <>
-        <button
-          type="button"
-          className={s.backButton}
-          onClick={() => setEmailOpen(false)}
-          data-testid="sign-in-back"
-        >
+        <button type="button" className={s.backButton} onClick={() => setEmailOpen(false)} data-testid="sign-in-back">
           <ArrowLeft size={16} aria-hidden="true" />
           Other ways to sign in
         </button>
@@ -77,6 +84,40 @@ export function SignInOptions({ isDesktop = false, googleCallbackUrl }: SignInOp
             Sign in with Google
           </SignInMethodButtonContent>
         </Button>
+      )}
+
+      {!isDesktop && supportsPasskeys && (
+        <>
+          <Button
+            variant="outline"
+            onClick={() => void runPasskey('sign-in')}
+            disabled={passkeyAction !== null}
+            data-testid="passkey-sign-in-btn"
+            className="w-full h-11 rounded-lg font-medium flex items-center gap-3 px-4"
+          >
+            <SignInMethodButtonContent
+              icon={
+                passkeyAction === 'sign-in' ? (
+                  <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <Fingerprint size={18} aria-hidden="true" />
+                )
+              }
+              isLastUsed={lastSignInMethod === 'passkey'}
+            >
+              Sign in with a passkey
+            </SignInMethodButtonContent>
+          </Button>
+          <button
+            type="button"
+            className={s.passkeySignup}
+            onClick={() => void runPasskey('sign-up')}
+            disabled={passkeyAction !== null}
+            data-testid="passkey-sign-up-btn"
+          >
+            {passkeyAction === 'sign-up' ? 'Creating passkey…' : 'Create a passkey instead'}
+          </button>
+        </>
       )}
 
       <div className={s.divider}>

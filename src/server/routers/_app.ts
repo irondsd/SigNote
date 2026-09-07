@@ -6,6 +6,7 @@ import { identitiesRouter } from './identities';
 import { notesRouter } from './notes';
 import { notificationsRouter } from './notifications';
 import { otpRouter } from './otp';
+import { passkeysRouter } from './passkeys';
 import { profileRouter } from './profile';
 import { sealsRouter } from './seals';
 import { secretsRouter } from './secrets';
@@ -28,6 +29,7 @@ export const appRouter = router({
   encryption: encryptionRouter,
   erase: eraseRouter,
   otp: otpRouter,
+  passkeys: passkeysRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -111,6 +111,7 @@ async function setup() {
   // the per-IP code quota would fire partway through the run. The per-address
   // limit stays at its real value, and both are unit-tested.
   process.env.EMAIL_CODE_MAX_PER_IP = '100000';
+  process.env.PASSKEY_CHALLENGE_MAX_PER_IP = '100000';
 
   // Build before starting the server. Running E2E against `next dev` makes the
   // first test that visits each route also compile it. Several workers can hit

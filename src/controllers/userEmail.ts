@@ -1,7 +1,8 @@
-import { count, eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
-import { authIdentities, users } from '@/db/schema';
+import { users } from '@/db/schema';
+import { countSignInMethods } from './signInMethods';
 
 /**
  * Ownership rules for `users.email`.
@@ -111,24 +112,25 @@ export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email
  * release — you unlink Google, not the address it vouched for. And an address
  * may not be removed when it is the only way back in: with the email counted
  * as a credential, "keep at least one sign-in method" means at least one
- * identity has to remain.
+ * another method has to remain.
  */
 export const detachEmail = async (userId: string): Promise<DetachOutcome> => {
   const db = getDb();
 
-  const [rows, identities] = await Promise.all([
+  const [rows, methods] = await Promise.all([
     db
       .select({ email: users.email, owner: users.emailOwnerIdentityId })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1),
-    db.select({ n: count() }).from(authIdentities).where(eq(authIdentities.userId, userId)),
+    countSignInMethods(userId),
   ]);
 
   const row = rows[0];
   if (!row?.email) return 'no-email';
   if (row.owner) return 'owned';
-  if (Number(identities[0].n) === 0) return 'last-credential';
+  // The count includes the address being removed.
+  if (methods <= 1) return 'last-credential';
 
   await db
     .update(users)

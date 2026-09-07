@@ -66,6 +66,7 @@ export function EmailMethodRow({ googleEmail }: { googleEmail?: string }) {
               {!removable && ' · via Google'}
             </span>
           )}
+          {!email && <span className={s.identitySubject}>Add a backup way to sign in</span>}
         </div>
 
         {!email ? (

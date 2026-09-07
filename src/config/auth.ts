@@ -2,12 +2,26 @@ import { after } from 'next/server';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import type { NextAuthOptions } from 'next-auth';
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { v7 as uuidv7 } from 'uuid';
 
 import { revokeSessionBySid } from '@/controllers/authSessions';
 import { upsertEmailUser, upsertSiweUser, upsertGoogleUser } from '@/controllers/users';
 import { consumeSignInCode } from '@/controllers/emailSignInCodes';
+import { consumeChallenge } from '@/controllers/passkeyChallenges';
+import {
+  createPasskeyUser,
+  findPasskeyByCredentialId,
+  getPasskeyUserLabel,
+  recordPasskeyUse,
+} from '@/controllers/passkeys';
 import { sendWelcomeEmail } from '@/lib/notificationEmails';
+import {
+  readWebAuthnChallenge,
+  readWebAuthnUserHandle,
+  verifyPasskeyAuthentication,
+  verifyPasskeyRegistration,
+} from '@/lib/passkeys';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
@@ -95,6 +109,72 @@ export const authOptions: NextAuthOptions = {
         return { id: result.user._id.toString(), name: result.user.displayName, client };
       },
     }),
+    CredentialsProvider({
+      id: 'passkey',
+      name: 'Passkey',
+      credentials: {
+        assertion: { label: 'Assertion', type: 'text' },
+        registration: { label: 'Registration', type: 'text' },
+        nickname: { label: 'Nickname', type: 'text' },
+        client: { label: 'Client', type: 'text' },
+      },
+      async authorize(credentials) {
+        try {
+          if (credentials?.assertion) {
+            const response = JSON.parse(credentials.assertion) as AuthenticationResponseJSON;
+            const challenge = readWebAuthnChallenge(response);
+            if (!challenge) return null;
+
+            const challengeRow = await consumeChallenge({ challenge, kind: 'authenticate', userId: null });
+            if (!challengeRow) return null;
+
+            const passkey = await findPasskeyByCredentialId(response.id);
+            if (!passkey) return null;
+            if (readWebAuthnUserHandle(response) !== passkey.userId) return null;
+            const verified = await verifyPasskeyAuthentication(response, challengeRow.challenge, passkey);
+            if (!verified) return null;
+
+            await recordPasskeyUse(passkey.id, verified.newCounter);
+            const displayName = await getPasskeyUserLabel(passkey.userId);
+            if (!displayName) return null;
+            return { id: passkey.userId, name: displayName, client: 'web' };
+          }
+
+          if (credentials?.registration) {
+            const response = JSON.parse(credentials.registration) as RegistrationResponseJSON;
+            const challenge = readWebAuthnChallenge(response);
+            if (!challenge) return null;
+
+            // No expected user here: sign-up challenges carry a provisional id.
+            // `createPasskeyUser` rejects the row if that id already belongs to
+            // a real account, so a protected link challenge cannot become a signup.
+            const challengeRow = await consumeChallenge({ challenge, kind: 'register' });
+            if (!challengeRow?.userId) return null;
+            const verified = await verifyPasskeyRegistration(response, challengeRow.challenge);
+            if (!verified) return null;
+
+            const nickname =
+              credentials.nickname?.trim().slice(0, 50) || (verified.backedUp ? 'Synced passkey' : 'Passkey');
+            const result = await createPasskeyUser({
+              userId: challengeRow.userId,
+              ...verified,
+              nickname,
+            });
+            if (!result) return null;
+
+            after(() => sendWelcomeEmail(result.user.id));
+            return { id: result.user.id, name: result.user.displayName, client: 'web' };
+          }
+        } catch {
+          // Authentication failures deliberately collapse to one result. The
+          // client must not learn whether a credential, challenge, or counter
+          // was the part that failed.
+          return null;
+        }
+
+        return null;
+      },
+    }),
   ],
   callbacks: {
     async signIn({ account, profile }) {
@@ -136,6 +216,8 @@ export const authOptions: NextAuthOptions = {
           token.provider = 'google';
         } else if (account.provider === 'email-otp') {
           token.provider = 'email';
+        } else if (account.provider === 'passkey') {
+          token.provider = 'passkey';
         } else if (account.provider === 'credentials') {
           token.provider = 'siwe';
         }

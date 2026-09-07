@@ -2,8 +2,9 @@ import { eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import { authIdentities, users } from '@/db/schema';
+import { insertPasskey } from '@/controllers/passkeys';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
-import { claimEmailForUser, getUserEmail, releaseEmailOwnership } from '@/controllers/userEmail';
+import { claimEmailForUser, detachEmail, getUserEmail, releaseEmailOwnership } from '@/controllers/userEmail';
 
 let db: Db;
 
@@ -155,5 +156,23 @@ describe('userEmail controller', () => {
 
       expect(await getUserEmail(userId)).toMatchObject({ removable: true });
     });
+  });
+
+  it('allows a detachable email to be removed when a passkey remains', async () => {
+    await addUser(userId, 'a@example.com');
+    await insertPasskey({
+      userId,
+      credentialId: 'email-fallback-passkey',
+      publicKey: 'cHVibGljLWtleQ',
+      counter: 0,
+      transports: [],
+      aaguid: '00000000-0000-0000-0000-000000000000',
+      deviceType: 'singleDevice',
+      backedUp: false,
+      nickname: 'Passkey',
+    });
+
+    expect(await detachEmail(userId)).toBe('detached');
+    expect((await emailOf(userId)).email).toBeNull();
   });
 });
