@@ -4,7 +4,7 @@ import { v7 as uuidv7 } from 'uuid';
 
 import { AuthenticatorPage } from '../pages/AuthenticatorPage';
 import { seedOtpRecords, TEST_SEED } from '../fixtures/seedOtpRecords';
-import { trpcGet, trpcMutationOf } from '../utils/trpc';
+import { trpcData, trpcGet, trpcMutate, trpcMutationOf, trpcQuery } from '../utils/trpc';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { makeAccount } from '../utils/makeAccount';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
@@ -358,7 +358,7 @@ test.describe('authenticator', () => {
     await context.setOffline(false);
   });
 
-  test('session expiry keeps codes and immediately disables writes', async ({ page }) => {
+  test('session termination clears local codes and shows sign-in', async ({ page }) => {
     const authPage = new AuthenticatorPage(page);
     const { address, mekBytes } = await authPage.signInDirectly();
     await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
@@ -371,9 +371,45 @@ test.describe('authenticator', () => {
     await page.context().clearCookies();
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
-    await expect(authPage.card('Alpha').getByTestId('auth-code')).toHaveText(/^\d{3}\s*\d{3}$/);
-    await expect(page.getByTestId('auth-new')).toBeDisabled();
-    await expect(page.getByText(/Sync is paused/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    await expect(authPage.cards).toHaveCount(0);
+
+    // The trusted key and encrypted record cache are gone too, rather than
+    // merely hidden until the next reload.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    await expect(authPage.cards).toHaveCount(0);
+  });
+
+  test('remote session revocation signs the Auth page out and clears its codes', async ({ page, browser }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, AuthenticatorPage.PASSPHRASE);
+    await seedOtpRecords(account.address, mekBytes, [{ issuer: 'Alpha' }]);
+
+    // This page represents the device that will be revoked.
+    const authPage = new AuthenticatorPage(page);
+    await authPage.signInDirectly(account.address);
+    await authPage.enroll();
+
+    // A second device creates its own session and revokes the first one.
+    const otherContext = await browser.newContext();
+    const otherPage = await otherContext.newPage();
+    await new AuthenticatorPage(otherPage).signInDirectly(account.address);
+    await trpcQuery(otherPage.request, 'me');
+    const listResponse = await trpcQuery(otherPage.request, 'sessions.list');
+    const { sessions } = await trpcData<{ sessions: Array<{ _id: string; current: boolean }> }>(listResponse);
+    const revoked = sessions.find((session) => !session.current);
+    expect(revoked).toBeDefined();
+    await trpcMutate(otherPage.request, 'sessions.revoke', { id: revoked!._id });
+    await otherContext.close();
+
+    // Focus synchronization receives the 401 and runs the shared graceful
+    // sign-out path rather than leaving stale codes on screen.
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(page.getByTestId('sign-in-button').first()).toBeVisible({ timeout: 10000 });
+    await page.goto('/auth');
+    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    await expect(authPage.cards).toHaveCount(0);
   });
 
   test('switching accounts never carries decrypted records into the next vault', async ({ page }) => {

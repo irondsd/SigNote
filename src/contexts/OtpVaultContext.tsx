@@ -22,7 +22,7 @@ import {
   updateVault,
   type OtpCachedRecord,
 } from '@/lib/otpStore';
-import { conflictRow, isUnauthorized, otpTrpcClient } from '@/lib/otpTrpcClient';
+import { conflictRow, handleOtpUnauthorized, otpTrpcClient } from '@/lib/otpTrpcClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ export type OtpSyncState =
   | 'online'
   /** Network failed. Codes keep generating; writes are disabled. */
   | 'offline'
-  /** Session expired. Same as offline, but says so — it never signs the user out. */
+  /** Session termination is being handled. */
   | 'signed-out'
   | 'error';
 
@@ -71,8 +71,7 @@ type OtpVaultValue = {
   syncState: OtpSyncState;
   /** True when the key is persisted on this device; false in memory-only mode. */
   trusted: boolean;
-  /** Which account's vault is on screen — may differ from the session user
-   *  when the app is offline and signed out. */
+  /** Which account's vault is on screen. */
   vaultUserId: string | null;
   records: AuthRecord[];
   /** Clock correction. Codes are generated from `Date.now() + this`. */
@@ -349,8 +348,11 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (isCurrent()) setSyncState('online');
     } catch (err) {
       if (!isCurrent()) return;
-      // A 401 pauses sync and nothing else — it must never sign the user out.
-      setSyncState(isUnauthorized(err) ? 'signed-out' : navigator.onLine ? 'error' : 'offline');
+      if (await handleOtpUnauthorized(err)) {
+        setSyncState('signed-out');
+      } else {
+        setSyncState(navigator.onLine ? 'error' : 'offline');
+      }
     }
   }, [vaultUserId, sessionStatus, refresh, setKey]);
 

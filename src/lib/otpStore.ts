@@ -6,11 +6,10 @@
  * second store needs a version upgrade the existing code does not perform.
  *
  * Just as deliberately not the TanStack Query persister. That cache is busted on
- * every app version bump and deleted whenever the session goes unauthenticated,
- * and neither event may cost the user their codes. Ordinary sign-out, a JWT
- * expiring, a 401 on sync and losing the network never delete anything here —
- * only an explicit removal, the user accepting removal of another account's
- * vault, or a profile-generation mismatch reported by an authenticated sync.
+ * every app version bump. Network loss never deletes anything here: the cached
+ * session and this separate vault are what keep codes available offline. A
+ * confirmed sign-out or rejected session does clear the vault, as do explicit
+ * device removal and a profile-generation mismatch.
  */
 
 const DB_NAME = 'signote-otp';
@@ -208,6 +207,26 @@ export async function removeVault(userId: string): Promise<void> {
     tx.onabort = () => reject(tx.error ?? new Error('Authenticator removal was interrupted'));
   });
   if (getLastActiveUserId() === userId) clearLastActiveUserId();
+}
+
+/**
+ * Removes every locally trusted Authenticator account after the browser has
+ * confirmed that it no longer has a session. Clearing both stores in one
+ * transaction avoids leaving either an orphaned key or orphaned ciphertext.
+ */
+export async function removeAllVaults(): Promise<void> {
+  const userIds = await listVaultUserIds();
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([VAULTS, RECORDS], 'readwrite');
+    tx.objectStore(VAULTS).clear();
+    tx.objectStore(RECORDS).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Could not clear local Authenticator data'));
+    tx.onabort = () => reject(tx.error ?? new Error('Authenticator cleanup was interrupted'));
+  });
+  clearLastActiveUserId();
+  for (const userId of userIds) announceVaultRemoval(userId);
 }
 
 /** Disarms tabs that may already hold the removed key in memory. */

@@ -10,6 +10,7 @@ import {
   loadRecords,
   loadVault,
   putRecord,
+  removeAllVaults,
   removeVault,
   replaceRecords,
   saveVault,
@@ -183,6 +184,21 @@ describe('removal', () => {
     setLastActiveUserId(ALICE);
     await removeVault(BOB);
     expect(getLastActiveUserId()).toBe(ALICE);
+  });
+
+  it('drops every key and cached record after session termination', async () => {
+    await saveVault(await vault(ALICE));
+    await saveVault(await vault(BOB));
+    await replaceRecords(ALICE, [record('a')]);
+    await replaceRecords(BOB, [record('b', { userId: BOB })]);
+    setLastActiveUserId(ALICE);
+
+    await removeAllVaults();
+
+    expect(await listVaultUserIds()).toEqual([]);
+    expect(await loadRecords(ALICE)).toEqual([]);
+    expect(await loadRecords(BOB)).toEqual([]);
+    expect(getLastActiveUserId()).toBeNull();
   });
 });
 
