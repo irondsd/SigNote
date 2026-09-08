@@ -108,24 +108,30 @@ export const consumeSignInCode = async (params: { email: string; code: string })
   const email = normalizeEmail(params.email);
   const db = getDb();
 
-  const rows = await db
-    .select()
-    .from(emailSignInCodes)
-    .where(and(eq(emailSignInCodes.email, email), isNull(emailSignInCodes.consumedAt)))
-    .orderBy(sql`${emailSignInCodes.createdAt} desc`)
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // Serialize every verification of this row. Without the lock, concurrent
+    // callers can all read the same attempt count and can all observe the code
+    // as unused before any of them writes back.
+    const rows = await tx
+      .select()
+      .from(emailSignInCodes)
+      .where(and(eq(emailSignInCodes.email, email), isNull(emailSignInCodes.consumedAt)))
+      .orderBy(sql`${emailSignInCodes.createdAt} desc`)
+      .limit(1)
+      .for('update');
 
-  const row = rows[0];
-  if (!row) return 'invalid';
-  if (row.expiresAt.getTime() < Date.now()) return 'expired';
-  if (row.attempts >= MAX_ATTEMPTS) return 'too-many-attempts';
+    const row = rows[0];
+    if (!row) return 'invalid';
+    if (row.expiresAt.getTime() < Date.now()) return 'expired';
+    if (row.attempts >= MAX_ATTEMPTS) return 'too-many-attempts';
 
-  if (!constantTimeEquals(row.codeHash, hashCode(params.code))) {
-    const attempts = row.attempts + 1;
-    await db.update(emailSignInCodes).set({ attempts }).where(eq(emailSignInCodes.id, row.id));
-    return attempts >= MAX_ATTEMPTS ? 'too-many-attempts' : 'invalid';
-  }
+    if (!constantTimeEquals(row.codeHash, hashCode(params.code))) {
+      const attempts = row.attempts + 1;
+      await tx.update(emailSignInCodes).set({ attempts }).where(eq(emailSignInCodes.id, row.id));
+      return attempts >= MAX_ATTEMPTS ? 'too-many-attempts' : 'invalid';
+    }
 
-  await db.update(emailSignInCodes).set({ consumedAt: new Date() }).where(eq(emailSignInCodes.id, row.id));
-  return 'ok';
+    await tx.update(emailSignInCodes).set({ consumedAt: new Date() }).where(eq(emailSignInCodes.id, row.id));
+    return 'ok';
+  });
 };

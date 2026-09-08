@@ -81,6 +81,15 @@ describe('consumeSignInCode', () => {
     expect(await consumeSignInCode({ email, code })).toBe('invalid');
   });
 
+  it('allows only one simultaneous redemption', async () => {
+    const code = await issue();
+
+    const outcomes = await Promise.all(Array.from({ length: 12 }, () => consumeSignInCode({ email, code })));
+
+    expect(outcomes.filter((outcome) => outcome === 'ok')).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome === 'invalid')).toHaveLength(11);
+  });
+
   it('rejects a code issued for a different address', async () => {
     const code = await issue({ email: 'someone@example.com' });
 
@@ -109,6 +118,18 @@ describe('consumeSignInCode', () => {
       expect(await consumeSignInCode({ email, code: wrong })).toBe('invalid');
     }
     expect(await consumeSignInCode({ email, code: wrong })).toBe('too-many-attempts');
+    expect(await consumeSignInCode({ email, code })).toBe('too-many-attempts');
+  });
+
+  it('counts every simultaneous wrong guess', async () => {
+    const code = await issue();
+    const wrong = code === '000000' ? '111111' : '000000';
+
+    const outcomes = await Promise.all(Array.from({ length: 12 }, () => consumeSignInCode({ email, code: wrong })));
+
+    expect(outcomes.filter((outcome) => outcome === 'invalid')).toHaveLength(4);
+    expect(outcomes.filter((outcome) => outcome === 'too-many-attempts')).toHaveLength(8);
+    expect((await rows())[0].attempts).toBe(5);
     expect(await consumeSignInCode({ email, code })).toBe('too-many-attempts');
   });
 });
