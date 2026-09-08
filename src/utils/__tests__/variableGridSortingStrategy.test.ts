@@ -113,4 +113,30 @@ describe('variableGridSortingStrategy', () => {
       }
     });
   });
+
+  it('uses intrinsic item heights when stretched source rows change composition', () => {
+    // Two columns. A and B are stretched to 200 in row one even though A only
+    // needs 80; C and D need 80; E needs 120 in the incomplete last row.
+    const rects = [
+      rect(0, 0, 200, 200),
+      rect(0, 212, 200, 200),
+      rect(212, 0, 200, 80),
+      rect(212, 212, 200, 80),
+      rect(304, 0, 200, 120),
+    ];
+    const intrinsicHeights = [80, 200, 80, 80, 120];
+
+    // Move tall B to the end: [A,C] becomes an 80px row, [D,E] a 120px row.
+    const move = (index: number) =>
+      variableGridSortingStrategy(
+        { activeNodeRect: rects[1], activeIndex: 1, index, rects, overIndex: 4 },
+        intrinsicHeights,
+      );
+
+    expect(move(0)).toMatchObject({ x: 0, y: 0, scaleY: 0.4 });
+    expect(move(2)).toMatchObject({ x: 212, y: -212, scaleY: 1 });
+    expect(move(3)).toMatchObject({ x: -212, y: -120, scaleY: 1.5 });
+    expect(move(4)).toMatchObject({ x: 212, y: -212, scaleY: 1 });
+    expect(move(1)).toMatchObject({ x: -212, y: 224, scaleY: 1 });
+  });
 });

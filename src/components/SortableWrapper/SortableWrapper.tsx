@@ -11,7 +11,7 @@ type SortableWrapperProps = {
 };
 
 export function SortableWrapper({ id, isDragDisabled = false, children }: SortableWrapperProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } = useSortable({
     id,
     disabled: isDragDisabled,
   });
@@ -75,11 +75,25 @@ export function SortableWrapper({ id, isDragDisabled = false, children }: Sortab
   return (
     <div
       ref={combinedRef}
-      style={{ transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : undefined }}
+      data-sortable-item
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : undefined,
+      }}
       {...(!isDragDisabled ? attributes : {})}
       {...(!isDragDisabled ? listeners : {})}
     >
-      {children}
+      <div
+        data-sortable-content
+        style={{
+          width: '100%',
+          height: transform ? `${transform.scaleY * 100}%` : '100%',
+          transition: isSorting ? 'height 200ms ease' : undefined,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

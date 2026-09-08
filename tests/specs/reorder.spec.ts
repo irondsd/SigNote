@@ -34,6 +34,41 @@ const dragCard = async (page: Page, sourceTitle: string, targetTitle: string) =>
   await patchDone;
 };
 
+const expectPreviewGridGeometry = async (page: Page) => {
+  // Let the 200ms transform/height transition reach its final geometry.
+  await page.waitForTimeout(250);
+  const rows = await page.getByTestId('card-grid').evaluate((grid) => {
+    const boxes = Array.from(grid.children)
+      .map((item) => {
+        const visual = item.querySelector<HTMLElement>('[data-sortable-content]');
+        const title = visual?.querySelector('h3')?.textContent ?? '';
+        const rect = visual?.getBoundingClientRect();
+        return rect ? { title, top: rect.top, left: rect.left, width: rect.width, height: rect.height } : null;
+      })
+      .filter((box): box is NonNullable<typeof box> => box != null)
+      .sort((a, b) => a.top - b.top || a.left - b.left)
+      .reduce<Array<Array<{ title: string; top: number; left: number; width: number; height: number }>>>(
+        (grouped, box) => {
+          const row = grouped.find((candidate) => Math.abs(candidate[0].top - box.top) < 1);
+          if (row) row.push(box);
+          else grouped.push([box]);
+          return grouped;
+        },
+        [],
+      );
+    return boxes;
+  });
+
+  for (const row of rows) {
+    const heights = row.map((box) => box.height);
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+  }
+  for (let index = 1; index < rows.length; index++) {
+    const previousBottom = rows[index - 1][0].top + rows[index - 1][0].height;
+    expect(Math.abs(rows[index][0].top - previousBottom - 12)).toBeLessThan(1);
+  }
+};
+
 // ─── Desktop Tests (3-column layout) ─────────────────────────────────────────
 
 test.describe('desktop reorder', () => {
@@ -149,7 +184,7 @@ test.describe('desktop reorder', () => {
     // 1. The dragged card's wrapper has opacity 0.4 (placeholder ghost in place)
     const hasGhost = await page.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="note-card"]')).some(
-        (c) => (c.parentElement as HTMLElement)?.style.opacity === '0.4',
+        (c) => (c.closest('[data-sortable-item]') as HTMLElement | null)?.style.opacity === '0.4',
       ),
     );
     expect(hasGhost).toBe(true);
@@ -157,7 +192,7 @@ test.describe('desktop reorder', () => {
     // 2. At least one card has a non-zero CSS transform (preview shift)
     const hasShift = await page.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="note-card"]')).some((c) => {
-        const t = (c.parentElement as HTMLElement)?.style.transform;
+        const t = (c.closest('[data-sortable-item]') as HTMLElement | null)?.style.transform;
         return t && t !== 'none' && !t.startsWith('translate3d(0px, 0px');
       }),
     );
@@ -220,6 +255,47 @@ test.describe('desktop reorder', () => {
       `${tag} Note 5`,
       `${tag} Note 6`,
     ]);
+  });
+});
+
+test.describe('responsive drag preview geometry', () => {
+  test('keeps every preview row aligned when short and tall cards cross rows', async ({ page }) => {
+    const notesPage = new NotesPage(page);
+    const { address } = await notesPage.signInDirectly();
+    const tag = `geometry${Date.now()}`;
+    const tallContent = Array.from({ length: 14 }, (_, i) => `<p>paragraph ${i + 1}</p>`).join('');
+
+    await seedNotes(address, [
+      ...Array.from({ length: 8 }, (_, index) => ({ title: `${tag} Note ${9 - index}`, content: '<p>short</p>' })),
+      { title: `${tag} Note 1`, content: tallContent },
+    ]);
+    await clearSession(page);
+
+    for (const { width, columns } of [
+      { width: 700, columns: 2 },
+      { width: 1200, columns: 3 },
+      { width: 1700, columns: 4 },
+    ]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.reload();
+      await expect(notesPage.noteCard(`${tag} Note 1`)).toBeVisible({ timeout: 10000 });
+      expect(
+        await page
+          .getByTestId('card-grid')
+          .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length),
+      ).toBe(columns);
+
+      // A short singleton from the last row must grow to match the tall first row.
+      await startDrag(page, `${tag} Note 9`, `${tag} Note 1`);
+      await expectPreviewGridGeometry(page);
+      await page.keyboard.press('Escape');
+
+      // When the only tall card leaves, its old row must shrink around the
+      // remaining short cards instead of retaining phantom stretched heights.
+      await startDrag(page, `${tag} Note 1`, `${tag} Note 9`);
+      await expectPreviewGridGeometry(page);
+      await page.keyboard.press('Escape');
+    }
   });
 });
 
@@ -361,7 +437,7 @@ test.describe('mobile reorder', () => {
     // 1. Dragged card's wrapper has opacity 0.4 (placeholder ghost in place)
     const hasGhost = await page.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="note-card"]')).some(
-        (c) => (c.parentElement as HTMLElement)?.style.opacity === '0.4',
+        (c) => (c.closest('[data-sortable-item]') as HTMLElement | null)?.style.opacity === '0.4',
       ),
     );
     expect(hasGhost).toBe(true);
@@ -369,7 +445,7 @@ test.describe('mobile reorder', () => {
     // 2. At least one card has a non-zero CSS transform (preview shift)
     const hasShift = await page.evaluate(() =>
       Array.from(document.querySelectorAll('[data-testid="note-card"]')).some((c) => {
-        const t = (c.parentElement as HTMLElement)?.style.transform;
+        const t = (c.closest('[data-sortable-item]') as HTMLElement | null)?.style.transform;
         return t && t !== 'none' && !t.startsWith('translate3d(0px, 0px');
       }),
     );

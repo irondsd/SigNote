@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   closestCenter,
   DndContext,
@@ -21,7 +21,7 @@ import { useOtpVault, type AuthRecord } from '@/contexts/OtpVaultContext';
 import { useAuthCodes } from '@/hooks/useAuthCodes';
 import { isDegeneratePosition } from '@/lib/otp/order';
 import { calculatePosition } from '@/utils/calculatePosition';
-import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
+import { createVariableGridSortingStrategy, measureNaturalGridItemHeights } from '@/utils/variableGridSortingStrategy';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import s from './AuthGrid.module.scss';
 
@@ -39,6 +39,8 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const { byId } = useAuthCodes(records, serverTimeOffsetMs);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [naturalHeights, setNaturalHeights] = useState<number[] | null>(null);
 
   // v1 queues nothing offline, so every write needs a live session. The menu
   // says why rather than failing silently when the button is pressed.
@@ -48,6 +50,7 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
   const sensors = useSensors(pointerSensor, touchSensor);
+  const sortingStrategy = useMemo(() => createVariableGridSortingStrategy(naturalHeights), [naturalHeights]);
 
   const ids = useMemo(() => records.map((r) => r.id), [records]);
   const dragEnabled = !readOnly && records.length > 1;
@@ -66,13 +69,21 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     document.body.dataset.dragging = 'true';
+    setNaturalHeights(measureNaturalGridItemHeights(gridRef.current));
     setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    clearDragging();
+    setActiveId(null);
+    setNaturalHeights(null);
   }, []);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       clearDragging();
       setActiveId(null);
+      setNaturalHeights(null);
 
       const { active, over } = event;
       if (!over || active.id === over.id) return;
@@ -133,10 +144,10 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragCancel={clearDragging}
+      onDragCancel={handleDragCancel}
     >
-      <SortableContext items={ids} strategy={variableGridSortingStrategy}>
-        <div className={s.grid}>
+      <SortableContext items={ids} strategy={sortingStrategy}>
+        <div ref={gridRef} className={s.grid} data-testid="card-grid">
           {records.map((record) => (
             <SortableWrapper key={record.id} id={record.id} isDragDisabled={!dragEnabled}>
               <AuthCard {...cardProps(record)} />

@@ -15,7 +15,7 @@ import {
 
 const clearDragging = () => delete document.body.dataset.dragging;
 import { SortableContext } from '@dnd-kit/sortable';
-import { variableGridSortingStrategy } from '@/utils/variableGridSortingStrategy';
+import { createVariableGridSortingStrategy, measureNaturalGridItemHeights } from '@/utils/variableGridSortingStrategy';
 import { useReorder } from '@/hooks/useReorder';
 import { calculatePosition } from '@/utils/calculatePosition';
 import s from './BaseGrid.module.scss';
@@ -60,12 +60,15 @@ export function BaseGrid<T extends BaseItem>({
   children,
 }: BaseGridProps<T>) {
   const [activeNote, setActiveNote] = useState<T | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [naturalHeights, setNaturalHeights] = useState<number[] | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const reorderMutation = useReorder(reorderType);
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
   const sensors = useSensors(pointerSensor, touchSensor);
+  const sortingStrategy = useMemo(() => createVariableGridSortingStrategy(naturalHeights), [naturalHeights]);
 
   const noteIds = useMemo(() => (notes ?? []).map(getId), [notes, getId]);
   const dragEnabled = !isDragDisabled && (notes?.length ?? 0) > 1;
@@ -73,16 +76,24 @@ export function BaseGrid<T extends BaseItem>({
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       document.body.dataset.dragging = 'true';
+      setNaturalHeights(measureNaturalGridItemHeights(gridRef.current));
       const note = notes?.find((n) => getId(n) === event.active.id);
       setActiveNote(note ?? null);
     },
     [notes, getId],
   );
 
+  const handleDragCancel = useCallback(() => {
+    clearDragging();
+    setActiveNote(null);
+    setNaturalHeights(null);
+  }, []);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       clearDragging();
       setActiveNote(null);
+      setNaturalHeights(null);
       const { active, over } = event;
       if (
         !over ||
@@ -149,10 +160,10 @@ export function BaseGrid<T extends BaseItem>({
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onDragCancel={clearDragging}
+        onDragCancel={handleDragCancel}
       >
-        <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
-          <div className={s.grid}>
+        <SortableContext items={noteIds} strategy={sortingStrategy}>
+          <div ref={gridRef} className={s.grid} data-testid="card-grid">
             {notes.map((note) =>
               renderCard(
                 note,
