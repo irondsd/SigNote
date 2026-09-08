@@ -20,6 +20,7 @@ import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor
 import { Button } from '@/components/ui/button';
 import { EncryptedPlaceholder, estimateLines } from '@/components/EncryptedPlaceholder/EncryptedPlaceholder';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { NoteContentVeil } from '@/components/NoteContentVeil/NoteContentVeil';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody, encryptSealBodyWithExistingKey } from '@/lib/crypto';
@@ -514,41 +515,46 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       >
         {isDecrypted ? (
           <div className={s.decryptedBody}>
-            <FileEncryptionProvider mek={mek}>
-              <TiptapEditor
-                key={editing ? 'editing' : 'viewing'}
-                content={decryptedContent}
-                onChange={async (html) => {
-                  setDecryptedContent(html);
-                  if (!editing && guard.isMekAvailable) {
-                    recovery.save(
-                      async () => {
-                        if (!html.trim()) return updateSeal.mutateAsync({ id: note._id, encryptedBody: null });
-                        const encrypted = note.wrappedNoteKey
-                          ? await encryptSealBodyWithExistingKey(mek!, html, note._id, note.wrappedNoteKey)
-                          : await encryptSealBody(mek!, html, note._id);
-                        return updateSeal.mutateAsync({ id: note._id, ...encrypted });
-                      },
-                      () => {
-                        setDecryptedContent(html);
-                        setEditing(true);
-                      },
-                      () => {
-                        originalDecryptedRef.current = html;
-                      },
-                      { content: html },
-                    );
-                  }
-                }}
-                editable={editing}
-                placeholder="Write your seal…"
-                onEditorReady={setEditor}
-                allowFileUpload
-                onUploadingChange={setIsUploading}
-                fileEncryptionCtx={mek ? { mek } : undefined}
-                requiresEncryption
-              />
-            </FileEncryptionProvider>
+            {/* A soft lock re-encrypts a seal in view mode, which flips this
+                branch to the placeholder below. While editing it cannot — the
+                buffer is unsaved — so the cover is what hides it there. */}
+            <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext}>
+              <FileEncryptionProvider mek={mek}>
+                <TiptapEditor
+                  key={editing ? 'editing' : 'viewing'}
+                  content={decryptedContent}
+                  onChange={async (html) => {
+                    setDecryptedContent(html);
+                    if (!editing && guard.isMekAvailable) {
+                      recovery.save(
+                        async () => {
+                          if (!html.trim()) return updateSeal.mutateAsync({ id: note._id, encryptedBody: null });
+                          const encrypted = note.wrappedNoteKey
+                            ? await encryptSealBodyWithExistingKey(mek!, html, note._id, note.wrappedNoteKey)
+                            : await encryptSealBody(mek!, html, note._id);
+                          return updateSeal.mutateAsync({ id: note._id, ...encrypted });
+                        },
+                        () => {
+                          setDecryptedContent(html);
+                          setEditing(true);
+                        },
+                        () => {
+                          originalDecryptedRef.current = html;
+                        },
+                        { content: html },
+                      );
+                    }
+                  }}
+                  editable={editing}
+                  placeholder="Write your seal…"
+                  onEditorReady={setEditor}
+                  allowFileUpload
+                  onUploadingChange={setIsUploading}
+                  fileEncryptionCtx={mek ? { mek } : undefined}
+                  requiresEncryption
+                />
+              </FileEncryptionProvider>
+            </NoteContentVeil>
           </div>
         ) : (
           <div className={s.encryptedState}>

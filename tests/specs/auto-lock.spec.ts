@@ -234,3 +234,107 @@ test.describe('hard lock', () => {
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
   });
 });
+
+// ─── Open modals must not outlive the lock ──────────────────────────────────
+
+/**
+ * The grid swaps to placeholders the moment a lock fires; a modal already on
+ * screen used to keep rendering its plaintext, so a tab switch hid every note
+ * except the one actually open. The cover closes that, and unlike closing the
+ * modal it also works mid-edit, where the buffer is unsaved and cannot be
+ * thrown away.
+ */
+test.describe('locking covers an open modal', () => {
+  test('soft lock covers an open secret in view mode', async ({ page }) => {
+    const sentinel = 'soft lock view body';
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+    await seedSecrets(account.address, mekBytes, [{ title: 'Cover view', content: sentinel }]);
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
+    await secretsPage.unlock();
+
+    await secretsPage.secretCard('Cover view').click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText(sentinel, { timeout: 10000 });
+
+    await secretsPage.simulateTabHidden();
+
+    await expect(page.getByTestId('note-content-veil')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+  });
+
+  test('soft lock covers a secret being edited, and Reveal restores it unsaved', async ({ page }) => {
+    const typed = 'unsaved words that must survive';
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+    await seedSecrets(account.address, mekBytes, [{ title: 'Cover edit', content: 'original' }]);
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
+    await secretsPage.unlock();
+
+    await secretsPage.secretCard('Cover edit').click();
+    await page.getByTestId('edit-btn').click();
+    await page.locator('.ProseMirror[contenteditable="true"]').fill(typed);
+
+    await secretsPage.simulateTabHidden();
+
+    await expect(page.getByTestId('note-content-veil')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+
+    // Soft lock, so Reveal costs a click and not a passphrase — and the edit
+    // is still there, which is the whole reason the modal is covered rather
+    // than closed.
+    await page.getByTestId('reveal-content-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByTestId('tiptap-editor')).toContainText(typed, { timeout: 10000 });
+    await expect(page.getByTestId('save-btn')).toBeVisible();
+  });
+
+  test('hard lock covers a secret being edited and Reveal asks for the passphrase', async ({ page }) => {
+    const sentinel = 'hard lock edit body';
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+    await seedSecrets(account.address, mekBytes, [{ title: 'Hard cover', content: sentinel }]);
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
+    await secretsPage.unlock();
+
+    await secretsPage.secretCard('Hard cover').click();
+    await page.getByTestId('edit-btn').click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText(sentinel, { timeout: 10000 });
+
+    // The modal stays open — discarding an unsaved edit is not the lock's job —
+    // but the body must not stay readable.
+    await secretsPage.simulateHardLock();
+
+    await expect(page.getByTestId('note-content-veil')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+
+    await page.getByTestId('reveal-content-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
+  });
+
+  test('soft lock covers a seal being edited', async ({ page }) => {
+    const sentinel = 'sealed words being edited';
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    await seedSeals(account.address, mekBytes, [{ title: 'Cover seal edit', content: sentinel }]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+
+    await sealsPage.sealCard('Cover seal edit').click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByText(sentinel)).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('edit-btn').click();
+
+    await sealsPage.simulateTabHidden();
+
+    await expect(page.getByTestId('note-content-veil')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(sentinel)).not.toBeVisible();
+  });
+});

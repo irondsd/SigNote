@@ -17,6 +17,7 @@ import { useNoteModalMeta } from '@/hooks/useNoteModalMeta';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { FormattingToolbar, FormatToggleButton } from '@/components/TiptapEditor/FormattingToolbar';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { NoteContentVeil } from '@/components/NoteContentVeil/NoteContentVeil';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSecretBody, encryptSecretBody } from '@/lib/crypto';
@@ -309,35 +310,37 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
           />
         }
       >
-        <FileEncryptionProvider mek={mek}>
-          <TiptapEditor
-            key={editing ? 'editing' : 'viewing'}
-            content={content}
-            onChange={async (html) => {
-              setContent(html);
-              if (!editing && guard.isMekAvailable) {
-                recovery.save(
-                  async () => {
-                    const encryptedBody = html.trim() ? await encryptSecretBody(mek!, html) : null;
-                    return updateSecret.mutateAsync({ id: noteId, encryptedBody });
-                  },
-                  () => setEditing(true),
-                  () => {
-                    savedContentRef.current = html;
-                  },
-                  { content: html },
-                );
-              }
-            }}
-            editable={editing}
-            placeholder="Write your secret…"
-            onEditorReady={setEditor}
-            allowFileUpload
-            onUploadingChange={setIsUploading}
-            fileEncryptionCtx={mek ? { mek } : undefined}
-            requiresEncryption
-          />
-        </FileEncryptionProvider>
+        <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext}>
+          <FileEncryptionProvider mek={mek}>
+            <TiptapEditor
+              key={editing ? 'editing' : 'viewing'}
+              content={content}
+              onChange={async (html) => {
+                setContent(html);
+                if (!editing && guard.isMekAvailable) {
+                  recovery.save(
+                    async () => {
+                      const encryptedBody = html.trim() ? await encryptSecretBody(mek!, html) : null;
+                      return updateSecret.mutateAsync({ id: noteId, encryptedBody });
+                    },
+                    () => setEditing(true),
+                    () => {
+                      savedContentRef.current = html;
+                    },
+                    { content: html },
+                  );
+                }
+              }}
+              editable={editing}
+              placeholder="Write your secret…"
+              onEditorReady={setEditor}
+              allowFileUpload
+              onUploadingChange={setIsUploading}
+              fileEncryptionCtx={mek ? { mek } : undefined}
+              requiresEncryption
+            />
+          </FileEncryptionProvider>
+        </NoteContentVeil>
       </SharedNoteModal>
 
       {guard.PassphraseGuard}

@@ -1,0 +1,40 @@
+.wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* Covered, the placeholder alone sets the height: a long note must not stretch
+   the cover to its full length and push the Reveal button out of view. */
+.wrapCovered {
+  overflow: hidden;
+}
+
+.content {
+  width: 100%;
+}
+
+.contentCovered {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
+/* No background of its own: the hidden content already reveals the note's own
+   colour and pattern underneath, the same surface the card placeholder sits on. */
+.veil {
+  position: relative;
+  min-height: 120px;
+}
+
+.revealSlot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
