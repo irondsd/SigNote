@@ -45,8 +45,15 @@ const unlock = async (page: Page) => {
 
 // ─── Group 1: Create failure recovery ────────────────────────────────────────
 
+/**
+ * Creation is optimistic: the modal closes on click, before the server has
+ * answered. A failure therefore cannot re-open it in place — it rolls the
+ * placeholder back and leaves the typing in a draft, which the recovery toast
+ * offers back under "Continue". These tests follow that route and end where the
+ * old ones did: the same content, saved on retry.
+ */
 test.describe('create failure recovery', () => {
-  test('note: failed POST re-opens NewNoteModal pre-filled with content', async ({ page }) => {
+  test('note: failed POST offers the draft back and retry saves it', async ({ page }) => {
     await setup(page);
 
     const title = `Recovery Note ${Date.now()}`;
@@ -73,14 +80,18 @@ test.describe('create failure recovery', () => {
     await page.getByTestId('save-note-btn').click();
     await failedPost;
 
-    // Modal should re-open with original content
+    // The optimistic card is rolled back and the failure is reported…
+    await expect(noteCard(page, title)).toHaveCount(0);
+    await expect(page.getByText('Failed to create note')).toBeVisible();
+    await expect(page.getByText('Any unsaved draft is available from Continue.')).toBeVisible();
+
+    // …with the typing recoverable from the draft toast.
+    await expect(page.getByText(`You have an unsaved note draft`)).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
     await expect(page.getByTestId('note-title-input')).toBeVisible();
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content);
-
-    // Error toast should be persistent
-    await expect(page.getByText('Failed to create note')).toBeVisible();
-    await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
     // Retry — let the real request through
     await page.unroute('**/api/trpc/notes.create*');
@@ -93,7 +104,7 @@ test.describe('create failure recovery', () => {
     await expect(noteCard(page, title)).toBeVisible();
   });
 
-  test('secret: failed POST re-opens NewSecretModal pre-filled with plaintext content', async ({ page }) => {
+  test('secret: failed POST offers the plaintext draft back and retry saves it', async ({ page }) => {
     await setupEncrypted(page, '/secrets');
     await unlock(page);
 
@@ -120,14 +131,18 @@ test.describe('create failure recovery', () => {
     await page.getByTestId('save-secret-btn').click();
     await failedPost;
 
-    // NewSecretModal captures plaintext in pendingRecoveryRef before encrypting,
-    // so initialContent passed to the re-opened modal is the original plaintext
+    await expect(secretCard(page, title)).toHaveCount(0);
+    await expect(page.getByText('Failed to create secret')).toBeVisible();
+    await expect(page.getByText('Any unsaved draft is available from Continue.')).toBeVisible();
+
+    // The draft is captured before encryption, so what comes back is the
+    // original plaintext and not a ciphertext the reopened form can't show.
+    await expect(page.getByText(`You have an unsaved secret draft`)).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
     await expect(page.getByTestId('note-title-input')).toBeVisible();
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content);
-
-    await expect(page.getByText('Failed to create secret')).toBeVisible();
-    await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
     await page.unroute('**/api/trpc/secrets.create*');
     const successPost = page.waitForResponse(
@@ -139,7 +154,7 @@ test.describe('create failure recovery', () => {
     await expect(secretCard(page, title)).toBeVisible();
   });
 
-  test('seal: failed POST re-opens NewSealModal pre-filled with plaintext content', async ({ page }) => {
+  test('seal: failed POST offers the plaintext draft back and retry saves it', async ({ page }) => {
     await setupEncrypted(page, '/seals');
     await unlock(page);
 
@@ -168,12 +183,16 @@ test.describe('create failure recovery', () => {
     await page.getByTestId('save-seal-btn').click();
     await failedPost;
 
+    await expect(sealCard(page, title)).toHaveCount(0);
+    await expect(page.getByText('Failed to create seal')).toBeVisible();
+    await expect(page.getByText('Any unsaved draft is available from Continue.')).toBeVisible();
+
+    await expect(page.getByText(`You have an unsaved seal draft`)).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
     await expect(page.getByTestId('note-title-input')).toBeVisible();
     await expect(page.getByTestId('note-title-input')).toHaveValue(title);
     await expect(page.getByTestId('tiptap-editor')).toContainText(content);
-
-    await expect(page.getByText('Failed to create seal')).toBeVisible();
-    await expect(page.getByText('Your content has been recovered.')).toBeVisible();
 
     await page.unroute('**/api/trpc/seals.create*');
     const successPost = page.waitForResponse(
