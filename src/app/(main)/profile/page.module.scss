@@ -15,55 +15,93 @@
 
 // Overview card
 .overviewBody {
+  min-height: 76px;
+}
+
+.profileSummary {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.profileAvatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--primary-400);
+  background: color-mix(in oklch, var(--primary) 12%, var(--card));
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent);
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.profileIdentity {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
-.addressRow {
+.identityLabel {
+  margin-bottom: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.nameRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  min-width: 0;
 }
 
-.inputWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1;
+.displayName {
+  min-width: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 650;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
 }
 
-.inputWithIcon {
-  width: 100%;
-  padding-right: 2.25rem;
-  font-size: 13px;
-  font-family: var(--font-mono), monospace;
-}
-
-/* Button handles size/hover; this only adds the reveal-on-row-hover behavior. */
 .editBtn {
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s;
+  color: var(--muted-foreground);
 }
 
-.addressRow:hover .editBtn {
-  opacity: 1;
+.nameEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding-top: 3px;
 }
 
-.address {
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--font-mono), monospace;
-  color: var(--foreground);
-  word-break: break-all;
-  flex: 1;
+.nameInput {
+  width: 100%;
+  font-size: 16px;
+}
+
+.nameEditorActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .joinedDate {
+  margin: 5px 0 0;
   font-size: 13px;
+  line-height: 1.5;
   color: var(--muted-foreground);
-  margin: 0;
 }
 
 // Stats grid
@@ -249,12 +287,24 @@
 
 .skeletonDisplayName {
   width: 200px;
-  height: 13px;
-  padding: 3px 0;
+  max-width: 100%;
+  height: 22px;
+  margin-top: 3px;
 }
 .skeletonJoinedDate {
   width: 160px;
   height: 14px;
+  margin-top: 7px;
+}
+.skeletonAvatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 50%;
+}
+.skeletonLabel {
+  width: 78px;
+  height: 12px;
 }
 .skeletonIcon {
   width: 16px;

@@ -17,6 +17,7 @@ import {
   MonitorSmartphone,
   Tag as TagIcon,
   Bell,
+  UserRound,
 } from 'lucide-react';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -189,21 +190,30 @@ function ProfilePageContent() {
           </CardHeader>
           <CardContent className={s.overviewBody}>
             {isLoading ? (
-              <>
-                <div className={`${s.skeleton} ${s.skeletonDisplayName}`} />
-                <div className={`${s.skeleton} ${s.skeletonJoinedDate}`} />
-              </>
+              <div className={s.profileSummary}>
+                <div className={`${s.skeleton} ${s.skeletonAvatar}`} />
+                <div className={s.profileIdentity}>
+                  <div className={`${s.skeleton} ${s.skeletonLabel}`} />
+                  <div className={`${s.skeleton} ${s.skeletonDisplayName}`} />
+                  <div className={`${s.skeleton} ${s.skeletonJoinedDate}`} />
+                </div>
+              </div>
             ) : (
-              <>
-                <div className={s.addressRow}>
+              <div className={s.profileSummary}>
+                <div className={s.profileAvatar} aria-hidden="true">
+                  <UserRound />
+                </div>
+                <div className={s.profileIdentity}>
+                  <span className={s.identityLabel}>Display name</span>
                   {isEditing ? (
-                    <div className={s.inputWrapper}>
+                    <div className={s.nameEditor}>
                       <Input
-                        className={s.inputWithIcon}
+                        className={s.nameInput}
                         value={editValue}
                         maxLength={50}
                         autoFocus
                         disabled={isSaving}
+                        aria-label="Display name"
                         onChange={(e) => setEditValue(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Escape') setIsEditing(false);
@@ -218,51 +228,61 @@ function ProfilePageContent() {
                           }
                         }}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                        disabled={isSaving || !editValue.trim() || editValue.trim() === profile?.displayName}
-                        onClick={() => {
-                          updateDisplayName(editValue.trim(), {
-                            onSuccess: () => setIsEditing(false),
-                            onError: () => toast.error('Failed to update display name.'),
-                          });
-                        }}
-                        aria-label="Save display name"
-                      >
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      </Button>
+                      <div className={s.nameEditorActions}>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isSaving || !editValue.trim() || editValue.trim() === profile?.displayName}
+                          onClick={() => {
+                            updateDisplayName(editValue.trim(), {
+                              onSuccess: () => setIsEditing(false),
+                              onError: () => toast.error('Failed to update display name.'),
+                            });
+                          }}
+                          aria-label="Save display name"
+                        >
+                          {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => setIsEditing(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   ) : (
-                    <>
-                      <span data-testid="profile-address" className={s.address}>
+                    <div className={s.nameRow}>
+                      <span data-testid="profile-address" className={s.displayName}>
                         {profile?.displayName}
                       </span>
                       {profile && (
                         <Button
                           variant="ghost"
-                          size="icon-xs"
-                          className={`${s.editBtn} text-muted-foreground`}
+                          size="icon-sm"
+                          className={s.editBtn}
                           onClick={() => {
                             setEditValue(profile.displayName);
                             setIsEditing(true);
                           }}
                           aria-label="Edit display name"
                         >
-                          <Pencil size={13} />
+                          <Pencil />
                         </Button>
                       )}
-                    </>
+                    </div>
+                  )}
+                  {joinedDate && (
+                    <p className={s.joinedDate}>
+                      Member since <strong>{joinedDate}</strong>
+                    </p>
                   )}
                 </div>
-                {joinedDate && (
-                  <p className={s.joinedDate}>
-                    Member since <strong>{joinedDate}</strong>
-                  </p>
-                )}
-              </>
+              </div>
             )}
           </CardContent>
         </Card>
