@@ -7,6 +7,7 @@ import { Archive, SquarePlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AuthEnrollment } from '@/components/AuthEnrollment/AuthEnrollment';
+import { AuthClock } from '@/components/AuthClock/AuthClock';
 import { AuthGrid } from '@/components/AuthGrid/AuthGrid';
 import { EditAuthDialog } from '@/components/AuthDialogs/EditAuthDialog';
 import { ExportAuthDialog } from '@/components/AuthDialogs/ExportAuthDialog';
@@ -29,7 +30,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useOtpVault, type AuthRecord } from '@/contexts/OtpVaultContext';
-import { useStepClock } from '@/hooks/useAuthCodes';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { AuthEmptyState } from './AuthEmptyState';
@@ -51,7 +51,7 @@ export function AuthPage({ archived }: AuthPageProps) {
   const [deleting, setDeleting] = useState<AuthRecord | null>(null);
 
   const records = useMemo(() => vault.records.filter((r) => r.archived === archived), [vault.records, archived]);
-  const headerSeconds = useStepClock(records[0]?.secrets?.period ?? 30, vault.serverTimeOffsetMs);
+  const headerPeriod = records[0]?.secrets?.period ?? 30;
 
   const readOnly = vault.syncState !== 'online';
 
@@ -157,9 +157,7 @@ export function AuthPage({ archived }: AuthPageProps) {
             status === 'authenticated' && vault.phase === 'ready' ? (
               <>
                 {records.length > 0 && (
-                  <span className={s.clock} data-testid="auth-clock">
-                    refresh in {headerSeconds}s
-                  </span>
+                  <AuthClock key={headerPeriod} period={headerPeriod} offsetMs={vault.serverTimeOffsetMs} />
                 )}
                 <Link href="/auth/archive" className="mr-2">
                   <Button variant="ghost" size="icon" aria-label="Archive" title="Archive">

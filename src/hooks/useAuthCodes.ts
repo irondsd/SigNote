@@ -17,6 +17,11 @@ export type AuthCodeState = {
   fraction: number;
 };
 
+export type AuthStepClockState = Pick<AuthCodeState, 'seconds' | 'fraction'> & {
+  /** Current RFC 6238 step. Changes once at the instant the codes refresh. */
+  step: number;
+};
+
 /**
  * One timer for the whole page rather than one per card: at thirty accounts
  * that is the difference between one wakeup every 250ms and thirty.
@@ -95,13 +100,13 @@ export function useAuthCodes(records: AuthRecord[], offsetMs: number) {
 }
 
 /**
- * Just the shared countdown, for the page header.
+ * Just the shared countdown state for the page header.
  *
- * Kept separate from `useAuthCodes` on purpose: the header needs a number of
- * seconds, not codes, and calling the full hook for it would run the whole HMAC
- * derivation a second time on every step.
+ * Kept separate from `useAuthCodes` on purpose: the header needs timing, not
+ * codes, and calling the full hook for it would run the whole HMAC derivation a
+ * second time on every step.
  */
-export function useStepClock(period = 30, offsetMs = 0): number {
+export function useStepClock(period = 30, offsetMs = 0): AuthStepClockState {
   const [now, setNow] = useState(() => Date.now() + offsetMs);
 
   useEffect(() => {
@@ -111,5 +116,9 @@ export function useStepClock(period = 30, offsetMs = 0): number {
     return () => clearInterval(timer);
   }, [offsetMs]);
 
-  return secondsRemaining(now, period);
+  return {
+    seconds: secondsRemaining(now, period),
+    fraction: msUntilNextStep(now, period) / (period * 1000),
+    step: totpCounter(now, period),
+  };
 }

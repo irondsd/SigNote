@@ -1,0 +1,89 @@
+/** The shared step clock in the header — every 30s period lands together. */
+.clock {
+  --clock-elapsed: 0turn;
+
+  position: relative;
+  isolation: isolate;
+  margin-right: 4px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background:
+    linear-gradient(var(--background), var(--background)) padding-box,
+    conic-gradient(from 0turn, var(--border) 0 var(--clock-elapsed), var(--primary) var(--clock-elapsed) 1turn)
+      border-box;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.clockLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.clockReset {
+  animation: clockResetText 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.clockShine {
+  position: absolute;
+  z-index: -1;
+  inset: -4px;
+  border: 1px solid color-mix(in srgb, var(--primary) 70%, white);
+  border-radius: 11px;
+  box-shadow:
+    0 0 7px color-mix(in srgb, var(--primary) 45%, transparent),
+    0 0 14px color-mix(in srgb, var(--primary) 20%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: clockResetShine 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes clockResetText {
+  0%,
+  100% {
+    color: var(--muted-foreground);
+    text-shadow: none;
+  }
+  22% {
+    color: var(--primary);
+    text-shadow: 0 0 7px color-mix(in srgb, var(--primary) 55%, transparent);
+  }
+  52% {
+    color: color-mix(in srgb, var(--primary) 74%, var(--muted-foreground));
+    text-shadow: 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+}
+
+@keyframes clockResetShine {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  20% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  58% {
+    opacity: 0.38;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clockReset,
+  .clockShine {
+    animation: none;
+  }
+
+  .clockShine {
+    display: none;
+  }
+}
