@@ -60,7 +60,6 @@ export function BaseGrid<T extends BaseItem>({
   children,
 }: BaseGridProps<T>) {
   const [activeNote, setActiveNote] = useState<T | null>(null);
-  const [activeDragSize, setActiveDragSize] = useState<{ width: number; height: number } | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const reorderMutation = useReorder(reorderType);
 
@@ -76,8 +75,6 @@ export function BaseGrid<T extends BaseItem>({
       document.body.dataset.dragging = 'true';
       const note = notes?.find((n) => getId(n) === event.active.id);
       setActiveNote(note ?? null);
-      const rect = event.active.rect.current.initial;
-      if (rect) setActiveDragSize({ width: rect.width, height: rect.height });
     },
     [notes, getId],
   );
@@ -86,7 +83,6 @@ export function BaseGrid<T extends BaseItem>({
     (event: DragEndEvent) => {
       clearDragging();
       setActiveNote(null);
-      setActiveDragSize(null);
       const { active, over } = event;
       if (
         !over ||
@@ -168,12 +164,16 @@ export function BaseGrid<T extends BaseItem>({
           </div>
         </SortableContext>
 
+        {/*
+          The overlay root is already sized to the dragged card's measured rect by dnd-kit, and
+          the cards are `height: 100%`, so rendering one straight into it makes the preview keep
+          the stretched row height a grid card gets. Do not wrap it in a box sized from
+          `active.rect.current.initial`: that ref is populated in an effect *after* `onDragStart`
+          runs, so it reads null on the first drag and the previous card's size on every one
+          after — which is exactly how a short card ends up shrinking to its natural height.
+        */}
         <DragOverlay dropAnimation={null}>
-          {activeNote ? (
-            <div style={activeDragSize ? { width: activeDragSize.width, height: activeDragSize.height } : undefined}>
-              {renderOverlayCard(activeNote, showArchivedBadge)}
-            </div>
-          ) : null}
+          {activeNote ? renderOverlayCard(activeNote, showArchivedBadge) : null}
         </DragOverlay>
       </DndContext>
 
