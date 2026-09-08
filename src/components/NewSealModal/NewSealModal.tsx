@@ -22,7 +22,7 @@ export function NewSealModal({ onClose, initialContent }: NewSealModalProps) {
   const guard = useSimpleEncryptionGuard();
   const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
-  const form = useNewNoteForm('seal', onClose, initialContent);
+  const form = useNewNoteForm('seal', onClose, initialContent, mek);
 
   const createSeal = useCreateSeal();
 

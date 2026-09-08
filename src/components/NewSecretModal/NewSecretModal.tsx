@@ -22,7 +22,7 @@ export function NewSecretModal({ onClose, initialContent }: NewSecretModalProps)
   const guard = useSimpleEncryptionGuard();
   const { mek } = useEncryption();
   const [saving, setSaving] = useState(false);
-  const form = useNewNoteForm('secret', onClose, initialContent);
+  const form = useNewNoteForm('secret', onClose, initialContent, mek);
 
   const createSecret = useCreateSecret();
 

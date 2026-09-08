@@ -2,9 +2,11 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-import type { DraftContent } from '@/lib/draft';
+import type { StoredDraft } from '@/lib/draft';
 
-type DraftRestoreData = DraftContent;
+// The envelope, not the plaintext: the toast that fills this in lives outside
+// `EncryptionProvider` and has no key. Whoever opens the editor decrypts.
+type DraftRestoreData = StoredDraft;
 
 const DraftRestoreContext = createContext<{
   draftRestore: DraftRestoreData | null;

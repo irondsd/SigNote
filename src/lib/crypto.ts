@@ -5,6 +5,7 @@ import {
   ENC_PBKDF2_LENGTH,
   ENC_SESSION_KEY,
   ENC_VERSION,
+  HKDF_INFO_DRAFT,
   HKDF_INFO_FILE_ENC,
   HKDF_INFO_OTP_VAULT,
   HKDF_INFO_SECRET_BODY,
@@ -200,6 +201,32 @@ export async function verifyKeyCheck(mek: CryptoKey, keyCheck: EncryptedPayload)
   } catch {
     return false;
   }
+}
+
+// ─── Draft encryption ────────────────────────────────────────────────────────
+
+/**
+ * Key for the local draft checkpoints an open editor writes to `localStorage`.
+ *
+ * Domain-separated like every other working key, and derived *once* when an
+ * editor opens — while the MEK is still there. The editor then keeps
+ * checkpointing through a soft or hard lock without it, so auto-lock never
+ * costs the user their typing.
+ *
+ * Only the body is encrypted with it: `secret_notes.title` and
+ * `seal_notes.title` are plaintext columns on the server, so a draft is
+ * protected exactly as well as the row it is about to become.
+ */
+export async function deriveDraftKey(mek: CryptoKey): Promise<CryptoKey> {
+  return hkdfDeriveAesKey(mek, HKDF_INFO_DRAFT);
+}
+
+export async function encryptDraftContent(key: CryptoKey, plaintext: string): Promise<EncryptedPayload> {
+  return encryptAesGcm(key, plaintext);
+}
+
+export async function decryptDraftContent(mek: CryptoKey, payload: EncryptedPayload): Promise<string> {
+  return decryptAesGcm(await deriveDraftKey(mek), payload);
 }
 
 // ─── Secret body encryption ──────────────────────────────────────────────────

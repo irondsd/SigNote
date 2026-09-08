@@ -2,7 +2,15 @@
  * @jest-environment jsdom
  */
 
-import { saveDraft, loadDraft, clearDraft, type DraftData } from '@/lib/draft';
+import {
+  clearDraft,
+  loadDraft,
+  loadDrafts,
+  plaintextOf,
+  saveDraft,
+  type DraftData,
+  type StoredDraft,
+} from '@/lib/draft';
 
 const DRAFT_KEY = 'sn_draft';
 
@@ -74,5 +82,35 @@ describe('storage error handling', () => {
       throw new Error('boom');
     });
     expect(() => clearDraft()).not.toThrow();
+  });
+});
+
+describe('encrypted envelopes', () => {
+  const envelope: StoredDraft = {
+    type: 'secret',
+    title: 'Card PIN',
+    savedAt: 1_700_000_000_000,
+    draftId: 'draft-1',
+    enc: { alg: 'A256GCM', iv: 'aXY=', ciphertext: 'Y3Q=' },
+  };
+
+  it('round-trips a draft that carries ciphertext instead of content', () => {
+    saveDraft(envelope);
+
+    expect(loadDraft()).toEqual(envelope);
+  });
+
+  it('needs a key, and says so by returning no plaintext', () => {
+    expect(plaintextOf(envelope)).toBeNull();
+  });
+
+  it('hands back a plaintext draft untouched — notes, and pre-encryption leftovers', () => {
+    expect(plaintextOf(sample)).toMatchObject({ title: 'My title', content: '<p>hello</p>' });
+  });
+
+  it('rejects a slot that has neither content nor a usable payload', () => {
+    localStorage.setItem(`${DRAFT_KEY}:broken`, JSON.stringify({ ...envelope, enc: { iv: 'aXY=' } }));
+
+    expect(loadDrafts()).toHaveLength(0);
   });
 });

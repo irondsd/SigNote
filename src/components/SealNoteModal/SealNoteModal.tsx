@@ -131,6 +131,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     'seal',
     { title, content: decryptedContent ?? '', sourceId: noteId, color, pattern, tags },
     isDirty,
+    mek,
   );
 
   const performDecrypt = useCallback(

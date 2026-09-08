@@ -104,6 +104,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     'secret',
     { title, content: content ?? '', sourceId: noteId, color, pattern, tags },
     isDirty,
+    mek,
   );
   const handleClose = () => confirmClose(onClose);
 

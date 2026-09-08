@@ -24,6 +24,9 @@ const getDraft = (page: Page) =>
     );
   }, DRAFT_KEY);
 
+/** The whole slot as one string, so an assertion cannot miss a stray copy. */
+const readLocalStorage = (page: Page) => page.evaluate(() => JSON.stringify(localStorage));
+
 const seedDraft = (page: Page, data: { type: 'note' | 'secret' | 'seal'; title: string; content: string }) =>
   page.evaluate(({ key, draft }) => localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() })), {
     key: DRAFT_KEY,
@@ -118,14 +121,17 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('Secret Draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('My private secret body');
-    await page.waitForTimeout(700);
+    await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext ?? null)).not.toBeNull();
 
     const draft = await getDraft(page);
-    expect(draft).not.toBeNull();
     expect(draft.type).toBe('secret');
-    expect(draft.title).toBe('Secret Draft');
-    expect(draft.content).toContain('My private secret body');
     expect(draft.savedAt).toBeGreaterThan(0);
+    // The title stays readable — it is a plaintext column on the server too,
+    // and the recovery toast has to name the draft without a key. The body
+    // does not.
+    expect(draft.title).toBe('Secret Draft');
+    expect(draft.content).toBeUndefined();
+    await expect(readLocalStorage(page)).resolves.not.toContain('My private secret body');
   });
 
   test('saves draft for seals', async ({ page }) => {
@@ -139,14 +145,13 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('Seal Draft');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type('My private seal body');
-    await page.waitForTimeout(700);
+    await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext ?? null)).not.toBeNull();
 
     const draft = await getDraft(page);
-    expect(draft).not.toBeNull();
     expect(draft.type).toBe('seal');
     expect(draft.title).toBe('Seal Draft');
-    expect(draft.content).toContain('My private seal body');
-    expect(draft.savedAt).toBeGreaterThan(0);
+    expect(draft.content).toBeUndefined();
+    await expect(readLocalStorage(page)).resolves.not.toContain('My private seal body');
   });
 });
 
@@ -312,7 +317,10 @@ test.describe('note draft restore', () => {
 // ─── Group 4: Vault draft restore ────────────────────────────────────────────
 
 test.describe('vault draft restore', () => {
-  test('Continue for a locked secret draft opens modal with content', async ({ page }) => {
+  // These two seed plaintext drafts on purpose: that is the shape written
+  // before draft encryption shipped, and it has to keep restoring for one
+  // release rather than stranding whatever the user was in the middle of.
+  test('Continue for a legacy plaintext secret draft opens modal with content', async ({ page }) => {
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -343,7 +351,7 @@ test.describe('vault draft restore', () => {
     await expect(page.getByTestId('tiptap-editor')).toContainText(content);
   });
 
-  test('Continue for a locked seal draft opens modal with content', async ({ page }) => {
+  test('Continue for a legacy plaintext seal draft opens modal with content', async ({ page }) => {
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly();
     await sealsPage.unlock();
@@ -389,6 +397,111 @@ test.describe('vault draft restore', () => {
     // Modal opens directly with draft content
     await expect(page.getByTestId('note-title-input')).toBeVisible({ timeout: 10000 });
     await expect(page.getByTestId('note-title-input')).toHaveValue('Unlocked Secret Draft');
+  });
+});
+
+// ─── Encrypted drafts ────────────────────────────────────────────────────────
+
+/**
+ * A Secret or Seal draft is a copy of the note's body sitting on the user's
+ * disk. It used to sit there in the clear — surviving the lock, the reload and
+ * the sign-out that were supposed to take it away. The body is now encrypted
+ * with a key derived from the MEK when the editor opens, which is also what
+ * lets an editor keep checkpointing after an auto-lock takes the MEK away.
+ */
+test.describe('encrypted drafts', () => {
+  /** Opens the New Secret modal and types a body, returning once it is on disk. */
+  async function typeSecretDraft(page: Page, title: string, body: string) {
+    await page.getByRole('button', { name: 'New Secret' }).click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+    await page.getByTestId('note-title-input').fill(title);
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type(body);
+    await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext ?? null)).not.toBeNull();
+  }
+
+  test('a Secret draft stays ciphertext across a lock and a reload', async ({ page }) => {
+    const body = 'AUDIT_ONLY_PLAINTEXT_DRAFT_85901';
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly();
+    await secretsPage.unlock();
+    await typeSecretDraft(page, 'Draft probe', body);
+
+    // Hard lock, then reload: exactly the state the audit probe ended in.
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload();
+    await expect(page.getByText('You have an unsaved secret draft')).toBeVisible({ timeout: 10000 });
+
+    await expect(readLocalStorage(page)).resolves.not.toContain(body);
+    expect((await getDraft(page)).content).toBeUndefined();
+  });
+
+  test('keeps checkpointing after the vault locks mid-edit', async ({ page }) => {
+    const body = 'TYPED_WHILE_LOCKED_PROBE';
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly();
+    await secretsPage.unlock();
+
+    await page.getByRole('button', { name: 'New Secret' }).click();
+    await expect(page.getByTestId('note-title-input')).toBeVisible();
+    await page.getByTestId('note-title-input').fill('Locked mid-edit');
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type('before lock');
+    await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext ?? null)).not.toBeNull();
+    const before = (await getDraft(page)).enc.ciphertext;
+
+    // Five idle minutes hard-lock the vault while the editor is still open. The
+    // draft key was derived when the modal opened, so typing must still reach
+    // disk — and still encrypted.
+    await page.clock.install();
+    await page.getByTestId('tiptap-editor').click();
+    await page.clock.fastForward(5 * 60_000 + 1000);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('enc_device_share_v1'))).toBeNull();
+
+    await page.getByTestId('tiptap-editor').click();
+    await page.keyboard.type(body);
+
+    await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext)).not.toBe(before);
+    await expect(readLocalStorage(page)).resolves.not.toContain(body);
+  });
+
+  test('recovering after a soft lock asks for nothing', async ({ page }) => {
+    const body = 'SOFT_LOCK_RECOVERY_BODY';
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly();
+    await secretsPage.unlock();
+    await typeSecretDraft(page, 'Soft locked draft', body);
+
+    // A reload with the device share intact is a soft lock: the MEK rebuilds
+    // itself, so recovery costs the user nothing it did not cost before.
+    await page.reload();
+    await expect(page.getByText('You have an unsaved secret draft')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByTestId('note-title-input')).toHaveValue('Soft locked draft', { timeout: 10000 });
+    await expect(page.getByTestId('tiptap-editor')).toContainText(body);
+  });
+
+  test('recovering after a hard lock asks for the passphrase, then opens', async ({ page }) => {
+    const body = 'HARD_LOCK_RECOVERY_BODY';
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly();
+    await secretsPage.unlock();
+    await typeSecretDraft(page, 'Hard locked draft', body);
+
+    // No device share left: the same passphrase the content would need anyway.
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload();
+    await expect(page.getByText('You have an unsaved secret draft')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByPlaceholder('Your passphrase')).toBeVisible({ timeout: 10000 });
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
+    await page.getByPlaceholder('Your passphrase').press('Enter');
+
+    await expect(page.getByTestId('note-title-input')).toHaveValue('Hard locked draft', { timeout: 10000 });
+    await expect(page.getByTestId('tiptap-editor')).toContainText(body);
   });
 });
 

@@ -11,7 +11,12 @@ import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 type Tier = 'note' | 'secret' | 'seal';
 type InitialContent = DraftContent;
 
-export function useNewNoteForm(tier: Tier, onClose: () => void, initialContent?: InitialContent) {
+export function useNewNoteForm(
+  tier: Tier,
+  onClose: () => void,
+  initialContent?: InitialContent,
+  mek?: CryptoKey | null,
+) {
   const state = useNewNoteState(tier, onClose, initialContent);
   const [isUploading, setIsUploading] = useState(false);
   const [tags, setTags] = useState<string[]>(initialContent?.tags ?? []);
@@ -42,6 +47,7 @@ export function useNewNoteForm(tier: Tier, onClose: () => void, initialContent?:
       sourceId: initialContent?.sourceId,
     },
     state.isDirty,
+    mek,
   );
 
   const save = (request: () => Promise<unknown>) => {

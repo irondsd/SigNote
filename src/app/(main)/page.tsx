@@ -9,6 +9,7 @@ import { NewNoteModal } from '@/components/NewNoteModal/NewNoteModal';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { useDraftRestore } from '@/contexts/DraftRestoreContext';
+import { plaintextOf } from '@/lib/draft';
 import s from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -23,8 +24,11 @@ function NotesPage() {
   const [showNewNote, setShowNewNote] = useState(false);
   const { draftRestore, setDraftRestore } = useDraftRestore();
 
-  const modalOpen = showNewNote || !!draftRestore;
-  const initialContent = draftRestore ?? undefined;
+  // Note drafts are stored in the clear, so there is nothing to decrypt here —
+  // `plaintextOf` only ever returns null for the encrypted tiers, which never
+  // route to this page.
+  const initialContent = (draftRestore && plaintextOf(draftRestore)) ?? undefined;
+  const modalOpen = showNewNote || !!initialContent;
 
   const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];

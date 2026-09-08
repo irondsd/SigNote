@@ -9,7 +9,7 @@ import {
   saveDraft,
   clearDraft,
   DRAFT_RECOVERY_EVENT,
-  type DraftData,
+  type StoredDraft,
 } from '@/lib/draft';
 import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 
@@ -20,7 +20,7 @@ export function DraftToast() {
 
   useEffect(() => {
     const shown = new Set<string>();
-    const show = (draft: DraftData) => {
+    const show = (draft: StoredDraft) => {
       const id = `draft-${draft.draftId ?? 'legacy'}`;
       shown.add(id);
       const label = draft.sourceId ? `unsaved changes to a ${draft.type}` : `an unsaved ${draft.type} draft`;
@@ -56,7 +56,7 @@ export function DraftToast() {
       recoverableDrafts().forEach(show);
     };
     const onFailure = (event: Event) => {
-      const draft = (event as CustomEvent<DraftData | undefined>).detail;
+      const draft = (event as CustomEvent<StoredDraft | undefined>).detail;
       if (draft) show(draft);
       else recover();
     };

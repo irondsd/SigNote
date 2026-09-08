@@ -44,9 +44,19 @@ for (const tier of ['note', 'secret', 'seal'] as const) {
       await expect(
         page.getByTestId(tier === 'note' ? 'note-card' : 'secret-card').filter({ hasText: 'Optimistic creation' }),
       ).toBeVisible();
+      // The Secret and Seal tiers keep their checkpoint encrypted, so the body
+      // is present as ciphertext rather than as text — the recovery below is
+      // what proves it is still the right body.
       expect(await drafts(page)).toEqual([
-        expect.objectContaining({ title: 'Optimistic creation', content: expect.stringContaining('Keep this body') }),
+        expect.objectContaining(
+          tier === 'note'
+            ? { title: 'Optimistic creation', content: expect.stringContaining('Keep this body') }
+            : { title: 'Optimistic creation', enc: expect.objectContaining({ ciphertext: expect.any(String) }) },
+        ),
       ]);
+      if (tier !== 'note') {
+        await expect(page.evaluate(() => JSON.stringify(localStorage))).resolves.not.toContain('Keep this body');
+      }
     } finally {
       release();
     }
