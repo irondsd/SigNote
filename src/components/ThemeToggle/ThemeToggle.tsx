@@ -13,9 +13,11 @@ export function ThemeToggle() {
       <Button
         variant="ghost"
         size="icon-md"
-        className={theme === 'light' ? 'bg-background text-foreground shadow-sm' : ''}
+        className={theme === 'light' ? s.selected : ''}
         onClick={() => setTheme('light')}
         title="Light theme"
+        aria-label="Use light theme"
+        aria-pressed={theme === 'light'}
         data-testid="light-theme-btn"
       >
         <Sun size={15} />
@@ -23,9 +25,11 @@ export function ThemeToggle() {
       <Button
         variant="ghost"
         size="icon-md"
-        className={theme === 'system' ? 'bg-background text-foreground shadow-sm' : ''}
+        className={theme === 'system' ? s.selected : ''}
         onClick={() => setTheme('system')}
         title="System theme"
+        aria-label="Use system theme"
+        aria-pressed={theme === 'system'}
         data-testid="system-theme-btn"
       >
         <Monitor size={15} />
@@ -33,9 +37,11 @@ export function ThemeToggle() {
       <Button
         variant="ghost"
         size="icon-md"
-        className={theme === 'dark' ? 'bg-background text-foreground shadow-sm' : ''}
+        className={theme === 'dark' ? s.selected : ''}
         onClick={() => setTheme('dark')}
         title="Dark theme"
+        aria-label="Use dark theme"
+        aria-pressed={theme === 'dark'}
         data-testid="dark-theme-btn"
       >
         <Moon size={15} />

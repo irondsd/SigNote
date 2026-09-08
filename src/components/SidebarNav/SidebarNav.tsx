@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { Github, BookOpen, LogOut } from 'lucide-react';
+import { Github, BookOpen, LogOut, UserRound } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -60,7 +60,12 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
       <ul className={s.links}>
         {NAV_LINKS.map(({ href, label, icon: Icon }) => (
           <li key={href}>
-            <Link href={href} className={`${s.link} ${pathname === href ? s.active : ''}`} onClick={onNavClick}>
+            <Link
+              href={href}
+              className={`${s.link} ${pathname === href ? s.active : ''}`}
+              onClick={onNavClick}
+              aria-current={pathname === href ? 'page' : undefined}
+            >
               <InlineSvg src={`/icons/${Icon}`} className={'w-4.5 h-4.5'} />
               <span>{label}</span>
             </Link>
@@ -90,20 +95,26 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
           {session?.user?.id ? (
             <div className={s.walletRow}>
               <Link href="/profile" className={s.walletLink} onClick={onNavClick}>
-                <div className={s.walletDot} />
-                <span data-testid="display-name" className={s.walletAddress}>
-                  {displayName}
+                <span className={s.walletAvatar} aria-hidden="true">
+                  <UserRound />
+                </span>
+                <span className={s.walletInfo}>
+                  <span data-testid="display-name" className={s.walletAddress}>
+                    {displayName}
+                  </span>
+                  <span className={s.walletHint}>View profile</span>
                 </span>
               </Link>
               <Button
                 data-testid="sign-out-button"
                 variant="ghost"
-                size="icon-xs"
-                className="h-8 hover:bg-destructive hover:text-white"
+                size="icon-sm"
+                className={s.signOutButton}
                 onClick={handleSignOut}
                 title="Sign out"
+                aria-label="Sign out"
               >
-                <LogOut size={24} />
+                <LogOut aria-hidden="true" />
               </Button>
             </div>
           ) : (

@@ -2,7 +2,16 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  background: var(--muted);
   border-radius: 8px;
   padding: 3px;
+}
+
+.selected {
+  color: var(--foreground);
+  background: var(--sidebar-state-active);
+  box-shadow: inset 0 0 0 1px var(--sidebar-state-border);
+
+  &:hover {
+    background: var(--sidebar-state-strong);
+  }
 }
