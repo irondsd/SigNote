@@ -2,7 +2,7 @@ import type { Db } from '@/db/client';
 import { emailSignInCodes } from '@/db/schema';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import { consumeSignInCode, requestSignInCode } from '@/controllers/emailSignInCodes';
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 let db: Db;
 
@@ -57,6 +57,15 @@ describe('requestSignInCode', () => {
     expect(await requestSignInCode({ email, ip: '1.2.3.4' })).toEqual({ ok: false, reason: 'rate-limited' });
   });
 
+  it('rate-limits simultaneous requests for one address', async () => {
+    const outcomes = await Promise.all(Array.from({ length: 12 }, () => requestSignInCode({ email, ip: '1.2.3.4' })));
+
+    expect(outcomes.filter((outcome) => outcome.ok)).toHaveLength(5);
+    expect(outcomes.filter((outcome) => !outcome.ok)).toHaveLength(7);
+    expect(await rows()).toHaveLength(5);
+    expect(await db.select().from(emailSignInCodes).where(isNull(emailSignInCodes.consumedAt))).toHaveLength(1);
+  });
+
   it('rate-limits one IP across different addresses', async () => {
     for (let i = 0; i < 20; i += 1) await issue({ email: `user${i}@example.com`, ip: '9.9.9.9' });
 
@@ -64,6 +73,15 @@ describe('requestSignInCode', () => {
       ok: false,
       reason: 'rate-limited',
     });
+  });
+
+  it('rate-limits simultaneous requests from one IP', async () => {
+    const outcomes = await Promise.all(
+      Array.from({ length: 25 }, (_, i) => requestSignInCode({ email: `parallel${i}@example.com`, ip: '9.9.9.9' })),
+    );
+
+    expect(outcomes.filter((outcome) => outcome.ok)).toHaveLength(20);
+    expect(outcomes.filter((outcome) => !outcome.ok)).toHaveLength(5);
   });
 
   it('does not rate-limit when the IP is unknown', async () => {

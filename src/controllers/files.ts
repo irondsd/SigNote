@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { and, eq, inArray, isNotNull, isNull, lt, lte, sum } from 'drizzle-orm';
+import { and, eq, exists, gt, inArray, isNotNull, isNull, lt, lte, or, sum } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
@@ -90,10 +90,70 @@ export async function createFileAttachment(
 }
 
 export async function getFileAttachment(id: string, userId: string): Promise<FileRow | null> {
-  const rows = await getDb()
+  const db = getDb();
+  const now = new Date();
+  const rows = await db
     .select()
     .from(fileAttachments)
-    .where(and(eq(fileAttachments.id, id), eq(fileAttachments.userId, userId), isNull(fileAttachments.deletedAt)))
+    .where(
+      and(
+        eq(fileAttachments.id, id),
+        eq(fileAttachments.userId, userId),
+        isNull(fileAttachments.deletedAt),
+        or(
+          // Uploads are created before the note is saved and linked.
+          and(isNull(fileAttachments.noteId), isNull(fileAttachments.noteTier)),
+          and(
+            eq(fileAttachments.noteTier, 'note'),
+            exists(
+              db
+                .select({ id: notes.id })
+                .from(notes)
+                .where(
+                  and(
+                    eq(notes.id, fileAttachments.noteId),
+                    eq(notes.userId, userId),
+                    isNull(notes.deletedAt),
+                    or(isNull(notes.expiresAt), gt(notes.expiresAt, now)),
+                  ),
+                ),
+            ),
+          ),
+          and(
+            eq(fileAttachments.noteTier, 'secret'),
+            exists(
+              db
+                .select({ id: secretNotes.id })
+                .from(secretNotes)
+                .where(
+                  and(
+                    eq(secretNotes.id, fileAttachments.noteId),
+                    eq(secretNotes.userId, userId),
+                    isNull(secretNotes.deletedAt),
+                    or(isNull(secretNotes.expiresAt), gt(secretNotes.expiresAt, now)),
+                  ),
+                ),
+            ),
+          ),
+          and(
+            eq(fileAttachments.noteTier, 'seal'),
+            exists(
+              db
+                .select({ id: sealNotes.id })
+                .from(sealNotes)
+                .where(
+                  and(
+                    eq(sealNotes.id, fileAttachments.noteId),
+                    eq(sealNotes.userId, userId),
+                    isNull(sealNotes.deletedAt),
+                    or(isNull(sealNotes.expiresAt), gt(sealNotes.expiresAt, now)),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      ),
+    )
     .limit(1);
   return rows[0] ? mapFile(rows[0]) : null;
 }

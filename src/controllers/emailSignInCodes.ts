@@ -57,41 +57,52 @@ export type RequestOutcome =
 export const requestSignInCode = async (params: { email: string; ip: string }): Promise<RequestOutcome> => {
   const email = normalizeEmail(params.email);
   const db = getDb();
-  const since = windowStart();
 
-  const [byEmail, byIp] = await Promise.all([
-    db
-      .select({ n: count() })
-      .from(emailSignInCodes)
-      .where(and(eq(emailSignInCodes.email, email), gt(emailSignInCodes.createdAt, since))),
-    params.ip
-      ? db
-          .select({ n: count() })
-          .from(emailSignInCodes)
-          .where(and(eq(emailSignInCodes.ip, params.ip), gt(emailSignInCodes.createdAt, since)))
-      : Promise.resolve([{ n: 0 }]),
-  ]);
+  return db.transaction(async (tx) => {
+    // There may be no row to lock for a first request, so row locks cannot
+    // protect this count/check/insert sequence. Transaction-scoped advisory
+    // locks serialize both quotas across every app instance. Sorting prevents
+    // an email/IP pair from deadlocking with another pair that shares one key.
+    const lockKeys = [`email:${email}`, ...(params.ip ? [`ip:${params.ip}`] : [])].sort();
+    for (const key of lockKeys) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`);
+    }
 
-  if (Number(byEmail[0].n) >= MAX_PER_EMAIL || Number(byIp[0].n) >= MAX_PER_IP) {
-    return { ok: false, reason: 'rate-limited' };
-  }
+    const since = windowStart();
+    const [byEmail, byIp] = await Promise.all([
+      tx
+        .select({ n: count() })
+        .from(emailSignInCodes)
+        .where(and(eq(emailSignInCodes.email, email), gt(emailSignInCodes.createdAt, since))),
+      params.ip
+        ? tx
+            .select({ n: count() })
+            .from(emailSignInCodes)
+            .where(and(eq(emailSignInCodes.ip, params.ip), gt(emailSignInCodes.createdAt, since)))
+        : Promise.resolve([{ n: 0 }]),
+    ]);
 
-  // One live code per address: requesting a new one must invalidate the old,
-  // or every request widens the window an attacker is guessing against.
-  await db
-    .update(emailSignInCodes)
-    .set({ consumedAt: new Date() })
-    .where(and(eq(emailSignInCodes.email, email), isNull(emailSignInCodes.consumedAt)));
+    if (Number(byEmail[0].n) >= MAX_PER_EMAIL || Number(byIp[0].n) >= MAX_PER_IP) {
+      return { ok: false, reason: 'rate-limited' };
+    }
 
-  const code = generateCode();
-  await db.insert(emailSignInCodes).values({
-    email,
-    codeHash: hashCode(code),
-    ip: params.ip,
-    expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
+    // One live code per address: requesting a new one must invalidate the old,
+    // or every request widens the window an attacker is guessing against.
+    await tx
+      .update(emailSignInCodes)
+      .set({ consumedAt: new Date() })
+      .where(and(eq(emailSignInCodes.email, email), isNull(emailSignInCodes.consumedAt)));
+
+    const code = generateCode();
+    await tx.insert(emailSignInCodes).values({
+      email,
+      codeHash: hashCode(code),
+      ip: params.ip,
+      expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
+    });
+
+    return { ok: true, code, expiresInMinutes: CODE_TTL_MINUTES };
   });
-
-  return { ok: true, code, expiresInMinutes: CODE_TTL_MINUTES };
 };
 
 export type ConsumeOutcome = 'ok' | 'invalid' | 'expired' | 'too-many-attempts';
