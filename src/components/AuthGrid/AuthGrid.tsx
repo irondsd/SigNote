@@ -39,7 +39,6 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const { byId } = useAuthCodes(records, serverTimeOffsetMs);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [dragSize, setDragSize] = useState<{ width: number; height: number } | null>(null);
 
   // v1 queues nothing offline, so every write needs a live session. The menu
   // says why rather than failing silently when the button is pressed.
@@ -68,15 +67,12 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const handleDragStart = useCallback((event: DragStartEvent) => {
     document.body.dataset.dragging = 'true';
     setActiveId(event.active.id as string);
-    const rect = event.active.rect.current.initial;
-    if (rect) setDragSize({ width: rect.width, height: rect.height });
   }, []);
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       clearDragging();
       setActiveId(null);
-      setDragSize(null);
 
       const { active, over } = event;
       if (!over || active.id === over.id) return;
@@ -149,13 +145,8 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
         </div>
       </SortableContext>
 
-      <DragOverlay dropAnimation={null}>
-        {activeRecord ? (
-          <div style={dragSize ? { width: dragSize.width, height: dragSize.height } : undefined}>
-            <AuthCard {...cardProps(activeRecord)} />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {/* See BaseGrid: the overlay root carries the measured rect, so the card fills it on its own. */}
+      <DragOverlay dropAnimation={null}>{activeRecord ? <AuthCard {...cardProps(activeRecord)} /> : null}</DragOverlay>
     </DndContext>
   );
 }
