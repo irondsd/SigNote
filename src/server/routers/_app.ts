@@ -9,6 +9,7 @@ import { otpRouter } from './otp';
 import { passkeysRouter } from './passkeys';
 import { profileRouter } from './profile';
 import { sealsRouter } from './seals';
+import { securityRouter } from './security';
 import { secretsRouter } from './secrets';
 import { sessionsRouter } from './sessions';
 import { tagsRouter } from './tags';
@@ -24,6 +25,7 @@ export const appRouter = router({
   sessions: sessionsRouter,
   profile: profileRouter,
   notifications: notificationsRouter,
+  security: securityRouter,
   emailAuth: emailAuthRouter,
   identities: identitiesRouter,
   encryption: encryptionRouter,

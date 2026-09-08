@@ -19,6 +19,7 @@ import { SortableWrapper } from '@/components/SortableWrapper/SortableWrapper';
 import { AuthCard } from '@/components/AuthCard/AuthCard';
 import { useOtpVault, type AuthRecord } from '@/contexts/OtpVaultContext';
 import { useAuthCodes } from '@/hooks/useAuthCodes';
+import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import { isDegeneratePosition } from '@/lib/otp/order';
 import { calculatePosition } from '@/utils/calculatePosition';
 import { createVariableGridSortingStrategy, measureNaturalGridItemHeights } from '@/utils/variableGridSortingStrategy';
@@ -37,6 +38,10 @@ type AuthGridProps = {
 export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps) {
   const { serverTimeOffsetMs, setPosition, renumber, setStyle, setArchived, syncState } = useOtpVault();
   const { byId } = useAuthCodes(records, serverTimeOffsetMs);
+  // Blurred until the preference says otherwise: a code that flashes readable
+  // for the length of a round trip has already been shoulder-surfed.
+  const { data: security } = useSecurityPreferences();
+  const blurCode = security?.blurAuthCodes ?? true;
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -122,6 +127,7 @@ export function AuthGrid({ records, onEdit, onExport, onDelete }: AuthGridProps)
   const cardProps = (record: AuthRecord) => ({
     record,
     state: byId[record.id] ?? { seconds: 0, fraction: 1 },
+    blurCode,
     readOnly,
     readOnlyReason,
     onCopy: () => handleCopy(byId[record.id]?.code),

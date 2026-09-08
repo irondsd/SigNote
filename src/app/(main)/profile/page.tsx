@@ -18,11 +18,14 @@ import {
   Tag as TagIcon,
   Bell,
   UserRound,
+  Info,
+  ShieldAlert,
 } from 'lucide-react';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +40,7 @@ import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover
 import { useProfile, useUpdateDisplayName, type TierCounts } from '@/hooks/useProfile';
 import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
+import { useSecurityPreferences, useUpdateSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import s from './page.module.scss';
 import Link from 'next/link';
 import { announceVaultRemoval, loadVault, removeVault } from '@/lib/otpStore';
@@ -78,6 +82,62 @@ function StatItem({
   );
 }
 
+/**
+ * One security switch: what it does, and — behind the info icon — what it costs.
+ * Both of these are trades rather than features, so the row that offers one has
+ * to be able to state the downside without the description becoming a paragraph.
+ */
+function SecurityPreferenceRow({
+  label,
+  description,
+  moreInfo,
+  checked,
+  disabled,
+  onChange,
+  testId,
+}: {
+  label: string;
+  description: string;
+  moreInfo: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+  testId: string;
+}) {
+  return (
+    <div className={s.actionRow}>
+      <div className={s.actionInfo}>
+        <span className={`${s.actionLabel} ${s.prefLabel}`}>
+          {label}
+          <TooltipOrPopover
+            trigger={
+              <button
+                type="button"
+                className={s.infoTrigger}
+                aria-label={`About: ${label}`}
+                data-testid={`${testId}-info`}
+              >
+                <Info size={14} />
+              </button>
+            }
+            side="top"
+          >
+            <span className={s.infoTooltip}>{moreInfo}</span>
+          </TooltipOrPopover>
+        </span>
+        <span className={s.actionDesc}>{description}</span>
+      </div>
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onChange}
+        aria-label={label}
+        data-testid={testId}
+      />
+    </div>
+  );
+}
+
 function ProfilePageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -85,6 +145,8 @@ function ProfilePageContent() {
   const { data: profile, isLoading } = useProfile();
   const { tags, isLoading: tagsLoading } = useTags();
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
+  const { data: security, isLoading: securityLoading } = useSecurityPreferences();
+  const { mutate: updateSecurity } = useUpdateSecurityPreferences();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [trustedAuthenticator, setTrustedAuthenticator] = useState(false);
@@ -305,6 +367,58 @@ function ProfilePageContent() {
                 />
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Security preferences */}
+        <Card data-testid="security-prefs-section">
+          <CardHeader>
+            <CardTitle>Security</CardTitle>
+          </CardHeader>
+          <CardContent className={s.securityPrefsBody}>
+            {securityLoading || !security ? (
+              <>
+                <div className={`${s.skeleton} ${s.skeletonRow}`} />
+                <div className={`${s.skeleton} ${s.skeletonRow}`} />
+              </>
+            ) : (
+              <>
+                <SecurityPreferenceRow
+                  testId="pref-cache-server-share"
+                  label="Unlock without a network"
+                  description="Keep part of your encryption key on this device so secrets and seals open while offline."
+                  moreInfo={
+                    'Your key is split in two: one half comes from your passphrase, the other is held by the server ' +
+                    'and normally never touches the device. Turning this on stores that server half locally, so ' +
+                    'anyone who takes the device only has to guess your passphrase to reach your data — instead of ' +
+                    'needing your account too. Off by default.'
+                  }
+                  checked={security.cacheServerShare}
+                  onChange={(checked) => updateSecurity({ cacheServerShare: checked })}
+                />
+
+                <div className={s.divider} />
+
+                <SecurityPreferenceRow
+                  testId="pref-blur-auth-codes"
+                  label="Blur Authenticator codes"
+                  description="Hide codes until you point at the card. Applies to screens with a mouse; a phone shows them as usual."
+                  moreInfo={
+                    'Keeps one-time codes out of screenshots, screen shares and the view over your shoulder. ' +
+                    'Hovering a card reveals its code, and clicking still copies it without revealing anything.'
+                  }
+                  checked={security.blurAuthCodes}
+                  onChange={(checked) => updateSecurity({ blurAuthCodes: checked })}
+                />
+
+                {security.cacheServerShare && (
+                  <p className={`${s.actionDesc} ${s.prefWarning}`} data-testid="cache-server-share-warning">
+                    <ShieldAlert size={13} /> This account&apos;s key half is stored on every device you sign in from
+                    until you turn this off.
+                  </p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
 

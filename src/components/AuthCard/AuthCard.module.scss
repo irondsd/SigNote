@@ -168,18 +168,22 @@
 }
 
 /**
- * Blur-on-hover is a pointer-device rule only. It doubles as screenshare
+ * Blur-until-hovered is a pointer-device rule only. It doubles as screenshare
  * protection — a screenshot of the list has no readable codes — but on a
  * touch screen nothing ever hovers, so applying it there would simply hide
  * every code behind a tap.
+ *
+ * `data-blur` carries the account's Security preference. Its absence means the
+ * user turned the blur off, so the rule is scoped to the attribute rather than
+ * to `.card` — the media query alone can't express "and they still want it".
  */
 @media (hover: hover) and (pointer: fine) {
-  .codeWrap {
+  .card[data-blur] .codeWrap {
     filter: blur(7px);
   }
 
-  .card:hover .codeWrap,
-  .card:focus-visible .codeWrap {
+  .card[data-blur]:hover .codeWrap,
+  .card[data-blur]:focus-visible .codeWrap {
     filter: none;
   }
 }

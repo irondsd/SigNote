@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { ExpirationPlugin, NetworkFirst, Serwist } from 'serwist';
+import { ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist } from 'serwist';
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -45,6 +45,21 @@ const serwist = new Serwist({
           }),
         ],
       }),
+    },
+    // `encryption.material` carries `serverShare`, one half of the master key.
+    // The generic `/api/` rule in `defaultCache` would take it as a side effect
+    // of any fetch and keep it past sign-out, so it is claimed here first and
+    // never written to disk. Keeping a copy is a decision the account makes
+    // under Security, and `lib/encryptionMaterialStore.ts` is where an opted-in
+    // device stores it — explicitly, and clearable by name.
+    //
+    // A substring test rather than an equality one: the client batches, so the
+    // procedure travels in a comma-joined path alongside whatever else was in
+    // flight. Anything sharing that request loses its caching too, which is the
+    // safe direction to err in.
+    {
+      matcher: ({ url }) => url.pathname.includes('encryption.material'),
+      handler: new NetworkOnly(),
     },
     ...defaultCache,
   ],

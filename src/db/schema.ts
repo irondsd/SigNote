@@ -521,6 +521,33 @@ export const notificationPreferences = pgTable(
   (t) => [uniqueIndex('notification_preferences_user_unique').on(t.userId)],
 );
 
+/**
+ * Choices about what this account is willing to trade away for convenience.
+ * Separate from `notification_preferences` because the two answer different
+ * questions and neither should be read to answer the other's.
+ *
+ * The defaults are the safe end of each trade, so an account that never opens
+ * this page is in the conservative state.
+ */
+export const securityPreferences = pgTable(
+  'security_preferences',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    /**
+     * Keep the `serverShare` half of the MEK on the device so the vault can be
+     * unlocked with no network. Off by default: the whole point of splitting
+     * the key is that one half never sits next to the other.
+     */
+    cacheServerShare: boolean('cache_server_share').notNull().default(false),
+    /** Blur Authenticator codes until hovered, on pointer devices. */
+    blurAuthCodes: boolean('blur_auth_codes').notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAtAuto(),
+  },
+  (t) => [uniqueIndex('security_preferences_user_unique').on(t.userId)],
+);
+
 // ---------------------------------------------------------------------------
 // File attachments (S3-backed)
 

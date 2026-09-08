@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
@@ -19,6 +19,9 @@ import {
   verifyKeyCheck,
   xor32,
 } from '@/lib/crypto';
+import { clearStoredMaterial, type MaterialCachePolicy, type StoredMaterial } from '@/lib/encryptionMaterialStore';
+import { fetchEncryptionMaterial } from '@/lib/encryptionMaterial';
+import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import { HARD_LOCK_MS, SOFT_LOCK_TS_KEY } from '@/config/constants';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
 
@@ -33,13 +36,7 @@ type ProfileData = {
 
 type ProfileResponse = { exists: false } | ({ exists: true } & ProfileData);
 
-type MaterialResponse = {
-  version: number;
-  serverShare: string;
-  salt: string;
-  kdf: KdfParams;
-  keyCheck: EncryptedPayload;
-};
+type MaterialResponse = StoredMaterial;
 
 export type EncryptionPhase = 'loading' | 'setup' | 'locked' | 'unlocked';
 export type LockType = 'none' | 'soft';
@@ -62,10 +59,6 @@ type EncryptionContextValue = {
 
 // ─── Private helpers ─────────────────────────────────────────────────────────
 
-async function fetchMaterialRequest(): Promise<MaterialResponse> {
-  return (await trpcClient.encryption.material.query()) as unknown as MaterialResponse;
-}
-
 async function reconstructMek(deviceShare: Uint8Array, material: MaterialResponse): Promise<CryptoKey | null> {
   const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
   const mekBytes = xor32(deviceShare, serverShareBytes);
@@ -73,8 +66,11 @@ async function reconstructMek(deviceShare: Uint8Array, material: MaterialRespons
   return (await verifyKeyCheck(candidate, material.keyCheck)) ? candidate : null;
 }
 
-async function verifiedMekFromPassphrase(passphrase: string): Promise<{ mek: CryptoKey; deviceShare: Uint8Array }> {
-  const material = await fetchMaterialRequest();
+async function verifiedMekFromPassphrase(
+  passphrase: string,
+  policy: MaterialCachePolicy,
+): Promise<{ mek: CryptoKey; deviceShare: Uint8Array }> {
+  const material = await fetchEncryptionMaterial(policy);
   const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
   const mek = await reconstructMek(deviceShare, material);
   if (!mek) throw new Error('Incorrect passphrase');
@@ -86,6 +82,7 @@ async function verifiedMekFromPassphrase(passphrase: string): Promise<{ mek: Cry
 function useMekRehydration(
   sessionStatus: string,
   profileExists: boolean,
+  policyRef: MutableRefObject<MaterialCachePolicy>,
 ): { mek: CryptoKey | null; setMek: (key: CryptoKey | null) => void } {
   const [mek, setMek] = useState<CryptoKey | null>(null);
 
@@ -101,7 +98,7 @@ function useMekRehydration(
 
     (async () => {
       try {
-        const material = await fetchMaterialRequest();
+        const material = await fetchEncryptionMaterial(policyRef.current);
         const key = await reconstructMek(deviceShare, material);
         if (key) setMek(key);
         else clearDeviceShare();
@@ -150,7 +147,22 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   });
 
   const profileExists = !profileLoading && !!profileResponse?.exists;
-  const { mek, setMek } = useMekRehydration(sessionStatus, profileExists);
+
+  // Whether this device may keep `serverShare`. Held in a ref because every
+  // reader is an async call made after render — rebuilding the callbacks below
+  // when the preference resolves would churn the identities that consumers
+  // list in effect deps, for a value none of them read.
+  //
+  // The preference is account-wide, so an `allowed: false` arriving here also
+  // deletes what a device that was never the one toggled had kept.
+  const { data: security } = useSecurityPreferences();
+  const policyRef = useRef<MaterialCachePolicy>({ userId, allowed: security?.cacheServerShare });
+  useEffect(() => {
+    policyRef.current = { userId, allowed: security?.cacheServerShare };
+    if (userId && security?.cacheServerShare === false) void clearStoredMaterial(userId).catch(() => undefined);
+  }, [userId, security?.cacheServerShare]);
+
+  const { mek, setMek } = useMekRehydration(sessionStatus, profileExists, policyRef);
   // If deviceShare is already in sessionStorage on mount, treat as soft-locked so
   // handleNoteClick (and any other guard callers) try ctxRehydrate() before prompting.
   const [lockType, setLockType] = useState<LockType>(() =>
@@ -167,7 +179,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   const unlock = useCallback(
     async (passphrase: string): Promise<void> => {
-      const { mek: key, deviceShare } = await verifiedMekFromPassphrase(passphrase);
+      const { mek: key, deviceShare } = await verifiedMekFromPassphrase(passphrase, policyRef.current);
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
@@ -177,7 +189,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   );
 
   const verifyPassphrase = useCallback(async (passphrase: string): Promise<void> => {
-    await verifiedMekFromPassphrase(passphrase);
+    await verifiedMekFromPassphrase(passphrase, policyRef.current);
   }, []);
 
   const lock = useCallback(() => {
@@ -209,7 +221,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
     const deviceShare = loadDeviceShare();
     if (!deviceShare) throw new Error('No device share available');
-    const material = await fetchMaterialRequest();
+    const material = await fetchEncryptionMaterial(policyRef.current);
     const key = await reconstructMek(deviceShare, material);
     if (!key) {
       clearDeviceShare();

@@ -18,9 +18,12 @@ const realSetImmediate = nodeTimers.setImmediate;
 const turn = () => new Promise((resolve) => realSetImmediate(resolve));
 
 /** Turns the real event loop until `done`, since a key derivation plus an
- *  encryption take an unpredictable number of turns to land. */
+ *  encryption take an unpredictable number of turns to land. The cap is
+ *  generous rather than tuned: it is only reached when the work never lands,
+ *  and a jest worker competing with the rest of the suite needs far more turns
+ *  for the same derivation than one running alone. */
 const settle = async (done: () => boolean = () => true) => {
-  for (let i = 0; i < 50; i += 1) {
+  for (let i = 0; i < 400; i += 1) {
     await act(async () => {
       await turn();
     });

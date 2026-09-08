@@ -29,6 +29,8 @@ function splitCode(code: string): [string, string] {
 export type AuthCardProps = {
   record: AuthRecord;
   state: AuthCodeState;
+  /** Account preference: blur the code until the card is hovered or focused. */
+  blurCode: boolean;
   readOnly: boolean;
   readOnlyReason?: string;
   onCopy: () => void;
@@ -42,6 +44,7 @@ export type AuthCardProps = {
 export function AuthCard({
   record,
   state,
+  blurCode,
   readOnly,
   readOnlyReason,
   onCopy,
@@ -83,6 +86,7 @@ export function AuthCard({
       data-pattern={record.pattern || undefined}
       data-archived={record.archived || undefined}
       data-unreadable={!secrets || undefined}
+      data-blur={blurCode || undefined}
       role="button"
       tabIndex={0}
       aria-label={secrets ? `${secrets.issuer || secrets.account} — copy code` : 'Unreadable credential'}

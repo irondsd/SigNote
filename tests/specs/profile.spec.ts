@@ -8,6 +8,7 @@ import { seedSeals } from '../fixtures/seedSeals';
 import { seedOtpRecords } from '../fixtures/seedOtpRecords';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { clearSession } from '../utils/clearSession';
+import { setSecurityPreference } from '../utils/securityPreference';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -169,5 +170,75 @@ test.describe('navigation', () => {
 
     await page.getByRole('button', { name: 'Change' }).click();
     await expect(page).toHaveURL('/change-passphrase');
+  });
+});
+
+// ─── Security preferences ────────────────────────────────────────────────────
+
+test.describe('security preferences', () => {
+  test('defaults to the conservative answer for a fresh account', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+
+    // Off: the two halves of the encryption key stay apart unless asked.
+    await expect(page.getByTestId('pref-cache-server-share')).toHaveAttribute('data-state', 'unchecked');
+    // On: codes are hidden until pointed at.
+    await expect(page.getByTestId('pref-blur-auth-codes')).toHaveAttribute('data-state', 'checked');
+  });
+
+  test('sits directly under Statistics', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+
+    await expect(page.getByTestId('security-prefs-section')).toBeVisible();
+
+    const titles = await page.locator('[data-slot="card-title"]').allInnerTexts();
+    expect(titles.slice(0, 3)).toEqual(['Profile', 'Statistics', 'Security']);
+  });
+
+  test('each switch explains the trade behind an info control', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+
+    await expect(page.getByTestId('pref-cache-server-share-info')).toBeVisible();
+    await expect(page.getByTestId('pref-blur-auth-codes-info')).toBeVisible();
+  });
+
+  test('turning caching on persists, and warns while it is on', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+
+    await expect(page.getByTestId('cache-server-share-warning')).toBeHidden();
+    await setSecurityPreference(page, 'pref-cache-server-share', true);
+    await expect(page.getByTestId('cache-server-share-warning')).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByTestId('pref-cache-server-share')).toHaveAttribute('data-state', 'checked');
+    // The switch the user did not touch is unchanged: a partial patch must not
+    // carry the other column's default onto a row that now means a decision.
+    await expect(page.getByTestId('pref-blur-auth-codes')).toHaveAttribute('data-state', 'checked');
+  });
+
+  test('turning the code blur off persists', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+
+    await setSecurityPreference(page, 'pref-blur-auth-codes', false);
+
+    await page.reload();
+    await expect(page.getByTestId('pref-blur-auth-codes')).toHaveAttribute('data-state', 'unchecked');
+    await expect(page.getByTestId('pref-cache-server-share')).toHaveAttribute('data-state', 'unchecked');
+  });
+
+  test('preferences are per account', async ({ page }) => {
+    await setup(page);
+    await page.goto('/profile');
+    await setSecurityPreference(page, 'pref-blur-auth-codes', false);
+
+    await clearSession(page);
+    await setup(page);
+    await page.goto('/profile');
+
+    await expect(page.getByTestId('pref-blur-auth-codes')).toHaveAttribute('data-state', 'checked');
   });
 });

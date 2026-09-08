@@ -5,6 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { AuthenticatorPage } from '../pages/AuthenticatorPage';
 import { seedOtpRecords, TEST_SEED } from '../fixtures/seedOtpRecords';
 import { trpcData, trpcGet, trpcMutate, trpcMutationOf, trpcQuery } from '../utils/trpc';
+import { setSecurityPreference } from '../utils/securityPreference';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { makeAccount } from '../utils/makeAccount';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
@@ -531,5 +532,44 @@ test.describe('authenticator', () => {
     const stored = JSON.stringify(await listRecords(page));
     expect(stored).not.toContain('JBSWY3DPEHPK3PXP');
     expect(stored).not.toContain('GitHub');
+  });
+});
+
+// ─── Code blur preference ────────────────────────────────────────────────────
+
+/**
+ * The blur itself is a CSS rule scoped to `(hover: hover) and (pointer: fine)`,
+ * which a headless run does not satisfy — so these assert the attribute the
+ * rule keys off rather than a computed filter. What is worth pinning here is
+ * that the preference reaches the card at all, and that it fails closed while
+ * the preference is still in flight.
+ */
+test.describe('authenticator code blur', () => {
+  test.use({ viewport: { width: 1200, height: 900 } });
+
+  test('codes are blurred by default', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll(true);
+
+    await expect(authPage.card('Alpha')).toHaveAttribute('data-blur', 'true');
+  });
+
+  test('turning the preference off unblurs them', async ({ page }) => {
+    const authPage = new AuthenticatorPage(page);
+    const { address, mekBytes } = await authPage.signInDirectly();
+    await seedOtpRecords(address, mekBytes, [{ issuer: 'Alpha' }]);
+    await page.reload();
+    await authPage.enroll(true);
+    await expect(authPage.card('Alpha')).toHaveAttribute('data-blur', 'true');
+
+    await page.goto('/profile');
+    await setSecurityPreference(page, 'pref-blur-auth-codes', false);
+
+    await page.goto('/auth');
+    await expect(authPage.card('Alpha')).toBeVisible();
+    await expect(authPage.card('Alpha')).not.toHaveAttribute('data-blur', /.*/);
   });
 });

@@ -50,6 +50,13 @@
       "when": 1788796431627,
       "tag": "0008_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788904574804,
+      "tag": "0009_security_preferences",
+      "breakpoints": true
     }
   ]
 }

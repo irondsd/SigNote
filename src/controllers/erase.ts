@@ -10,6 +10,7 @@ import {
   passkeyCredentials,
   sealNotes,
   secretNotes,
+  securityPreferences,
   users,
 } from '@/db/schema';
 import { deleteFilesByUserId } from './files';
@@ -36,6 +37,7 @@ export const eraseAccount = async (userId: string) => {
     getDb().delete(users).where(eq(users.id, userId)),
     getDb().delete(authIdentities).where(eq(authIdentities.userId, userId)),
     getDb().delete(notificationPreferences).where(eq(notificationPreferences.userId, userId)),
+    getDb().delete(securityPreferences).where(eq(securityPreferences.userId, userId)),
     getDb().delete(passkeyCredentials).where(eq(passkeyCredentials.userId, userId)),
   ]);
 };

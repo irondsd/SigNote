@@ -9,6 +9,7 @@ import { clearDraft } from '@/lib/draft';
 import { DesktopAuthCallbackHandler } from '@/components/DesktopAuthCallbackHandler/DesktopAuthCallbackHandler';
 import { rememberLastSignInMethod } from '@/lib/lastSignInMethod';
 import { removeAllVaults } from '@/lib/otpStore';
+import { clearAllStoredMaterial } from '@/lib/encryptionMaterialStore';
 
 type AuthSessionProviderProps = {
   children: ReactNode;
@@ -48,6 +49,7 @@ function SessionCleanup() {
       queryCacheStorage.removeItem('signote-query-cache');
       void removeAllVaults().catch(() => undefined);
       void purgeAccountCaches();
+      void clearAllStoredMaterial().catch(() => undefined);
 
       // Drafts are recovery data, though: an expired session may be the very
       // reason a save failed, so deleting them here would turn an auth failure
