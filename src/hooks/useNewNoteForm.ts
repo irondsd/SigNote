@@ -4,25 +4,17 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useNewNoteState } from '@/hooks/useNewNoteState';
 import { useTagCountBump } from '@/hooks/useTagMutations';
-import { clearDraft } from '@/lib/draft';
+import type { DraftContent } from '@/lib/draft';
+import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 
 type Tier = 'note' | 'secret' | 'seal';
-type InitialContent = { title: string; content: string };
+type InitialContent = DraftContent;
 
-/**
- * Shared state + validation for the three "new note" modals. Wraps
- * {@link useNewNoteState} and adds the upload/tags bookkeeping and the
- * title/content guards every tier repeats.
- *
- * `prepare()` validates only (no side effects) so encrypted tiers can run it
- * *before* prompting for a passphrase; `commitDraft()` is called separately,
- * after the save is committed, so a cancelled unlock keeps the draft intact.
- */
 export function useNewNoteForm(tier: Tier, onClose: () => void, initialContent?: InitialContent) {
   const state = useNewNoteState(tier, onClose, initialContent);
   const [isUploading, setIsUploading] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(initialContent?.tags ?? []);
   const bumpTagCounts = useTagCountBump();
 
   const prepare = (): InitialContent | null => {
@@ -38,12 +30,47 @@ export function useNewNoteForm(tier: Tier, onClose: () => void, initialContent?:
     return { title: state.title.trim(), content: state.content.trim() };
   };
 
-  const commitDraft = () => {
-    if (state.draftTimerRef.current) clearTimeout(state.draftTimerRef.current);
-    clearDraft();
+  const recovery = useDraftRecovery(
+    tier,
+    {
+      title: state.title,
+      content: state.content,
+      color: state.color,
+      pattern: state.pattern,
+      tags,
+      draftId: initialContent?.draftId,
+      sourceId: initialContent?.sourceId,
+    },
+    state.isDirty,
+  );
+
+  const save = (request: () => Promise<unknown>) => {
+    bumpTagCounts(tags, []);
+    recovery.save(async () => {
+      try {
+        return await request();
+      } catch (error) {
+        bumpTagCounts([], tags);
+        throw error;
+      }
+    });
   };
 
-  return { ...state, isUploading, setIsUploading, tags, setTags, bumpTagCounts, prepare, commitDraft };
+  return {
+    ...state,
+    isUploading,
+    setIsUploading,
+    tags,
+    setTags,
+    bumpTagCounts,
+    prepare,
+    recovery,
+    save,
+    handleConfirmDiscard: () => {
+      recovery.discard();
+      state.handleConfirmDiscard();
+    },
+  };
 }
 
 export type NewNoteForm = ReturnType<typeof useNewNoteForm>;

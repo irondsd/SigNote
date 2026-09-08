@@ -2,6 +2,8 @@
 
 import { useQueryClient, useMutation, InfiniteData } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { queueTierWrite } from '@/lib/tierWriteQueue';
+import { rollbackItem } from '@/lib/queryCache';
 import { trpcClient } from '@/lib/trpcClient';
 
 type Resource = 'notes' | 'secrets' | 'seals';
@@ -13,14 +15,17 @@ type ReorderInput = {
   newIndex: number;
 };
 
-type WithId = { _id: string };
+type WithId = { _id: string; archived: boolean };
 
 export function useReorder<T extends WithId>(resource: Resource) {
   const qc = useQueryClient();
   const queryKey = resource;
 
   return useMutation({
-    mutationFn: async ({ id, position }: ReorderInput) => trpcClient[resource].setPosition.mutate({ id, position }),
+    networkMode: 'always',
+    mutationKey: [resource],
+    mutationFn: async ({ id, position }: ReorderInput) =>
+      queueTierWrite(resource, id, () => trpcClient[resource].setPosition.mutate({ id, position })),
     onMutate: async ({ id, position, newIndex }) => {
       await qc.cancelQueries({ queryKey: [queryKey] });
       const snapshots = qc.getQueriesData<InfiniteData<T[]>>({ queryKey: [queryKey] });
@@ -45,12 +50,14 @@ export function useReorder<T extends WithId>(resource: Resource) {
         qc.setQueryData(key, { ...data, pages: newPages });
       });
 
-      return { snapshots };
+      return { snapshots, reordered: true };
     },
     onError: (_err, _vars, context) => {
-      context?.snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+      if (context) rollbackItem(qc, context.snapshots, _vars.id, undefined, true);
       toast.error(`Failed to reorder ${resource}`);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: [queryKey] }),
+    onSettled: () => {
+      if (qc.isMutating({ mutationKey: [resource] }) <= 1) return qc.invalidateQueries({ queryKey: [queryKey] });
+    },
   });
 }

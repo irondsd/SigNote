@@ -22,7 +22,8 @@ export function restoreSnapshots<T>(qc: QueryClient, snapshots: Snapshot<T>[]): 
 export function insertAtTop<T extends WithId>(qc: QueryClient, snapshots: Snapshot<T>[], item: T): void {
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
-    if (isArchivedView(queryKey)) return;
+    if (queryKey[VIEW_INDEX] !== 'all' && isArchivedView(queryKey) !== item.archived) return;
+    if (queryKey[3] || queryKey[4]) return; // Filtered searches are reconciled by the server.
     const firstPage = data.pages[0] ?? [];
     qc.setQueryData(queryKey, {
       ...data,
@@ -85,13 +86,17 @@ export function toggleArchive<T extends WithId>(
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
     const isArchiveQuery = isArchivedView(queryKey);
-    const noteNowBelongsHere = archived === isArchiveQuery;
+    const noteNowBelongsHere = queryKey[VIEW_INDEX] === 'all' || archived === isArchiveQuery;
 
     if (noteNowBelongsHere) {
+      if ((queryKey[3] || queryKey[4]) && !data.pages.some((page) => page.some((n) => n._id === id))) return;
       const firstPage = data.pages[0] ?? [];
       qc.setQueryData(queryKey, {
         ...data,
-        pages: [[updated, ...firstPage.filter((n) => n._id !== id)], ...data.pages.slice(1)],
+        pages: [
+          [updated, ...firstPage.filter((n) => n._id !== id)],
+          ...data.pages.slice(1).map((page) => page.filter((n) => n._id !== id)),
+        ],
       });
     } else {
       qc.setQueryData(queryKey, {
@@ -100,4 +105,87 @@ export function toggleArchive<T extends WithId>(
       });
     }
   });
+}
+
+/** Roll back only this item. Other optimistic mutations may already be in the cache. */
+export function rollbackItem<T extends WithId>(
+  qc: QueryClient,
+  snapshots: Snapshot<T>[],
+  id: string,
+  optimistic?: Partial<T>,
+  restorePosition = false,
+): void {
+  for (const [key, before] of snapshots) {
+    if (!before) continue;
+    const previous = before.pages.flat().find((item) => item._id === id);
+    qc.setQueryData<InfiniteData<T[]>>(key, (current) => {
+      if (!current) return current;
+      const present = current.pages.flat().find((item) => item._id === id);
+      if (!previous) return { ...current, pages: current.pages.map((page) => page.filter((item) => item._id !== id)) };
+      if (!present) {
+        if (optimistic && !('archived' in optimistic)) return current;
+        const pageIndex = before.pages.findIndex((page) => page.some((item) => item._id === id));
+        const index = before.pages[pageIndex].findIndex((item) => item._id === id);
+        return {
+          ...current,
+          pages: current.pages.map((page, i) => {
+            if (i !== pageIndex) return page;
+            const restored = [...page];
+            restored.splice(index, 0, previous);
+            return restored;
+          }),
+        };
+      }
+      const restored = { ...present };
+      for (const field of Object.keys(optimistic ?? previous) as (keyof T)[]) {
+        if (!optimistic || JSON.stringify(present[field]) === JSON.stringify(optimistic[field])) {
+          restored[field] = previous[field];
+        }
+      }
+      if (restorePosition) {
+        const ordered = current.pages.flat().filter((item) => item._id !== id);
+        ordered.splice(
+          before.pages.flat().findIndex((item) => item._id === id),
+          0,
+          restored,
+        );
+        let offset = 0;
+        return {
+          ...current,
+          pages: current.pages.map((page) => {
+            const result = ordered.slice(offset, offset + page.length);
+            offset += page.length;
+            return result;
+          }),
+        };
+      }
+      return {
+        ...current,
+        pages: current.pages.map((page) => page.map((item) => (item._id === id ? restored : item))),
+      };
+    });
+  }
+}
+
+/** Keep pin order immediate in ordinary lists, preserving the server's search ranking. */
+export function sortTierLists<T extends WithId>(qc: QueryClient, snapshots: Snapshot<T>[]): void {
+  for (const [key] of snapshots) {
+    if (key[3]) continue;
+    qc.setQueryData<InfiniteData<T[]>>(key, (data) => {
+      if (!data) return data;
+      type Sortable = T & { pinned?: boolean; position?: number };
+      const ordered = [...data.pages.flat()].sort(
+        (a: Sortable, b: Sortable) => Number(!!b.pinned) - Number(!!a.pinned) || (b.position ?? 0) - (a.position ?? 0),
+      );
+      let offset = 0;
+      return {
+        ...data,
+        pages: data.pages.map((page) => {
+          const result = ordered.slice(offset, offset + page.length);
+          offset += page.length;
+          return result;
+        }),
+      };
+    });
+  }
 }

@@ -4,34 +4,22 @@ import { useCreateNote } from '@/hooks/useNoteMutations';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
 import { useNewNoteForm } from '@/hooks/useNewNoteForm';
-import { saveDraft } from '@/lib/draft';
+import type { DraftContent } from '@/lib/draft';
 
 type NewNoteModalProps = {
   onClose: () => void;
-  initialContent?: { title: string; content: string };
-  onSaveError?: (vars: { title: string; content: string }) => void;
+  initialContent?: DraftContent;
 };
 
-export function NewNoteModal({ onClose, initialContent, onSaveError }: NewNoteModalProps) {
+export function NewNoteModal({ onClose, initialContent }: NewNoteModalProps) {
   const form = useNewNoteForm('note', onClose, initialContent);
-  const createNote = useCreateNote({ onError: onSaveError });
+  const createNote = useCreateNote();
 
   const handleSave = () => {
     const prepared = form.prepare();
     if (!prepared) return;
-    // Persist synchronously before starting the request. In particular, this
-    // covers title-only notes, which the normal typing debounce does not save.
-    saveDraft({ type: 'note', ...prepared, savedAt: Date.now() });
-    createNote.mutate(
-      { ...prepared, color: form.color, pattern: form.pattern, tags: form.tags },
-      {
-        onSuccess: () => {
-          form.commitDraft();
-          form.bumpTagCounts(form.tags, []);
-          onClose();
-        },
-      },
-    );
+    form.save(() => createNote.mutateAsync({ ...prepared, color: form.color, pattern: form.pattern, tags: form.tags }));
+    onClose();
   };
 
   return (

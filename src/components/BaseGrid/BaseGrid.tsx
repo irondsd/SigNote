@@ -88,7 +88,14 @@ export function BaseGrid<T extends BaseItem>({
       setActiveNote(null);
       setActiveDragSize(null);
       const { active, over } = event;
-      if (!over || active.id === over.id || !notes) return;
+      if (
+        !over ||
+        active.id === over.id ||
+        !notes ||
+        String(active.id).startsWith('temp-') ||
+        String(over.id).startsWith('temp-')
+      )
+        return;
 
       const oldIndex = notes.findIndex((n) => getId(n) === active.id);
       const newIndex = notes.findIndex((n) => getId(n) === over.id);
@@ -150,7 +157,14 @@ export function BaseGrid<T extends BaseItem>({
       >
         <SortableContext items={noteIds} strategy={variableGridSortingStrategy}>
           <div className={s.grid}>
-            {notes.map((note) => renderCard(note, (rect) => onNoteClick(note, rect), showArchivedBadge, !dragEnabled))}
+            {notes.map((note) =>
+              renderCard(
+                note,
+                (rect) => !getId(note).startsWith('temp-') && onNoteClick(note, rect),
+                showArchivedBadge,
+                !dragEnabled,
+              ),
+            )}
           </div>
         </SortableContext>
 

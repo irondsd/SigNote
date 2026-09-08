@@ -40,13 +40,14 @@ type MetaNote = {
  */
 export function useNoteModalMeta(
   note: MetaNote,
-  update: (patch: MetaPatch) => void,
+  update: (patch: MetaPatch, onError?: () => void) => void,
   options?: { burnReady?: boolean },
 ) {
   const noteId = String(note._id);
 
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
+  const [savedTitle, setSavedTitle] = useState(note.title ?? '');
   const [isArchived, setIsArchived] = useState(note.archived);
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
@@ -69,17 +70,17 @@ export function useNoteModalMeta(
   const handleArchiveToggle = () => {
     const next = !isArchived;
     setIsArchived(next);
-    update({ id: noteId, archived: next });
+    update({ id: noteId, archived: next }, () => setIsArchived((value) => (value === next ? isArchived : value)));
   };
 
   const handleColorChange = (newColor: string | null) => {
     setColor(newColor);
-    update({ id: noteId, color: newColor });
+    update({ id: noteId, color: newColor }, () => setColor((value) => (value === newColor ? color : value)));
   };
 
   const handlePatternChange = (newPattern: string | null) => {
     setPattern(newPattern);
-    update({ id: noteId, pattern: newPattern });
+    update({ id: noteId, pattern: newPattern }, () => setPattern((value) => (value === newPattern ? pattern : value)));
   };
 
   const handleTagsChange = (ids: string[]) => {
@@ -88,22 +89,34 @@ export function useNoteModalMeta(
       tags.filter((id) => !ids.includes(id)),
     );
     setTags(ids);
-    update({ id: noteId, tags: ids });
+    update({ id: noteId, tags: ids }, () => {
+      setTags((value) => (value === ids ? tags : value));
+      bumpTagCounts(
+        tags.filter((id) => !ids.includes(id)),
+        ids.filter((id) => !tags.includes(id)),
+      );
+    });
   };
 
   const handleTogglePinned = (next: boolean) => {
     setPinned(next);
-    update({ id: noteId, pinned: next });
+    update({ id: noteId, pinned: next }, () => setPinned((value) => (value === next ? pinned : value)));
   };
 
   const handleSetExpiry = (next: { expiresAt: Date | null; burnAfterReading: boolean }) => {
     setExpiresAt(next.expiresAt);
     setBurnAfterReading(next.burnAfterReading);
-    update({
-      id: noteId,
-      expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
-      burnAfterReading: next.burnAfterReading,
-    });
+    update(
+      {
+        id: noteId,
+        expiresAt: next.expiresAt ? next.expiresAt.toISOString() : null,
+        burnAfterReading: next.burnAfterReading,
+      },
+      () => {
+        setExpiresAt((value) => (value === next.expiresAt ? expiresAt : value));
+        setBurnAfterReading((value) => (value === next.burnAfterReading ? burnAfterReading : value));
+      },
+    );
   };
 
   const { wasInitiallyBurning } = useBurnArming({
@@ -119,6 +132,8 @@ export function useNoteModalMeta(
     setEditing,
     title,
     setTitle,
+    savedTitle,
+    setSavedTitle,
     isArchived,
     color,
     pattern,

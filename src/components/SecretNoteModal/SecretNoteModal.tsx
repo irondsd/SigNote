@@ -25,6 +25,7 @@ import { extractFileIds } from '@/lib/fileIds';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 
@@ -56,6 +57,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     setEditing,
     title,
     setTitle,
+    savedTitle,
+    setSavedTitle,
     isArchived,
     color,
     pattern,
@@ -86,15 +89,22 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
-  } = useNoteModalMeta(note, (patch) => updateSecret.mutate(patch));
+  } = useNoteModalMeta(note, (patch, onError) => {
+    void updateSecret.mutateAsync(patch).catch(() => onError?.());
+  });
 
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
   const pendingActionRef = useRef<'save' | null>(null);
   const mountLockSerialRef = useRef(lockSerial);
 
-  const isDirty = editing && (title !== (note.title ?? '') || content !== savedContentRef.current);
+  const isDirty = editing && (title !== savedTitle || content !== savedContentRef.current);
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+  const recovery = useDraftRecovery(
+    'secret',
+    { title, content: content ?? '', sourceId: noteId, color, pattern, tags },
+    isDirty,
+  );
   const handleClose = () => confirmClose(onClose);
 
   // Hard lock event: close modal if not editing.
@@ -122,6 +132,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
   const handleRestored = (v: DisplayVersion) => {
     setTitle(v.title);
+    setSavedTitle(v.title);
     setContent(v.content);
     savedContentRef.current = v.content;
     setUpdatedAt(new Date().toISOString());
@@ -164,18 +175,28 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
       try {
         const encryptedBody = content.trim() ? await encryptSecretBody(currentMek, content) : null;
         const fileIds = extractFileIds(content);
-        updateSecret.mutate({ id: noteId, title, encryptedBody, fileIds }, { onError: () => setEditing(true) });
+        recovery.save(
+          () => updateSecret.mutateAsync({ id: noteId, title, encryptedBody, fileIds }),
+          () => setEditing(true),
+          () => {
+            setSavedTitle(title);
+            savedContentRef.current = content;
+          },
+        );
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
         setShowFormatBar(false);
+      } catch {
+        toast.error('Failed to prepare secret for saving');
       } finally {
         setSaving(false);
       }
     },
-    [noteId, title, content, updateSecret, setEditing, setShowFormatBar, setUpdatedAt],
+    [setSavedTitle, recovery, noteId, title, content, updateSecret, setEditing, setShowFormatBar, setUpdatedAt],
   );
 
   const handleSave = async () => {
+    recovery.flush();
     setSaving(true);
     try {
       if (lockType === 'soft') {
@@ -203,7 +224,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   };
 
   const handleCancel = () => {
-    setTitle(note.title ?? '');
+    recovery.discard();
+    setTitle(savedTitle);
     setContent(savedContentRef.current);
     setEditing(false);
   };
@@ -293,14 +315,17 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
             onChange={async (html) => {
               setContent(html);
               if (!editing && guard.isMekAvailable) {
-                try {
-                  await guard.execute(async (mek) => {
-                    const encryptedBody = html.trim() ? await encryptSecretBody(mek, html) : null;
-                    updateSecret.mutate({ id: noteId, encryptedBody });
-                  });
-                } catch {
-                  // Silently fail on auto-save encryption
-                }
+                recovery.save(
+                  async () => {
+                    const encryptedBody = html.trim() ? await encryptSecretBody(mek!, html) : null;
+                    return updateSecret.mutateAsync({ id: noteId, encryptedBody });
+                  },
+                  () => setEditing(true),
+                  () => {
+                    savedContentRef.current = html;
+                  },
+                  { content: html },
+                );
               }
             }}
             editable={editing}
@@ -316,7 +341,15 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
       {guard.PassphraseGuard}
 
-      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+      {showConfirm && (
+        <ConfirmDiscardDialog
+          onDiscard={() => {
+            recovery.discard();
+            onConfirmDiscard();
+          }}
+          onCancel={onCancelClose}
+        />
+      )}
     </>
   );
 }

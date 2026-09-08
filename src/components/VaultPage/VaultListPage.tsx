@@ -34,7 +34,6 @@ type GridProps<T> = {
 type NewModalProps = {
   onClose: () => void;
   initialContent?: InitialContent;
-  onSaveError?: (vars: InitialContent) => void;
 };
 
 export type VaultListPageConfig<T> = {
@@ -61,12 +60,11 @@ function VaultListPageContent<T>({
   const { phase } = useEncryption();
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = useItems({ archived: false });
   const [showNew, setShowNew] = useState(false);
-  const [saveErrorContent, setSaveErrorContent] = useState<InitialContent | null>(null);
   const { draftRestore, setDraftRestore } = useDraftRestore();
   const { execute, PassphraseGuard } = useSimpleEncryptionGuard();
 
-  const modalOpen = showNew || !!draftRestore || !!saveErrorContent;
-  const initialContent = draftRestore ?? saveErrorContent ?? undefined;
+  const modalOpen = showNew || !!draftRestore;
+  const initialContent = draftRestore ?? undefined;
 
   const isAuthenticated = !!session?.user?.id;
   const unlockedOrLocked = phase === 'locked' || phase === 'unlocked';
@@ -123,10 +121,9 @@ function VaultListPageContent<T>({
           onClose={() => {
             setShowNew(false);
             setDraftRestore(null);
-            setSaveErrorContent(null);
           }}
+          key={initialContent?.draftId ?? 'new'}
           initialContent={initialContent}
-          onSaveError={(vars) => setSaveErrorContent(vars)}
         />
       )}
     </div>

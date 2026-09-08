@@ -164,3 +164,24 @@ describe('queryCache helpers', () => {
     });
   });
 });
+
+it('archiving keeps an item in the all-items view', () => {
+  const qc = new QueryClient();
+  const snapshots = [makeSnapshot('all', [[{ _id: 'one', archived: false, title: 'Note' }]])];
+  qc.setQueryData(snapshots[0][0], snapshots[0][1]);
+  toggleArchive(qc, snapshots, 'one', true, {});
+  expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0])!.pages[0]).toEqual([
+    { _id: 'one', archived: true, title: 'Note' },
+  ]);
+  qc.clear();
+});
+
+it('undoing deletion of an archived note restores it to the archive', () => {
+  const qc = new QueryClient();
+  const snapshots = [makeSnapshot('archived', [[]]), makeSnapshot('active', [[]])];
+  snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+  insertAtTop(qc, snapshots, { _id: 'one', archived: true, title: 'Archived' });
+  expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0])!.pages[0]).toHaveLength(1);
+  expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[1][0])!.pages[0]).toHaveLength(0);
+  qc.clear();
+});

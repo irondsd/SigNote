@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { trpc } from '@/lib/trpc';
+import { autoTagColor } from '@/config/noteStyles';
 import type { ClientTag } from './useTags';
 
 // Roots whose cached docs embed tag ids — refreshed after a tag is deleted.
@@ -51,7 +52,18 @@ export function useTagMutations() {
     }) as never);
 
   const create = trpc.tags.create.useMutation({
-    onSuccess: (tag) => {
+    networkMode: 'always',
+    onMutate: async ({ name, color }) => {
+      await utils.tags.list.cancel();
+      const tempId = `temp-${crypto.randomUUID()}`;
+      patchTagsCache((tags) => [
+        ...tags,
+        { _id: tempId, name: name.trim(), color: color ?? autoTagColor(name), createdAt: new Date().toISOString() },
+      ]);
+      return { tempId };
+    },
+    onSuccess: (tag, _vars, context) => {
+      patchTagsCache((tags) => tags.filter((t) => t._id !== context?.tempId));
       posthog.capture('tag_created');
       // Insert immediately so chips/lookup reflect the new tag before refetch.
       const created = tag as unknown as ClientTag;
@@ -61,11 +73,15 @@ export function useTagMutations() {
           : [...tags, created].sort((a, b) => a.name.localeCompare(b.name)),
       );
     },
-    onError: () => toast.error('Failed to create tag'),
+    onError: (_error, _vars, context) => {
+      patchTagsCache((tags) => tags.filter((t) => t._id !== context?.tempId));
+      toast.error('Failed to create tag');
+    },
     onSettled: () => utils.tags.list.invalidate(),
   });
 
   const update = trpc.tags.update.useMutation({
+    networkMode: 'always',
     onMutate: async ({ id, ...patch }) => {
       await utils.tags.list.cancel();
       const snapshot = asCached(utils.tags.list.getData());
@@ -80,6 +96,7 @@ export function useTagMutations() {
   });
 
   const remove = trpc.tags.delete.useMutation({
+    networkMode: 'always',
     onMutate: async ({ id }) => {
       await utils.tags.list.cancel();
       const snapshot = asCached(utils.tags.list.getData());

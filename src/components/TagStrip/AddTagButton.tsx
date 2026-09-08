@@ -89,7 +89,7 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
   const atLimit = value.length >= MAX_TAGS_PER_NOTE;
 
   const add = (id: string) => {
-    if (atLimit) return;
+    if (atLimit || id.startsWith('temp-')) return;
     if (!value.includes(id)) onChange([...value, id]);
     setQuery('');
   };
@@ -97,8 +97,13 @@ export function AddTagButton({ value, onChange, isDirty }: AddTagButtonProps) {
   const createAndAdd = async () => {
     const name = query.trim();
     if (!name || atLimit) return;
-    const tag = await create.mutateAsync({ name });
-    add(String(tag._id));
+    setQuery('');
+    try {
+      const tag = await create.mutateAsync({ name });
+      add(String(tag._id));
+    } catch {
+      setQuery(name);
+    }
   };
 
   const activate = (index: number) => {

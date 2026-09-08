@@ -87,39 +87,36 @@ export function VersionHistoryModal({
 
   const handleRestore = (v: DisplayVersion) => {
     const previousHead = current;
-    restoreVersion.mutate(
-      { id: noteId, versionId: v._id },
-      {
-        onSuccess: () => {
-          onRestored(v);
-          setSelectedId(CURRENT_VERSION_ID);
-          setPreviewId(null);
-          toast.success(`Restored version from ${getRelativeTime(v.createdAt)}`, {
-            description: 'Your previous note was saved to history.',
-            duration: 7000,
-            action: {
-              label: 'Undo',
-              onClick: () => {
-                // The raw cache is oldest → newest; restore just pushed the
-                // pre-restore head as the newest entry.
-                const raw = qc.getQueryData<{ _id: string }[]>(versionsKey(tier, noteId));
-                const newest = raw?.[raw.length - 1];
-                if (!newest) return;
-                restoreVersion.mutate(
-                  { id: noteId, versionId: newest._id },
-                  {
-                    onSuccess: () => {
-                      onRestored(previousHead);
-                      toast.success('Restore undone');
-                    },
-                    onError: () => toast.error('Failed to undo restore'),
-                  },
-                );
-              },
+    onRestored(v);
+    setSelectedId(CURRENT_VERSION_ID);
+    setPreviewId(null);
+    void restoreVersion.mutateAsync({ id: noteId, versionId: v._id }).then(
+      () => {
+        toast.success(`Restored version from ${getRelativeTime(v.createdAt)}`, {
+          description: 'Your previous note was saved to history.',
+          duration: 7000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              // Restore pushed the displaced head as the newest raw history row.
+              const raw = qc.getQueryData<{ _id: string }[]>(versionsKey(tier, noteId));
+              const newest = raw?.[raw.length - 1];
+              if (!newest) return;
+              onRestored(previousHead);
+              void restoreVersion.mutateAsync({ id: noteId, versionId: newest._id }).then(
+                () => toast.success('Restore undone'),
+                () => {
+                  onRestored(v);
+                  toast.error('Failed to undo restore');
+                },
+              );
             },
-          });
-        },
-        onError: () => toast.error('Failed to restore version'),
+          },
+        });
+      },
+      () => {
+        onRestored(previousHead);
+        toast.error('Failed to restore version');
       },
     );
   };

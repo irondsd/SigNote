@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-type DraftRestoreData = { title: string; content: string };
+import type { DraftContent } from '@/lib/draft';
+
+type DraftRestoreData = DraftContent;
 
 const DraftRestoreContext = createContext<{
   draftRestore: DraftRestoreData | null;

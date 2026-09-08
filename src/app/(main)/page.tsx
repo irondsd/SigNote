@@ -21,11 +21,10 @@ function NotesPage() {
     archived: false,
   });
   const [showNewNote, setShowNewNote] = useState(false);
-  const [saveErrorContent, setSaveErrorContent] = useState<{ title: string; content: string } | null>(null);
   const { draftRestore, setDraftRestore } = useDraftRestore();
 
-  const modalOpen = showNewNote || !!draftRestore || !!saveErrorContent;
-  const initialContent = draftRestore ?? saveErrorContent ?? undefined;
+  const modalOpen = showNewNote || !!draftRestore;
+  const initialContent = draftRestore ?? undefined;
 
   const isAuthenticated = !!session?.user?.id;
   const notes = data?.pages.flatMap((page) => page) ?? [];
@@ -78,12 +77,9 @@ function NotesPage() {
           onClose={() => {
             setShowNewNote(false);
             setDraftRestore(null);
-            setSaveErrorContent(null);
           }}
+          key={initialContent?.draftId ?? 'new'}
           initialContent={initialContent}
-          onSaveError={(vars) => {
-            setSaveErrorContent(vars);
-          }}
         />
       )}
     </div>

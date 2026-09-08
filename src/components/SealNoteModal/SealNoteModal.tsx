@@ -29,6 +29,7 @@ import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
+import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { DecryptTimer } from './DecryptTimer';
@@ -73,6 +74,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     setEditing,
     title,
     setTitle,
+    savedTitle,
+    setSavedTitle,
     isArchived,
     color,
     pattern,
@@ -103,7 +106,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
-  } = useNoteModalMeta(note, (patch) => updateSeal.mutate(patch), { burnReady: isDecrypted });
+  } = useNoteModalMeta(
+    note,
+    (patch, onError) => {
+      void updateSeal.mutateAsync(patch).catch(() => onError?.());
+    },
+    { burnReady: isDecrypted },
+  );
 
   const versionsQuery = useVersions<EncryptedVersion>('seals', noteId, { enabled: menuOpened || historyOpen });
   const decryptVersionBody = useCallback(
@@ -116,8 +125,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const versions = useDecryptedVersions(versionsQuery.data, mek ? decryptVersionBody : null);
 
   const isDirty =
-    editing && (title !== (note.title ?? '') || (isDecrypted && decryptedContent !== originalDecryptedRef.current));
+    editing && (title !== savedTitle || (isDecrypted && decryptedContent !== originalDecryptedRef.current));
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
+  const recovery = useDraftRecovery(
+    'seal',
+    { title, content: decryptedContent ?? '', sourceId: noteId, color, pattern, tags },
+    isDirty,
+  );
 
   const performDecrypt = useCallback(
     async (currentMek: CryptoKey) => {
@@ -188,6 +202,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
   const handleRestored = (v: DisplayVersion) => {
     setTitle(v.title);
+    setSavedTitle(v.title);
     setDecryptedContent(v.content);
     originalDecryptedRef.current = v.content;
     setUpdatedAt(new Date().toISOString());
@@ -266,18 +281,29 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         }
 
         const fileIds = extractFileIds(decryptedContent);
-        updateSeal.mutate(
-          { id: note._id, title, encryptedBody, wrappedNoteKey, fileIds },
-          { onError: () => setEditing(true) },
+        recovery.save(
+          () => updateSeal.mutateAsync({ id: note._id, title, encryptedBody, wrappedNoteKey, fileIds }),
+          () => {
+            setDecryptedContent(decryptedContent);
+            setEditing(true);
+          },
+          () => {
+            setSavedTitle(title);
+            originalDecryptedRef.current = decryptedContent;
+          },
         );
         setUpdatedAt(new Date().toISOString());
         setEditing(false);
         setShowFormatBar(false);
+      } catch {
+        toast.error('Failed to prepare seal for saving');
       } finally {
         setSaving(false);
       }
     },
     [
+      setSavedTitle,
+      recovery,
       decryptedContent,
       title,
       note.encryptedBody,
@@ -291,6 +317,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   );
 
   const handleSave = async () => {
+    recovery.flush();
     setSaving(true);
     try {
       if (lockType === 'soft') {
@@ -349,7 +376,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   };
 
   const handleCancel = () => {
-    setTitle(note.title ?? '');
+    recovery.discard();
+    setTitle(savedTitle);
     setDecryptedContent(originalDecryptedRef.current);
     setEditing(false);
   };
@@ -492,25 +520,23 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                 onChange={async (html) => {
                   setDecryptedContent(html);
                   if (!editing && guard.isMekAvailable) {
-                    try {
-                      await guard.execute(async (mek) => {
-                        if (html.trim()) {
-                          // Same NEK-reuse rule as performSave: history depends on it.
-                          const encrypted = note.wrappedNoteKey
-                            ? await encryptSealBodyWithExistingKey(mek, html, note._id, note.wrappedNoteKey)
-                            : await encryptSealBody(mek, html, note._id);
-                          updateSeal.mutate({
-                            id: note._id,
-                            encryptedBody: encrypted.encryptedBody,
-                            wrappedNoteKey: encrypted.wrappedNoteKey,
-                          });
-                        } else {
-                          updateSeal.mutate({ id: note._id, encryptedBody: null });
-                        }
-                      });
-                    } catch {
-                      // Silently fail on auto-save encryption
-                    }
+                    recovery.save(
+                      async () => {
+                        if (!html.trim()) return updateSeal.mutateAsync({ id: note._id, encryptedBody: null });
+                        const encrypted = note.wrappedNoteKey
+                          ? await encryptSealBodyWithExistingKey(mek!, html, note._id, note.wrappedNoteKey)
+                          : await encryptSealBody(mek!, html, note._id);
+                        return updateSeal.mutateAsync({ id: note._id, ...encrypted });
+                      },
+                      () => {
+                        setDecryptedContent(html);
+                        setEditing(true);
+                      },
+                      () => {
+                        originalDecryptedRef.current = html;
+                      },
+                      { content: html },
+                    );
                   }
                 }}
                 editable={editing}
@@ -536,7 +562,15 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
 
       {guard.PassphraseGuard}
 
-      {showConfirm && <ConfirmDiscardDialog onDiscard={onConfirmDiscard} onCancel={onCancelClose} />}
+      {showConfirm && (
+        <ConfirmDiscardDialog
+          onDiscard={() => {
+            recovery.discard();
+            onConfirmDiscard();
+          }}
+          onCancel={onCancelClose}
+        />
+      )}
     </>
   );
 }

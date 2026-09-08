@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import posthog from 'posthog-js';
+import { queueTierWrite } from '@/lib/tierWriteQueue';
 import { trpcClient } from '@/lib/trpcClient';
-import { patchInPlace, type Snapshot, type WithId } from '@/lib/queryCache';
+import { cancelAndSnapshot, rollbackItem, patchInPlace, type Snapshot, type WithId } from '@/lib/queryCache';
 import type { InfiniteData } from '@tanstack/react-query';
 import type { EncryptedPayload } from '@/types/crypto';
 
@@ -54,8 +55,33 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
 export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
   const qc = useQueryClient();
   return useMutation({
+    networkMode: 'always',
     mutationFn: async ({ id, versionId }: { id: string; versionId: string }) =>
-      (await trpcClient[tier].versions.restore.mutate({ id, versionId })) as unknown as H,
+      (await queueTierWrite<unknown>(tier, id, () =>
+        trpcClient[tier].versions.restore.mutate({ id, versionId }),
+      )) as unknown as H,
+    mutationKey: [tier],
+    onMutate: async ({ id, versionId }) => {
+      const snapshots = await cancelAndSnapshot<H>(qc, tier);
+      const version = qc
+        .getQueryData<(PlainVersion | EncryptedVersion)[]>(versionsKey(tier, id))
+        ?.find((v) => v._id === versionId);
+      const patch = version
+        ? ({
+            title: version.title,
+            ...('content' in version ? { content: version.content } : { encryptedBody: version.encryptedBody }),
+            updatedAt: new Date().toISOString(),
+          } as unknown as Partial<H>)
+        : undefined;
+      if (patch) patchInPlace(qc, snapshots, id, patch);
+      return { snapshots, patch };
+    },
+    onError: (_error, { id }, context) => {
+      if (context) rollbackItem(qc, context.snapshots, id, context.patch);
+    },
+    onSettled: () => {
+      if (qc.isMutating({ mutationKey: [tier] }) <= 1) return qc.invalidateQueries({ queryKey: [tier] });
+    },
     onSuccess: async (updated, { id }) => {
       const snapshots = qc.getQueriesData<InfiniteData<H[]>>({ queryKey: [tier] }) as Snapshot<H>[];
       patchInPlace(qc, snapshots, id, updated);
@@ -69,6 +95,7 @@ export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
 export function useDeleteVersion(tier: VersionTier) {
   const qc = useQueryClient();
   return useMutation({
+    networkMode: 'always',
     mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
       trpcClient[tier].versions.delete.mutate({ id, versionId }),
     onMutate: async ({ id, versionId }) => {

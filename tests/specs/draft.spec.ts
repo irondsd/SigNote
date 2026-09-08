@@ -16,8 +16,12 @@ const DRAFT_KEY = 'sn_draft';
 
 const getDraft = (page: Page) =>
   page.evaluate((key) => {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
+    return (
+      Object.keys(localStorage)
+        .filter((entry) => entry === key || entry.startsWith(`${key}:`))
+        .map((entry) => JSON.parse(localStorage.getItem(entry)!))
+        .sort((a, b) => b.savedAt - a.savedAt)[0] ?? null
+    );
   }, DRAFT_KEY);
 
 const seedDraft = (page: Page, data: { type: 'note' | 'secret' | 'seal'; title: string; content: string }) =>
@@ -50,7 +54,7 @@ test.describe('draft saving', () => {
     expect(draft.savedAt).toBeGreaterThan(0);
   });
 
-  test('does not save draft when content is empty', async ({ page }) => {
+  test('saves title-only drafts', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();
 
@@ -61,7 +65,7 @@ test.describe('draft saving', () => {
     await page.getByTestId('note-title-input').fill('Title only, no content');
     await page.waitForTimeout(700);
 
-    expect(await getDraft(page)).toBeNull();
+    expect(await getDraft(page)).toMatchObject({ title: 'Title only, no content' });
   });
 
   test('new draft overwrites old draft', async ({ page }) => {

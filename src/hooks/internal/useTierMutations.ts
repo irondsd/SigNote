@@ -9,11 +9,13 @@ import {
   insertAtTop,
   patchInPlace,
   toggleArchive,
-  restoreSnapshots,
+  rollbackItem,
+  sortTierLists,
   invalidateSnapshots,
   type WithId,
   type Snapshot,
 } from '@/lib/queryCache';
+import { queueTierWrite } from '@/lib/tierWriteQueue';
 import { registerStableKey } from '@/lib/stableKeyStore';
 import { versionsKey, type VersionTier } from '@/hooks/useVersions';
 
@@ -25,6 +27,9 @@ type CreateInput = { title: string; color?: string | null; pattern?: string | nu
 
 function settledHandler<T>(qc: ReturnType<typeof useQueryClient>, root: string) {
   return (_data: unknown, _err: unknown, _vars: unknown, context?: { snapshots: Snapshot<T>[] }) => {
+    // Refetch only after all writes to this tier settle; otherwise a response
+    // can erase another request's optimistic item/patch.
+    if (qc.isMutating({ mutationKey: [root] }) > 1) return;
     if (context?.snapshots?.length) return invalidateSnapshots(qc, context.snapshots);
     return qc.invalidateQueries({ queryKey: [root] });
   };
@@ -74,22 +79,32 @@ export function useCreateTier<T extends WithId, TInput>(
     // from the persisted query cache, but writes must either reach the server
     // or fail and roll back so the caller can keep a durable draft.
     networkMode: 'always',
+    mutationKey: [root],
     mutationFn,
     onMutate: async (input: TInput) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
-      const tempId = `temp-${Date.now()}`;
-      insertAtTop(qc, snapshots, buildTempNote(input, tempId));
+      const tempId = `temp-${crypto.randomUUID()}`;
+      const temp = buildTempNote(input, tempId);
+      const positions = snapshots.flatMap(
+        ([, data]) => data?.pages.flat().map((note) => Number((note as T & { position?: number }).position ?? 0)) ?? [],
+      );
+      insertAtTop(qc, snapshots, { ...temp, position: Math.max(0, ...positions) + 1000 });
+      sortTierLists(qc, snapshots);
       return { snapshots, tempId };
     },
     onSuccess: (data, _vars, context) => {
-      if (data?._id && context?.tempId) registerStableKey(data._id, context.tempId);
+      if (data?._id && context?.tempId) {
+        registerStableKey(data._id, context.tempId);
+        const current = qc.getQueriesData<import('@tanstack/react-query').InfiniteData<T[]>>({ queryKey: [root] });
+        patchInPlace(qc, current, context.tempId, data);
+      }
       posthog.capture(`${tierName}_created`);
     },
     onError: (_err, vars, context) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
+      if (context) rollbackItem(qc, context.snapshots, context.tempId);
       posthog.capture('mutation_failed', { tier: tierName, operation: 'create' });
       toast.error(`Failed to create ${tierName}`, {
-        description: 'Your content has been recovered.',
+        description: 'Any unsaved draft is available from Continue.',
         duration: Infinity,
       });
       callbacks?.onError?.(vars);
@@ -103,7 +118,8 @@ export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn) {
   const tierName = singular(root);
   return useMutation({
     networkMode: 'always',
-    mutationFn: apiFn,
+    mutationKey: [root],
+    mutationFn: (id: string) => queueTierWrite(root, id, () => apiFn(id)),
     onMutate: async (id: string) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
       filterOut(qc, snapshots, id);
@@ -113,7 +129,7 @@ export function useDeleteTier<T extends WithId>(root: string, apiFn: DeleteFn) {
       posthog.capture(`${tierName}_deleted`);
     },
     onError: (_err: unknown, _id: string, context?: { snapshots: Snapshot<T>[] }) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
+      if (context) rollbackItem(qc, context.snapshots, _id);
       posthog.capture('mutation_failed', { tier: tierName, operation: 'delete' });
       toast.error(`Failed to delete ${tierName}`);
     },
@@ -126,14 +142,15 @@ export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteF
   const tierName = singular(root);
   return useMutation({
     networkMode: 'always',
-    mutationFn: apiFn,
+    mutationKey: [root],
+    mutationFn: (input: { id: string; note: T }) => queueTierWrite(root, input.id, () => apiFn(input)),
     onMutate: async ({ note }: { id: string; note: T }) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
       insertAtTop(qc, snapshots, { ...note, deletedAt: null } as T);
       return { snapshots };
     },
     onError: (_err: unknown, _vars: { id: string; note: T }, context?: { snapshots: Snapshot<T>[] }) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
+      if (context) rollbackItem(qc, context.snapshots, _vars.id);
       toast.error(`Failed to restore ${tierName}`);
     },
     onSettled: settledHandler<T>(qc, root),
@@ -145,16 +162,23 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
   const tierName = singular(root);
   return useMutation({
     networkMode: 'always',
-    mutationFn: apiFn,
+    mutationKey: [root],
+    mutationFn: (input: UpdateInput) => queueTierWrite(root, input.id, () => apiFn(input)),
     onMutate: async ({ id, archived, ...rest }: UpdateInput) => {
       const snapshots = await cancelAndSnapshot<T>(qc, root);
-      const patch = { ...rest, updatedAt: new Date().toISOString() } as unknown as Partial<T>;
+      const patch = {
+        ...rest,
+        ...(rest.title !== undefined || rest[contentField] !== undefined
+          ? { updatedAt: new Date().toISOString() }
+          : {}),
+      } as unknown as Partial<T>;
       if (archived !== undefined) {
         toggleArchive(qc, snapshots, id, archived, patch);
       } else {
         patchInPlace(qc, snapshots, id, patch);
       }
-      return { snapshots };
+      if (rest.pinned !== undefined) sortTierLists(qc, snapshots);
+      return { snapshots, patch: { ...patch, ...(archived !== undefined ? { archived } : {}) } };
     },
     onSuccess: (_data: unknown, vars: UpdateInput) => {
       if (vars.archived !== undefined) {
@@ -163,8 +187,11 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
         posthog.capture(`${tierName}_updated`);
       }
     },
-    onError: (_err: unknown, _vars: UpdateInput, context?: { snapshots: Snapshot<T>[] }) => {
-      if (context) restoreSnapshots(qc, context.snapshots);
+    onError: (_err: unknown, _vars: UpdateInput, context?: { snapshots: Snapshot<T>[]; patch?: Partial<T> }) => {
+      if (context) {
+        rollbackItem(qc, context.snapshots, _vars.id, context.patch);
+        if (_vars.pinned !== undefined) sortTierLists(qc, context.snapshots);
+      }
       posthog.capture('mutation_failed', { tier: tierName, operation: 'update' });
       toast.error(`Failed to save ${tierName}`);
     },

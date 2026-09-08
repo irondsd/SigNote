@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import {
@@ -20,7 +20,7 @@ import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
-import { clearDraft, saveDraft } from '@/lib/draft';
+import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 
 const VersionHistoryModal = dynamic(
   () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
@@ -35,6 +35,7 @@ type NoteModalProps = {
 
 export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [content, setContent] = useState(note.content ?? '');
+  const [savedContent, setSavedContent] = useState(note.content ?? '');
 
   const deleteNote = useDeleteNote();
   const undeleteNote = useUndeleteNote();
@@ -47,6 +48,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     setEditing,
     title,
     setTitle,
+    savedTitle,
+    setSavedTitle,
     isArchived,
     color,
     pattern,
@@ -77,16 +80,19 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
-  } = useNoteModalMeta(note, (patch) => updateNote.mutate(patch));
+  } = useNoteModalMeta(note, (patch, onError) => {
+    void updateNote.mutateAsync(patch).catch(() => onError?.());
+  });
 
   const openHistory = () => {
     setHistoryOpen(true);
     setHistoryWasOpen(true);
   };
 
-  const isDirty = editing && (title !== (note.title ?? '') || content !== (note.content ?? ''));
+  const isDirty = editing && (title !== savedTitle || content !== savedContent);
   const { showConfirm, confirmClose, onConfirmDiscard, onCancelClose } = useUnsavedChanges(isDirty);
 
+  const recovery = useDraftRecovery('note', { title, content, sourceId: noteId, color, pattern, tags }, isDirty);
   const handleClose = () => confirmClose(onClose);
 
   const versionsQuery = useVersions<PlainVersion>('notes', noteId, { enabled: menuOpened || historyOpen });
@@ -94,7 +100,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
 
   const handleRestored = (v: DisplayVersion) => {
     setTitle(v.title);
+    setSavedTitle(v.title);
     setContent(v.content);
+    setSavedContent(v.content);
     setUpdatedAt(new Date().toISOString());
   };
 
@@ -115,22 +123,11 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   };
 
   const handleCancel = () => {
-    setTitle(note.title ?? '');
-    setContent(note.content ?? '');
+    setTitle(savedTitle);
+    setContent(savedContent);
     setEditing(false);
-    clearDraft();
+    recovery.discard();
   };
-
-  // Editing deserves the same crash/session-expiry recovery as creation. Keep
-  // a plaintext recovery copy locally while the form is dirty; restoring it as
-  // a new note is safer than silently overwriting a possibly newer server copy.
-  useEffect(() => {
-    if (!isDirty) return;
-    const timer = setTimeout(() => {
-      saveDraft({ type: 'note', title, content, savedAt: Date.now(), sourceId: noteId });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [content, isDirty, noteId, title]);
 
   const handleSave = () => {
     if (title.length > MAX_TITLE) {
@@ -141,22 +138,20 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
       toast.error('Content is too large to save');
       return;
     }
-    saveDraft({ type: 'note', title, content, savedAt: Date.now(), sourceId: noteId });
-
-    const onSuccess = () => {
-      clearDraft();
-      setUpdatedAt(new Date().toISOString());
-      setEditing(false);
-      setShowFormatBar(false);
-    };
-
-    if (noteId.startsWith('temp-')) {
-      // Recover an optimistic create left by an older/offline app session. A
-      // temp id never existed server-side, so turn the edit into a real create.
-      createNote.mutate({ title, content, color, pattern, tags }, { onSuccess });
-    } else {
-      updateNote.mutate({ id: noteId, title, content }, { onSuccess, onError: () => setEditing(true) });
-    }
+    recovery.save(
+      () =>
+        noteId.startsWith('temp-')
+          ? createNote.mutateAsync({ title, content, color, pattern, tags })
+          : updateNote.mutateAsync({ id: noteId, title, content }),
+      () => setEditing(true),
+      () => {
+        setSavedTitle(title);
+        setSavedContent(content);
+      },
+    );
+    setUpdatedAt(new Date().toISOString());
+    setEditing(false);
+    setShowFormatBar(false);
   };
 
   if (historyOpen) {
@@ -228,7 +223,12 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
           onChange={(html) => {
             setContent(html);
             if (!editing) {
-              updateNote.mutate({ id: noteId, content: html });
+              recovery.save(
+                () => updateNote.mutateAsync({ id: noteId, content: html }),
+                () => setEditing(true),
+                () => setSavedContent(html),
+                { content: html },
+              );
             }
           }}
           editable={editing}
@@ -242,7 +242,7 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
       {showConfirm && (
         <ConfirmDiscardDialog
           onDiscard={() => {
-            clearDraft();
+            recovery.discard();
             onConfirmDiscard();
           }}
           onCancel={onCancelClose}
