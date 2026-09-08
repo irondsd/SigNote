@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { eq } from 'drizzle-orm';
+import { SiweMessage } from 'siwe';
 import { NotesPage } from '../pages/NotesPage';
 import { makeAccount } from '../utils/makeAccount';
+import { createTestSession } from '../utils/createTestSession';
+import { injectSession } from '../utils/injectSession';
+import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
+import { testDb } from '../fixtures/db';
+import { authIdentities, authSessions } from '../../src/db/schema';
 import { trpcQuery, trpcMutate, trpcData } from '../utils/trpc';
 
 test.describe.configure({ mode: 'parallel' });
@@ -111,5 +118,74 @@ test.describe('sessions / device management', () => {
     await expect(page.getByText('Active sessions')).toBeVisible();
     await expect(page.getByText('Current', { exact: true })).toBeVisible();
     await expect(page.locator('[data-testid^="revoke-session-"]')).toHaveCount(1);
+  });
+});
+
+// ─── Revocation must hold everywhere, not just on tRPC ───────────────────────
+
+/**
+ * `getToken`/`getServerSession` only decode the JWT — they know nothing about
+ * `auth_sessions`. Anything that resolves a session that way keeps working
+ * after the device has been signed out, so each of these covers one endpoint
+ * that used to.
+ */
+test.describe('revoked sessions', () => {
+  /** Signs a page in, forces its first authed request, then revokes every row. */
+  async function signInThenRevoke(page: import('@playwright/test').Page) {
+    const { account } = makeAccount();
+    const userId = await getOrCreateUserId(account.address);
+    await injectSession(page, await createTestSession(account.address));
+
+    expect((await trpcQuery(page.request, AUTHED_PING)).ok()).toBeTruthy();
+    await testDb().update(authSessions).set({ revokedAt: new Date() }).where(eq(authSessions.userId, userId));
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(401);
+
+    return { account, userId };
+  }
+
+  test('cannot link a new wallet', async ({ page }) => {
+    await signInThenRevoke(page);
+
+    const addedWallet = makeAccount().account;
+    const { nonce } = await (await page.request.get('/api/auth/nonce')).json();
+    const message = new SiweMessage({
+      domain: 'localhost:5005',
+      address: addedWallet.address,
+      statement: 'Sign in to SigNote',
+      uri: 'http://localhost:5005',
+      version: '1',
+      chainId: 1,
+      nonce,
+    }).prepareMessage();
+    const signature = await addedWallet.signMessage({ message });
+
+    const linked = await page.request.post('/api/auth/link/siwe', { data: { message, signature } });
+    expect(linked.status()).toBe(401);
+
+    const rows = await testDb()
+      .select()
+      .from(authIdentities)
+      .where(eq(authIdentities.providerSubject, addedWallet.address.toLowerCase()));
+    expect(rows).toHaveLength(0);
+  });
+
+  test('cannot start a Google link', async ({ page }) => {
+    await signInThenRevoke(page);
+
+    const initiated = await page.request.get('/api/auth/link/google/initiate', { maxRedirects: 0 });
+    expect(initiated.status()).toBe(401);
+  });
+
+  test('/api/auth/session reports signed out and clears the cookie', async ({ page }) => {
+    await signInThenRevoke(page);
+
+    const refreshed = await page.request.get('/api/auth/session');
+    expect(refreshed.status()).toBe(200);
+    // NextAuth's signed-out shape: no `user`, so the client treats it as a
+    // sign-out instead of rolling the JWT forward for another week.
+    expect(await refreshed.json()).toEqual({});
+
+    const cookies = await page.context().cookies();
+    expect(cookies.find((c) => c.name === 'next-auth.session-token')?.value ?? '').toBe('');
   });
 });

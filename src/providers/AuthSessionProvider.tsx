@@ -14,6 +14,25 @@ type AuthSessionProviderProps = {
   children: ReactNode;
 };
 
+/**
+ * The service worker's runtime caches are account data too: `apis` holds every
+ * tRPC GET it has seen — note bodies, and the `serverShare` half of the
+ * encryption key — and they outlive the credentials that fetched them, so a
+ * signed-out device still answered those reads from disk.
+ *
+ * The precache is exempt: it is the static app shell, identical for everyone.
+ */
+async function purgeAccountCaches(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  try {
+    const names = await caches.keys();
+    await Promise.all(names.filter((name) => !name.startsWith('serwist-precache')).map((name) => caches.delete(name)));
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data); sign-out
+    // must complete regardless.
+  }
+}
+
 function SessionCleanup() {
   const { data: session, status } = useSession();
   useEffect(() => {
@@ -28,6 +47,7 @@ function SessionCleanup() {
       // unavailable, so ordinary offline use does not enter this branch.
       queryCacheStorage.removeItem('signote-query-cache');
       void removeAllVaults().catch(() => undefined);
+      void purgeAccountCaches();
 
       // Drafts are recovery data, though: an expired session may be the very
       // reason a save failed, so deleting them here would turn an auth failure

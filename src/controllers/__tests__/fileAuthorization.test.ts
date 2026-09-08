@@ -60,6 +60,12 @@ describe('getFileAttachment parent authorization', () => {
     expect(await getFileAttachment(file.id, userId)).not.toBeNull();
   });
 
+  it.each<NoteTier>(['note', 'secret', 'seal'])('denies another user a file with a live %s parent', async (tier) => {
+    const file = await seedFile(await seedParent(tier), tier);
+
+    expect(await getFileAttachment(file.id, 'another-user')).toBeNull();
+  });
+
   it.each<NoteTier>(['note', 'secret', 'seal'])('denies a file with an expired %s parent', async (tier) => {
     const file = await seedFile(await seedParent(tier, { expiresAt: new Date(Date.now() - 1_000) }), tier);
 

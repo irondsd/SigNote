@@ -24,6 +24,27 @@ export class RouteAuthError extends Error {
   }
 }
 
+/**
+ * A session row that must no longer authenticate anything: explicitly revoked,
+ * or past the sliding expiry that `touchSession` maintains.
+ */
+const isDeadSession = (row: { revokedAt: Date | null; expiresAt: Date }): boolean =>
+  row.revokedAt !== null || row.expiresAt.getTime() < Date.now();
+
+/**
+ * Revocation check for callers that resolve a session without going through
+ * `authenticateRequest` — today only NextAuth's own `/api/auth/session`, which
+ * decodes the JWT and knows nothing about the `auth_sessions` table.
+ *
+ * A sid with no row is *not* revoked: that is the ordinary state between
+ * sign-in and the first authed request, when the audit row is lazily created.
+ */
+export async function isSessionRevoked(sid: string | null | undefined): Promise<boolean> {
+  if (!sid) return false;
+  const row = await findSessionForValidation(sid);
+  return row !== null && isDeadSession(row);
+}
+
 export interface AuthedContext {
   userId: string;
   sid: string | null;
@@ -67,7 +88,7 @@ export async function authenticateRequest(
     const row = await findSessionForValidation(sid);
     const now = Date.now();
 
-    if (row && (row.revokedAt !== null || row.expiresAt.getTime() < now)) {
+    if (row && isDeadSession(row)) {
       throw new RouteAuthError(401, 'Session revoked');
     }
 

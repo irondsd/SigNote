@@ -3,6 +3,7 @@ import { and, isNotNull, lt, or, sql } from 'drizzle-orm';
 
 import { OTP_TOMBSTONE_RETENTION_MS } from '@/config/constants';
 import { getDb } from '@/db/client';
+import { SESSION_LIFETIME_MS } from './authSessions';
 import { purgeOtpTombstones } from './otpRecords';
 import {
   authNonces,
@@ -52,9 +53,15 @@ export async function cleanupExpiredRows() {
   const nonces = await db.delete(authNonces).where(lt(authNonces.expiresAt, now)).returning({ n: authNonces.nonce });
   removed.authNonces = nonces.length;
 
+  // …except auth sessions, which are also the tombstone that makes a revocation
+  // stick. `authenticateRequest` lazily creates a row for any sid it has never
+  // seen, so deleting a revoked row the moment it expires hands the still-held
+  // JWT a brand-new, un-revoked session. One JWT lifetime of grace outlives
+  // every token that could still name the row.
+  const sessionCutoff = new Date(now.getTime() - SESSION_LIFETIME_MS);
   const sessions = await db
     .delete(authSessions)
-    .where(lt(authSessions.expiresAt, now))
+    .where(lt(authSessions.expiresAt, sessionCutoff))
     .returning({ id: authSessions.id });
   removed.authSessions = sessions.length;
 

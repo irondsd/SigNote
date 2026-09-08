@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { eq } from 'drizzle-orm';
 import type { Address } from 'viem';
 import { makeAccount } from '../utils/makeAccount';
 import { createTestSession } from '../utils/createTestSession';
@@ -7,6 +8,8 @@ import { injectSession } from '../utils/injectSession';
 import { configureGoogleUser } from '../utils/googleAuth';
 import { mockProvider } from '../utils/mockProvider';
 import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
+import { testDb } from '../fixtures/db';
+import { authIdentities } from '../../src/db/schema';
 import { addGoogleIdentityToUser } from '../fixtures/addIdentityToUser';
 import { seedEncryptionProfile } from '../fixtures/seedEncryptionProfile';
 import { seedSecrets } from '../fixtures/seedSecrets';
@@ -225,5 +228,43 @@ test.describe('unlink identity', () => {
 
     // Unlink button for SIWE is now disabled (last identity)
     await expect(page.getByTestId('unlink-siwe')).toBeDisabled();
+  });
+});
+
+// ─── Authorization flows are bound to the browser that started them ──────────
+
+test.describe('Google link state binding', () => {
+  /**
+   * The state JWT travels through Google, so it is visible to anyone the
+   * initiating user can reach — in a chat message, a Referer, a provider log.
+   * On its own it used to be a bearer token for "attach an identity to user X":
+   * an attacker started a link on their own account and got a victim to open
+   * the resulting URL, and the victim's Google account became a way into the
+   * attacker's SigNote account. The one-time cookie set at initiate is what
+   * separates "the browser that asked for this" from "a browser handed a URL".
+   */
+  test('rejects an authorization flow completed in a different browser', async ({ page, browser }) => {
+    const attacker = makeAccount().account;
+    await injectSession(page, await createTestSession(attacker.address));
+
+    const initiated = await page.request.get('/api/auth/link/google/initiate', { maxRedirects: 0 });
+    expect(initiated.status()).toBe(307);
+    const authorizationUrl = initiated.headers().location;
+
+    // A browser with no SigNote session, which never initiated a link.
+    const victimContext = await browser.newContext();
+    try {
+      const victim = await victimContext.newPage();
+      const subject = `link-csrf-victim-${crypto.randomUUID()}`;
+      await configureGoogleUser(victim, { sub: subject, name: 'Victim', email: `${subject}@example.com` });
+
+      await victim.goto(authorizationUrl);
+      await expect(victim).toHaveURL(/\/profile\?link_error=invalid_state/);
+
+      const rows = await testDb().select().from(authIdentities).where(eq(authIdentities.providerSubject, subject));
+      expect(rows).toHaveLength(0);
+    } finally {
+      await victimContext.close();
+    }
   });
 });

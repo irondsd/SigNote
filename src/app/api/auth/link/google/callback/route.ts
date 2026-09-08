@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
-import { getRedirectUri } from '../utils';
+import { RouteAuthError, authenticateRequest } from '@/lib/routeAuth';
+import { LINK_STATE_COOKIE, LINK_STATE_PURPOSE, getRedirectUri, linkNonceMatches } from '../utils';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state');
@@ -24,14 +25,33 @@ export async function GET(req: Request) {
     return NextResponse.redirect(buildProfileUrl('link_error=server_error'));
   }
 
-  // Verify state JWT
+  // Verify state JWT, then prove this is the browser that started the flow.
+  // The state alone is not enough: it rides in a URL the initiating user can
+  // hand to anyone, so accepting it on its own let an attacker have a victim's
+  // Google account linked to the attacker's SigNote account.
   let userId: string;
   try {
     const { payload } = await jwtVerify(state, new TextEncoder().encode(secret));
     userId = payload.userId as string;
     if (!userId) throw new Error('No userId in state');
+    if (payload.purpose !== LINK_STATE_PURPOSE) throw new Error('Wrong state purpose');
+
+    const nonce = req.cookies.get(LINK_STATE_COOKIE)?.value;
+    if (!nonce || typeof payload.nonce !== 'string' || !linkNonceMatches(nonce, payload.nonce)) {
+      throw new Error('State does not match this browser');
+    }
   } catch {
-    return NextResponse.redirect(buildProfileUrl('link_error=invalid_state'));
+    return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=invalid_state')));
+  }
+
+  // …and that the browser is still signed in as the user the state names. The
+  // cookie above proves same-browser; this proves same-account, so a stale flow
+  // cannot land an identity on an account the visitor has since left.
+  try {
+    const { userId: sessionUserId } = await authenticateRequest(req);
+    if (sessionUserId !== userId) throw new RouteAuthError(401, 'Unauthorized');
+  } catch {
+    return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=invalid_state')));
   }
 
   // Exchange code for tokens
@@ -88,16 +108,22 @@ export async function GET(req: Request) {
       emailVerified: userInfo.verified_email ?? userInfo.email_verified,
       rawProfileJson: { displayName: userInfo.name, image: userInfo.picture },
     });
-    return NextResponse.redirect(buildProfileUrl('linked=google'));
+    return clearLinkCookie(NextResponse.redirect(buildProfileUrl('linked=google')));
   } catch (err) {
     if (err instanceof ConflictEncryptedDataError) {
-      return NextResponse.redirect(buildProfileUrl('link_error=encrypted_data'));
+      return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=encrypted_data')));
     }
     if (err instanceof AlreadyLinkedError) {
-      return NextResponse.redirect(buildProfileUrl('link_error=already_linked'));
+      return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=already_linked')));
     }
-    return NextResponse.redirect(buildProfileUrl('link_error=server_error'));
+    return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=server_error')));
   }
+}
+
+/** The nonce is single-use, so it goes whichever way the round trip ended. */
+function clearLinkCookie(res: NextResponse): NextResponse {
+  res.cookies.set(LINK_STATE_COOKIE, '', { path: '/', maxAge: 0 });
+  return res;
 }
 
 function buildProfileUrl(query: string) {

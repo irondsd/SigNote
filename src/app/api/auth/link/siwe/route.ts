@@ -1,18 +1,21 @@
-import { getServerSession } from 'next-auth';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-import { authOptions } from '@/config/auth';
 import { validateSiweCredentials } from '@/lib/siwe';
 import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
+import { RouteAuthError, authenticateRequest } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export async function POST(req: NextRequest) {
+  // `authenticateRequest`, not `getServerSession`: the latter only decodes the
+  // JWT, so a revoked device could still attach a new sign-in method to the
+  // account it had just been thrown out of.
+  let userId: string;
+  try {
+    ({ userId } = await authenticateRequest(req));
+  } catch (err) {
+    if (err instanceof RouteAuthError) return NextResponse.json(err.body, { status: err.status });
+    throw err;
   }
 
   const body = (await req.json()) as { message?: string; signature?: string };
