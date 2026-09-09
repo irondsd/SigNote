@@ -8,7 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-code-bg: var(--code-bg);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar: var(--sidebar);
   --color-primary-400: var(--primary-400);
@@ -143,6 +143,7 @@
     outline-color: var(--color-ring);
   }
   body {
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     background-color: var(--color-background);
 
     background-attachment: fixed;
