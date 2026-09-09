@@ -130,6 +130,43 @@ test.describe('sessions / device management', () => {
  * that used to.
  */
 test.describe('revoked sessions', () => {
+  test('POST session update still works for an active session', async ({ page }) => {
+    const { account } = makeAccount();
+    const userId = await getOrCreateUserId(account.address);
+    await injectSession(page, await createTestSession(account.address));
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(200);
+
+    const { csrfToken } = await (await page.request.get('/api/auth/csrf')).json();
+    const updated = await page.request.post('/api/auth/session', { data: { csrfToken, data: {} } });
+
+    expect(updated.status()).toBe(200);
+    expect((await updated.json()).user.id).toBe(userId);
+    expect(updated.headers()['set-cookie']).toContain('next-auth.session-token');
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(200);
+  });
+
+  test('POST session update cannot renew a revoked session', async ({ page }) => {
+    await signInThenRevoke(page);
+
+    // A revoked cookie holder can obtain their own CSRF token. Do not call
+    // GET /session here: that already clears the cookie and hides this bypass.
+    const { csrfToken } = await (await page.request.get('/api/auth/csrf')).json();
+    const updated = await page.request.post('/api/auth/session', { data: { csrfToken, data: {} } });
+
+    expect(updated.status()).toBe(200);
+    expect.soft(await updated.json(), 'revoked POST must return the signed-out session shape').toEqual({});
+    const cookies = await page.context().cookies();
+    expect
+      .soft(
+        cookies.filter(
+          (cookie) => /^(?:__Secure-)?next-auth\.session-token(?:\.\d+)?$/.test(cookie.name) && cookie.value !== '',
+        ),
+        'revoked POST must not leave a renewed session cookie',
+      )
+      .toEqual([]);
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(401);
+  });
+
   /** Signs a page in, forces its first authed request, then revokes every row. */
   async function signInThenRevoke(page: import('@playwright/test').Page) {
     const { account } = makeAccount();

@@ -11,8 +11,99 @@ import { seedSecrets } from '../fixtures/seedSecrets';
 import { seedSeals } from '../fixtures/seedSeals';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
+import { settleModal } from '../utils/settleModal';
+import { testDb } from '../fixtures/db';
+import { sealNoteVersions, secretNoteVersions } from '../../src/db/schema';
 
 test.describe.configure({ mode: 'parallel' });
+
+// These assert the required defenses and deliberately fail until the missing
+// creation/history lock handling is implemented. Do not mark expected failures.
+test.describe('locking covers creation and history', () => {
+  for (const tier of ['Secret', 'Seal'] as const) {
+    for (const lock of ['soft', 'hard'] as const) {
+      test(`${lock} lock hides an unsaved new ${tier} body`, async ({ page }) => {
+        const model = tier === 'Secret' ? new SecretsPage(page) : new SealsPage(page);
+        await model.signInDirectly();
+        if (lock === 'hard') await page.clock.install();
+        await model.unlock();
+        await page.getByRole('button', { name: `New ${tier}`, exact: true }).click();
+        await page.getByTestId('note-title-input').fill(`Unsaved ${tier}`);
+        const editor = page.locator('.ProseMirror[contenteditable="true"]');
+        const sentinel = `PRIVATE_UNSAVED_${tier}_${lock}`;
+        await editor.fill(sentinel);
+        await expect(editor).toBeVisible();
+        await expect(editor).toContainText(sentinel);
+
+        if (lock === 'soft') await model.simulateTabHidden();
+        else await page.clock.fastForward(5 * 60_000 + 1000);
+        await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+        if (lock === 'hard') {
+          await expect.poll(() => page.evaluate(() => sessionStorage.getItem('enc_device_share_v1'))).toBeNull();
+        }
+
+        await expect.soft(editor, 'locked creation editor must not display plaintext').not.toBeVisible();
+        await expect(page.getByTestId('note-content-veil')).toBeVisible();
+        await page.getByTestId('reveal-content-btn').click();
+        if (lock === 'hard') {
+          await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
+          await page.getByRole('button', { name: 'Unlock', exact: true }).last().click();
+        } else {
+          await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+        }
+        await expect(editor).toBeVisible();
+        await expect(editor).toContainText(sentinel);
+        await expect(page.getByTestId('note-title-input')).toHaveValue(`Unsaved ${tier}`);
+      });
+    }
+
+    test(`soft lock closes ${tier} history into the veiled note modal`, async ({ page }) => {
+      const { account } = makeAccount();
+      const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+      const title = `${tier} history lock`;
+      const sentinel = `PRIVATE_HISTORY_${tier}`;
+      const [note] =
+        tier === 'Secret'
+          ? await seedSecrets(account.address, mekBytes, [{ title, content: sentinel }])
+          : await seedSeals(account.address, mekBytes, [{ title, content: sentinel }]);
+      // A real historical row uses the same valid payload/key as its head.
+      // Selecting it catches stale decrypted versions even if the Seal head
+      // itself is re-encrypted when the vault soft-locks.
+      await testDb()
+        .insert(tier === 'Secret' ? secretNoteVersions : sealNoteVersions)
+        .values({
+          noteId: note.id,
+          title: 'Historical snapshot',
+          encryptedBody: note.encryptedBody,
+          createdAt: new Date(Date.now() - 3600_000),
+        });
+      const model = tier === 'Secret' ? new SecretsPage(page) : new SealsPage(page);
+      await model.signInDirectly(account.address);
+      await model.unlock();
+      await page.getByTestId('secret-card').filter({ hasText: title }).click();
+      if (tier === 'Seal') await page.getByTestId('decrypt-btn').click();
+      await expect(page.getByTestId('tiptap-editor')).toContainText(sentinel);
+      await settleModal(page);
+      await page.getByTestId('more-actions-btn').click();
+      await page.getByTestId('version-history-item').click();
+      await expect(page.getByTestId('version-row')).toHaveCount(2);
+      await page.getByTestId('version-row').last().click();
+      await expect(page.getByTestId('version-title')).toHaveText('Historical snapshot');
+      await expect(page.getByTestId('version-content')).toBeVisible();
+      await expect(page.getByTestId('version-content')).toContainText(sentinel);
+
+      await model.simulateTabHidden();
+      await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+      await expect
+        .soft(page.getByTestId('version-content'), 'locked history must not display plaintext')
+        .not.toBeVisible();
+      await expect.soft(page.getByTestId('version-sidebar'), 'soft lock must exit history').not.toBeVisible();
+      await expect(page.getByTestId('note-modal')).toBeVisible();
+      await expect(page.getByTestId('note-content-veil')).toBeVisible();
+      await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+    });
+  }
+});
 
 // ─── Soft Lock ──────────────────────────────────────────────────────────────
 
