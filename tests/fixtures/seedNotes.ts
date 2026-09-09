@@ -1,11 +1,10 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Address } from 'viem';
+import { POSITION_STEP } from '@/config/constants';
 import { noteVersions, notes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
-
-const POSITION_STEP = 1000;
 
 /** The inserted row, plus the `_id` alias the app's API exposes — specs
  *  address seeded rows the same way the client sees them. */
@@ -26,9 +25,13 @@ export type SeedNote = {
   versions?: { title: string; content: string; createdAt?: Date }[];
 };
 
-export const seedNotes = async (address: Address, seeds: SeedNote[]): Promise<SeededNote[]> => {
+/** Address-keyed entry point. See {@link seedNotesForUser}. */
+export const seedNotes = async (address: Address, seeds: SeedNote[]): Promise<SeededNote[]> =>
+  seedNotesForUser(await getOrCreateUserId(address), seeds);
+
+/** Keyed by user id, so an account with no wallet can be seeded too. */
+export const seedNotesForUser = async (userId: string, seeds: SeedNote[]): Promise<SeededNote[]> => {
   const db = testDb();
-  const userId = await getOrCreateUserId(address);
 
   // Determine starting position after existing notes for this user
   const last = await db

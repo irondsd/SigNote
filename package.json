@@ -13,6 +13,8 @@
     "db:migrate:prod": "DRIZZLE_ENV=.env.prod drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:studio:prod": "DRIZZLE_ENV=.env.prod drizzle-kit studio",
+    "db:seed": "bun run ./scripts/seedLocalDb.ts",
+    "db:wipe": "bun run ./scripts/wipeLocalDb.ts",
     "dev:test": "next dev -p 5005",
     "email": "email dev --dir email/emails --port 3001",
     "build": "next build --webpack",

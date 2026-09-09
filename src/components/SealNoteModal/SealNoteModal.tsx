@@ -520,9 +520,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       >
         {/* A soft lock re-encrypts a seal in view mode, which flips to the
             placeholder branch. While editing it cannot — the buffer is unsaved
-            — so the veil is what hides it there. It wraps both branches so the
-            placeholder shown on return from history is covered too. */}
-        <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext}>
+            — so the veil is what hides it there. Undecrypted, there is no
+            plaintext to hide and the branch below is already a placeholder, so
+            the veil stays off rather than covering a cover. */}
+        <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext} hasPlaintext={isDecrypted}>
           {isDecrypted ? (
             <div className={s.decryptedBody}>
               <FileEncryptionProvider mek={mek}>

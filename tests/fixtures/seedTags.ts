@@ -11,9 +11,13 @@ export type SeededTag = typeof tagsTable.$inferSelect & { _id: string };
 
 const withAliasedId = (row: typeof tagsTable.$inferSelect): SeededTag => ({ ...row, _id: row.id });
 
-export const seedTags = async (address: Address, tags: SeedTag[]): Promise<SeededTag[]> => {
+/** Address-keyed entry point. See {@link seedTagsForUser}. */
+export const seedTags = async (address: Address, tags: SeedTag[]): Promise<SeededTag[]> =>
+  seedTagsForUser(await getOrCreateUserId(address), tags);
+
+/** Keyed by user id, so an account with no wallet can be seeded too. */
+export const seedTagsForUser = async (userId: string, tags: SeedTag[]): Promise<SeededTag[]> => {
   const db = testDb();
-  const userId = await getOrCreateUserId(address);
 
   const created: SeededTag[] = [];
   for (const tag of tags) {

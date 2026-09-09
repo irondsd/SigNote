@@ -1,14 +1,11 @@
 import type { Address } from 'viem';
 import { v7 as uuidv7 } from 'uuid';
 
+import { getOtpRecordAad, HKDF_INFO_OTP_VAULT, POSITION_STEP } from '@/config/constants';
 import { otpRecords } from '../../src/db/schema';
 import type { NoteColor, NotePattern } from '../../src/config/noteStyles';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
-
-const POSITION_STEP = 1000;
-const HKDF_INFO_OTP_VAULT = 'otp-vault:v1';
-const OTP_AAD_PREFIX = 'otp-record:v1';
 
 /** A valid RFC 4648 seed the app will accept ("12345678901234567890"). */
 export const TEST_SEED = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
@@ -32,20 +29,27 @@ function toBase64(buf: ArrayBuffer | Uint8Array): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf instanceof ArrayBuffer ? buf : buf)));
 }
 
+/** Address-keyed entry point. See {@link seedOtpRecordsForUser}. */
+export const seedOtpRecords = async (
+  address: Address,
+  mekBytes: Uint8Array,
+  records: SeedOtp[],
+): Promise<SeededOtp[]> => seedOtpRecordsForUser(await getOrCreateUserId(address), mekBytes, records);
+
 /**
- * Seeds encrypted authenticator rows straight into Postgres.
+ * Seeds encrypted authenticator rows straight into Postgres, keyed by user id
+ * so an account with no wallet can be seeded too.
  *
  * **Array order is display order.** Positions descend from the first entry, so
  * `seedOtpRecords(addr, mek, [a, b, c])` renders as a, b, c — unlike
  * `seedNotes`, which ascends and forces every spec to seed its list backwards.
  */
-export const seedOtpRecords = async (
-  address: Address,
+export const seedOtpRecordsForUser = async (
+  userId: string,
   mekBytes: Uint8Array,
   records: SeedOtp[],
 ): Promise<SeededOtp[]> => {
   const db = testDb();
-  const userId = await getOrCreateUserId(address);
   const subtle = globalThis.crypto.subtle;
 
   const mek = await subtle.importKey('raw', new Uint8Array(mekBytes), 'HKDF', false, ['deriveKey']);
@@ -84,7 +88,7 @@ export const seedOtpRecords = async (
 
     const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
     const ciphertext = await subtle.encrypt(
-      { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(`${OTP_AAD_PREFIX}:${id}`) },
+      { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(getOtpRecordAad(id)) },
       vaultKey,
       new TextEncoder().encode(body),
     );

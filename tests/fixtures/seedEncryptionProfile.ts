@@ -1,13 +1,15 @@
 import type { Address } from 'viem';
+
+import {
+  ENC_PBKDF2_ITERATIONS,
+  ENC_PBKDF2_LENGTH,
+  ENC_VERSION,
+  HKDF_INFO_VERIFY_KEY,
+  KEY_CHECK_PLAINTEXT,
+} from '@/config/constants';
 import { encryptionProfiles } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
-
-const ENC_PBKDF2_ITERATIONS = 600_000;
-const ENC_PBKDF2_LENGTH = 32;
-const ENC_VERSION = 1;
-const HKDF_INFO_VERIFY_KEY = 'key-verify:v1';
-const KEY_CHECK_PLAINTEXT = 'notes-key-check:v1';
 
 function toBase64(buf: ArrayBuffer | Uint8Array): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf instanceof ArrayBuffer ? buf : buf)));
@@ -26,12 +28,24 @@ const kdf = {
   length: ENC_PBKDF2_LENGTH,
 };
 
+/** Address-keyed entry point. See {@link seedEncryptionProfileForUser}. */
 export const seedEncryptionProfile = async (
   address: Address,
   passphrase: string,
-): Promise<{ mekBytes: Uint8Array; deviceShare: Uint8Array }> => {
-  const userId = await getOrCreateUserId(address);
+): Promise<{ mekBytes: Uint8Array; deviceShare: Uint8Array }> =>
+  seedEncryptionProfileForUser(await getOrCreateUserId(address), passphrase);
 
+/**
+ * Writes the profile the app would have written on setup, and hands back the
+ * MEK so the caller can seed encrypted rows against it.
+ *
+ * Keyed by user id rather than by address because an account does not need a
+ * wallet — `scripts/seedLocalDb.ts` seeds email-only accounts through here.
+ */
+export const seedEncryptionProfileForUser = async (
+  userId: string,
+  passphrase: string,
+): Promise<{ mekBytes: Uint8Array; deviceShare: Uint8Array }> => {
   const subtle = globalThis.crypto.subtle;
 
   // Generate random salt and server share

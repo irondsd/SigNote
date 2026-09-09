@@ -1,18 +1,16 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Address } from 'viem';
+import { HKDF_INFO_SECRET_BODY, POSITION_STEP } from '@/config/constants';
 import { secretNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
 import type { NoteColor } from '../../src/config/noteStyles';
-
-const POSITION_STEP = 1000;
 
 /** The inserted row, plus the `_id` alias the app's API exposes — specs
  *  address seeded rows the same way the client sees them. */
 export type SeededSecret = typeof secretNotes.$inferSelect & { _id: string };
 
 const withAliasedId = (row: typeof secretNotes.$inferSelect): SeededSecret => ({ ...row, _id: row.id });
-const HKDF_INFO_SECRET_BODY = 'secret-body:v1';
 
 export type SeedSecret = {
   title?: string;
@@ -35,13 +33,20 @@ async function encryptContent(secretBodyKey: CryptoKey, plaintext: string) {
   return { alg: 'A256GCM' as const, iv: toBase64(iv), ciphertext: toBase64(ciphertext) };
 }
 
+/** Address-keyed entry point. See {@link seedSecretsForUser}. */
 export const seedSecrets = async (
   address: Address,
   mekBytes: Uint8Array,
   secrets: SeedSecret[],
+): Promise<SeededSecret[]> => seedSecretsForUser(await getOrCreateUserId(address), mekBytes, secrets);
+
+/** Keyed by user id, so an account with no wallet can be seeded too. */
+export const seedSecretsForUser = async (
+  userId: string,
+  mekBytes: Uint8Array,
+  secrets: SeedSecret[],
 ): Promise<SeededSecret[]> => {
   const db = testDb();
-  const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
 

@@ -13,6 +13,13 @@ import s from './NoteContentVeil.module.scss';
 type NoteContentVeilProps = {
   /** The note's ciphertext, so the cover's bar layout matches its card. */
   ciphertext?: string;
+  /**
+   * Whether the children are showing plaintext at all. A seal that has not been
+   * decrypted yet is already rendering its own placeholder behind a "Decrypt to
+   * view" button, so covering it would stack a second placeholder and a second
+   * button over the first — offering "Reveal" for a body nobody has revealed.
+   */
+  hasPlaintext?: boolean;
   children: ReactNode;
 };
 
@@ -32,12 +39,12 @@ type NoteContentVeilProps = {
  * its buffer, but they are `visibility: hidden` and `inert`: nothing is painted
  * and nothing can be typed into them from behind the cover.
  */
-export function NoteContentVeil({ ciphertext, children }: NoteContentVeilProps) {
+export function NoteContentVeil({ ciphertext, hasPlaintext = true, children }: NoteContentVeilProps) {
   const { phase, lockType, rehydrate } = useEncryption();
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [revealing, setRevealing] = useState(false);
 
-  const covered = phase === 'locked';
+  const covered = hasPlaintext && phase === 'locked';
 
   /**
    * The same escalation the lock FAB uses: a soft lock reopens with no

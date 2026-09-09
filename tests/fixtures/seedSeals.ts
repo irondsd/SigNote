@@ -1,19 +1,17 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { Address } from 'viem';
+import { getSealKeyString, POSITION_STEP } from '@/config/constants';
 import { sealNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
 import type { NoteColor } from '../../src/config/noteStyles';
-
-const POSITION_STEP = 1000;
 
 /** The inserted row, plus the `_id` alias the app's API exposes — specs
  *  address seeded rows the same way the client sees them. */
 export type SeededSeal = typeof sealNotes.$inferSelect & { _id: string };
 
 const withAliasedId = (row: typeof sealNotes.$inferSelect): SeededSeal => ({ ...row, _id: row.id });
-const HKDF_SEAL_WRAP_PREFIX = 'seal-wrap:v1';
 
 export type SeedSeal = {
   title?: string;
@@ -51,9 +49,17 @@ async function wrapNekBytes(sealWrapKey: CryptoKey, nekBytes: Uint8Array, aad: s
   return { alg: 'A256GCM' as const, iv: toBase64(iv), ciphertext: toBase64(ciphertext) };
 }
 
-export const seedSeals = async (address: Address, mekBytes: Uint8Array, seals: SeedSeal[]): Promise<SeededSeal[]> => {
+/** Address-keyed entry point. See {@link seedSealsForUser}. */
+export const seedSeals = async (address: Address, mekBytes: Uint8Array, seals: SeedSeal[]): Promise<SeededSeal[]> =>
+  seedSealsForUser(await getOrCreateUserId(address), mekBytes, seals);
+
+/** Keyed by user id, so an account with no wallet can be seeded too. */
+export const seedSealsForUser = async (
+  userId: string,
+  mekBytes: Uint8Array,
+  seals: SeedSeal[],
+): Promise<SeededSeal[]> => {
   const db = testDb();
-  const userId = await getOrCreateUserId(address);
 
   const subtle = globalThis.crypto.subtle;
 
@@ -76,7 +82,7 @@ export const seedSeals = async (address: Address, mekBytes: Uint8Array, seals: S
     const now = new Date();
     // Pre-generate the row id so it can double as the sealId for key derivation
     const sealId = uuidv7();
-    const aad = `${HKDF_SEAL_WRAP_PREFIX}:${sealId}`;
+    const aad = getSealKeyString(sealId);
 
     let encryptedBody = null;
     let wrappedNoteKey = null;
