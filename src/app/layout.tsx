@@ -17,8 +17,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={geistMono.variable} suppressHydrationWarning>
-      <body className={cn(inter.variable, 'antialiased', s.body)}>
+    <html lang="en" className={cn(inter.variable, geistMono.variable)} suppressHydrationWarning>
+      <body className={cn('antialiased', s.body)}>
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <PostHogIdentify />
