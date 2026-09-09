@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { Github, BookOpen, LogOut, UserRound } from 'lucide-react';
+import { Github, BookOpen, Heart, LogOut, UserRound } from 'lucide-react';
 import { SignInButton } from '@/components/SignInButton/SignInButton';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -88,6 +88,10 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
           <Link href="/docs" className={s.extLink}>
             <BookOpen size={15} />
             Docs
+          </Link>
+          <Link href="/support" className={s.extLink} onClick={onNavClick}>
+            <Heart size={15} />
+            Support
           </Link>
         </div>
 

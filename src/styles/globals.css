@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --color-code-bg: var(--code-bg);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo), monospace;
   --color-sidebar: var(--sidebar);
   --color-primary-400: var(--primary-400);
   --color-primary-300: var(--primary-300);
@@ -38,6 +38,10 @@
 }
 
 :root {
+  /* Tailwind only emits an @theme variable when its utility is used, and the
+     font-mono utility never is — the SCSS modules read var(--font-mono)
+     directly, so it has to be declared here too. */
+  --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo), monospace;
   --note-yellow: oklch(0.97 0.055 100);
   --note-red: oklch(0.95 0.045 12);
   --note-blue: oklch(0.95 0.05 250);
@@ -143,7 +147,6 @@
     outline-color: var(--color-ring);
   }
   body {
-    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     background-color: var(--color-background);
 
     background-attachment: fixed;

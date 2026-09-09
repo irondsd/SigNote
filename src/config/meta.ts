@@ -29,7 +29,7 @@ export const OG_IMAGE_PATH = '/opengraph-image';
 const DEFAULT_SITE_URL = 'http://localhost:5000';
 
 /** Public, crawlable routes. Everything else in the app sits behind sign-in. */
-const STATIC_SITEMAP_ROUTES = ['/'] as const;
+const STATIC_SITEMAP_ROUTES = ['/', '/docs', '/support'] as const;
 
 /**
  * Signed-in surfaces. They render nothing for a crawler, so they are kept out

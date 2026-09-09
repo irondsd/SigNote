@@ -1,6 +1,6 @@
 import '@/styles/globals.css';
 import s from './layout.module.scss';
-import { inter } from '@/config/fonts';
+import { geistMono, inter } from '@/config/fonts';
 import { Web3ProviderLazy } from '@/providers/Web3ProviderLazy';
 import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
@@ -17,8 +17,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={cn(inter.variable, 'antialiased', s.body)}>
+    <html lang="en" className={cn(inter.variable, geistMono.variable)} suppressHydrationWarning>
+      <body className={cn('antialiased', s.body)}>
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <PostHogIdentify />
