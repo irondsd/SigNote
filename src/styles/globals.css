@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --color-code-bg: var(--code-bg);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-sidebar: var(--sidebar);
   --color-primary-400: var(--primary-400);
   --color-primary-300: var(--primary-300);
