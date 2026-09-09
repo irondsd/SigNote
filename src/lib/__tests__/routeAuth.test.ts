@@ -78,12 +78,13 @@ describe('withSession', () => {
     expect(res.status).toBe(401);
   });
 
-  it('passes legacy JWTs (no sid) straight through to handler', async () => {
+  it('returns 401 for legacy JWTs (no sid), which can never be revoked', async () => {
     setToken({ sub: 'u1' });
     const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
-    await withSession(handler)(buildReq(), { params: Promise.resolve({ id: 'abc' }) });
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, provider: null, params: { id: 'abc' } });
+    const res = await withSession(handler)(buildReq(), { params: Promise.resolve({ id: 'abc' }) });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'Unauthorized' });
+    expect(handler).not.toHaveBeenCalled();
     expect(mockFindSession).not.toHaveBeenCalled();
   });
 
@@ -229,15 +230,17 @@ describe('withSession', () => {
   });
 
   it('passes empty params object when nextCtx is undefined', async () => {
-    setToken({ sub: 'u1' });
+    setToken({ sub: 'u1', sid: 'sid1' });
+    mockFindSession.mockResolvedValueOnce(null);
     const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await withSession(handler)(buildReq(), undefined as any);
-    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: null, provider: null, params: {} });
+    expect(handler.mock.calls[0][1]).toEqual({ userId: 'u1', sid: 'sid1', provider: null, params: {} });
   });
 
   it('returns handler response on success', async () => {
-    setToken({ sub: 'u1' });
+    setToken({ sub: 'u1', sid: 'sid1' });
+    mockFindSession.mockResolvedValueOnce(null);
     const handler = jest.fn(async () => NextResponse.json({ ok: true }, { status: 201 }));
     const res = await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
     expect(res.status).toBe(201);
@@ -245,7 +248,8 @@ describe('withSession', () => {
   });
 
   it('catches RouteAuthError and returns JSON with its status/body', async () => {
-    setToken({ sub: 'u1' });
+    setToken({ sub: 'u1', sid: 'sid1' });
+    mockFindSession.mockResolvedValueOnce(null);
     const handler = jest.fn(async () => {
       throw new RouteAuthError(403, 'Forbidden');
     });
@@ -255,7 +259,8 @@ describe('withSession', () => {
   });
 
   it('rethrows non-RouteAuthError errors', async () => {
-    setToken({ sub: 'u1' });
+    setToken({ sub: 'u1', sid: 'sid1' });
+    mockFindSession.mockResolvedValueOnce(null);
     const handler = jest.fn(async () => {
       throw new Error('boom');
     });

@@ -27,7 +27,15 @@ const SESSION_COOKIE = /^(?:__Secure-)?next-auth\.session-token(?:\.\d+)?$/;
  */
 async function revokedSessionResponse(request: NextRequest): Promise<NextResponse | null> {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  if (!(await isSessionRevoked(typeof token?.sid === 'string' ? token.sid : null))) return null;
+  const sid = typeof token?.sid === 'string' ? token.sid : null;
+
+  // A signed-in token with no sid predates the sessions feature, so there is no
+  // row to revoke and no entry in the device list — and this endpoint is exactly
+  // what kept it alive, re-issuing the cookie on every page load and focus. It
+  // is unrevokable by construction, so treat it as revoked: clearing the cookie
+  // here is the only thing that ends it. `authenticateRequest` 401s it too.
+  const unrevokable = typeof token?.sub === 'string' && sid === null;
+  if (!unrevokable && !(await isSessionRevoked(sid))) return null;
 
   const res = NextResponse.json({});
   for (const { name } of request.cookies.getAll()) {

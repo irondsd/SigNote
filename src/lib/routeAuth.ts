@@ -47,7 +47,7 @@ export async function isSessionRevoked(sid: string | null | undefined): Promise<
 
 export interface AuthedContext {
   userId: string;
-  sid: string | null;
+  sid: string;
   provider: AuthProvider | null;
   params: Record<string, string>;
 }
@@ -63,7 +63,7 @@ type AuthedHandler = (req: NextRequest, ctx: AuthedContext) => Promise<NextRespo
  */
 export async function authenticateRequest(
   req: NextRequest,
-): Promise<{ userId: string; sid: string | null; provider: AuthProvider | null }> {
+): Promise<{ userId: string; sid: string; provider: AuthProvider | null }> {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const userId = typeof token?.sub === 'string' ? token.sub : null;
 
@@ -82,62 +82,67 @@ export async function authenticateRequest(
   const requestClient =
     token?.client === 'desktop' ? 'desktop' : parseWebSessionClient(req.headers.get(SESSION_CLIENT_HEADER));
 
-  // Per-request session validation. Legacy JWTs (no sid) bypass — they expire
-  // naturally within 7 days of the deploy of this feature.
-  if (sid) {
-    const row = await findSessionForValidation(sid);
-    const now = Date.now();
+  // Per-request session validation. A JWT with no sid predates the sessions
+  // feature and can never be revoked: it is absent from the device list and
+  // from "sign out everywhere else", and NextAuth re-issues it with a fresh
+  // expiry on every `/api/auth/session` call, so it never ages out on its own
+  // either. Reject it and make the holder sign in again.
+  if (!sid) {
+    throw new RouteAuthError(401, 'Unauthorized');
+  }
 
-    if (row && isDeadSession(row)) {
-      throw new RouteAuthError(401, 'Session revoked');
-    }
+  const row = await findSessionForValidation(sid);
+  const now = Date.now();
 
-    if (!row) {
-      // First authed request after sign-in: lazy-create the audit row. We need
-      // the provider claim that was set during the jwt callback to know how
-      // the user signed in.
-      if (provider) {
-        const ip = getClientIp(req);
-        const userAgent = req.headers.get('user-agent') ?? '';
-        const parsed = parseUserAgent(userAgent);
-        const created = await upsertSessionIfMissing({
-          sid,
-          userId,
-          provider,
-          client: requestClient,
-          ip,
-          userAgent,
-          ...parsed,
-        });
+  if (row && isDeadSession(row)) {
+    throw new RouteAuthError(401, 'Session revoked');
+  }
 
-        // One row per sign-in, so this fires once per sign-in and not on every
-        // request. `after` keeps the send off the response path.
-        if (created) {
-          const location = getClientLocation(req);
-          after(() =>
-            sendSignInAlertEmail(userId, {
-              browser: parsed.browser,
-              os: parsed.os,
-              location,
-              when: new Date(),
-            }),
-          );
-        }
+  if (!row) {
+    // First authed request after sign-in: lazy-create the audit row. We need
+    // the provider claim that was set during the jwt callback to know how
+    // the user signed in.
+    if (provider) {
+      const ip = getClientIp(req);
+      const userAgent = req.headers.get('user-agent') ?? '';
+      const parsed = parseUserAgent(userAgent);
+      const created = await upsertSessionIfMissing({
+        sid,
+        userId,
+        provider,
+        client: requestClient,
+        ip,
+        userAgent,
+        ...parsed,
+      });
+
+      // One row per sign-in, so this fires once per sign-in and not on every
+      // request. `after` keeps the send off the response path.
+      if (created) {
+        const location = getClientLocation(req);
+        after(() =>
+          sendSignInAlertEmail(userId, {
+            browser: parsed.browser,
+            os: parsed.os,
+            location,
+            when: new Date(),
+          }),
+        );
       }
-    } else if (row.client === 'web' && requestClient === 'pwa') {
-      // A browser session may predate installation or share its cookie with
-      // the installed app. Promote it immediately so the sessions query that
-      // triggered this request can return the PWA badge on its first render.
-      const ip = getClientIp(req);
-      const userAgent = req.headers.get('user-agent') ?? '';
-      await touchSession(sid, ip, userAgent, 'pwa');
-    } else if (now - row.updatedAt.getTime() > TOUCH_THROTTLE_MS) {
-      // Slide the activity window. Fire-and-forget via `after` so the response
-      // isn't held up by the write — serverless-safe.
-      const ip = getClientIp(req);
-      const userAgent = req.headers.get('user-agent') ?? '';
-      after(() => touchSession(sid, ip, userAgent));
     }
+  } else if (row.client === 'web' && requestClient === 'pwa') {
+    // A browser session may predate installation or share its cookie with
+    // the installed app. Promote it immediately so the sessions query that
+    // triggered this request can return the PWA badge on its first render.
+    const ip = getClientIp(req);
+    const userAgent = req.headers.get('user-agent') ?? '';
+    await touchSession(sid, ip, userAgent, 'pwa');
+  } else if (now - row.updatedAt.getTime() > TOUCH_THROTTLE_MS) {
+    // Slide the activity window. Fire-and-forget via `after` so the response
+    // isn't held up by the write — serverless-safe.
+    const ip = getClientIp(req);
+    const userAgent = req.headers.get('user-agent') ?? '';
+    after(() => touchSession(sid, ip, userAgent));
   }
 
   return { userId, sid, provider };

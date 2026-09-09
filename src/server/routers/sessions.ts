@@ -20,7 +20,7 @@ export const sessionsRouter = router({
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
         expiresAt: s.expiresAt,
-        current: ctx.sid !== null && s._id.toString() === ctx.sid,
+        current: s._id.toString() === ctx.sid,
       })),
     };
   }),
@@ -34,13 +34,6 @@ export const sessionsRouter = router({
 
   // Revoke every other session (old DELETE /api/sessions).
   revokeOthers: protectedProcedure.mutation(async ({ ctx }) => {
-    if (!ctx.sid) {
-      // Legacy JWT with no session id — refuse rather than risk revoking self.
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Cannot revoke from a legacy session. Sign out and back in first.',
-      });
-    }
     const revoked = await revokeAllOtherSessions(ctx.userId, ctx.sid);
     return { revoked };
   }),

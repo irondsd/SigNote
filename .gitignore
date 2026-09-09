@@ -63,3 +63,4 @@ CLAUDE.md
 
 # Explicitly prepared E2E binaries
 /.cache/
+audit/

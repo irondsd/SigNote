@@ -37,7 +37,7 @@ function toTRPCError(err: RouteAuthError): TRPCError {
 
 const authMiddleware = t.middleware(async ({ ctx, next }) => {
   let userId: string;
-  let sid: string | null;
+  let sid: string;
   try {
     ({ userId, sid } = await authenticateRequest(ctx.req));
   } catch (err) {
