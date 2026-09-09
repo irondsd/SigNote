@@ -9,6 +9,7 @@ import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { encryptSecretBody } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
 import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
+import { NoteContentVeil } from '@/components/NoteContentVeil/NoteContentVeil';
 import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
 import { useNewNoteForm } from '@/hooks/useNewNoteForm';
 import type { DraftContent } from '@/lib/draft';
@@ -20,7 +21,7 @@ type NewSecretModalProps = {
 
 export function NewSecretModal({ onClose, initialContent }: NewSecretModalProps) {
   const guard = useSimpleEncryptionGuard();
-  const { mek } = useEncryption();
+  const { mek, phase } = useEncryption();
   const [saving, setSaving] = useState(false);
   const form = useNewNoteForm('secret', onClose, initialContent, mek);
 
@@ -62,21 +63,24 @@ export function NewSecretModal({ onClose, initialContent }: NewSecretModalProps)
       saveTestId="save-secret-btn"
       onSave={handleSave}
       saving={saving || createSecret.isPending}
+      contentLocked={phase === 'locked'}
       extras={guard.PassphraseGuard}
     >
-      <FileEncryptionProvider mek={mek}>
-        <TiptapEditor
-          content={form.content}
-          onChange={form.setContent}
-          editable={true}
-          placeholder="Write your secret…"
-          onEditorReady={form.setEditor}
-          allowFileUpload
-          onUploadingChange={form.setIsUploading}
-          fileEncryptionCtx={mek ? { mek } : undefined}
-          requiresEncryption
-        />
-      </FileEncryptionProvider>
+      <NoteContentVeil>
+        <FileEncryptionProvider mek={mek}>
+          <TiptapEditor
+            content={form.content}
+            onChange={form.setContent}
+            editable={phase !== 'locked'}
+            placeholder="Write your secret…"
+            onEditorReady={form.setEditor}
+            allowFileUpload
+            onUploadingChange={form.setIsUploading}
+            fileEncryptionCtx={mek ? { mek } : undefined}
+            requiresEncryption
+          />
+        </FileEncryptionProvider>
+      </NoteContentVeil>
     </NewNoteModalShell>
   );
 }

@@ -10,10 +10,9 @@ export const runtime = 'nodejs';
 const handler = NextAuth(authOptions);
 
 /**
- * Both cookie names NextAuth may have written, so the sign-out below works
- * whether or not the deployment is on https.
+ * Both cookie names NextAuth may have written, including numbered chunks.
  */
-const SESSION_COOKIES = ['next-auth.session-token', '__Secure-next-auth.session-token'];
+const SESSION_COOKIE = /^(?:__Secure-)?next-auth\.session-token(?:\.\d+)?$/;
 
 /**
  * `/api/auth/session` is the one authenticated endpoint NextAuth answers by
@@ -31,13 +30,15 @@ async function revokedSessionResponse(request: NextRequest): Promise<NextRespons
   if (!(await isSessionRevoked(typeof token?.sid === 'string' ? token.sid : null))) return null;
 
   const res = NextResponse.json({});
-  for (const name of SESSION_COOKIES) {
-    if (request.cookies.has(name)) res.cookies.set(name, '', { path: '/', maxAge: 0 });
+  for (const { name } of request.cookies.getAll()) {
+    if (SESSION_COOKIE.test(name)) {
+      res.cookies.set(name, '', { path: '/', maxAge: 0, httpOnly: true, secure: name.startsWith('__Secure-') });
+    }
   }
   return res;
 }
 
-export async function GET(request: NextRequest, context: { params: Promise<{ nextauth: string[] }> }) {
+async function handleAuth(request: NextRequest, context: { params: Promise<{ nextauth: string[] }> }) {
   const { nextauth } = await context.params;
   if (nextauth?.[0] === 'session') {
     const revoked = await revokedSessionResponse(request);
@@ -46,6 +47,5 @@ export async function GET(request: NextRequest, context: { params: Promise<{ nex
   return handler(request, context);
 }
 
-export async function POST(request: NextRequest, context: { params: Promise<{ nextauth: string[] }> }) {
-  return handler(request, context);
-}
+// NextAuth renews JWTs through both GET session reads and POST session updates.
+export { handleAuth as GET, handleAuth as POST };

@@ -17,8 +17,7 @@ import { sealNoteVersions, secretNoteVersions } from '../../src/db/schema';
 
 test.describe.configure({ mode: 'parallel' });
 
-// These assert the required defenses and deliberately fail until the missing
-// creation/history lock handling is implemented. Do not mark expected failures.
+// Cover every plaintext surface while preserving the unsaved editor buffer.
 test.describe('locking covers creation and history', () => {
   for (const tier of ['Secret', 'Seal'] as const) {
     for (const lock of ['soft', 'hard'] as const) {
@@ -29,7 +28,7 @@ test.describe('locking covers creation and history', () => {
         await model.unlock();
         await page.getByRole('button', { name: `New ${tier}`, exact: true }).click();
         await page.getByTestId('note-title-input').fill(`Unsaved ${tier}`);
-        const editor = page.locator('.ProseMirror[contenteditable="true"]');
+        const editor = page.locator('.ProseMirror');
         const sentinel = `PRIVATE_UNSAVED_${tier}_${lock}`;
         await editor.fill(sentinel);
         await expect(editor).toBeVisible();
@@ -43,6 +42,8 @@ test.describe('locking covers creation and history', () => {
         }
 
         await expect.soft(editor, 'locked creation editor must not display plaintext').not.toBeVisible();
+        await expect(editor).toHaveAttribute('contenteditable', 'false');
+        await expect(page.getByRole('button', { name: 'Formatting options' })).not.toBeVisible();
         await expect(page.getByTestId('note-content-veil')).toBeVisible();
         await page.getByTestId('reveal-content-btn').click();
         if (lock === 'hard') {
@@ -101,6 +102,11 @@ test.describe('locking covers creation and history', () => {
       await expect(page.getByTestId('note-modal')).toBeVisible();
       await expect(page.getByTestId('note-content-veil')).toBeVisible();
       await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+      await page.getByTestId('reveal-content-btn').click();
+      await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.getByTestId('version-sidebar')).not.toBeVisible();
+      if (tier === 'Seal') await page.getByTestId('decrypt-btn').click();
+      await expect(page.getByTestId('tiptap-editor')).toContainText(sentinel);
     });
   }
 });

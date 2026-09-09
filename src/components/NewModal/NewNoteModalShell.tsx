@@ -17,6 +17,7 @@ type NewNoteModalShellProps = {
   onSave: () => void;
   /** When true the button shows "Saving…" and is disabled (encrypted tiers). */
   saving?: boolean;
+  contentLocked?: boolean;
   /** The editor surface — varies per tier (plaintext vs. encryption-wrapped). */
   children: ReactNode;
   /** Extra nodes rendered alongside the modal, e.g. a passphrase guard. */
@@ -34,6 +35,7 @@ export function NewNoteModalShell({
   saveTestId,
   onSave,
   saving,
+  contentLocked = false,
   children,
   extras,
 }: NewNoteModalShellProps) {
@@ -54,9 +56,13 @@ export function NewNoteModalShell({
         }
         onClose={form.handleClose}
         onBackdropClose={form.handleClose}
-        toolbar={<FormattingToolbar editor={form.editor} isOpen={form.showFormatBar} showFileUpload />}
+        toolbar={
+          contentLocked ? null : <FormattingToolbar editor={form.editor} isOpen={form.showFormatBar} showFileUpload />
+        }
         footerLeft={
-          <FormatToggleButton isActive={form.showFormatBar} onToggle={() => form.setShowFormatBar((v) => !v)} />
+          contentLocked ? null : (
+            <FormatToggleButton isActive={form.showFormatBar} onToggle={() => form.setShowFormatBar((v) => !v)} />
+          )
         }
         onColorChange={form.setColor}
         onPatternChange={form.setPattern}

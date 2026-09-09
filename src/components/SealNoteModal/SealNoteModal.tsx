@@ -230,6 +230,11 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     }
   }, [lockSerial, editing, onClose]);
 
+  // Do not reopen history after unlocking, including when it was opened mid-edit.
+  useEffect(() => {
+    if (phase === 'locked') setHistoryOpen(false);
+  }, [phase, setHistoryOpen]);
+
   // Soft lock: re-encrypt decrypted content in view mode (keep modal open).
   useEffect(() => {
     if (phase === 'locked' && lockType === 'soft' && !editing && isDecrypted) {
@@ -442,7 +447,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     </Button>
   ) : null;
 
-  if (historyOpen) {
+  if (historyOpen && phase === 'unlocked') {
     return (
       <>
         <VersionHistoryModal
@@ -513,12 +518,13 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
           />
         }
       >
-        {isDecrypted ? (
-          <div className={s.decryptedBody}>
-            {/* A soft lock re-encrypts a seal in view mode, which flips this
-                branch to the placeholder below. While editing it cannot — the
-                buffer is unsaved — so the cover is what hides it there. */}
-            <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext}>
+        {/* A soft lock re-encrypts a seal in view mode, which flips to the
+            placeholder branch. While editing it cannot — the buffer is unsaved
+            — so the veil is what hides it there. It wraps both branches so the
+            placeholder shown on return from history is covered too. */}
+        <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext}>
+          {isDecrypted ? (
+            <div className={s.decryptedBody}>
               <FileEncryptionProvider mek={mek}>
                 <TiptapEditor
                   key={editing ? 'editing' : 'viewing'}
@@ -554,17 +560,17 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                   requiresEncryption
                 />
               </FileEncryptionProvider>
-            </NoteContentVeil>
-          </div>
-        ) : (
-          <div className={s.encryptedState}>
-            <EncryptedPlaceholder
-              rows={estimateLines(note.encryptedBody?.ciphertext ?? '')}
-              ciphertext={note.encryptedBody?.ciphertext}
-            />
-            {decryptError && <p className={s.decryptError}>{decryptError}</p>}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className={s.encryptedState}>
+              <EncryptedPlaceholder
+                rows={estimateLines(note.encryptedBody?.ciphertext ?? '')}
+                ciphertext={note.encryptedBody?.ciphertext}
+              />
+              {decryptError && <p className={s.decryptError}>{decryptError}</p>}
+            </div>
+          )}
+        </NoteContentVeil>
       </SharedNoteModal>
 
       {guard.PassphraseGuard}

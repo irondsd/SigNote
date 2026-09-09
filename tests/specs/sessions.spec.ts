@@ -130,6 +130,58 @@ test.describe('sessions / device management', () => {
  * that used to.
  */
 test.describe('revoked sessions', () => {
+  for (const method of ['GET', 'POST'] as const) {
+    test(`${method} session request clears revoked chunked cookies`, async ({ page }) => {
+      const { account } = makeAccount();
+      const userId = await getOrCreateUserId(account.address);
+      const token = await createTestSession(account.address);
+      const middle = Math.floor(token.length / 2);
+      await page.context().addCookies(
+        [token.slice(0, middle), token.slice(middle)].map((value, index) => ({
+          name: `next-auth.session-token.${index}`,
+          value,
+          domain: 'localhost',
+          path: '/',
+          httpOnly: true,
+          secure: false,
+          sameSite: 'Lax' as const,
+        })),
+      );
+      // Prove the split cookie is a valid authenticated fixture before revoking.
+      expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(200);
+      await testDb().update(authSessions).set({ revokedAt: new Date() }).where(eq(authSessions.userId, userId));
+      const { csrfToken } = await (await page.request.get('/api/auth/csrf')).json();
+      const response =
+        method === 'GET'
+          ? await page.request.get('/api/auth/session')
+          : await page.request.post('/api/auth/session', { data: { csrfToken, data: {} } });
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toEqual({});
+      expect(
+        (await page.context().cookies()).filter((cookie) => cookie.name.startsWith('next-auth.session-token')),
+      ).toEqual([]);
+      expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(401);
+    });
+  }
+
+  test('POST session update cannot renew an expired session row', async ({ page }) => {
+    const { account } = makeAccount();
+    const userId = await getOrCreateUserId(account.address);
+    await injectSession(page, await createTestSession(account.address));
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(200);
+    await testDb()
+      .update(authSessions)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(authSessions.userId, userId));
+    const { csrfToken } = await (await page.request.get('/api/auth/csrf')).json();
+    const response = await page.request.post('/api/auth/session', { data: { csrfToken, data: {} } });
+    expect(await response.json()).toEqual({});
+    expect(
+      (await page.context().cookies()).filter((cookie) => cookie.name.startsWith('next-auth.session-token')),
+    ).toEqual([]);
+    expect((await trpcQuery(page.request, AUTHED_PING)).status()).toBe(401);
+  });
+
   test('POST session update still works for an active session', async ({ page }) => {
     const { account } = makeAccount();
     const userId = await getOrCreateUserId(account.address);

@@ -43,7 +43,7 @@ type SecretNoteModalProps = {
 
 export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteModalProps) {
   const guard = useEncryptionGuard();
-  const { mek, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
+  const { mek, phase, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
   const [content, setContent] = useState(decryptedContent);
   const [saving, setSaving] = useState(false);
 
@@ -108,6 +108,10 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     mek,
   );
   const handleClose = () => confirmClose(onClose);
+
+  useEffect(() => {
+    if (phase === 'locked') setHistoryOpen(false);
+  }, [phase, setHistoryOpen]);
 
   // Hard lock event: close modal if not editing.
   // Uses lockSerial snapshotted at mount — safe to open modals while already locked.
@@ -245,7 +249,7 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     })();
   }, [mek, performSave]);
 
-  if (historyOpen) {
+  if (historyOpen && phase === 'unlocked') {
     return (
       <>
         <VersionHistoryModal

@@ -436,8 +436,8 @@ test.describe('encrypted drafts', () => {
     expect((await getDraft(page)).content).toBeUndefined();
   });
 
-  test('keeps checkpointing after the vault locks mid-edit', async ({ page }) => {
-    const body = 'TYPED_WHILE_LOCKED_PROBE';
+  test('keeps the draft encrypted while locked and resumes checkpointing after unlock', async ({ page }) => {
+    const body = 'TYPED_AFTER_UNLOCK_PROBE';
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly();
     await secretsPage.unlock();
@@ -450,14 +450,22 @@ test.describe('encrypted drafts', () => {
     await expect.poll(() => getDraft(page).then((d) => d?.enc?.ciphertext ?? null)).not.toBeNull();
     const before = (await getDraft(page)).enc.ciphertext;
 
-    // Five idle minutes hard-lock the vault while the editor is still open. The
-    // draft key was derived when the modal opened, so typing must still reach
-    // disk — and still encrypted.
+    // Hard lock preserves the draft, but the covered editor cannot be used
+    // until the passphrase has unlocked it again.
     await page.clock.install();
     await page.getByTestId('tiptap-editor').click();
     await page.clock.fastForward(5 * 60_000 + 1000);
     await expect.poll(() => page.evaluate(() => sessionStorage.getItem('enc_device_share_v1'))).toBeNull();
 
+    await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
+    expect((await getDraft(page)).enc.ciphertext).toBeTruthy();
+    expect((await getDraft(page)).content).toBeUndefined();
+    await expect(readLocalStorage(page)).resolves.not.toContain('before lock');
+    await page.getByTestId('reveal-content-btn').click();
+    await page.getByPlaceholder('Your passphrase').fill(SecretsPage.PASSPHRASE);
+    await page.getByRole('button', { name: 'Unlock', exact: true }).last().click();
+    await expect(page.getByTestId('tiptap-editor')).toBeVisible();
+    await expect(page.getByTestId('tiptap-editor')).toContainText('before lock');
     await page.getByTestId('tiptap-editor').click();
     await page.keyboard.type(body);
 
