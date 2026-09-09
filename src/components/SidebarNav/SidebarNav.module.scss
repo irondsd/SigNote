@@ -95,7 +95,8 @@
 
 .externalLinks {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   padding: 0 4px;
 }
 

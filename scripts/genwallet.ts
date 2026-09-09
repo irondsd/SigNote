@@ -368,7 +368,8 @@ function main() {
   // Pass a custom 12/24-word mnemonic as an argument, or fallback to demo mnemonic
   const mnemonicArg = process.argv.slice(2).join(' ');
   const mnemonic =
-    mnemonicArg.trim() || 'signote oh this is cool i like it a lot i think it is very good and i am happy with it';
+    mnemonicArg.trim() ||
+    'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
   console.log('='.repeat(70));
   console.log('Mnemonic Phrase:');
