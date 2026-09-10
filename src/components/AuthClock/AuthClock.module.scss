@@ -4,12 +4,18 @@
   --clock-lit: oklch(0.55 0.16 52);
   --clock-glow: transparent;
 
+  // Fixed width so the ring's geometry never has to change: the label is one
+  // character narrower under ten seconds, and a re-measured ring would jump.
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
   position: relative;
   isolation: isolate;
   margin-right: 4px;
-  // No border: the ring is the SVG below, so the pill's own box only has to
-  // keep the metrics the border used to hold.
-  padding: 7px 11px;
+  // No border: the ring is the SVG below, so only the vertical metric the
+  // border used to hold still matters.
+  padding: 7px 0;
   border-radius: 9px;
   background: var(--background);
   font-family: var(--font-mono);
@@ -43,6 +49,18 @@
   stroke-linecap: round;
 }
 
+/**
+ * The countdown only has a value four times a second, which at this radius is a
+ * 2px step each time. Gliding between them — over slightly longer than the tick,
+ * so a late tick can't leave the ring standing still — is what smooths it out.
+ * Off during the rewind, which sets its own value every frame.
+ */
+.clockArcGlide {
+  transition:
+    stroke-dasharray 300ms linear,
+    stroke-dashoffset 300ms linear;
+}
+
 .clockHead {
   stroke: var(--clock-head);
   stroke-linecap: round;
@@ -51,6 +69,13 @@
 .clockLabel {
   position: relative;
   z-index: 1;
+}
+
+/** Two digits' worth of room, so the pill doesn't shrink below ten seconds. */
+.clockSeconds {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
 }
 
 /** The label lights with the reset and decays as the trace closes the loop. */

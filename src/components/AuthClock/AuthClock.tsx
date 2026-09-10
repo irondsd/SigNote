@@ -153,7 +153,7 @@ export function AuthClock({ period, offsetMs }: AuthClockProps) {
           <path className={s.clockTrack} d={ring.d} strokeWidth={RING_WIDTH} />
           {dash > 0.01 && (
             <path
-              className={s.clockArc}
+              className={`${s.clockArc} ${drawing ? '' : s.clockArcGlide}`}
               d={ring.d}
               strokeWidth={RING_WIDTH}
               strokeDasharray={`${dash} ${ring.length}`}
@@ -173,7 +173,7 @@ export function AuthClock({ period, offsetMs }: AuthClockProps) {
         </svg>
       )}
       <span key={clock.step} className={`${s.clockLabel} ${hasReset ? s.clockLabelReset : ''}`}>
-        refresh in {clock.seconds}s
+        refresh in <span className={s.clockSeconds}>{clock.seconds}</span>s
       </span>
     </span>
   );
