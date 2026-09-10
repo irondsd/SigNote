@@ -1,4 +1,4 @@
-import { createHash, createHmac, pbkdf2Sync, randomBytes } from 'node:crypto';
+import { createHash, createHmac, pbkdf2Sync } from 'node:crypto';
 
 // ============================================================================
 // 1. Elliptic Curve Math: secp256k1 (pure TS using BigInt)
