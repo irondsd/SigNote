@@ -1,23 +1,51 @@
 /** The shared step clock in the header — every 30s period lands together. */
 .clock {
-  --clock-elapsed: 0turn;
+  --clock-head: oklch(0.58 0.19 45);
+  --clock-lit: oklch(0.55 0.16 52);
+  --clock-glow: transparent;
 
   position: relative;
   isolation: isolate;
   margin-right: 4px;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background:
-    linear-gradient(var(--background), var(--background)) padding-box,
-    conic-gradient(from 0turn, var(--border) 0 var(--clock-elapsed), var(--primary) var(--clock-elapsed) 1turn)
-      border-box;
+  // No border: the ring is the SVG below, so the pill's own box only has to
+  // keep the metrics the border used to hold.
+  padding: 7px 11px;
+  border-radius: 9px;
+  background: var(--background);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+
+  :global(.dark) & {
+    --clock-head: #fff6e6;
+    --clock-lit: #ffe6c4;
+    --clock-glow: var(--primary);
+  }
+}
+
+.clockRing {
+  position: absolute;
+  inset: 0;
+  // The head is drawn thicker than the ring, so it sits a hair proud of the box.
+  overflow: visible;
+  pointer-events: none;
+}
+
+.clockTrack {
+  stroke: var(--border);
+}
+
+.clockArc {
+  stroke: var(--primary);
+  stroke-linecap: round;
+}
+
+.clockHead {
+  stroke: var(--clock-head);
+  stroke-linecap: round;
 }
 
 .clockLabel {
@@ -25,65 +53,32 @@
   z-index: 1;
 }
 
-.clockReset {
-  animation: clockResetText 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.clockShine {
-  position: absolute;
-  z-index: -1;
-  inset: -4px;
-  border: 1px solid color-mix(in srgb, var(--primary) 70%, white);
-  border-radius: 11px;
-  box-shadow:
-    0 0 7px color-mix(in srgb, var(--primary) 45%, transparent),
-    0 0 14px color-mix(in srgb, var(--primary) 20%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  animation: clockResetShine 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+/** The label lights with the reset and decays as the trace closes the loop. */
+.clockLabelReset {
+  animation: clockResetText 620ms linear both;
 }
 
 @keyframes clockResetText {
-  0%,
+  0% {
+    color: var(--clock-lit);
+    text-shadow: 0 0 10px color-mix(in oklab, var(--clock-glow) 55%, transparent);
+  }
+  20% {
+    color: color-mix(in oklab, var(--clock-lit) 51%, var(--muted-foreground));
+    text-shadow: 0 0 7px color-mix(in oklab, var(--clock-glow) 28%, transparent);
+  }
+  45% {
+    color: color-mix(in oklab, var(--clock-lit) 17%, var(--muted-foreground));
+    text-shadow: 0 0 4px color-mix(in oklab, var(--clock-glow) 9%, transparent);
+  }
   100% {
     color: var(--muted-foreground);
     text-shadow: none;
   }
-  22% {
-    color: var(--primary);
-    text-shadow: 0 0 7px color-mix(in srgb, var(--primary) 55%, transparent);
-  }
-  52% {
-    color: color-mix(in srgb, var(--primary) 74%, var(--muted-foreground));
-    text-shadow: 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
-  }
-}
-
-@keyframes clockResetShine {
-  0% {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  20% {
-    opacity: 0.85;
-    transform: scale(1);
-  }
-  58% {
-    opacity: 0.38;
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.08);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .clockReset,
-  .clockShine {
+  .clockLabelReset {
     animation: none;
-  }
-
-  .clockShine {
-    display: none;
   }
 }
