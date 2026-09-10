@@ -74,7 +74,7 @@ Conventions worth knowing:
 - **Ids are `TEXT`, not `uuid`.** Live data holds two shapes: 24-char hex ids on older rows and UUIDv7 on everything newer. Both are permanent. An unknown id therefore can't raise a cast error — it just matches nothing, so a bad id 404s rather than 400s.
 - **The API still exposes `_id`.** `src/db/tier.ts` maps Postgres `id` → `_id` on the way out so no client code had to change. A rename is a deliberate follow-up, not an accident.
 - **`updatedAt` auto-bumps only on the auth tables** (`updatedAtAuto()` in the schema). On the note tiers it means "when the content was last saved", so a color/position/pin change must not touch it — it drives both the search sort and the "edited" label.
-- **Nothing expires rows on its own.** Postgres has no TTL index, so `src/controllers/cleanup.ts` is the only thing that deletes expired/soft-deleted rows, driven by the hourly `/api/service/storage` cron. `cleanupOrphanedFiles` depends on it, since it detects an orphan by its parent note being physically gone.
+- **Nothing expires rows on its own.** Postgres has no TTL index, so `src/controllers/cleanup.ts` is the only thing that deletes expired/soft-deleted rows, driven by the daily `/api/service/storage` cron. `cleanupOrphanedFiles` depends on it, since it detects an orphan by its parent note being physically gone.
 - **Search is a weighted `tsvector`.** Generated `search_tsv` columns (title weight A, tier-1 content weight B) with GIN indexes, queried through `buildPrefixTsQuery` in `src/db/tier.ts`, which appends `:*` to every term so incremental typing still matches.
 
 ## Architecture
