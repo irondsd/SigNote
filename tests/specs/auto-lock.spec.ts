@@ -100,12 +100,18 @@ test.describe('locking covers creation and history', () => {
         .not.toBeVisible();
       await expect.soft(page.getByTestId('version-sidebar'), 'soft lock must exit history').not.toBeVisible();
       await expect(page.getByTestId('note-modal')).toBeVisible();
-      await expect(page.getByTestId('note-content-veil')).toBeVisible();
       await expect(page.getByTestId('tiptap-editor')).not.toBeVisible();
-      await page.getByTestId('reveal-content-btn').click();
+      if (tier === 'Seal') {
+        // The lock re-encrypted the head, so the seal is back to its own
+        // placeholder and "Decrypt to view" — nothing left for a cover to hide.
+        await expect(page.getByTestId('note-content-veil')).not.toBeVisible();
+        await page.getByTestId('decrypt-btn').click();
+      } else {
+        await expect(page.getByTestId('note-content-veil')).toBeVisible();
+        await page.getByTestId('reveal-content-btn').click();
+      }
       await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
       await expect(page.getByTestId('version-sidebar')).not.toBeVisible();
-      if (tier === 'Seal') await page.getByTestId('decrypt-btn').click();
       await expect(page.getByTestId('tiptap-editor')).toContainText(sentinel);
     });
   }
@@ -412,6 +418,57 @@ test.describe('locking covers an open modal', () => {
 
     await page.getByTestId('reveal-content-btn').click();
     await expect(page.getByPlaceholder('Your passphrase')).toBeVisible();
+  });
+
+  /**
+   * A seal is decrypted per-note, on demand, so a locked vault is its ordinary
+   * resting state — the modal already renders a placeholder behind "Decrypt to
+   * view". Covering that put a second placeholder and a "Reveal" button on top
+   * of the first, offering to reveal a body nobody had decrypted.
+   */
+  test('opening a seal on a locked vault shows no cover', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    await seedSeals(account.address, mekBytes, [{ title: 'Never unlocked', content: 'sealed body' }]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+
+    await sealsPage.sealCard('Never unlocked').click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+    await expect(page.getByTestId('note-content-veil')).not.toBeVisible();
+    await expect(page.getByTestId('reveal-content-btn')).not.toBeVisible();
+
+    // The single button that is offered is the one that works.
+    await page.getByTestId('decrypt-btn').click();
+    await page.getByPlaceholder('Your passphrase').fill(SealsPage.PASSPHRASE);
+    await page.getByRole('button', { name: 'Unlock', exact: true }).last().click();
+    await expect(page.getByTestId('tiptap-editor')).toContainText('sealed body', { timeout: 10000 });
+    await expect(page.getByTestId('note-content-veil')).not.toBeVisible();
+  });
+
+  test('opening a seal after a soft lock shows no cover', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
+    await seedSeals(account.address, mekBytes, [{ title: 'Soft locked seal', content: 'sealed body' }]);
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.signInDirectly(account.address);
+    await sealsPage.unlock();
+    await sealsPage.simulateTabHidden();
+    await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+
+    await sealsPage.sealCard('Soft locked seal').click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+    await expect(page.getByTestId('decrypt-btn')).toBeVisible();
+    await expect(page.getByTestId('note-content-veil')).not.toBeVisible();
+
+    // A soft lock costs a click and no passphrase, here as everywhere else.
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByTestId('tiptap-editor')).toContainText('sealed body', { timeout: 10000 });
   });
 
   test('soft lock covers a seal being edited', async ({ page }) => {
