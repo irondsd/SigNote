@@ -60,7 +60,10 @@ export class BasePage {
    * an empty list and keeps serving it for the whole staleTime.
    * Returns { address }.
    */
-  async signInDirectly(address?: Address, { navigate = true }: { navigate?: boolean } = {}): Promise<{
+  async signInDirectly(
+    address?: Address,
+    { navigate = true }: { navigate?: boolean } = {},
+  ): Promise<{
     address: Address;
   }> {
     const resolvedAddress = address ?? makeAccount().account.address;

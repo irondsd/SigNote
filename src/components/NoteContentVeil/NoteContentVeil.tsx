@@ -83,7 +83,7 @@ export function NoteContentVeil({ ciphertext, hasPlaintext = true, children }: N
               onClick={reveal}
               disabled={revealing}
             >
-              <Eye size={13}  />
+              <Eye size={13} />
               {revealing ? 'Revealing…' : 'Reveal'}
             </Button>
           </div>
