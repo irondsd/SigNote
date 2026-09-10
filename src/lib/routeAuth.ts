@@ -32,15 +32,21 @@ const isDeadSession = (row: { revokedAt: Date | null; expiresAt: Date }): boolea
   row.revokedAt !== null || row.expiresAt.getTime() < Date.now();
 
 /**
- * Revocation check for callers that resolve a session without going through
+ * Whether the `sid` decoded from a JWT may no longer authenticate anything.
+ * For callers that resolve a session without going through
  * `authenticateRequest` — today only NextAuth's own `/api/auth/session`, which
  * decodes the JWT and knows nothing about the `auth_sessions` table.
  *
- * A sid with no row is *not* revoked: that is the ordinary state between
- * sign-in and the first authed request, when the audit row is lazily created.
+ * Named for the unusable case and fails closed on a missing sid, so a caller
+ * that trusts the name inherits the policy rather than an exemption: a sid is
+ * required, and `authenticateRequest` rejects a token without one outright.
+ *
+ * A sid whose row does not exist *yet* is usable, and that is a different
+ * thing: it is the ordinary state between sign-in and the first authed
+ * request, when `authenticateRequest` lazily creates the audit row.
  */
-export async function isSessionRevoked(sid: string | null | undefined): Promise<boolean> {
-  if (!sid) return false;
+export async function isSessionUnusable(sid: string | null | undefined): Promise<boolean> {
+  if (!sid) return true;
   const row = await findSessionForValidation(sid);
   return row !== null && isDeadSession(row);
 }

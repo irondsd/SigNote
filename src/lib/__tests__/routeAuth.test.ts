@@ -15,7 +15,7 @@ import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { findSessionForValidation, touchSession, upsertSessionIfMissing } from '@/controllers/authSessions';
-import { RouteAuthError, withSession, type AuthedContext } from '@/lib/routeAuth';
+import { RouteAuthError, isSessionUnusable, withSession, type AuthedContext } from '@/lib/routeAuth';
 
 type Handler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;
 
@@ -58,6 +58,52 @@ describe('RouteAuthError', () => {
 
   it('is an instance of Error', () => {
     expect(new RouteAuthError(404, 'Not found')).toBeInstanceOf(Error);
+  });
+});
+
+describe('isSessionUnusable', () => {
+  const row = (over: Partial<{ expiresAt: Date; revokedAt: Date | null }> = {}) => ({
+    _id: 'sid1',
+    userId: 'u1',
+    provider: 'google' as const,
+    client: 'web' as const,
+    ip: '',
+    userAgent: '',
+    browser: '',
+    os: '',
+    deviceType: 'desktop' as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    expiresAt: new Date(Date.now() + 1000_000),
+    revokedAt: null,
+    ...over,
+  });
+
+  // Fails closed: a sid is required, so the helper must not be the one place
+  // that reports a sid-less token as fine to keep using.
+  it.each([null, undefined, ''])('fails closed for a missing sid (%p)', async (sid) => {
+    expect(await isSessionUnusable(sid)).toBe(true);
+    expect(mockFindSession).not.toHaveBeenCalled();
+  });
+
+  it('treats a sid with no row yet as usable — the lazy-create window', async () => {
+    mockFindSession.mockResolvedValueOnce(null);
+    expect(await isSessionUnusable('sid1')).toBe(false);
+  });
+
+  it('reports a revoked row as unusable', async () => {
+    mockFindSession.mockResolvedValueOnce(row({ revokedAt: new Date() }));
+    expect(await isSessionUnusable('sid1')).toBe(true);
+  });
+
+  it('reports an expired row as unusable', async () => {
+    mockFindSession.mockResolvedValueOnce(row({ expiresAt: new Date(Date.now() - 1000) }));
+    expect(await isSessionUnusable('sid1')).toBe(true);
+  });
+
+  it('reports a live row as usable', async () => {
+    mockFindSession.mockResolvedValueOnce(row());
+    expect(await isSessionUnusable('sid1')).toBe(false);
   });
 });
 

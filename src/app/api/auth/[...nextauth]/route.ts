@@ -3,7 +3,7 @@ import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { authOptions } from '@/config/auth';
-import { isSessionRevoked } from '@/lib/routeAuth';
+import { isSessionUnusable } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
 
@@ -27,15 +27,19 @@ const SESSION_COOKIE = /^(?:__Secure-)?next-auth\.session-token(?:\.\d+)?$/;
  */
 async function revokedSessionResponse(request: NextRequest): Promise<NextResponse | null> {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  const sid = typeof token?.sid === 'string' ? token.sid : null;
 
-  // A signed-in token with no sid predates the sessions feature, so there is no
-  // row to revoke and no entry in the device list — and this endpoint is exactly
-  // what kept it alive, re-issuing the cookie on every page load and focus. It
-  // is unrevokable by construction, so treat it as revoked: clearing the cookie
-  // here is the only thing that ends it. `authenticateRequest` 401s it too.
-  const unrevokable = typeof token?.sub === 'string' && sid === null;
-  if (!unrevokable && !(await isSessionRevoked(sid))) return null;
+  // No signed-in token at all: nothing of ours to end, so let NextAuth answer.
+  if (typeof token?.sub !== 'string') return null;
+
+  const sid = typeof token.sid === 'string' ? token.sid : null;
+
+  // `isSessionUnusable` covers both cases that have to end here. A revoked or
+  // expired row is the obvious one. The other is a token carrying no sid: it
+  // predates the sessions feature, so there is no row to revoke and no entry in
+  // the device list, and this endpoint is exactly what kept it alive by
+  // re-issuing the cookie on every page load and focus. `authenticateRequest`
+  // 401s it; clearing the cookie here is what actually ends it.
+  if (!(await isSessionUnusable(sid))) return null;
 
   const res = NextResponse.json({});
   for (const { name } of request.cookies.getAll()) {
