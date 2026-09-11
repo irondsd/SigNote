@@ -77,7 +77,7 @@ try {
   });
   if (process.argv.includes('--restart')) {
     // These accepted objects must survive loss of the MinIO process. The
-    // service is dedicated to this suite, with data on its own Docker volume.
+    // store is shared with local development; only the test bucket is isolated.
     await promisify(execFile)('docker', ['compose', 'restart', 'minio']);
     const deadline = Date.now() + 30_000;
     while (true) {

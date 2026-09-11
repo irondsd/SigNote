@@ -3,7 +3,7 @@
 Run from the repository root:
 
 ```sh
-bun run db:up
+bun run local:up
 bun run test:rotation:locks
 bun run test:rotation:storage
 bun run test:rotation:integration
