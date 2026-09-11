@@ -248,12 +248,22 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
   /** The signed-transfer side, with conditional create and no overwrite. */
   const transfer = {
     async download(url: string) {
+      const fault = faults.get(`download:${url.replace('memory://', '')}`);
+      if (fault) {
+        faults.delete(`download:${url.replace('memory://', '')}`);
+        throw fault;
+      }
       const object = objects.get(url.replace('memory://', ''));
       if (!object) throw new Error(`missing object ${url}`);
       return object;
     },
     async upload(url: string, headers: Record<string, string>, body: ArrayBuffer) {
       const objectKey = url.replace('memory://', '');
+      const fault = faults.get('upload');
+      if (fault) {
+        faults.delete('upload');
+        throw fault;
+      }
       if (headers['if-none-match'] === '*' && objects.has(objectKey)) {
         const error = new Error('PreconditionFailed');
         (error as { data?: unknown }).data = { code: 'CONFLICT', httpStatus: 412 };

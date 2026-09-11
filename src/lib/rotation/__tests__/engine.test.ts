@@ -307,6 +307,21 @@ describe('resuming', () => {
     for (const [id, row] of server.rows) expect(row.replacementDigest).toBe(digests.get(id));
   });
 
+  it('retries a transient storage fault without involving the caller', async () => {
+    const sourceMek = await freshMek();
+    const targetMek = await freshMek();
+    const { seed, objects } = await mixedVault(sourceMek);
+    // A provider hiccup on a multi-megabyte body is the most likely transient
+    // fault in a run, and the least useful one to hand back to the user.
+    const faults = new Map([['upload', new TypeError('Failed to fetch')]]);
+    const server = createFakeRotationServer(seed, { objects, faults });
+
+    await engineFor(server, sourceMek, targetMek, { retry: { attempts: 3, sleep: async () => undefined } }).process();
+
+    expect(server.row('file', FILE_ID).fileVerified).toBe(true);
+    expect(server.row('file', FILE_ID).verifiedDigest).toBe(server.row('file', FILE_ID).replacementDigest);
+  });
+
   it('recovers a file whose upload response was lost', async () => {
     const sourceMek = await freshMek();
     const targetMek = await freshMek();

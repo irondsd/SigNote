@@ -41,7 +41,12 @@ export async function seedEncryptedFile(
   mekBytes: Uint8Array,
   options: { bytes?: number; filename?: string; mimeType?: string } = {},
 ): Promise<SeededFile> {
-  const plaintext = globalThis.crypto.getRandomValues(new Uint8Array(options.bytes ?? 2048));
+  // `getRandomValues` caps at 65,536 bytes per call, and the largest supported
+  // attachment is far past that, so fill in chunks.
+  const plaintext = new Uint8Array(options.bytes ?? 2048);
+  for (let offset = 0; offset < plaintext.length; offset += 65_536) {
+    globalThis.crypto.getRandomValues(plaintext.subarray(offset, Math.min(offset + 65_536, plaintext.length)));
+  }
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await globalThis.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },

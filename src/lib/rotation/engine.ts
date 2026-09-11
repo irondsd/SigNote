@@ -329,7 +329,10 @@ export function createRotationEngine(options: RotationEngineOptions) {
   async function processFile(item: RotationItem): Promise<void> {
     const resourceId = item.resourceId;
     const sourceInfo = await call(() => api.sourceFile({ ...token, resourceId }));
-    const sourceBytes = await transfer.download(sourceInfo.url);
+    // Storage transfers get the same bounded backoff as the RPCs. A provider
+    // hiccup on a multi-megabyte body is the most likely transient fault in the
+    // whole run, and the least useful one to hand back to the user.
+    const sourceBytes = await call(() => transfer.download(sourceInfo.url));
     if (sourceBytes.byteLength !== sourceInfo.bytes) {
       throw new RotationItemError('file', resourceId, 'SOURCE_CORRUPT');
     }
@@ -349,7 +352,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
         }),
       );
       try {
-        await transfer.upload(reservation.grant.url, reservation.grant.headers, replacement.cipherBytes);
+        await call(() => transfer.upload(reservation.grant.url, reservation.grant.headers, replacement.cipherBytes));
       } catch (error) {
         // A conditional-create refusal means the bytes are already there from a
         // lost response. Finalize decides; it verifies stored size and checksum
@@ -363,7 +366,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
     if (staged.replacementDigest === null) throw new RotationItemError('file', resourceId, 'STAGING_INCOMPLETE');
 
     const stagedInfo = await call(() => api.stagedFile({ ...token, resourceId }));
-    const stagedBytes = await transfer.download(stagedInfo.url);
+    const stagedBytes = await call(() => transfer.download(stagedInfo.url));
     await verifyRotatedFile(
       sourceMek,
       targetMek,
