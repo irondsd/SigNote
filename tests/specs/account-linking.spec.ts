@@ -258,8 +258,18 @@ test.describe('Google link state binding', () => {
       const subject = `link-csrf-victim-${crypto.randomUUID()}`;
       await configureGoogleUser(victim, { sub: subject, name: 'Victim', email: `${subject}@example.com` });
 
-      await victim.goto(authorizationUrl);
-      await expect(victim).toHaveURL(/\/profile\?link_error=invalid_state/);
+      // Assert on the callback's own redirect, not on where the victim's tab
+      // settles: signed out, /profile sends the visitor to / by itself, and a
+      // toHaveURL on the error page was racing that second redirect — a fast
+      // run read http://localhost:5005/ and failed. The refusal is what this
+      // test is about, and it is fully decided by the time the callback
+      // answers.
+      const refusal = victim.waitForResponse((res) => new URL(res.url()).pathname === '/api/auth/link/google/callback');
+      await victim.goto(authorizationUrl, { waitUntil: 'commit' });
+
+      const response = await refusal;
+      expect(response.status()).toBe(307);
+      expect(response.headers().location).toMatch(/\/profile\?link_error=invalid_state$/);
 
       const rows = await testDb().select().from(authIdentities).where(eq(authIdentities.providerSubject, subject));
       expect(rows).toHaveLength(0);
