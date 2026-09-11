@@ -13,10 +13,14 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /** Below this many seconds the ring turns red — the "you will not finish typing" warning. */
 const EXPIRING_SECONDS = 5;
 
-/** Two letters is enough to tell GitHub from GitLab at a glance. */
+/** Two letters is enough to tell GitHub from GitLab at a glance. Camel-cased
+ *  names carry their own abbreviation — GitHub is GH, KuCoin is KC — so the
+ *  capitals win when there are at least two; otherwise the first two letters. */
 function monogramOf(issuer: string, account: string): string {
   const source = issuer.trim() || account.trim();
-  return source.slice(0, 2).toUpperCase() || '··';
+  const capitals = source.match(/\p{Lu}/gu)?.join('') ?? '';
+  const letters = capitals.length >= 2 ? capitals : source;
+  return letters.slice(0, 2).toUpperCase() || '··';
 }
 
 /** Codes are read aloud and typed in groups; splitting halves is how every
