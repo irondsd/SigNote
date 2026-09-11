@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { withVaultWrite } from '@/db/encryptionState';
 import { MAX_TITLE } from '@/config/constants';
 import { linkFilesToNote } from '@/controllers/files';
 import {
@@ -46,20 +47,22 @@ export const secretsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const tagIds = input.tags ? await getOwnedTagIds(ctx.userId, input.tags) : undefined;
-      const secret = await createSecret(
-        ctx.userId,
-        input.title ?? '',
-        input.encryptedBody ?? null,
-        input.color,
-        input.pattern,
-        tagIds,
-      );
-      if (tagIds?.length) await touchTags(tagIds);
+      return withVaultWrite(ctx.userId, async () => {
+        const tagIds = input.tags ? await getOwnedTagIds(ctx.userId, input.tags) : undefined;
+        const secret = await createSecret(
+          ctx.userId,
+          input.title ?? '',
+          input.encryptedBody ?? null,
+          input.color,
+          input.pattern,
+          tagIds,
+        );
+        if (tagIds?.length) await touchTags(ctx.userId, tagIds);
 
-      if (input.fileIds?.length) await linkFilesToNote(ctx.userId, secret._id.toString(), 'secret', input.fileIds);
+        if (input.fileIds?.length) await linkFilesToNote(ctx.userId, secret._id.toString(), 'secret', input.fileIds);
 
-      return secret;
+        return secret;
+      });
     }),
 
   update: protectedProcedure
@@ -72,14 +75,16 @@ export const secretsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const secret = assertOwner(await getSecretById(input.id), ctx.userId);
-      const updated = await updateSecret(
-        input.id,
-        input.title ?? secret.title,
-        input.encryptedBody !== undefined ? input.encryptedBody : secret.encryptedBody,
-      );
-      if (input.fileIds?.length) await linkFilesToNote(ctx.userId, input.id, 'secret', input.fileIds);
-      return updated;
+      return withVaultWrite(ctx.userId, async () => {
+        const secret = assertOwner(await getSecretById(input.id), ctx.userId);
+        const updated = await updateSecret(
+          input.id,
+          input.title ?? secret.title,
+          input.encryptedBody !== undefined ? input.encryptedBody : secret.encryptedBody,
+        );
+        if (input.fileIds?.length) await linkFilesToNote(ctx.userId, input.id, 'secret', input.fileIds);
+        return updated;
+      });
     }),
 
   ...commonTierProcedures(getSecretById, secretOps),

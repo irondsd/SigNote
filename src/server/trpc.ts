@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 
+import { withRequestGeneration, VaultConflictError } from '@/db/encryptionState';
 import { RouteAuthError, authenticateRequest } from '@/lib/routeAuth';
 import type { Context } from './context';
 
@@ -35,6 +36,11 @@ function toTRPCError(err: RouteAuthError): TRPCError {
   return new TRPCError({ code, message: err.message });
 }
 
+function toVaultTRPCError(err: VaultConflictError): TRPCError {
+  const code = err.code === 'INVALID_GENERATION' ? 'BAD_REQUEST' : 'CONFLICT';
+  return new TRPCError({ code, message: err.code, cause: err });
+}
+
 const authMiddleware = t.middleware(async ({ ctx, next }) => {
   let userId: string;
   let sid: string;
@@ -44,7 +50,25 @@ const authMiddleware = t.middleware(async ({ ctx, next }) => {
     if (err instanceof RouteAuthError) throw toTRPCError(err);
     throw err;
   }
-  return next({ ctx: { ...ctx, userId, sid } });
+  // The generation is transport metadata rather than procedure input, so it
+  // applies uniformly to every authenticated query/mutation.  Controllers
+  // consume the request-scoped value while taking their account lock.
+  try {
+    const result = await withRequestGeneration(ctx.req.headers.get('x-signote-encryption-generation'), () =>
+      next({ ctx: { ...ctx, userId, sid } }),
+    );
+    // tRPC catches resolver errors inside `next()` and returns them as a
+    // MiddlewareResult. A VaultConflictError thrown by withVaultWrite therefore
+    // never reaches this middleware's catch block; inspect the wrapped cause
+    // and preserve the conflict as a real HTTP 409.
+    if (!result.ok && result.error.cause instanceof VaultConflictError) {
+      return { ...result, error: toVaultTRPCError(result.error.cause) };
+    }
+    return result;
+  } catch (err) {
+    if (err instanceof VaultConflictError) throw toVaultTRPCError(err);
+    throw err;
+  }
 });
 
 /**

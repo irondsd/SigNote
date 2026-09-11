@@ -2,9 +2,11 @@ import {
   RECOVERY_BACKUP_TYPE,
   RECOVERY_BACKUP_VERSION,
   buildBackup,
+  buildRotationBackup,
   backupFilename,
   decodeDeviceShare,
   parseBackupText,
+  ROTATION_RECOVERY_BACKUP_VERSION,
 } from '@/lib/recoveryBackup';
 import { fromBase64, toBase64 } from '@/lib/crypto';
 
@@ -69,13 +71,76 @@ describe('recoveryBackup', () => {
       const r = parseBackupText(
         JSON.stringify({
           type: RECOVERY_BACKUP_TYPE,
-          version: RECOVERY_BACKUP_VERSION + 1,
+          version: ROTATION_RECOVERY_BACKUP_VERSION + 1,
           userId: USER_ID,
           deviceShare: toBase64(randomBytes(32)),
           createdAt: new Date().toISOString(),
         }),
       );
       expect(r).toEqual({ ok: false, reason: 'unsupported-version' });
+    });
+
+    it.each([0, -1, 1.5, 3, 99])('rejects invalid or unknown version %s', (version) => {
+      const r = parseBackupText(
+        JSON.stringify({
+          type: RECOVERY_BACKUP_TYPE,
+          version,
+          userId: USER_ID,
+          deviceShare: toBase64(randomBytes(32)),
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toBe(version === 1.5 ? 'malformed' : 'unsupported-version');
+    });
+
+    it('parses a generation-bound pending rotation backup', () => {
+      const ds = randomBytes(32);
+      const backup = buildRotationBackup({
+        userId: USER_ID,
+        profileId: 'profile-1',
+        generation: 17,
+        operationId: 'operation-1',
+        deviceShare: ds,
+      });
+      expect(backup.version).toBe(ROTATION_RECOVERY_BACKUP_VERSION);
+      expect(backup.pending).toBe(true);
+      const result = parseBackupText(JSON.stringify(backup));
+      expect(result).toEqual({ ok: true, backup });
+      if (result.ok) expect(decodeDeviceShare(result.backup)).toEqual(ds);
+    });
+
+    it('rejects v2 files without a complete pending binding', () => {
+      const backup = buildRotationBackup({
+        userId: USER_ID,
+        profileId: 'profile-1',
+        generation: 17,
+        operationId: 'operation-1',
+        deviceShare: randomBytes(32),
+      });
+      for (const [field, value] of [
+        ['profileId', undefined],
+        ['generation', undefined],
+        ['operationId', undefined],
+        ['pending', false],
+        ['pending', 'true'],
+      ] as const) {
+        const candidate = { ...backup, [field]: value };
+        const result = parseBackupText(JSON.stringify(candidate));
+        expect(result).toEqual({ ok: false, reason: 'malformed' });
+      }
+    });
+
+    it('rejects a v2 device share with a non-canonical encoding', () => {
+      const backup = buildRotationBackup({
+        userId: USER_ID,
+        profileId: 'profile-1',
+        generation: '17',
+        operationId: 'operation-1',
+        deviceShare: randomBytes(32),
+      });
+      const result = parseBackupText(JSON.stringify({ ...backup, deviceShare: ` ${backup.deviceShare}` }));
+      expect(result).toEqual({ ok: false, reason: 'malformed' });
     });
 
     it('rejects missing userId', () => {
@@ -111,6 +176,45 @@ describe('recoveryBackup', () => {
       const ds = randomBytes(32);
       const b = buildBackup(USER_ID, ds);
       expect(decodeDeviceShare(b)).toEqual(ds);
+    });
+  });
+
+  describe('buildRotationBackup', () => {
+    it('supports the positional writer while retaining the v1 writer', () => {
+      const ds = randomBytes(32);
+      const backup = buildRotationBackup(USER_ID, 'profile-1', 7, 'operation-1', ds);
+      expect(backup).toMatchObject({
+        type: RECOVERY_BACKUP_TYPE,
+        version: ROTATION_RECOVERY_BACKUP_VERSION,
+        userId: USER_ID,
+        profileId: 'profile-1',
+        generation: 7,
+        operationId: 'operation-1',
+        pending: true,
+        deviceShare: toBase64(ds),
+      });
+      expect(buildBackup(USER_ID, ds).version).toBe(RECOVERY_BACKUP_VERSION);
+    });
+
+    it('rejects empty bindings and a device share with the wrong length', () => {
+      expect(() =>
+        buildRotationBackup({
+          userId: USER_ID,
+          profileId: '',
+          generation: 1,
+          operationId: 'operation-1',
+          deviceShare: randomBytes(32),
+        }),
+      ).toThrow();
+      expect(() =>
+        buildRotationBackup({
+          userId: USER_ID,
+          profileId: 'profile-1',
+          generation: 1,
+          operationId: 'operation-1',
+          deviceShare: randomBytes(16),
+        }),
+      ).toThrow();
     });
   });
 });

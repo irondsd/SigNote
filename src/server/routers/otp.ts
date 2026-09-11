@@ -52,6 +52,7 @@ const toWire = (row: OtpRecordRow) => ({
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   deletedAt: row.deletedAt?.toISOString() ?? null,
+  generation: row.generation,
 });
 
 export type OtpWireRecord = ReturnType<typeof toWire>;

@@ -1,7 +1,12 @@
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse, after } from 'next/server';
 
+import { VaultConflictError, getEncryptionState, withRequestGeneration } from '@/db/encryptionState';
 import {
+  isSessionEpochAllowed,
+  SessionEpochError,
+  type SessionEpochClaim,
+  type SessionValidationContext,
   TOUCH_THROTTLE_MS,
   findSessionForValidation,
   touchSession,
@@ -29,7 +34,7 @@ export class RouteAuthError extends Error {
  * or past the sliding expiry that `touchSession` maintains.
  */
 const isDeadSession = (row: { revokedAt: Date | null; expiresAt: Date }): boolean =>
-  row.revokedAt !== null || row.expiresAt.getTime() < Date.now();
+  row.revokedAt !== null || row.expiresAt.getTime() <= Date.now();
 
 /**
  * Whether the `sid` decoded from a JWT may no longer authenticate anything.
@@ -41,14 +46,28 @@ const isDeadSession = (row: { revokedAt: Date | null; expiresAt: Date }): boolea
  * that trusts the name inherits the policy rather than an exemption: a sid is
  * required, and `authenticateRequest` rejects a token without one outright.
  *
- * A sid whose row does not exist *yet* is usable, and that is a different
- * thing: it is the ordinary state between sign-in and the first authed
- * request, when `authenticateRequest` lazily creates the audit row.
+ * A sid whose row does not exist *yet* is usable while the account epoch
+ * permits the lazy-create window. Once an epoch is active, even the explicit
+ * survivor must still have its ordinary audit row so cleanup cannot recreate
+ * an expired or revoked session.
  */
-export async function isSessionUnusable(sid: string | null | undefined): Promise<boolean> {
-  if (!sid) return true;
+export async function isSessionUnusable(
+  sid: string | null | undefined,
+  account: SessionValidationContext,
+): Promise<boolean> {
+  if (!sid || !account?.userId) return true;
   const row = await findSessionForValidation(sid);
-  return row !== null && isDeadSession(row);
+  if (row && row.userId !== account.userId) return true;
+  if (row && isDeadSession(row)) return true;
+  const state = await getEncryptionState(account.userId);
+  if (!row && state.sessionEpoch > 0 && state.survivingSid === sid) return true;
+  return !isSessionEpochAllowed(state, sid, account.sessionEpoch);
+}
+
+/** Decode the numeric epoch claim without treating malformed input as legacy. */
+export function readSessionEpochClaim(value: unknown): SessionEpochClaim {
+  if (value === undefined) return undefined;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
 export interface AuthedContext {
@@ -97,8 +116,28 @@ export async function authenticateRequest(
     throw new RouteAuthError(401, 'Unauthorized');
   }
 
+  const sessionEpoch = readSessionEpochClaim(token?.sessionEpoch);
+  const state = await getEncryptionState(userId);
   const row = await findSessionForValidation(sid);
   const now = Date.now();
+
+  if (row && row.userId !== userId) {
+    throw new RouteAuthError(401, 'Session revoked');
+  }
+
+  // Check the immutable token claim before the lazy-row path. The surviving
+  // sid is the only exception to an older epoch; every other stale or legacy
+  // token must be rejected before it can create an audit row.
+  if (!isSessionEpochAllowed(state, sid, sessionEpoch)) {
+    throw new RouteAuthError(401, 'Session revoked');
+  }
+
+  // The survivor exception still requires its ordinary audit row. If the row
+  // has been removed, fail closed instead of allowing lazy creation to
+  // resurrect a session whose expiry/revocation history is gone.
+  if (!row && state.sessionEpoch > 0 && state.survivingSid === sid) {
+    throw new RouteAuthError(401, 'Session revoked');
+  }
 
   if (row && isDeadSession(row)) {
     throw new RouteAuthError(401, 'Session revoked');
@@ -112,15 +151,25 @@ export async function authenticateRequest(
       const ip = getClientIp(req);
       const userAgent = req.headers.get('user-agent') ?? '';
       const parsed = parseUserAgent(userAgent);
-      const created = await upsertSessionIfMissing({
-        sid,
-        userId,
-        provider,
-        client: requestClient,
-        ip,
-        userAgent,
-        ...parsed,
-      });
+      let created: boolean;
+      try {
+        created = await upsertSessionIfMissing({
+          sid,
+          userId,
+          sessionEpoch,
+          provider,
+          client: requestClient,
+          ip,
+          userAgent,
+          ...parsed,
+        });
+      } catch (err) {
+        // The state may have changed after the read above but before the
+        // account-locked lazy create. Surface the same auth failure as the
+        // preflight check and never let the handler run on a stale token.
+        if (err instanceof SessionEpochError) throw new RouteAuthError(401, 'Session revoked');
+        throw err;
+      }
 
       // One row per sign-in, so this fires once per sign-in and not on every
       // request. `after` keeps the send off the response path.
@@ -163,7 +212,7 @@ export function withSession(
       auth = await authenticateRequest(req);
     } catch (err) {
       if (err instanceof RouteAuthError) {
-        return NextResponse.json(err.body, { status: err.status });
+        return NextResponse.json(err.body, { status: err.status, headers: { 'Cache-Control': 'private, no-store' } });
       }
       throw err;
     }
@@ -171,10 +220,23 @@ export function withSession(
     const params = nextCtx?.params ? await nextCtx.params : {};
 
     try {
-      return await handler(req, { userId: auth.userId, sid: auth.sid, provider: auth.provider, params });
+      const response = await withRequestGeneration(req.headers.get('x-signote-encryption-generation'), () =>
+        handler(req, { userId: auth.userId, sid: auth.sid, provider: auth.provider, params }),
+      );
+      response.headers.set('Cache-Control', 'private, no-store');
+      return response;
     } catch (err) {
       if (err instanceof RouteAuthError) {
-        return NextResponse.json(err.body, { status: err.status });
+        return NextResponse.json(err.body, { status: err.status, headers: { 'Cache-Control': 'private, no-store' } });
+      }
+      if (err instanceof VaultConflictError) {
+        return NextResponse.json(
+          { error: err.code },
+          {
+            status: err.code === 'INVALID_GENERATION' ? 400 : 409,
+            headers: { 'Cache-Control': 'private, no-store' },
+          },
+        );
       }
       throw err;
     }

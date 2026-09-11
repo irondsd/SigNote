@@ -2,11 +2,14 @@ import { count, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
 import type { Db } from '@/db/client';
-import { authSessions } from '@/db/schema';
+import { authSessions, encryptionStates } from '@/db/schema';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import {
   SESSION_LIFETIME_MS,
+  SessionEpochError,
+  captureSessionEpoch,
   findSessionForValidation,
+  isSessionEpochAllowed,
   listUserSessions,
   revokeAllOtherSessions,
   revokeSession,
@@ -74,7 +77,7 @@ describe('authSessions controller', () => {
       await revokeSession(params.sid, userId);
 
       // Second upsert with same sid — must not undo the revoke.
-      await upsertSessionIfMissing({ ...params, ip: '9.9.9.9' });
+      await expect(upsertSessionIfMissing({ ...params, ip: '9.9.9.9' })).rejects.toBeInstanceOf(SessionEpochError);
 
       const row = await getRow(params.sid);
       expect(row?.revokedAt).not.toBeNull();
@@ -112,9 +115,10 @@ describe('authSessions controller', () => {
       await upsertSessionIfMissing(params);
       const before = await getRow(params.sid);
 
-      // Force updatedAt into the past so the touch is observable
+      // Force updatedAt into the past so the touch is observable. Keep the
+      // audit row live: an expired row is a tombstone and must not be revived.
       const past = new Date(Date.now() - 10 * 60 * 1000);
-      await db.update(authSessions).set({ updatedAt: past, expiresAt: past }).where(eq(authSessions.id, params.sid));
+      await db.update(authSessions).set({ updatedAt: past }).where(eq(authSessions.id, params.sid));
 
       await touchSession(params.sid, '5.6.7.8', 'NewUA');
 
@@ -123,6 +127,34 @@ describe('authSessions controller', () => {
       expect(after!.expiresAt.getTime()).toBeGreaterThan(Date.now() + SESSION_LIFETIME_MS - 1000);
       expect(after?.ip).toBe('5.6.7.8');
       expect(after?.userAgent).toBe('NewUA');
+    });
+
+    it('does not revive an expired audit row', async () => {
+      const params = insertParams();
+      await upsertSessionIfMissing(params);
+      const expired = new Date(Date.now() - 1_000);
+      await db.update(authSessions).set({ expiresAt: expired }).where(eq(authSessions.id, params.sid));
+      const before = await getRow(params.sid);
+
+      await touchSession(params.sid, '5.6.7.8', 'NewUA');
+
+      const after = await getRow(params.sid);
+      expect(after?.expiresAt.getTime()).toBe(expired.getTime());
+      expect(after?.ip).toBe(before?.ip);
+      expect(after?.userAgent).toBe(before?.userAgent);
+    });
+
+    it('treats an audit row at the exact expiry instant as dead', async () => {
+      const params = insertParams();
+      await upsertSessionIfMissing(params);
+      const expiresAt = new Date('2030-01-01T00:00:00.000Z');
+      await db.update(authSessions).set({ expiresAt }).where(eq(authSessions.id, params.sid));
+      const now = jest.spyOn(Date, 'now').mockReturnValue(expiresAt.getTime());
+      try {
+        await expect(upsertSessionIfMissing(params)).rejects.toBeInstanceOf(SessionEpochError);
+      } finally {
+        now.mockRestore();
+      }
     });
 
     it('can promote a browser session to PWA', async () => {
@@ -227,6 +259,50 @@ describe('authSessions controller', () => {
       // Other user untouched
       const theirsRow = await getRow(theirs.sid);
       expect(theirsRow?.revokedAt).toBeNull();
+    });
+
+    it('advances the account epoch and leaves only the explicit survivor exception', async () => {
+      const keep = insertParams();
+      const other = insertParams();
+      await upsertSessionIfMissing(keep);
+      await upsertSessionIfMissing(other);
+
+      // Capture the initial epoch exactly as the sign-in callback does.
+      const initialEpoch = await captureSessionEpoch(userId, keep.sid);
+      expect(initialEpoch).toBe(0);
+
+      await revokeAllOtherSessions(userId, keep.sid);
+
+      const [state] = await db.select().from(encryptionStates).where(eq(encryptionStates.userId, userId));
+      expect(state).toMatchObject({ sessionEpoch: 1, survivingSid: keep.sid, rotationSessionSid: keep.sid });
+      expect(isSessionEpochAllowed(state, keep.sid, 0)).toBe(true);
+      expect(isSessionEpochAllowed(state, other.sid, 0)).toBe(false);
+
+      // An old token whose audit row never existed cannot be resurrected after
+      // the epoch advances, even though it was valid before revoke-all.
+      await expect(
+        upsertSessionIfMissing({ ...insertParams({ sid: 'late-old-sid' }), sessionEpoch: 0 }),
+      ).rejects.toBeInstanceOf(SessionEpochError);
+
+      // The survivor remains usable through the explicit exception, but a
+      // normal row revocation still kills it.
+      await expect(upsertSessionIfMissing({ ...keep, sessionEpoch: 0 })).resolves.toBe(false);
+      await revokeSession(keep.sid, userId);
+      await expect(upsertSessionIfMissing({ ...keep, sessionEpoch: 0 })).rejects.toBeInstanceOf(SessionEpochError);
+    });
+
+    it('clears the durable rotation marker on a later initial sign-in without changing the epoch', async () => {
+      const keep = insertParams();
+      await upsertSessionIfMissing(keep);
+      await revokeAllOtherSessions(userId, keep.sid);
+
+      const before = await db.select().from(encryptionStates).where(eq(encryptionStates.userId, userId));
+      expect(before[0]?.rotationSessionSid).toBe(keep.sid);
+
+      const sid = makeSid();
+      await captureSessionEpoch(userId, sid);
+      const [after] = await db.select().from(encryptionStates).where(eq(encryptionStates.userId, userId));
+      expect(after).toMatchObject({ sessionEpoch: 1, survivingSid: keep.sid, rotationSessionSid: null });
     });
   });
 

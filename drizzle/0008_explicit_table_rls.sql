@@ -1,0 +1,23 @@
+ALTER TABLE "auth_identities" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "auth_nonces" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "auth_sessions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "desktop_auth_attempts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "email_sign_in_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "encryption_profiles" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "file_attachments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "note_tags" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "note_versions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "notes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "notification_preferences" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "otp_records" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "passkey_challenges" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "passkey_credentials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "seal_note_tags" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "seal_note_versions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "seal_notes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "secret_note_tags" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "secret_note_versions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "secret_notes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "security_preferences" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "tags" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;

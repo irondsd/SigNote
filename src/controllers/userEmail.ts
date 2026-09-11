@@ -1,6 +1,7 @@
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb, type Db } from '@/db/client';
+import { withVaultRead, withVaultWrite } from '@/db/encryptionState';
 import { users } from '@/db/schema';
 import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
@@ -46,21 +47,23 @@ export const claimEmailForUser = async (params: {
   email: string;
   ownerIdentityId: string | null;
 }): Promise<ClaimOutcome> => {
-  const email = normalizeEmail(params.email);
-  const db = getDb();
+  return withVaultWrite(params.userId, async () => {
+    const email = normalizeEmail(params.email);
+    const db = getDb();
 
-  const holder = await db.select({ id: users.id }).from(users).where(byEmail(email)).limit(1);
-  if (holder[0] && holder[0].id !== params.userId) return 'taken-by-other-user';
+    const holder = await db.select({ id: users.id }).from(users).where(byEmail(email)).limit(1);
+    if (holder[0] && holder[0].id !== params.userId) return 'taken-by-other-user';
 
-  const [self] = await db.select({ email: users.email }).from(users).where(eq(users.id, params.userId)).limit(1);
-  if (self?.email) return self.email === email ? 'claimed' : 'user-has-email';
+    const [self] = await db.select({ email: users.email }).from(users).where(eq(users.id, params.userId)).limit(1);
+    if (self?.email) return self.email === email ? 'claimed' : 'user-has-email';
 
-  await db
-    .update(users)
-    .set({ email, emailVerifiedAt: new Date(), emailOwnerIdentityId: params.ownerIdentityId })
-    .where(eq(users.id, params.userId));
+    await db
+      .update(users)
+      .set({ email, emailVerifiedAt: new Date(), emailOwnerIdentityId: params.ownerIdentityId })
+      .where(eq(users.id, params.userId));
 
-  return 'claimed';
+    return 'claimed';
+  });
 };
 
 /**
@@ -82,22 +85,24 @@ export type UserEmail = {
 };
 
 export const getUserEmail = async (userId: string): Promise<UserEmail> => {
-  const rows = await getDb()
-    .select({
-      email: users.email,
-      verifiedAt: users.emailVerifiedAt,
-      owner: users.emailOwnerIdentityId,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  return withVaultRead(userId, async () => {
+    const rows = await getDb()
+      .select({
+        email: users.email,
+        verifiedAt: users.emailVerifiedAt,
+        owner: users.emailOwnerIdentityId,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-  const row = rows[0];
-  return {
-    email: row?.email ?? null,
-    verifiedAt: row?.verifiedAt ?? null,
-    removable: Boolean(row?.email) && !row?.owner,
-  };
+    const row = rows[0];
+    return {
+      email: row?.email ?? null,
+      verifiedAt: row?.verifiedAt ?? null,
+      removable: Boolean(row?.email) && !row?.owner,
+    };
+  });
 };
 
 export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email';
@@ -112,28 +117,30 @@ export type DetachOutcome = 'detached' | 'owned' | 'last-credential' | 'no-email
  * another method has to remain.
  */
 export const detachEmail = async (userId: string): Promise<DetachOutcome> => {
-  const db = getDb();
+  return withVaultWrite(userId, async () => {
+    const db = getDb();
 
-  return db.transaction(async (tx) => {
-    if (!(await lockSignInMethods(userId, tx))) return 'no-email';
+    return db.transaction(async (tx) => {
+      if (!(await lockSignInMethods(userId, tx))) return 'no-email';
 
-    const rows = await tx
-      .select({ email: users.email, owner: users.emailOwnerIdentityId })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+      const rows = await tx
+        .select({ email: users.email, owner: users.emailOwnerIdentityId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
-    const row = rows[0];
-    if (!row?.email) return 'no-email';
-    if (row.owner) return 'owned';
-    // The count includes the address being removed.
-    if ((await countSignInMethods(userId, tx)) <= 1) return 'last-credential';
+      const row = rows[0];
+      if (!row?.email) return 'no-email';
+      if (row.owner) return 'owned';
+      // The count includes the address being removed.
+      if ((await countSignInMethods(userId, tx)) <= 1) return 'last-credential';
 
-    await tx
-      .update(users)
-      .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
-      .where(eq(users.id, userId));
+      await tx
+        .update(users)
+        .set({ email: null, emailVerifiedAt: null, emailOwnerIdentityId: null })
+        .where(eq(users.id, userId));
 
-    return 'detached';
+      return 'detached';
+    });
   });
 };

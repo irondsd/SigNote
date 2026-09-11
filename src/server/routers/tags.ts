@@ -68,7 +68,7 @@ export const tagsRouter = router({
       }
 
       try {
-        return await updateTag(input.id, patch);
+        return await updateTag(input.id, patch, ctx.userId);
       } catch (err) {
         // A concurrent rename can win the uniqueness race after the tagNameTaken check.
         if (isDuplicateKeyError(err)) {
@@ -81,7 +81,7 @@ export const tagsRouter = router({
   // DELETE /api/tags/[id]
   delete: protectedProcedure.input(z.object({ id: objectId })).mutation(async ({ ctx, input }) => {
     assertOwner(await getTagById(input.id), ctx.userId);
-    await deleteTagAndDetach(input.id);
+    await deleteTagAndDetach(input.id, ctx.userId);
     return { success: true as const };
   }),
 });

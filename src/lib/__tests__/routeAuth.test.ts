@@ -7,14 +7,30 @@ jest.mock('@/config/auth', () => ({ authOptions: {} }));
 jest.mock('@/controllers/authSessions', () => ({
   TOUCH_THROTTLE_MS: 5 * 60 * 1000,
   findSessionForValidation: jest.fn(),
+  isSessionEpochAllowed: (state: { sessionEpoch: number; survivingSid: string | null }, sid: string, epoch: number | null | undefined) =>
+    epoch !== null && (state.survivingSid === sid || (epoch === undefined ? state.sessionEpoch === 0 : epoch === state.sessionEpoch)),
+  SessionEpochError: class SessionEpochError extends Error {},
   touchSession: jest.fn(),
   upsertSessionIfMissing: jest.fn(),
+}));
+jest.mock('@/db/encryptionState', () => ({
+  VaultConflictError: class VaultConflictError extends Error {
+    readonly code = 'CONFLICT';
+  },
+  getEncryptionState: jest.fn(),
+  withRequestGeneration: (_header: string | null, fn: () => Promise<unknown>) => fn(),
 }));
 
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { findSessionForValidation, touchSession, upsertSessionIfMissing } from '@/controllers/authSessions';
+import {
+  findSessionForValidation,
+  SessionEpochError,
+  touchSession,
+  upsertSessionIfMissing,
+} from '@/controllers/authSessions';
+import { getEncryptionState } from '@/db/encryptionState';
 import { RouteAuthError, isSessionUnusable, withSession, type AuthedContext } from '@/lib/routeAuth';
 
 type Handler = (req: NextRequest, ctx: AuthedContext) => Promise<NextResponse>;
@@ -23,12 +39,23 @@ const mockGetToken = getToken as jest.MockedFunction<typeof getToken>;
 const mockFindSession = findSessionForValidation as jest.MockedFunction<typeof findSessionForValidation>;
 const mockTouchSession = touchSession as jest.MockedFunction<typeof touchSession>;
 const mockUpsertSession = upsertSessionIfMissing as jest.MockedFunction<typeof upsertSessionIfMissing>;
+const mockGetEncryptionState = getEncryptionState as jest.MockedFunction<typeof getEncryptionState>;
+
+const initialState = {
+  userId: 'u1',
+  generation: 0,
+  sessionEpoch: 0,
+  survivingSid: null,
+  rotationSessionSid: null,
+  activeRotationId: null,
+};
 
 beforeEach(() => {
   mockGetToken.mockReset();
   mockFindSession.mockReset();
   mockTouchSession.mockClear();
   mockUpsertSession.mockClear();
+  mockGetEncryptionState.mockResolvedValue(initialState);
 });
 
 function setToken(token: Record<string, unknown> | null) {
@@ -82,28 +109,28 @@ describe('isSessionUnusable', () => {
   // Fails closed: a sid is required, so the helper must not be the one place
   // that reports a sid-less token as fine to keep using.
   it.each([null, undefined, ''])('fails closed for a missing sid (%p)', async (sid) => {
-    expect(await isSessionUnusable(sid)).toBe(true);
+    expect(await isSessionUnusable(sid, { userId: 'u1', sessionEpoch: undefined })).toBe(true);
     expect(mockFindSession).not.toHaveBeenCalled();
   });
 
   it('treats a sid with no row yet as usable — the lazy-create window', async () => {
     mockFindSession.mockResolvedValueOnce(null);
-    expect(await isSessionUnusable('sid1')).toBe(false);
+    expect(await isSessionUnusable('sid1', { userId: 'u1', sessionEpoch: undefined })).toBe(false);
   });
 
   it('reports a revoked row as unusable', async () => {
     mockFindSession.mockResolvedValueOnce(row({ revokedAt: new Date() }));
-    expect(await isSessionUnusable('sid1')).toBe(true);
+    expect(await isSessionUnusable('sid1', { userId: 'u1', sessionEpoch: undefined })).toBe(true);
   });
 
   it('reports an expired row as unusable', async () => {
     mockFindSession.mockResolvedValueOnce(row({ expiresAt: new Date(Date.now() - 1000) }));
-    expect(await isSessionUnusable('sid1')).toBe(true);
+    expect(await isSessionUnusable('sid1', { userId: 'u1', sessionEpoch: undefined })).toBe(true);
   });
 
   it('reports a live row as usable', async () => {
     mockFindSession.mockResolvedValueOnce(row());
-    expect(await isSessionUnusable('sid1')).toBe(false);
+    expect(await isSessionUnusable('sid1', { userId: 'u1', sessionEpoch: undefined })).toBe(false);
   });
 });
 
@@ -180,6 +207,78 @@ describe('withSession', () => {
     expect(res.status).toBe(401);
   });
 
+  it('rejects a token from an older epoch before it reaches the handler', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', sessionEpoch: 2, provider: 'google' });
+    mockGetEncryptionState.mockResolvedValueOnce({ ...initialState, sessionEpoch: 3, survivingSid: 'keep' });
+    mockFindSession.mockResolvedValueOnce({
+      _id: 'sid1',
+      userId: 'u1',
+      provider: 'google',
+      client: 'web',
+      ip: '',
+      userAgent: '',
+      browser: '',
+      os: '',
+      deviceType: 'desktop',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000_000),
+      revokedAt: null,
+    });
+    const handler = jest.fn();
+    const res = await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
+    expect(res.status).toBe(401);
+    expect(mockUpsertSession).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token whose sid row belongs to a different account', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', sessionEpoch: 0, provider: 'google' });
+    mockFindSession.mockResolvedValueOnce({
+      _id: 'sid1',
+      userId: 'u2',
+      provider: 'google',
+      client: 'web',
+      ip: '',
+      userAgent: '',
+      browser: '',
+      os: '',
+      deviceType: 'desktop',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000_000),
+      revokedAt: null,
+    });
+    const handler = jest.fn();
+    const res = await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('allows an older epoch only for the durable surviving sid', async () => {
+    setToken({ sub: 'u1', sid: 'keep', sessionEpoch: 2, provider: 'google' });
+    mockGetEncryptionState.mockResolvedValueOnce({ ...initialState, sessionEpoch: 3, survivingSid: 'keep' });
+    mockFindSession.mockResolvedValueOnce({
+      _id: 'keep',
+      userId: 'u1',
+      provider: 'google',
+      client: 'web',
+      ip: '',
+      userAgent: '',
+      browser: '',
+      os: '',
+      deviceType: 'desktop',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000_000),
+      revokedAt: null,
+    });
+    const handler = jest.fn<ReturnType<Handler>, Parameters<Handler>>(async () => NextResponse.json({ ok: true }));
+    const res = await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
+  });
+
   it('lazy-upserts a missing session row on first authed request', async () => {
     setToken({ sub: 'u1', sid: 'sid1', provider: 'google' });
     mockFindSession.mockResolvedValueOnce(null);
@@ -189,6 +288,7 @@ describe('withSession', () => {
       expect.objectContaining({
         sid: 'sid1',
         userId: 'u1',
+        sessionEpoch: undefined,
         provider: 'google',
         ip: '9.9.9.9',
         userAgent: 'TestUA',
@@ -205,6 +305,16 @@ describe('withSession', () => {
     await withSession(handler)(buildPwaReq(), { params: Promise.resolve({}) });
 
     expect(mockUpsertSession).toHaveBeenCalledWith(expect.objectContaining({ client: 'pwa' }));
+  });
+
+  it('turns an epoch race during lazy creation into a 401', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', sessionEpoch: 0, provider: 'google' });
+    mockFindSession.mockResolvedValueOnce(null);
+    mockUpsertSession.mockRejectedValueOnce(new SessionEpochError());
+    const handler = jest.fn();
+    const res = await withSession(handler)(buildReq(), { params: Promise.resolve({}) });
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('promotes an existing web session when it is opened as a PWA', async () => {

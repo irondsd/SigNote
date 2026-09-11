@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { cleanupExpiredRows } from '@/controllers/cleanup';
 import { cleanupDeletedFiles, cleanupOrphanedFiles } from '@/controllers/files';
+import { getRotationService } from '@/server/rotation/instance';
 
 export const runtime = 'nodejs';
 
@@ -19,6 +20,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Resolve abandoned operations before ordinary purge catches up. Committed
+  // object cleanup is retryable and never reverses activation.
+  const rotation = await getRotationService().cleanup();
+
   // Step 1: reap rows past their expiry. Must run first, because step 2
   // detects an orphan by its parent note being gone.
   const expired = await cleanupExpiredRows();
@@ -30,5 +35,8 @@ export async function GET(req: NextRequest) {
   // Step 3: delete S3 objects for soft-deleted files
   const storage = await cleanupDeletedFiles();
 
-  return NextResponse.json({ expired, orphans, storage });
+  return NextResponse.json(
+    { expired, orphans, storage, rotation },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }

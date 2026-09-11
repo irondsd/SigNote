@@ -13,6 +13,7 @@ import { securityRouter } from './security';
 import { secretsRouter } from './secrets';
 import { sessionsRouter } from './sessions';
 import { tagsRouter } from './tags';
+import { rotationRouter } from './rotation';
 
 export const appRouter = router({
   // Liveness probe. `health` is public; `me` proves the auth middleware works.
@@ -32,6 +33,7 @@ export const appRouter = router({
   erase: eraseRouter,
   otp: otpRouter,
   passkeys: passkeysRouter,
+  rotation: rotationRouter,
 });
 
 export type AppRouter = typeof appRouter;

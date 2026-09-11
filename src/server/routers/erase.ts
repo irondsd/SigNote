@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
   eraseAccount,
   eraseEncryptionProfile,
-  eraseFiles,
   eraseNotes,
   eraseOtp,
   eraseSeals,
@@ -28,7 +27,6 @@ export const eraseRouter = router({
   // Step 2: destructive operations, each gated on the replayed token.
   account: protectedProcedure.input(tokenInput).mutation(async ({ ctx, input }) => {
     assertEraseToken(input.token, ctx.userId, ALL);
-    await eraseFiles(ctx.userId);
     await eraseAccount(ctx.userId);
     return { ok: true as const };
   }),

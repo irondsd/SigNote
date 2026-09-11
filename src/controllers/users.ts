@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
+import { withVaultWrite } from '@/db/encryptionState';
 import { authIdentities, users } from '@/db/schema';
 import { claimEmailForUser, findUserIdByEmail, normalizeEmail } from './userEmail';
 
@@ -152,12 +153,14 @@ export const upsertEmailUser = async (rawEmail: string): Promise<UpsertResult> =
 };
 
 export const updateDisplayName = async (userId: string, displayName: string): Promise<UserRow | null> => {
-  const rows = await getDb()
-    .update(users)
-    .set({ displayName, updatedAt: new Date() })
-    .where(eq(users.id, userId))
-    .returning();
-  return rows[0] ? mapUser(rows[0]) : null;
+  return withVaultWrite(userId, async () => {
+    const rows = await getDb()
+      .update(users)
+      .set({ displayName, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return rows[0] ? mapUser(rows[0]) : null;
+  });
 };
 
 export const upsertSiweUser = async (address: string): Promise<UpsertResult> => {

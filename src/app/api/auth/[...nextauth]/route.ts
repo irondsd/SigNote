@@ -3,7 +3,7 @@ import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { authOptions } from '@/config/auth';
-import { isSessionUnusable } from '@/lib/routeAuth';
+import { isSessionUnusable, readSessionEpochClaim } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
 
@@ -39,7 +39,13 @@ async function revokedSessionResponse(request: NextRequest): Promise<NextRespons
   // the device list, and this endpoint is exactly what kept it alive by
   // re-issuing the cookie on every page load and focus. `authenticateRequest`
   // 401s it; clearing the cookie here is what actually ends it.
-  if (!(await isSessionUnusable(sid))) return null;
+  if (
+    !(await isSessionUnusable(sid, {
+      userId: token.sub,
+      sessionEpoch: readSessionEpochClaim(token.sessionEpoch),
+    }))
+  )
+    return null;
 
   const res = NextResponse.json({});
   for (const { name } of request.cookies.getAll()) {

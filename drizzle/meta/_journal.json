@@ -57,6 +57,34 @@
       "when": 1788904574804,
       "tag": "0009_security_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789082358862,
+      "tag": "0008_explicit_table_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789084743187,
+      "tag": "0009_rotation_backend",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789084821448,
+      "tag": "0010_rotation_session_prerequisite",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789084989828,
+      "tag": "0011_rotation_file_reservations",
+      "breakpoints": true
     }
   ]
 }

@@ -6,23 +6,43 @@ jest.mock('@/config/auth', () => ({ authOptions: {} }));
 jest.mock('@/controllers/authSessions', () => ({
   TOUCH_THROTTLE_MS: 5 * 60 * 1000,
   findSessionForValidation: jest.fn(),
+  isSessionEpochAllowed: (state: { sessionEpoch: number; survivingSid: string | null }, sid: string, epoch: number | null | undefined) =>
+    epoch !== null && (state.survivingSid === sid || (epoch === undefined ? state.sessionEpoch === 0 : epoch === state.sessionEpoch)),
+  SessionEpochError: class SessionEpochError extends Error {},
   touchSession: jest.fn(),
   upsertSessionIfMissing: jest.fn(),
+}));
+jest.mock('@/db/encryptionState', () => ({
+  VaultConflictError: class VaultConflictError extends Error {},
+  getEncryptionState: jest.fn(),
+  withRequestGeneration: (_header: string | null, fn: () => Promise<unknown>) => fn(),
 }));
 
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { findSessionForValidation } from '@/controllers/authSessions';
+import { getEncryptionState } from '@/db/encryptionState';
 
 import { GET } from '../[...nextauth]/route';
 
 const mockGetToken = getToken as jest.MockedFunction<typeof getToken>;
 const mockFindSession = findSessionForValidation as jest.MockedFunction<typeof findSessionForValidation>;
+const mockGetEncryptionState = getEncryptionState as jest.MockedFunction<typeof getEncryptionState>;
+
+const initialState = {
+  userId: 'u1',
+  generation: 0,
+  sessionEpoch: 0,
+  survivingSid: null,
+  rotationSessionSid: null,
+  activeRotationId: null,
+};
 
 beforeEach(() => {
   mockGetToken.mockReset();
   mockFindSession.mockReset();
+  mockGetEncryptionState.mockResolvedValue(initialState);
   nextAuthHandler.mockClear();
 });
 
@@ -94,6 +114,24 @@ describe('GET /api/auth/session', () => {
     const res = await call(sessionReq());
     expect(await res.json()).toEqual({});
     expect(nextAuthHandler).not.toHaveBeenCalled();
+  });
+
+  it('clears cookies for a stale epoch token before NextAuth can refresh it', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', sessionEpoch: 1 });
+    mockGetEncryptionState.mockResolvedValueOnce({ ...initialState, sessionEpoch: 2, survivingSid: 'keep' });
+    mockFindSession.mockResolvedValueOnce(liveRow());
+    const res = await call(sessionReq());
+    expect(await res.json()).toEqual({});
+    expect(cleared(res)).toEqual(['next-auth.session-token.0', 'next-auth.session-token.1']);
+    expect(nextAuthHandler).not.toHaveBeenCalled();
+  });
+
+  it('keeps the durable survivor usable through the session endpoint', async () => {
+    setToken({ sub: 'u1', sid: 'sid1', sessionEpoch: 1 });
+    mockGetEncryptionState.mockResolvedValueOnce({ ...initialState, sessionEpoch: 2, survivingSid: 'sid1' });
+    mockFindSession.mockResolvedValueOnce(liveRow());
+    await call(sessionReq());
+    expect(nextAuthHandler).toHaveBeenCalled();
   });
 
   it('delegates to NextAuth while the row has not been lazily created yet', async () => {

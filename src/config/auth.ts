@@ -20,6 +20,7 @@ import { readWebAuthnChallenge, verifyPasskeyAuthentication, verifyPasskeyRegist
 import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
+import { captureSessionEpoch } from '@/controllers/authSessions';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -203,6 +204,12 @@ export const authOptions: NextAuthOptions = {
           token.sub = account.userId;
           token.name = account.displayName ?? token.name;
         }
+        // Credentials and passkey providers put the account id on `user`.
+        // Stamp it explicitly so the epoch capture and the later audit-row
+        // validation always bind to the same account identity.
+        if (!(account.provider === 'google' && account.userId) && typeof user?.id === 'string') {
+          token.sub = user.id;
+        }
         // NextAuth's CredentialsProvider has no explicit `id`, so account.provider
         // is the literal 'credentials' — map it to our internal 'siwe' label.
         if (account.provider === 'google') {
@@ -215,7 +222,14 @@ export const authOptions: NextAuthOptions = {
           token.provider = 'siwe';
         }
         token.client = resolveSignInClient(account.provider, user?.client);
-        token.sid = uuidv7();
+
+        // The sid and epoch are immutable claims for this sign-in. Refreshes
+        // enter the callback without `account` and therefore never upgrade a
+        // token to a newer account epoch.
+        if (!token.sid && typeof token.sub === 'string') {
+          token.sid = uuidv7();
+          token.sessionEpoch = await captureSessionEpoch(token.sub, token.sid);
+        }
       }
       return token;
     },
