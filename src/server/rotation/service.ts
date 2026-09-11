@@ -183,6 +183,94 @@ export function createRotationService(options: {
     const complete = counts.total === op.itemCount && counts.incomplete === 0;
     return touch(db, op, { phase: complete && op.recoveryDigest ? 'ready' : 'migrating' });
   }
+  /**
+   * One pass over due cleanup tasks, deleting each object under the same
+   * account fence every other writer takes.
+   *
+   * Shared by the scheduled sweep and by the per-account reclaim `begin` runs,
+   * which is what keeps a once-a-day schedule from stranding an account: the
+   * reservation a cancelled attempt charged is only released when its objects
+   * are actually gone, so an account has to be able to reclaim its own.
+   *
+   * `pendingOnly` is that distinction. A tombstone re-check releases nothing —
+   * its bytes were credited the first time — so the reclaim skips them and
+   * pays for no S3 round trip it does not need.
+   */
+  async function drainCleanup(options: { userId?: string; pendingOnly?: boolean; limit: number }) {
+    const due = await getDb()
+      .select()
+      .from(rotationCleanup)
+      .where(
+        and(
+          lte(rotationCleanup.notBefore, now()),
+          ...(options.userId ? [eq(rotationCleanup.userId, options.userId)] : []),
+          ...(options.pendingOnly ? [isNull(rotationCleanup.completedAt)] : []),
+        ),
+      )
+      // Pending work first: a re-check of an already-deleted key must never
+      // displace an object that has never been deleted. ASC alone would sort
+      // the pending rows (null `completedAt`) last.
+      .orderBy(sql`${rotationCleanup.completedAt} asc nulls first`, asc(rotationCleanup.notBefore))
+      .limit(options.limit);
+    let removed = 0;
+    for (const candidate of due)
+      await withAccountLock(candidate.userId, async (db) => {
+        const [task] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.id, candidate.id));
+        if (!task || task.notBefore > now()) return;
+        const [active] = await db
+          .select({ id: fileAttachments.id })
+          .from(fileAttachments)
+          .where(eq(fileAttachments.s3Key, task.objectKey))
+          .limit(1);
+        const [staged] = await db
+          .select({ id: rotationItems.resourceId })
+          .from(rotationItems)
+          .where(
+            and(
+              eq(rotationItems.operationId, task.operationId),
+              sql`${rotationItems.fileGrant}->>'key' = ${task.objectKey}`,
+            ),
+          )
+          .limit(1);
+        const op = await owned(db, { userId: task.userId, sid: '' }, task.operationId);
+        if (active || (!terminal(op) && staged)) return;
+        try {
+          // Cleanup holds the same account fence while deleting one object.
+          // Activation itself never performs S3 operations in its transaction.
+          await storage.removeKey(task.objectKey);
+          await db
+            .update(rotationCleanup)
+            .set({
+              completedAt: task.completedAt ?? now(),
+              attempts: task.attempts + 1,
+              lastError: null,
+              // A PUT begun before expiry may finish after deletion. Durable
+              // tombstones are reaped again so such late objects cannot become
+              // permanent orphans; the row is dropped once the last grant that
+              // could recreate the key is long gone (`cleanupTombstoneMs`).
+              // Active pointers are always rechecked.
+              notBefore: new Date(now().getTime() + limits.cleanupResweepMs),
+            })
+            .where(eq(rotationCleanup.id, task.id));
+          if (!task.completedAt && task.reservedBytes)
+            await db
+              .update(encryptionRotations)
+              .set({ reservedFileBytes: Math.max(0, op.reservedFileBytes - task.reservedBytes) })
+              .where(eq(encryptionRotations.id, op.id));
+          removed++;
+        } catch {
+          await db
+            .update(rotationCleanup)
+            .set({
+              attempts: task.attempts + 1,
+              lastError: 'OBJECT_DELETE_FAILED',
+              notBefore: new Date(now().getTime() + Math.min(3600_000, 1000 * 2 ** Math.min(task.attempts, 12))),
+            })
+            .where(eq(rotationCleanup.id, task.id));
+        }
+      });
+    return removed;
+  }
   async function stageValue(db: Db, op: Operation, item: Item, value: RotationCipherValue, stageKey: string) {
     if (!stageKey || stageKey.length > 128) throw new RotationError('INVALID_INPUT');
     const hash = digest(value);
@@ -224,6 +312,20 @@ export function createRotationService(options: {
       const parsed = beginSchema.safeParse(raw);
       if (!parsed.success) throw new RotationError('INVALID_INPUT');
       const input = parsed.data;
+      // Reclaim this account's own abandoned objects before admitting a new
+      // run. The scheduled sweep runs once a day, and a cancelled attempt's
+      // objects hold this account's temporary-storage reservation until they
+      // are deleted — so without this, retrying a rotation that failed partway
+      // could be refused for the leftovers of the attempt it is replacing, and
+      // stay refused until the next sweep. Deliberately outside the account
+      // lock below: each task takes that lock for itself.
+      try {
+        await drainCleanup({ userId: actor.userId, pendingOnly: true, limit: limits.reclaimBatch });
+      } catch {
+        // Best effort. The reservation check in `reserveFile` is authoritative
+        // either way, and a provider fault here must not fail a rotation that
+        // has room without the reclaim.
+      }
       return withAccountLock(actor.userId, async (db, state) => {
         const [existing] = await db
           .select()
@@ -606,72 +708,7 @@ export function createRotationService(options: {
       await getDb()
         .delete(rotationCleanup)
         .where(lte(rotationCleanup.completedAt, new Date(now().getTime() - limits.cleanupTombstoneMs)));
-      const due = await getDb()
-        .select()
-        .from(rotationCleanup)
-        .where(lte(rotationCleanup.notBefore, now()))
-        // Pending work first: a re-check of an already-deleted key must never
-        // displace an object that has never been deleted. ASC alone would sort
-        // the pending rows (null `completedAt`) last.
-        .orderBy(sql`${rotationCleanup.completedAt} asc nulls first`, asc(rotationCleanup.notBefore))
-        .limit(limit);
-      let removed = 0;
-      for (const candidate of due)
-        await withAccountLock(candidate.userId, async (db) => {
-          const [task] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.id, candidate.id));
-          if (!task || task.notBefore > now()) return;
-          const [active] = await db
-            .select({ id: fileAttachments.id })
-            .from(fileAttachments)
-            .where(eq(fileAttachments.s3Key, task.objectKey))
-            .limit(1);
-          const [staged] = await db
-            .select({ id: rotationItems.resourceId })
-            .from(rotationItems)
-            .where(
-              and(
-                eq(rotationItems.operationId, task.operationId),
-                sql`${rotationItems.fileGrant}->>'key' = ${task.objectKey}`,
-              ),
-            )
-            .limit(1);
-          const op = await owned(db, { userId: task.userId, sid: '' }, task.operationId);
-          if (active || (!terminal(op) && staged)) return;
-          try {
-            // Cleanup holds the same account fence while deleting one object.
-            // Activation itself never performs S3 operations in its transaction.
-            await storage.removeKey(task.objectKey);
-            await db
-              .update(rotationCleanup)
-              .set({
-                completedAt: task.completedAt ?? now(),
-                attempts: task.attempts + 1,
-                lastError: null,
-                // A PUT begun before expiry may finish after deletion. Durable
-                // tombstones are reaped again so such late objects cannot become
-                // permanent orphans; the row is dropped once the last grant that
-                // could recreate the key is long gone (`cleanupTombstoneMs`).
-                // Active pointers are always rechecked.
-                notBefore: new Date(now().getTime() + limits.cleanupResweepMs),
-              })
-              .where(eq(rotationCleanup.id, task.id));
-            if (!task.completedAt && task.reservedBytes)
-              await db
-                .update(encryptionRotations)
-                .set({ reservedFileBytes: Math.max(0, op.reservedFileBytes - task.reservedBytes) })
-                .where(eq(encryptionRotations.id, op.id));
-            removed++;
-          } catch {
-            await db
-              .update(rotationCleanup)
-              .set({
-                attempts: task.attempts + 1,
-                lastError: 'OBJECT_DELETE_FAILED',
-                notBefore: new Date(now().getTime() + Math.min(3600_000, 1000 * 2 ** Math.min(task.attempts, 12))),
-              })
-              .where(eq(rotationCleanup.id, task.id));
-          }
-        });
+      const removed = await drainCleanup({ limit });
       const finished = await getDb()
         .select()
         .from(encryptionRotations)

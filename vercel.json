@@ -3,10 +3,6 @@
     {
       "path": "/api/service/storage",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/service/rotation",
-      "schedule": "0 0 * * *"
     }
   ]
 }

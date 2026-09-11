@@ -113,5 +113,13 @@ export const ROTATION_LIMITS = {
   /** Object tasks processed per sweep. One rotation of a file-heavy vault emits
    * one task per attachment, so this has to clear a whole operation at once. */
   cleanupBatch: 200,
+  /** Objects one account may reclaim for itself when starting a rotation. The
+   * scheduled sweep runs daily, and a cancelled attempt's objects hold this
+   * account's temporary-storage reservation until they are deleted — so a
+   * retry would otherwise be refused for the leftovers of the attempt it is
+   * replacing. Bounded well above one operation's worth of attachments
+   * (`maxFileBytes / maxFileSize`) and well below anything that would make
+   * `begin` slow. */
+  reclaimBatch: 50,
 };
 export type RotationLimits = typeof ROTATION_LIMITS;
