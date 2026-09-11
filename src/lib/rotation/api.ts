@@ -36,5 +36,6 @@ export function createRotationApi(client: typeof rotationClient = rotationClient
     confirmRecovery: (input) => rotation.confirmRecovery.mutate(input),
     commit: (input) => rotation.commit.mutate(input),
     cancel: (input) => rotation.cancel.mutate(input),
+    claim: (input) => rotation.claim.mutate(input),
   } as RotationProcedures;
 }

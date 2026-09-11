@@ -25,7 +25,7 @@ import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants
 import type { KdfParams, EncryptedPayload } from '@/types/crypto';
 import { createKeyCheck, deriveDeviceShare, importMEK, verifyKeyCheck, xor32 } from '@/lib/crypto';
 import { buildRotationBackup, backupFilename, type RecoveryBackupV2 } from '@/lib/recoveryBackup';
-import { createRotationMaterial, type RotationMaterial } from './crypto';
+import { createRotationMaterial, reopenRotationMaterial, type RotationMaterial } from './crypto';
 import { parseAndValidatePendingRecovery, RecoveryValidationError } from './recovery';
 import { draftReadiness, freezeDraftWriting, thawDraftWriting, type DraftReadiness } from './drafts';
 import { asRotationError, RotationTransportError } from './client';
@@ -71,6 +71,8 @@ export type WizardDeps = {
       acknowledgements: { localDraftsResolved: true; otherDeviceDraftLoss: true };
     }): Promise<RotationStatus>;
     cancel(input: { operationId: string; generation: number; workerFence: number }): Promise<RotationStatus>;
+    /** Takes ownership after a browser loss, fencing out the previous worker. */
+    claim(input: { operationId: string; expectedWorkerFence: number }): Promise<RotationStatus>;
   };
   sessions: {
     list(): Promise<{ sessions: { _id: string; current: boolean }[] }>;
@@ -101,6 +103,8 @@ export type WizardState = {
   recoverySaved: boolean;
   recoveryVerified: boolean;
   generation: number | null;
+  /** True when this is a continuation of an operation that already exists. */
+  resuming: boolean;
 };
 
 const EMPTY: WizardState = {
@@ -117,6 +121,7 @@ const EMPTY: WizardState = {
   recoverySaved: false,
   recoveryVerified: false,
   generation: null,
+  resuming: false,
 };
 
 export const passphraseProblem = (value: string, confirmation: string): string | null => {
@@ -254,9 +259,12 @@ export function createRotationWizard(deps: WizardDeps) {
         const [{ generation, operation }, profile] = await Promise.all([deps.rotation.status(), deps.profile()]);
         profileId = profile.profileId ?? null;
         set({ generation, operation });
-        // A durable operation outranks whatever the user was about to start.
+        // A durable operation outranks whatever the user was about to start —
+        // but resuming still goes through the prerequisites, because a fresh
+        // sign-in is exactly what clears the server's session marker, and the
+        // fence will refuse every worker call until it is re-established.
         if (operation && !['committed', 'cleaned', 'aborted'].includes(operation.phase)) {
-          set({ step: 'credentials' });
+          set({ step: 'sessions', resuming: true });
         }
         return operation;
       });
@@ -314,7 +322,23 @@ export function createRotationWizard(deps: WizardDeps) {
 
         currentMaterial = material;
         sourceMek = mek;
-        target = await createRotationMaterial(next);
+
+        // Resuming: the target material already exists on the server and every
+        // staged item is bound to it. Minting a second one here would produce a
+        // key that opens nothing already done, so the chosen passphrase is
+        // checked *against* the pending material instead.
+        const pending = state.operation?.pendingMaterial ?? null;
+        if (pending) {
+          try {
+            target = { material: pending as RotationMaterial, ...(await reopenRotationMaterial(next, pending)) };
+          } catch {
+            throw new RotationWizardError(
+              'That is not the new passphrase you chose for this rotation. If you have forgotten it, cancel and start again — your current data is untouched.',
+            );
+          }
+        } else {
+          target = await createRotationMaterial(next);
+        }
         set({ passphraseVerified: true, reusingPassphrase: current === next });
         return true;
       });
@@ -342,6 +366,19 @@ export function createRotationWizard(deps: WizardDeps) {
         if (others > 0) {
           thawDraftWriting();
           throw new RotationWizardError('Another session signed in. Revoke other sessions again before continuing.');
+        }
+
+        // Resuming takes over the operation rather than creating one: the fence
+        // advances, so the tab or device that was working on it before cannot
+        // keep writing, and its own token stops being accepted.
+        const existing = state.operation;
+        if (existing && !['committed', 'cleaned', 'aborted'].includes(existing.phase)) {
+          const claimed = await deps.rotation.claim({
+            operationId: existing.operationId,
+            expectedWorkerFence: existing.workerFence,
+          });
+          set({ operation: claimed, step: 'running' });
+          return claimed;
         }
 
         const operation = await deps.rotation.begin({

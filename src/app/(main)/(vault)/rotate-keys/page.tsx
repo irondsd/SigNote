@@ -143,6 +143,13 @@ export default function RotateKeysPage() {
         {step === 'sessions' && (
           <section className={s.section} data-testid="rotation-sessions">
             <h2 className={s.heading}>Sign out everywhere else</h2>
+            {state.resuming && (
+              <p className={s.warning} data-testid="rotation-resuming">
+                A rotation is already in progress on this account. Nothing that was already done is lost — signing in
+                again cleared the server&apos;s record of which session owns it, so this step has to be repeated before
+                it can continue.
+              </p>
+            )}
             <p className={s.body}>
               Every other session must end before the keys can be replaced, so that no other device can write with the
               old keys while this runs. This is irreversible — those devices will need to sign in again even if you
@@ -260,8 +267,9 @@ export default function RotateKeysPage() {
           <section className={s.section} data-testid="rotation-credentials">
             <h2 className={s.heading}>Verify and choose a passphrase</h2>
             <p className={s.body}>
-              Your current passphrase is checked in this browser and never sent anywhere. You may keep the same
-              passphrase — a fresh salt means the stored halves change either way — but changing it is recommended.
+              {state.resuming
+                ? 'Enter your current passphrase and the new one you chose when this rotation started. Both are checked in this browser and never sent anywhere.'
+                : 'Your current passphrase is checked in this browser and never sent anywhere. You may keep the same passphrase — a fresh salt means the stored halves change either way — but changing it is recommended.'}
             </p>
             <div className={s.field}>
               <label className={s.label} htmlFor="rotate-current">

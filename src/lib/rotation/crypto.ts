@@ -65,8 +65,18 @@ export async function createRotationMaterial(passphrase: string) {
   }
 }
 
-/** Reconstruct either generation from fresh server material after browser loss. */
-export async function unlockRotationMaterial(passphrase: string, material: RotationMaterial) {
+/**
+ * Reconstruct either generation from fresh server material after browser loss,
+ * keeping the device share.
+ *
+ * Resuming needs both halves: the key, to carry on re-encrypting, and the
+ * device share, because the pending recovery file is made of it. Minting fresh
+ * material instead would produce a key that opens nothing already staged.
+ */
+export async function reopenRotationMaterial(
+  passphrase: string,
+  material: RotationMaterial,
+): Promise<{ mek: CryptoKey; deviceShare: Uint8Array }> {
   const policy = getDefaultKdfParams();
   if (
     material.version !== getEncVersion() ||
@@ -84,12 +94,21 @@ export async function unlockRotationMaterial(passphrase: string, material: Rotat
   const rawMek = xor32(deviceShare, serverShare);
   try {
     const mek = await importMEK(rawMek);
-    if (!(await verifyKeyCheck(mek, material.keyCheck))) throw new Error('Invalid rotation credentials');
-    return mek;
+    if (!(await verifyKeyCheck(mek, material.keyCheck))) {
+      deviceShare.fill(0);
+      throw new Error('Invalid rotation credentials');
+    }
+    return { mek, deviceShare };
   } finally {
-    deviceShare.fill(0);
     rawMek.fill(0);
   }
+}
+
+/** The same check when only the key is wanted; the share is zeroed on the way out. */
+export async function unlockRotationMaterial(passphrase: string, material: RotationMaterial): Promise<CryptoKey> {
+  const { mek, deviceShare } = await reopenRotationMaterial(passphrase, material);
+  deviceShare.fill(0);
+  return mek;
 }
 
 export type RotationBody =
