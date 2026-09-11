@@ -8,8 +8,9 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState, type FC, type ReactNode } from 'react';
 
 import { trpc } from '@/lib/trpc';
-import { unauthorizedLink } from '@/lib/trpcLinks';
+import { generationLink, unauthorizedLink } from '@/lib/trpcLinks';
 import { getSessionClientHeaders } from '@/lib/sessionClient';
+import { generationHeaders } from '@/lib/encryptionGeneration';
 import { getQueryClient } from '@/utils/getQueryClient';
 
 // ssr:false ensures QueryPersister and all its imports (idb-keyval, persist client)
@@ -36,7 +37,14 @@ export const ReactQueryProvider: FC<{ children: ReactNode }> = ({ children }) =>
   // move here in Phase 2 once hooks call tRPC.
   const [trpcClient] = useState(() =>
     trpc.createClient({
-      links: [unauthorizedLink, httpBatchLink({ url: '/api/trpc', headers: getSessionClientHeaders })],
+      links: [
+        unauthorizedLink,
+        generationLink,
+        httpBatchLink({
+          url: '/api/trpc',
+          headers: () => ({ ...getSessionClientHeaders(), ...generationHeaders() }),
+        }),
+      ],
     }),
   );
 

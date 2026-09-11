@@ -3,6 +3,8 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { AppRouter } from '@/server/routers/_app';
 import { handleUnauthorized } from './authRedirect';
 import { getSessionClientHeaders } from './sessionClient';
+import { generationHeaders } from './encryptionGeneration';
+import { generationLink } from './trpcLinks';
 
 /**
  * The authenticator's own tRPC client — the same transport as `trpcClient` but
@@ -14,7 +16,13 @@ import { getSessionClientHeaders } from './sessionClient';
  * rejected session starts the shared sign-out and local-data cleanup flow.
  */
 export const otpTrpcClient = createTRPCClient<AppRouter>({
-  links: [httpBatchLink({ url: '/api/trpc', headers: getSessionClientHeaders })],
+  links: [
+    generationLink,
+    httpBatchLink({
+      url: '/api/trpc',
+      headers: () => ({ ...getSessionClientHeaders(), ...generationHeaders() }),
+    }),
+  ],
 });
 
 /** True when a thrown tRPC error means "the session is gone", not "this failed". */
