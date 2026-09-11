@@ -821,6 +821,40 @@ describe('rotation service against real PGlite migrations', () => {
     await expect(service.reserveFile(fixture.actor, second.token, ENCRYPTED_FILE_ID, input)).resolves.toBeDefined();
   });
 
+  it("reclaims the account's own abandoned objects on begin, so a retry is not blocked until the sweep", async () => {
+    const fixture = await seedFixture(db);
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, fixture.sourceFile);
+    const input = {
+      iv: rotated.iv,
+      bytes: rotated.cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+    // Exactly one file's worth of headroom: the cancelled attempt's reservation
+    // is the only thing that can refuse the retry.
+    const service = serviceFor(fixture, undefined, { maxTemporaryFileBytes: input.bytes });
+    const first = await begin(fixture, service);
+    const grant = await service.reserveFile(fixture.actor, first.token, ENCRYPTED_FILE_ID, input);
+    await service.cancel(fixture.actor, first.token);
+
+    // Past the grant window, so the abandoned object is eligible — but the
+    // scheduled sweep has not run, and on a daily schedule would not for hours.
+    fixture.now.value = new Date(grant.expiresAt.getTime() + 1);
+    await db
+      .update(authSessions)
+      .set({ expiresAt: new Date('2026-10-01T12:00:00.000Z') })
+      .where(eq(authSessions.id, SID));
+
+    fixture.operationId = crypto.randomUUID();
+    const second = await begin(fixture, service);
+    expect(fixture.storage.removed).toContain(grant.object.key);
+    const [released] = await db
+      .select()
+      .from(encryptionRotations)
+      .where(eq(encryptionRotations.id, first.token.operationId));
+    expect(released.reservedFileBytes).toBe(0);
+    await expect(service.reserveFile(fixture.actor, second.token, ENCRYPTED_FILE_ID, input)).resolves.toBeDefined();
+  });
+
   it('pauses stale workers, advances the fence on claim, and expires unfinished work', async () => {
     const fixture = await seedFixture(db);
     const prepared = await begin(fixture);
