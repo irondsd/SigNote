@@ -19,5 +19,29 @@ services:
       timeout: 3s
       retries: 20
 
+  # Opt-in, isolated object store for rotation integration tests. The loopback
+  # ports avoid other local MinIO instances on 9000/9001. These are local-only
+  # credentials; neither the app's AWS environment nor production is used.
+  rotation-minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    profiles: ['rotation']
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: signote-rotation-local
+      MINIO_ROOT_PASSWORD: signote-rotation-local-only
+      MINIO_API_CORS_ALLOW_ORIGIN: 'http://localhost:5000,http://127.0.0.1:5000'
+    ports:
+      - '127.0.0.1:9100:9000'
+      - '127.0.0.1:9101:9001'
+    volumes:
+      - signote-rotation-minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 volumes:
   signote-db-data:
+  signote-rotation-minio-data:

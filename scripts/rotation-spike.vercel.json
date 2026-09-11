@@ -1,0 +1,130 @@
+{
+  "generatedAt": "2026-09-10T18:59:55.071777+00:00",
+  "deploymentId": "dpl_B2AfxzoMg7v96mus7pai4JmUQknF",
+  "project": "signote",
+  "scope": "protected isolated preview; synthetic Node handler, no application/DB/storage access",
+  "configuredMaxDurationSeconds": 30,
+  "results": [
+    {
+      "mode": "metadata",
+      "input": 0,
+      "status": 200,
+      "responseBytes": 35,
+      "seconds": 0.436871,
+      "responseSha256": "a0267537e65d1cc32319fd9c7889bbdc2effd355e9b00a222c9890145a2ee20a",
+      "response": {
+        "node": "v24.19.0",
+        "region": "iad1"
+      }
+    },
+    {
+      "mode": "request",
+      "input": 3500000,
+      "status": 200,
+      "responseBytes": 17,
+      "seconds": 2.349732,
+      "responseSha256": "75904fe66c7d8be3057c8f2bf4a4a2b8ee2e6146af19fe584a2504d759fc4099",
+      "response": {
+        "bytes": 3500000
+      }
+    },
+    {
+      "mode": "request",
+      "input": 4400000,
+      "status": 200,
+      "responseBytes": 17,
+      "seconds": 2.555645,
+      "responseSha256": "14c1ace15e1ec607ef84ab2c0039b57c7a2784ab7a806436f95093cae7866b5f",
+      "response": {
+        "bytes": 4400000
+      }
+    },
+    {
+      "mode": "request",
+      "input": 4800000,
+      "status": 413,
+      "responseBytes": 93,
+      "seconds": 0.440398,
+      "responseSha256": "0a88d429736d1411ab34142100eff636c953811dde1e0413d32d84046e718833",
+      "providerError": "FUNCTION_PAYLOAD_TOO_LARGE"
+    },
+    {
+      "mode": "request",
+      "input": 5242880,
+      "status": 413,
+      "responseBytes": 93,
+      "seconds": 0.490984,
+      "responseSha256": "6945ce00ade235c1322db8a2caefd44b7c9610a19b30150a0873b7d2b4ab9376",
+      "providerError": "FUNCTION_PAYLOAD_TOO_LARGE"
+    },
+    {
+      "mode": "response",
+      "input": 3500000,
+      "status": 200,
+      "responseBytes": 3500000,
+      "seconds": 0.72663,
+      "responseSha256": "6fbac67c42143398ebf4b588fb5456623dd866e25b10cd77d77482edfaa47986"
+    },
+    {
+      "mode": "response",
+      "input": 4400000,
+      "status": 200,
+      "responseBytes": 4400000,
+      "seconds": 0.83495,
+      "responseSha256": "dd73d7b510c94e2cc3e40996f8d1a99144238dc68f00a35f31944618da7b514e"
+    },
+    {
+      "mode": "response",
+      "input": 4800000,
+      "status": 200,
+      "responseBytes": 4800000,
+      "seconds": 0.978927,
+      "responseSha256": "062c744c118717d476800f5a2668fdd35947bd02716e92b5ddc428ce7828fa1e"
+    },
+    {
+      "mode": "response",
+      "input": 5242880,
+      "status": 200,
+      "responseBytes": 5242880,
+      "seconds": 0.756455,
+      "responseSha256": "dba67a476fa78973aabb087f214a1010f3bebca053674e0af50dfe5a582112be"
+    },
+    {
+      "mode": "duration",
+      "input": 5000,
+      "status": 200,
+      "responseBytes": 31,
+      "seconds": 5.354476,
+      "responseSha256": "02a364924339b630aa093003b80eaaf0f1e8b17ace8fff6cdb10c726c07ca8ee",
+      "response": {
+        "elapsedMs": 5000.155212999991
+      }
+    },
+    {
+      "mode": "duration",
+      "input": 35000,
+      "status": 504,
+      "responseBytes": 108,
+      "seconds": 30.282242,
+      "responseSha256": "c7cfdbf688c8a592399eae041702f5a8c22a9039e11ca4af4daae157a7f1f5ac",
+      "providerError": "FUNCTION_INVOCATION_TIMEOUT"
+    }
+  ],
+  "projectConfiguration": {
+    "nodeVersion": "24.x",
+    "plan": "pro",
+    "fluid": true,
+    "region": "iad1",
+    "previewProtection": "all_except_custom_domains",
+    "productionDatabaseConfigured": true,
+    "previewDatabaseConfigured": false,
+    "storageCredentialsSharedAcrossPreviewAndProduction": true
+  },
+  "limitations": [
+    "Synthetic Node handler, not the eventual Next.js/tRPC transport",
+    "30-second duration is explicitly configured for this probe, not an observed production default",
+    "No database, pooler, storage, or browser-memory qualification",
+    "Responses up to 5 MiB passed on this handler; no general response-limit inference"
+  ],
+  "disposableDeploymentRemoved": true
+}

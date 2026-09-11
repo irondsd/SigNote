@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-09-10T23:19:39.506Z",
+  "scope": "Docker PostgreSQL real schema, two independent clients; not a deployed pooler or rotation controller test",
+  "results": {
+    "lockSerializedWriterBeforeInventory": true,
+    "retainedArchivedExpiredRowIncluded": true,
+    "statementTimeoutRolledBackProfileAndCiphertext": true,
+    "atomicReplacementPreservedAllOtherColumns": true,
+    "realMigrationTablesHaveRls": true
+  }
+}

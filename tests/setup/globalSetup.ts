@@ -84,7 +84,13 @@ async function setup() {
   process.env.AWS_ACCESS_KEY_ID = 'test-key';
   process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
   (globalThis as GlobalWithServers).__MOCK_S3__ = mockS3;
+  process.env.MOCK_S3_CONTROL_URL = `http://127.0.0.1:${mockS3.port}/__control`;
   console.log(`Mock S3 server started on port ${mockS3.port}`);
+
+  // Key rotation is off by default and stays off in production until part 3's
+  // gates pass. The E2E suite is where it has to be exercised, so it is enabled
+  // for this run only — never by editing a checked-in environment file.
+  process.env.ENCRYPTION_ROTATION_ENABLED = 'true';
 
   // A fresh, locally owned cluster per run; never use an environment-provided
   // database URL. The app and every Playwright worker inherit this same URL.

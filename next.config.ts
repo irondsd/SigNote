@@ -12,6 +12,31 @@ const withSerwist = withSerwistInit({
   disable: !isProduction,
 });
 
+/**
+ * The object store the browser talks to directly.
+ *
+ * Key rotation transfers encrypted file bodies to presigned URLs from the page
+ * itself, bypassing the app server's request-size limit. `connect-src https:`
+ * already covers a real bucket, but a configured S3-compatible endpoint — R2,
+ * MinIO, or the loopback mock the E2E suite runs — is a specific origin the
+ * policy has to name, or every signed transfer is blocked before it is sent.
+ *
+ * Only the origin is added: the path, the signature and the bucket are not the
+ * CSP's business, and naming a whole host is the narrowest thing this directive
+ * can express.
+ */
+const storageOrigin = (() => {
+  const endpoint = process.env.AWS_S3_ENDPOINT;
+  if (!endpoint) return null;
+  try {
+    return new URL(endpoint).origin;
+  } catch {
+    // A malformed endpoint is a deployment error, not a reason to widen the
+    // policy. Leave it out and let the transfer fail loudly.
+    return null;
+  }
+})();
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -21,7 +46,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
+  `connect-src 'self' https: wss:${storageOrigin ? ` ${storageOrigin}` : ''}`,
   "form-action 'self'",
   'upgrade-insecure-requests',
 ].join('; ');

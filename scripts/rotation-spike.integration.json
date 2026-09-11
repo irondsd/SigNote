@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-09-11T11:19:27.834Z",
+  "scope": "Full backend; owned local PostgreSQL + MinIO; no production-provider qualification",
+  "results": {
+    "beginMs": 377.5740420000002,
+    "sourceBytes": 30762760,
+    "realWriterSerializedBeforeBegin": true,
+    "stageMs": 8096.814375000001,
+    "pages": 11,
+    "totalFileBytes": 104857600,
+    "commitMs": 1096.628834000001,
+    "maxFileBytes": 5242880,
+    "concurrentCommitDurableReceipt": true,
+    "oldGenerationRejected": true,
+    "cleanupPreservedActiveReplacement": true,
+    "concurrentStageBudgetSerialized": true,
+    "concurrentClaimIsIdempotent": true,
+    "commitCancelCleanupRaceAtomic": true,
+    "cancelledDelayedPutReclaimedAfterGrantExpiry": true,
+    "elapsedMs": 15672.637334,
+    "rssBytes": 724992000
+  }
+}

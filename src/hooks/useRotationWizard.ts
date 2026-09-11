@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 import { useSession } from 'next-auth/react';
 import { v7 as uuidv7 } from 'uuid';
 
-import { rotationClient } from '@/lib/rotation/client';
+import { createRotationApi } from '@/lib/rotation/api';
 import { createRotationWizard, type WizardState } from '@/lib/rotation/wizard';
 import { trpcClient } from '@/lib/trpcClient';
 import { announceGeneration, observeGeneration } from '@/lib/encryptionGeneration';
@@ -38,7 +38,7 @@ export function useRotationWizard(): { wizard: RotationWizard | null; state: Wiz
     return createRotationWizard({
       userId,
       // The rotation transport, not the app's batching client. See client.ts.
-      rotation: rotationClient.rotation as never,
+      rotation: createRotationApi(),
       sessions: {
         list: () => trpcClient.sessions.list.query(),
         revokeOthers: () => trpcClient.sessions.revokeOthers.mutate(),

@@ -82,9 +82,20 @@ const handler = async (req: Request) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const result = await readBoundedBody(req, ROTATION_BODY_LIMIT);
       if (result.tooLarge) return errorResponse('Rotation request too large', 413);
-      // Reading the original stream consumes it. Recreate the request so the
-      // tRPC adapter receives the exact bounded bytes we just inspected.
-      forwardedReq = new Request(req, { body: result.body.buffer as ArrayBuffer });
+      // Reading the original stream consumes it, so the adapter needs a request
+      // carrying the exact bounded bytes we just inspected.
+      //
+      // Built from url/method/headers rather than from `req`, because the
+      // `new Request(req, …)` copy constructor walks the runtime's internal
+      // clone path and throws "Cannot read private member #state" on a
+      // `NextRequest` — the same hazard `createContext` documents. Node's own
+      // `Request` survives that call, so no unit test reproduces it; the
+      // rotation E2E, which drives a real Next runtime, is what caught it.
+      forwardedReq = new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: result.body.buffer as ArrayBuffer,
+      });
     }
   }
 

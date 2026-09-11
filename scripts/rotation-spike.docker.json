@@ -1,0 +1,214 @@
+{
+  "scope": "local synthetic Docker PostgreSQL; NOT deployment qualification",
+  "generatedAt": "2026-09-10T23:15:36.962Z",
+  "settings": [
+    {
+      "name": "idle_in_transaction_session_timeout",
+      "setting": "0",
+      "unit": "ms"
+    },
+    {
+      "name": "lock_timeout",
+      "setting": "0",
+      "unit": "ms"
+    },
+    {
+      "name": "max_connections",
+      "setting": "100",
+      "unit": null
+    },
+    {
+      "name": "server_version",
+      "setting": "18.4",
+      "unit": null
+    },
+    {
+      "name": "shared_buffers",
+      "setting": "16384",
+      "unit": "8kB"
+    },
+    {
+      "name": "statement_timeout",
+      "setting": "0",
+      "unit": "ms"
+    }
+  ],
+  "results": [
+    {
+      "layout": "side-table",
+      "count": 100,
+      "characters": 1024,
+      "sourceCiphertextBytes": 102400,
+      "sourceMs": 131.25579200000004,
+      "stageMs": 98.86125000000004,
+      "commitMs": 2.5923329999999396,
+      "cleanupMs": 3.1282919999999876,
+      "sourceSize": {
+        "active_bytes": "172032",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "172032",
+        "staged_bytes": "172032"
+      },
+      "committedSize": {
+        "active_bytes": "286720",
+        "staged_bytes": "172032"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "294912",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "267968",
+      "rollbackPassed": true
+    },
+    {
+      "layout": "pending-column",
+      "count": 100,
+      "characters": 1024,
+      "sourceCiphertextBytes": 102400,
+      "sourceMs": 83.35783400000003,
+      "stageMs": 89.79258300000004,
+      "commitMs": 3.504750000000058,
+      "cleanupMs": 4.445875000000001,
+      "sourceSize": {
+        "active_bytes": "172032",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "344064",
+        "staged_bytes": "16384"
+      },
+      "committedSize": {
+        "active_bytes": "540672",
+        "staged_bytes": "16384"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "417792",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "514352",
+      "rollbackPassed": true
+    },
+    {
+      "layout": "side-table",
+      "count": 500,
+      "characters": 65536,
+      "sourceCiphertextBytes": 32768000,
+      "sourceMs": 697.162125,
+      "stageMs": 878.6282089999997,
+      "commitMs": 252.9256250000003,
+      "cleanupMs": 99.12608399999999,
+      "sourceSize": {
+        "active_bytes": "34308096",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "34308096",
+        "staged_bytes": "34308096"
+      },
+      "committedSize": {
+        "active_bytes": "68542464",
+        "staged_bytes": "34308096"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "68558848",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "72413888",
+      "rollbackPassed": true
+    },
+    {
+      "layout": "pending-column",
+      "count": 500,
+      "characters": 65536,
+      "sourceCiphertextBytes": 32768000,
+      "sourceMs": 731.9898330000001,
+      "stageMs": 746.1243340000001,
+      "commitMs": 170.96370899999965,
+      "cleanupMs": 41.567417000000205,
+      "sourceSize": {
+        "active_bytes": "34308096",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "68485120",
+        "staged_bytes": "16384"
+      },
+      "committedSize": {
+        "active_bytes": "102735872",
+        "staged_bytes": "16384"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "102752256",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "73361104",
+      "rollbackPassed": true
+    },
+    {
+      "layout": "side-table",
+      "count": 100,
+      "characters": 750000,
+      "sourceCiphertextBytes": 75000000,
+      "sourceMs": 626.684166,
+      "stageMs": 702.5408749999997,
+      "commitMs": 582.1407500000005,
+      "cleanupMs": 118.68637500000023,
+      "sourceSize": {
+        "active_bytes": "77905920",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "77905920",
+        "staged_bytes": "77905920"
+      },
+      "committedSize": {
+        "active_bytes": "155779072",
+        "staged_bytes": "77905920"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "155795456",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "164852568",
+      "rollbackPassed": true
+    },
+    {
+      "layout": "pending-column",
+      "count": 100,
+      "characters": 750000,
+      "sourceCiphertextBytes": 75000000,
+      "sourceMs": 531.1262500000003,
+      "stageMs": 707.5630000000001,
+      "commitMs": 461.2769160000007,
+      "cleanupMs": 210.8330420000002,
+      "sourceSize": {
+        "active_bytes": "77905920",
+        "staged_bytes": "16384"
+      },
+      "stagedSize": {
+        "active_bytes": "155746304",
+        "staged_bytes": "16384"
+      },
+      "committedSize": {
+        "active_bytes": "233627648",
+        "staged_bytes": "16384"
+      },
+      "afterVacuumSize": {
+        "active_bytes": "233644032",
+        "staged_bytes": "16384"
+      },
+      "walBytesIncludingRollback": "234169768",
+      "rollbackPassed": true
+    }
+  ],
+  "remainingGates": [
+    "representative function and pooler settings",
+    "full application schema transaction and lock contention",
+    "request/response boundary probes",
+    "provider checksum/immutable upload and CORS behavior",
+    "browser worker memory",
+    "temporary storage headroom and retention configuration"
+  ]
+}
