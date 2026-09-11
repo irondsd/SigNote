@@ -48,7 +48,7 @@ export type RotationTransportCode =
   | 'NOT_FOUND'
   /** Fence, generation, ownership or state conflict. Needs an explicit decision. */
   | 'CONFLICT'
-  /** Feature disabled, storage refused, or a prerequisite is not met. */
+  /** Storage refused, or a prerequisite is not met. */
   | 'PRECONDITION_FAILED'
   /** Over a byte budget. Repeating the identical payload cannot succeed. */
   | 'PAYLOAD_TOO_LARGE'
@@ -100,6 +100,12 @@ function budgetedFetch(budget = ROTATION_TRANSPORT_BUDGET) {
       throw new RotationTransportError('PAYLOAD_TOO_LARGE', 'REQUEST_BUDGET');
     }
     const response = await fetch(input, { ...init, cache: 'no-store', credentials: 'same-origin' });
+    // Infrastructure errors need not use the tRPC JSON envelope. In particular,
+    // retrying an HTML/plain-text 413 can never make the request fit.
+    if (response.status === 413 || response.status === 401) {
+      await response.body?.cancel();
+      throw new RotationTransportError(response.status === 413 ? 'PAYLOAD_TOO_LARGE' : 'UNAUTHORIZED');
+    }
     const body = await response.arrayBuffer();
     if (body.byteLength > budget.maxResponseBytes) {
       throw new RotationTransportError('PAYLOAD_TOO_LARGE', 'RESPONSE_BUDGET');

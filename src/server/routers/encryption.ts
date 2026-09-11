@@ -53,7 +53,7 @@ export const encryptionRouter = router({
       // Whether a *new* rotation may be started. Disabling the feature never
       // hides an operation already under way: status, resume and cancel keep
       // working, so this only decides whether the entry point is offered.
-      rotationAvailable: process.env.ENCRYPTION_ROTATION_ENABLED === 'true',
+      rotationAvailable: true,
     };
   }),
 

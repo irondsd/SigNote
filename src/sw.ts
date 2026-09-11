@@ -106,7 +106,8 @@ const serwist = new Serwist({
     // URL is single-use by design and its response carries `no-store`; caching
     // one would keep ciphertext in a cache nothing clears by name.
     {
-      matcher: ({ url, sameOrigin }) => !sameOrigin && url.pathname.includes('/rotation/'),
+      matcher: ({ url, sameOrigin }) =>
+        !sameOrigin && (url.pathname.includes('/rotation/') || url.searchParams.has('X-Amz-Signature')),
       handler: new NetworkOnly(),
     },
     ...defaultCache,
@@ -146,6 +147,8 @@ workerScope.addEventListener('activate', (event) => {
             continue;
           }
           const stale =
+            new URL(request.url).searchParams.has('X-Amz-Signature') ||
+            pathname.includes('/rotation/') ||
             pathname.startsWith('/api/files') ||
             (pathname.startsWith('/api/trpc') &&
               ROTATION_SENSITIVE_PROCEDURES.some((procedure) => pathname.includes(procedure)));
@@ -154,4 +157,16 @@ workerScope.addEventListener('activate', (event) => {
       }
     })().catch(() => undefined),
   );
+});
+
+// Only workers with generation-safe network rules acknowledge this protocol.
+(
+  self as unknown as {
+    addEventListener(
+      type: 'message',
+      listener: (event: { data: { type?: string }; ports: MessagePort[] }) => void,
+    ): void;
+  }
+).addEventListener('message', (event) => {
+  if (event.data?.type === 'SIGNOTE_ROTATION_PROTOCOL') event.ports[0]?.postMessage({ rotationProtocol: 1 });
 });

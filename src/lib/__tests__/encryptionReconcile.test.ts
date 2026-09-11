@@ -148,3 +148,20 @@ it('is a no-op without an account', async () => {
   expect(await reconcileToGeneration({ userId: '', generation: 2 })).toBe(false);
   expect(sessionStorage.getItem(ENC_SESSION_KEY)).toBe('ZGV2aWNlLXNoYXJl');
 });
+
+it('keeps reconciliation pending when removing the device share fails', async () => {
+  await seedDevice();
+  observeGeneration(ALICE, 1);
+  observeGeneration(ALICE, 2);
+  const remove = Storage.prototype.removeItem;
+  const fault = jest.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (this: Storage, key: string) {
+    if (this === sessionStorage) throw new Error('storage unavailable');
+    remove.call(this, key);
+  });
+  try {
+    expect(await reconcileToGeneration({ userId: ALICE, generation: 2 })).toBe(false);
+    expect(needsReconciliation(ALICE)).toBe(true);
+  } finally {
+    fault.mockRestore();
+  }
+});

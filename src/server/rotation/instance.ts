@@ -3,9 +3,7 @@ import { createRotationObjectStore } from './objectStore';
 import { createRotationService } from './service';
 
 let service: ReturnType<typeof createRotationService> | undefined;
-/** Backend-only flag. Disabling prevents begin but preserves status/resume/cancel
- * and committed readers. No test faults are accepted from environment or RPC.
- */
+/** No test faults are accepted from environment or RPC. */
 export function getRotationService() {
   if (!service) {
     const client = new S3Client({
@@ -18,7 +16,6 @@ export function getRotationService() {
     });
     service = createRotationService({
       storage: createRotationObjectStore(client, process.env.AWS_S3_BUCKET ?? ''),
-      enabled: process.env.ENCRYPTION_ROTATION_ENABLED === 'true',
     });
   }
   return service;

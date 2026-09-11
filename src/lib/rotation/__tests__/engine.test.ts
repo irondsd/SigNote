@@ -234,6 +234,24 @@ describe('a complete run over a mixed vault', () => {
   });
 });
 
+describe('empty Seals', () => {
+  it('verifies null wrappers and bodies even when the vault has no existing Seal key', async () => {
+    const server = createFakeRotationServer(
+      [
+        { kind: 'seal-wrapper', resourceId: 'empty', source: null },
+        { kind: 'seal', resourceId: 'empty', parentId: 'empty', source: null },
+      ],
+      { pageSize: 1 },
+    );
+    await engineFor(server, await freshMek(), await freshMek()).process();
+    for (const row of server.rows.values()) {
+      expect(row.replacement).toBeNull();
+      expect(row.replacementDigest).not.toBeNull();
+      expect(row.verifiedDigest).toBe(row.replacementDigest);
+    }
+  });
+});
+
 describe('paging', () => {
   it('walks a vault that does not fit in one page', async () => {
     const sourceMek = await freshMek();
@@ -318,6 +336,7 @@ describe('resuming', () => {
 
     await engineFor(server, sourceMek, targetMek, { retry: { attempts: 3, sleep: async () => undefined } }).process();
 
+    expect(server.calls.filter((call) => call === `reserveFile:${FILE_ID}`)).toHaveLength(2);
     expect(server.row('file', FILE_ID).fileVerified).toBe(true);
     expect(server.row('file', FILE_ID).verifiedDigest).toBe(server.row('file', FILE_ID).replacementDigest);
   });

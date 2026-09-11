@@ -37,13 +37,15 @@ const settle = async (work: Promise<unknown>): Promise<void> => {
 };
 
 /** Locks the vault by removing every key fragment this device holds. */
-function dropLocalKeyMaterial(): void {
+function dropLocalKeyMaterial(): boolean {
   try {
     clearDeviceShare();
     sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
+    return true;
   } catch {
     // sessionStorage can be unavailable; the MEK is dropped from memory by the
     // reload that follows regardless.
+    return false;
   }
 }
 
@@ -52,13 +54,17 @@ function dropLocalKeyMaterial(): void {
  * be opened again — this is exactly the loss the wizard made the user
  * acknowledge. Plaintext Note drafts are untouched: nothing about them changed.
  */
-function dropEncryptedDrafts(): void {
+function dropEncryptedDrafts(): boolean {
   try {
+    // Check access explicitly; loadDrafts tolerates unavailable storage.
+    void localStorage.length;
     for (const draft of loadDrafts()) {
       if (draft.enc !== undefined) clearDraft(draft);
     }
+    return !loadDrafts().some((draft) => draft.enc !== undefined);
   } catch {
     // A malformed draft store is diagnosed in the wizard, not silently wiped.
+    return false;
   }
 }
 
@@ -100,8 +106,8 @@ export async function reconcileToGeneration({
     }
   };
 
-  dropLocalKeyMaterial();
-  dropEncryptedDrafts();
+  if (!dropLocalKeyMaterial()) ok = false;
+  if (!dropEncryptedDrafts()) ok = false;
 
   await step(clearStoredMaterial(userId));
 

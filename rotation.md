@@ -1,7 +1,10 @@
 # Full encryption-key rotation
 
-Status: parts 1 and 2 complete locally. Production verification and release
-qualification are part 3. New rotations default to disabled.
+Status: Part 3 verification found and corrected integration gaps. See
+`docs/rotation-release.md` for current evidence, cleanup and release order.
+Production-provider/runtime and installed-client qualification remain pending.
+The implementation no longer has a feature flag; do not deploy until qualified.
+Historical progress below describes the earlier implementation, not current rollout status.
 
 ## Three-part delivery plan
 
@@ -271,7 +274,7 @@ migration, feature enablement, frontend change, or release qualification is impl
 ### Part 2 progress — 2026-09-11
 
 Frontend, wizard and E2E are implemented. The feature remains disabled by
-default; `ENCRYPTION_ROTATION_ENABLED` is set only for the E2E run, never in a
+default; `the former rotation environment switch` is set only for the E2E run, never in a
 checked-in environment file.
 
 **Generation-aware clients.** `src/lib/encryptionGeneration.ts` keeps the

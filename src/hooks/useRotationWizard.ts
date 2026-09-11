@@ -20,8 +20,9 @@ import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'r
 import { useSession } from 'next-auth/react';
 import { v7 as uuidv7 } from 'uuid';
 
+import { rotationWorkerReady } from '@/lib/rotation/serviceWorker';
 import { createRotationApi } from '@/lib/rotation/api';
-import { createRotationWizard, type WizardState } from '@/lib/rotation/wizard';
+import { createRotationWizard, RotationWizardError, type WizardState } from '@/lib/rotation/wizard';
 import { trpcClient } from '@/lib/trpcClient';
 import { announceGeneration, observeGeneration } from '@/lib/encryptionGeneration';
 import { reconcileToGeneration } from '@/lib/encryptionReconcile';
@@ -37,6 +38,17 @@ export function useRotationWizard(): { wizard: RotationWizard | null; state: Wiz
     if (!userId) return null;
     return createRotationWizard({
       userId,
+      prepareClient: async () => {
+        if (!(await rotationWorkerReady())) {
+          void navigator.serviceWorker
+            .getRegistration()
+            .then((registration) => registration?.update())
+            .catch(() => undefined);
+          throw new RotationWizardError(
+            'An older offline app is still running. Close all SigNote tabs and reopen the app before rotating keys.',
+          );
+        }
+      },
       // The rotation transport, not the app's batching client. See client.ts.
       rotation: createRotationApi(),
       sessions: {

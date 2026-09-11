@@ -57,7 +57,6 @@ export class RotationError extends Error {
   constructor(
     readonly code:
       | 'NOT_FOUND'
-      | 'DISABLED'
       | 'SESSION_PREREQUISITE'
       | 'CONFLICT'
       | 'EXPIRED'
@@ -90,7 +89,7 @@ export const digest = (value: unknown) =>
 export const jsonBytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
 
 /** Local-development bounds, deliberately below the measured 75 MB DB baseline.
- * New operations remain disabled by default until production qualification.
+ * Production qualification must establish these bounds before deployment.
  */
 export const ROTATION_LIMITS = {
   maxItems: 500,

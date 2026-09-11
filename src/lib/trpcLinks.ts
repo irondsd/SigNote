@@ -1,9 +1,9 @@
-import { type TRPCLink } from '@trpc/client';
+import { TRPCClientError, type TRPCLink } from '@trpc/client';
 import { observable } from '@trpc/server/observable';
 
 import type { AppRouter } from '@/server/routers/_app';
 import { handleUnauthorized } from './authRedirect';
-import { boundGenerationUser, generationConflictOf, readMarker } from './encryptionGeneration';
+import { boundGenerationUser, generationHeaders, generationConflictOf, readMarker } from './encryptionGeneration';
 import { syncGeneration } from './encryptionGenerationClient';
 
 /**
@@ -49,11 +49,26 @@ export const generationLink: TRPCLink<AppRouter> = () => {
   return ({ op, next }) =>
     observable((observer) => {
       let attempted = false;
+      let stopped = false;
       let active: { unsubscribe: () => void } | null = null;
 
       const run = () => {
+        if (stopped) return;
+        const userAtSend = boundGenerationUser();
+        const generationAtSend = generationHeaders()['x-signote-encryption-generation'] ?? '0';
         active = next(op).subscribe({
-          next: (value) => observer.next(value),
+          next: (value) => {
+            // A response started before activation may arrive after cache
+            // invalidation. Never let it refill the new generation's cache.
+            if (
+              userAtSend !== boundGenerationUser() ||
+              generationAtSend !== (generationHeaders()['x-signote-encryption-generation'] ?? '0')
+            ) {
+              observer.error(new TRPCClientError('GENERATION_MISMATCH'));
+              return;
+            }
+            observer.next(value);
+          },
           complete: () => observer.complete(),
           error: (err) => {
             const conflict = generationConflictOf(err);
@@ -68,6 +83,7 @@ export const generationLink: TRPCLink<AppRouter> = () => {
               // Only a device that had nothing to invalidate may repeat the
               // call. Anything else hands the error back and lets the app
               // reconcile first.
+              if (stopped) return;
               if (!known && result?.outcome === 'adopted') run();
               else observer.error(err);
             });
@@ -76,6 +92,9 @@ export const generationLink: TRPCLink<AppRouter> = () => {
       };
 
       run();
-      return () => active?.unsubscribe();
+      return () => {
+        stopped = true;
+        active?.unsubscribe();
+      };
     });
 };

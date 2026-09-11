@@ -6,20 +6,20 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { eq } from 'drizzle-orm';
 import postgres from 'postgres';
-import { setDb, type Db } from '../src/db/client';
-import * as schema from '../src/db/schema';
-import { withVaultWrite, withRequestGeneration } from '../src/db/encryptionState';
-import { jsonBytes, materialSchema } from '../src/server/rotation/contracts';
-import { createRotationService } from '../src/server/rotation/service';
-import { createRotationObjectStore } from '../src/server/rotation/objectStore';
-import { createRotationMaterial, rotateBody, rotateFile } from '../src/lib/rotation/crypto';
-import { encryptSecretBody, decryptSecretBody, encryptFileBytes, decryptFileBytes } from '../src/lib/crypto';
+import { setDb, type Db } from '../../src/db/client';
+import * as schema from '../../src/db/schema';
+import { withVaultWrite, withRequestGeneration } from '../../src/db/encryptionState';
+import { jsonBytes, materialSchema } from '../../src/server/rotation/contracts';
+import { createRotationService } from '../../src/server/rotation/service';
+import { createRotationObjectStore } from '../../src/server/rotation/objectStore';
+import { createRotationMaterial, rotateBody, rotateFile } from '../../src/lib/rotation/crypto';
+import { encryptSecretBody, decryptSecretBody, encryptFileBytes, decryptFileBytes } from '../../src/lib/crypto';
 import {
   createLocalRotationDatabase,
   ensureRotationBucket,
   localRotationS3,
   rotationTestBucket,
-} from '../tests/rotation/localResources';
+} from './localResources';
 
 const database = await createLocalRotationDatabase();
 const client = postgres(database.url, { max: 5, prepare: false, onnotice: () => {} });
@@ -33,7 +33,7 @@ try {
   setDb(db as unknown as Db);
   await ensureRotationBucket(s3);
   const storage = createRotationObjectStore(s3, rotationTestBucket);
-  const service = createRotationService({ storage, enabled: true, limits: { grantSeconds: 1 } });
+  const service = createRotationService({ storage, limits: { grantSeconds: 10 } });
   const old = await createRotationMaterial('local old passphrase');
   const target = await createRotationMaterial('local replacement passphrase');
   const userId = randomUUID();
@@ -74,18 +74,16 @@ try {
     await s3.send(
       new PutObjectCommand({ Bucket: rotationTestBucket, Key: key, Body: new Uint8Array(sourceFile.cipherBytes) }),
     );
-    await db
-      .insert(schema.fileAttachments)
-      .values({
-        id,
-        userId,
-        s3Key: key,
-        filename: 'fixture.bin',
-        size: sourceFile.cipherBytes.byteLength,
-        mimeType: 'application/octet-stream',
-        encrypted: true,
-        encryptionIv: sourceFile.iv,
-      });
+    await db.insert(schema.fileAttachments).values({
+      id,
+      userId,
+      s3Key: key,
+      filename: 'fixture.bin',
+      size: sourceFile.cipherBytes.byteLength,
+      mimeType: 'application/octet-stream',
+      encrypted: true,
+      encryptionIv: sourceFile.iv,
+    });
     extraFiles.push(id);
   }
   // 480 bodies + twenty maximum files: exercise 500 items and 100 MiB files, ~32MB
@@ -115,7 +113,7 @@ try {
   const writer = withVaultWrite(userId, async () => {
     locked();
     await barrier;
-    const { getDb } = await import('../src/db/client');
+    const { getDb } = await import('../../src/db/client');
     await getDb()
       .update(schema.secretNotes)
       .set({ title: 'writer-before-begin' })
@@ -262,7 +260,7 @@ try {
   await db
     .insert(schema.secretNotes)
     .values(tinyIds.map((id, position) => ({ id, userId: raceUser, position, encryptedBody: tinySource })));
-  const bounded = createRotationService({ storage, enabled: true, limits: { maxStagedBytes: jsonBytes(tinyTarget) } });
+  const bounded = createRotationService({ storage, limits: { maxStagedBytes: jsonBytes(tinyTarget) } });
   const startRace = () =>
     bounded.begin(raceActor, {
       operationId: randomUUID(),
@@ -296,7 +294,7 @@ try {
   await bounded.cancel(raceActor, raceToken);
   results.concurrentClaimIsIdempotent = true;
   // Cancellation and commit start together: one complete generation wins.
-  const raceService = createRotationService({ storage, enabled: true });
+  const raceService = createRotationService({ storage });
   racing = await startRace();
   raceToken = { operationId: racing.operationId, generation: 0, workerFence: racing.workerFence };
   for (const resourceId of tinyIds) {
@@ -342,7 +340,7 @@ try {
     encryptionIv: tinyFile.iv,
   });
   let clock = new Date();
-  const cancellation = createRotationService({ storage, enabled: true, now: () => clock, limits: { grantSeconds: 1 } });
+  const cancellation = createRotationService({ storage, now: () => clock, limits: { grantSeconds: 1 } });
   const pendingMaterial = raceState.generation === 0 ? target : old;
   const cancellable = await cancellation.begin(raceActor, {
     operationId: randomUUID(),
@@ -414,8 +412,8 @@ try {
     ) + '\n',
   );
 } finally {
-  // One-second test-only PUT grants are expired before removing their keys.
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Wait out the capacity run's ten-second grants before removing owned keys.
+  await new Promise((resolve) => setTimeout(resolve, 11000));
   for (const key of ownedKeys) await s3.send(new DeleteObjectCommand({ Bucket: rotationTestBucket, Key: key }));
   s3.destroy();
   setDb(undefined);

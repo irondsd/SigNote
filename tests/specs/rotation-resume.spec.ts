@@ -9,7 +9,7 @@ import { seedSeals } from '../fixtures/seedSeals';
 import { seedSealVersions } from '../fixtures/seedVersions';
 import { createTestSession } from '../utils/createTestSession';
 import { injectSession } from '../utils/injectSession';
-import { encryptionRotations, encryptionStates, rotationItems, sealNoteVersions } from '../../src/db/schema';
+import { encryptionRotations, encryptionStates, rotationItems, sealNotes, sealNoteVersions } from '../../src/db/schema';
 import { decryptSealHead, decryptSealVersion, decryptSecretHead, mekFromPassphrase } from '../utils/vaultCrypto';
 
 /**
@@ -63,12 +63,19 @@ test.describe('browser loss', () => {
     const vault = await startedRotation(page);
     await reachRunning(vault.rotationPage);
 
-    // Interrupt partway: stop the network so some items are staged and some are
-    // not, then abandon the context entirely.
-    await page.getByTestId('rotation-process').click();
-    await expect(page.getByTestId('rotation-progress')).not.toHaveAttribute('data-processed', '0', {
-      timeout: 60_000,
+    // Stop exactly at the second Seal version, after the wrapper and first
+    // version are durable. Closing on generic progress could happen before
+    // any Seal work and would never exercise the key-resume contract.
+    let versionsSeen = 0;
+    await page.route('**/api/trpc/rotation.stage', async (route) => {
+      if (route.request().postDataJSON()?.item?.kind === 'seal-version' && ++versionsSeen >= 2) {
+        await route.abort('connectionaborted');
+        return;
+      }
+      await route.continue();
     });
+    await page.getByTestId('rotation-process').click();
+    await expect.poll(() => versionsSeen).toBeGreaterThanOrEqual(2);
     const [operationBefore] = await testDb()
       .select()
       .from(encryptionRotations)
@@ -77,6 +84,8 @@ test.describe('browser loss', () => {
       await testDb().select().from(rotationItems).where(eq(rotationItems.operationId, operationBefore.id))
     ).find((item) => item.kind === 'seal-wrapper');
 
+    expect(stagedWrapper?.replacementDigest).not.toBeNull();
+    expect(stagedWrapper?.replacement).toBeTruthy();
     await page.context().close();
 
     // A brand new context: no sessionStorage device share, no IndexedDB, no
@@ -113,7 +122,8 @@ test.describe('browser loss', () => {
     for (const version of versions) {
       await expect(decryptSealVersion(vault.seal.id, version.id, newMek)).resolves.toMatch(/^sealed v[123]$/);
     }
-    if (stagedWrapper?.replacement) expect(stagedWrapper.replacement).toBeTruthy();
+    const [activeSeal] = await testDb().select().from(sealNotes).where(eq(sealNotes.id, vault.seal.id));
+    expect(activeSeal.wrappedNoteKey).toEqual(stagedWrapper!.replacement);
 
     await fresh.close();
   });

@@ -4,8 +4,8 @@ import { execFile } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { createRotationObjectStore, type RotationObject } from '../src/server/rotation/objectStore';
-import { ensureRotationBucket, localRotationS3, rotationTestBucket } from '../tests/rotation/localResources';
+import { createRotationObjectStore, type RotationObject } from '../../src/server/rotation/objectStore';
+import { ensureRotationBucket, localRotationS3, rotationTestBucket } from './localResources';
 
 const client = localRotationS3();
 const store = createRotationObjectStore(client, rotationTestBucket);

@@ -150,7 +150,6 @@ function serviceFor(
   limits?: Partial<RotationLimits>,
 ) {
   return createRotationService({
-    enabled: true,
     storage: fixture.storage as never,
     now: () => nowAt(fixture),
     commitCheckpoint,

@@ -8,7 +8,12 @@
  */
 
 import { getSessionClientHeaders } from './sessionClient';
-import { announceGeneration, observeGeneration, type GenerationObservation } from './encryptionGeneration';
+import {
+  announceGeneration,
+  boundGenerationUser,
+  observeGeneration,
+  type GenerationObservation,
+} from './encryptionGeneration';
 
 export type ResolvedGeneration = { generation: number; rotationInProgress: boolean };
 
@@ -26,11 +31,13 @@ const isResolved = (value: unknown): value is ResolvedGeneration => {
 };
 
 /** One in-flight request per burst: a batch of refused calls asks once. */
-let inFlight: Promise<ResolvedGeneration | null> | null = null;
+const inFlight = new Map<string | null, Promise<ResolvedGeneration | null>>();
 
 export function fetchGeneration(): Promise<ResolvedGeneration | null> {
-  if (inFlight) return inFlight;
-  inFlight = (async () => {
+  const userId = boundGenerationUser();
+  const existing = inFlight.get(userId);
+  if (existing) return existing;
+  const request = (async () => {
     try {
       const response = await fetch('/api/trpc/encryption.generation', {
         method: 'GET',
@@ -46,10 +53,11 @@ export function fetchGeneration(): Promise<ResolvedGeneration | null> {
     } catch {
       return null;
     } finally {
-      inFlight = null;
+      inFlight.delete(userId);
     }
   })();
-  return inFlight;
+  inFlight.set(userId, request);
+  return request;
 }
 
 export type GenerationSyncResult = { outcome: GenerationObservation; resolved: ResolvedGeneration } | null;
@@ -62,9 +70,9 @@ export type GenerationSyncResult = { outcome: GenerationObservation; resolved: R
  * before anything else happens.
  */
 export async function syncGeneration(userId: string): Promise<GenerationSyncResult> {
-  if (!userId) return null;
+  if (!userId || boundGenerationUser() !== userId) return null;
   const resolved = await fetchGeneration();
-  if (!resolved) return null;
+  if (!resolved || boundGenerationUser() !== userId) return null;
   const outcome = observeGeneration(userId, resolved.generation);
   if (outcome === 'advanced' || outcome === 'diverged') announceGeneration(userId, resolved.generation);
   return { outcome, resolved };

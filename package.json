@@ -37,10 +37,9 @@
     "test:e2e": "playwright test",
     "test:e2e:prepare": "bun scripts/test-e2e-prepare.ts",
     "rotation:local:up": "docker compose --profile rotation up -d db rotation-minio",
-    "rotation:local:db": "bun scripts/rotation-spike.ts --docker",
-    "rotation:local:locks": "bun scripts/rotation-lock-spike.ts",
-    "rotation:local:storage": "bun scripts/rotation-storage-spike.ts --restart",
-    "rotation:local:integration": "bun scripts/rotation-integration.ts"
+    "rotation:local:locks": "bun tests/rotation/locks.ts",
+    "rotation:local:storage": "bun tests/rotation/storage.ts --restart",
+    "rotation:local:integration": "bun tests/rotation/integration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

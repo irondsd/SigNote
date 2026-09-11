@@ -101,6 +101,12 @@ describe('byte budgets', () => {
 });
 
 describe('error classification', () => {
+  it.each([413, 401])('does not retry a non-tRPC HTTP %i response', async (status) => {
+    const calls = installFetch(() => new Response('Infrastructure refusal', { status }));
+    const error = await withRotationRetry(() => createRotationClient().rotation.status.query()).catch(asRotationError);
+    expect(error).toMatchObject({ code: status === 413 ? 'PAYLOAD_TOO_LARGE' : 'UNAUTHORIZED' });
+    expect(calls).toHaveLength(1);
+  });
   it('keeps a real 401 as its own stop signal', async () => {
     installFetch(() => errorResponse('UNAUTHORIZED', 401));
 

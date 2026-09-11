@@ -83,6 +83,7 @@ export type WizardDeps = {
   profile(): Promise<{ exists: boolean; profileId?: string; generation?: number }>;
   newOperationId(): string;
   scanDrafts?: () => DraftReadiness;
+  prepareClient?: () => Promise<void>;
 };
 
 export type SessionsState = { checked: boolean; otherSessions: number; revoked: number | null };
@@ -150,7 +151,6 @@ export function describeRotationError(error: unknown): string {
   const rotation = error instanceof RotationTransportError ? error : asRotationError(error);
   if (rotation.reason === 'SESSION_PREREQUISITE')
     return 'Another session signed in. Revoke other sessions again before continuing.';
-  if (rotation.reason === 'DISABLED') return 'Key rotation is not available on this account yet.';
   if (rotation.reason === 'EXPIRED') return 'This rotation was abandoned for too long and has been discarded.';
   if (rotation.reason === 'SOURCE_CHANGED') return 'Your encrypted data changed during the rotation. Start again.';
   if (rotation.reason === 'SOURCE_CORRUPT') return 'Some encrypted data could not be read. Nothing has been changed.';
@@ -263,6 +263,7 @@ export function createRotationWizard(deps: WizardDeps) {
     /** Step 1 → 2. Also the resume entry point: an existing operation wins. */
     async load() {
       return run(async () => {
+        await deps.prepareClient?.();
         const [{ generation, operation }, profile] = await Promise.all([deps.rotation.status(), deps.profile()]);
         profileId = profile.profileId ?? null;
         set({ generation, operation });
@@ -360,6 +361,7 @@ export function createRotationWizard(deps: WizardDeps) {
         if (!target || !profileId || state.generation === null)
           throw new RotationWizardError('Finish the earlier steps first.');
 
+        await deps.prepareClient?.();
         freezeDraftWriting();
         const drafts = scan();
         set({ drafts });

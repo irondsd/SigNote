@@ -16,7 +16,7 @@ import type { AddressInfo } from 'net';
  * binding on write and on `HeadObject`, and browser CORS for the signed
  * cross-origin transfers. It deliberately does **not** verify signatures: the
  * production adapter's signing is exercised against real MinIO by
- * `scripts/rotation-storage-spike.ts`, and reproducing SigV4 here would test
+ * `tests/rotation/storage.ts`, and reproducing SigV4 here would test
  * this file rather than the app.
  *
  * Fault injection and inspection are reachable over HTTP under `/__control/`

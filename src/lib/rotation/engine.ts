@@ -181,7 +181,7 @@ export const defaultTransfer: RotationTransfer = {
     if (!response.ok) {
       // A conditional-create refusal means the object already exists, which a
       // blind retry cannot fix; the caller resolves it through finalize.
-      const transient = response.status >= 500 || response.status === 429;
+      const transient = response.status >= 500 || response.status === 429 || response.status === 403;
       throw new RotationTransportError(transient ? 'TRANSIENT' : 'CONFLICT', `STORAGE_WRITE_${response.status}`);
     }
   },
@@ -262,6 +262,12 @@ export function createRotationEngine(options: RotationEngineOptions) {
     if (source !== null && !isPayload(source)) {
       throw new RotationItemError(item.kind, sealId, 'SOURCE_CORRUPT');
     }
+    // A never-written Seal has no NEK. Preserve that null state, including
+    // its empty body, rather than manufacturing a wrapper the server rejects.
+    if (source === null) {
+      await processBody(item);
+      return;
+    }
     const staged = await stageOnce(item, () => createRotationSealWrapper(targetMek, sealId));
     const replacement = staged.replacement;
     if (!isPayload(replacement) || staged.replacementDigest === null) {
@@ -328,11 +334,13 @@ export function createRotationEngine(options: RotationEngineOptions) {
 
   async function processFile(item: RotationItem): Promise<void> {
     const resourceId = item.resourceId;
-    const sourceInfo = await call(() => api.sourceFile({ ...token, resourceId }));
+    const { sourceInfo, sourceBytes } = await call(async () => {
+      const sourceInfo = await api.sourceFile({ ...token, resourceId });
+      return { sourceInfo, sourceBytes: await transfer.download(sourceInfo.url) };
+    });
     // Storage transfers get the same bounded backoff as the RPCs. A provider
     // hiccup on a multi-megabyte body is the most likely transient fault in the
     // whole run, and the least useful one to hand back to the user.
-    const sourceBytes = await call(() => transfer.download(sourceInfo.url));
     if (sourceBytes.byteLength !== sourceInfo.bytes) {
       throw new RotationItemError('file', resourceId, 'SOURCE_CORRUPT');
     }
@@ -344,29 +352,33 @@ export function createRotationEngine(options: RotationEngineOptions) {
         cipherBytes: sourceBytes,
       });
       const checksum = toBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', replacement.cipherBytes)));
-      const reservation = await call(() =>
-        api.reserveFile({
+      const reservation = await call(async () => {
+        // Renew the signed URL on retry. Reusing the exact bytes/IV/checksum
+        // keeps the reservation idempotent and does not charge quota twice.
+        const reservation = await api.reserveFile({
           ...token,
           resourceId,
           file: { bytes: replacement.cipherBytes.byteLength, iv: replacement.iv, checksum },
-        }),
-      );
-      try {
-        await call(() => transfer.upload(reservation.grant.url, reservation.grant.headers, replacement.cipherBytes));
-      } catch (error) {
-        // A conditional-create refusal means the bytes are already there from a
-        // lost response. Finalize decides; it verifies stored size and checksum
-        // against the reservation rather than trusting this PUT's outcome.
-        if (asRotationError(error).code !== 'CONFLICT') throw error;
-      }
+        });
+        try {
+          await transfer.upload(reservation.grant.url, reservation.grant.headers, replacement.cipherBytes);
+        } catch (error) {
+          // An accepted conditional PUT can lose its response. Finalize checks
+          // origin bytes before accepting an already-existing object.
+          if (asRotationError(error).code !== 'CONFLICT') throw error;
+        }
+        return reservation;
+      });
       staged = await call(() =>
         api.finalizeFile({ ...token, resourceId, objectKey: reservation.object.key, stageKey: stageKeyFor(item) }),
       );
     }
     if (staged.replacementDigest === null) throw new RotationItemError('file', resourceId, 'STAGING_INCOMPLETE');
 
-    const stagedInfo = await call(() => api.stagedFile({ ...token, resourceId }));
-    const stagedBytes = await call(() => transfer.download(stagedInfo.url));
+    const { stagedInfo, stagedBytes } = await call(async () => {
+      const stagedInfo = await api.stagedFile({ ...token, resourceId });
+      return { stagedInfo, stagedBytes: await transfer.download(stagedInfo.url) };
+    });
     await verifyRotatedFile(
       sourceMek,
       targetMek,
@@ -447,7 +459,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
       // Seal bodies could not be touched on the first pass: their wrappers sort
       // after them, and a body cannot be re-encrypted before its new note key
       // exists. Only the Seal range is re-read.
-      if (sealWrappers.size > 0) {
+      {
         phase = 'records';
         await walk(SEAL_BODY_KINDS, { from: sealCursor, stopAfterKind: 'seal-version' });
       }

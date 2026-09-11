@@ -18,9 +18,7 @@ async function execute<T>(fn: () => Promise<T>): Promise<T> {
             ? 'BAD_REQUEST'
             : error.code === 'LIMIT'
               ? 'PAYLOAD_TOO_LARGE'
-              : error.code === 'DISABLED'
-                ? 'PRECONDITION_FAILED'
-                : 'CONFLICT';
+              : 'CONFLICT';
       throw new TRPCError({ code, message: error.code });
     }
     if (error instanceof RotationStorageError)

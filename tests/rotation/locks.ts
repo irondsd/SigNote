@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
-import { createLocalRotationDatabase } from '../tests/rotation/localResources';
+import { createLocalRotationDatabase } from './localResources';
 
 const database = await createLocalRotationDatabase();
 const writer = postgres(database.url, { max: 1, prepare: false });

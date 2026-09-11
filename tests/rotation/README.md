@@ -4,7 +4,6 @@ Run from the repository root:
 
 ```sh
 bun run rotation:local:up
-bun run rotation:local:db
 bun run rotation:local:locks
 bun run rotation:local:storage
 bun run rotation:local:integration
@@ -51,6 +50,8 @@ activation rollback checkpoint with real PGlite migrations.
 
 The local results do not establish Supabase pooler timeouts, production storage
 immutability/CORS, or browser memory bounds. Those are release checks in
-`rotation.md`. No Supabase URL or external S3 account is needed for these commands.
-The application's `ENCRYPTION_ROTATION_ENABLED` flag defaults off. Local test
-scripts inject the service dependencies directly and do not change app settings.
+`docs/rotation-release.md`. No Supabase URL or external S3 account is needed for these commands.
+The integration suites inject only test resources. Rotation has no environment
+flag; deploying the application makes it available. The standalone scripts here
+are retained regression suites, not deployment spikes. Raw one-off measurements
+and the disposable transport/layout probes have been removed.

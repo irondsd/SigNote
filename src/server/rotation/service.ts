@@ -52,7 +52,6 @@ const itemWhere = (operationId: string, ref: Ref) =>
 
 export function createRotationService(options: {
   storage: Storage;
-  enabled?: boolean;
   limits?: Partial<RotationLimits>;
   now?: () => Date;
   /** Dependency injection for in-process tests only; never exposed as an RPC. */
@@ -234,7 +233,6 @@ export function createRotationService(options: {
           if (existing.beginDigest !== digest(input)) throw new RotationError('CONFLICT');
           return statusValue(existing);
         }
-        if (!options.enabled) throw new RotationError('DISABLED');
         if (state.activeRotationId) {
           const previous = await owned(db, actor, state.activeRotationId);
           if (previous.expiresAt <= now()) await abort(db, previous);
@@ -659,7 +657,12 @@ export function createRotationService(options: {
       const finished = await getDb()
         .select()
         .from(encryptionRotations)
-        .where(inArray(encryptionRotations.phase, ['committed', 'aborted']))
+        .where(
+          and(
+            eq(encryptionRotations.phase, 'committed'),
+            sql`not exists (select 1 from ${rotationCleanup} where ${rotationCleanup.operationId} = ${encryptionRotations.id} and ${rotationCleanup.completedAt} is null)`,
+          ),
+        )
         .limit(100);
       for (const candidate of finished)
         await withAccountLock(candidate.userId, async (db) => {
