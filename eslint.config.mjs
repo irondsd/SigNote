@@ -16,6 +16,10 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     'tests/provider/mock-provider.js',
     'public/sw.js',
+    // Git worktrees the tooling creates in-repo. They hold whole checkouts,
+    // build output included, and linting one lints this repo a second time —
+    // over files that appear and vanish mid-run.
+    '.claude/**',
   ]),
 ]);
 
