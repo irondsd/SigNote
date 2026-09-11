@@ -1,4 +1,5 @@
 import type { EncryptedPayload } from '@/types/crypto';
+import { isDraftWritingFrozen } from '@/lib/draftFreeze';
 
 export type DraftData = {
   type: 'note' | 'secret' | 'seal';
@@ -41,6 +42,11 @@ const pending = new Map<string, number>();
 const active = new Set<string>();
 
 export function saveDraft(data: StoredDraft): void {
+  // A rotation freeze stops encrypted checkpoints only. Their ciphertext is
+  // sealed with a working key that is about to be replaced, so one written now
+  // could never be opened again — while a plaintext Note draft is unaffected by
+  // a key change and there is no reason to lose it.
+  if (data.enc !== undefined && isDraftWritingFrozen()) return;
   try {
     localStorage.setItem(keyFor(data.draftId), JSON.stringify(data));
   } catch {
