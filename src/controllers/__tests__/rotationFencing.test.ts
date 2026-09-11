@@ -144,15 +144,13 @@ describe('ordinary encrypted tier writes are fenced', () => {
   it('account erasure retains an epoch tombstone and revokes every surviving session', async () => {
     await addUser(USER);
     await setState(USER, { generation: 1 });
-    await db
-      .insert(authSessions)
-      .values({
-        id: 'erased-sid',
-        userId: USER,
-        provider: 'siwe',
-        client: 'web',
-        expiresAt: new Date(Date.now() + 60_000),
-      });
+    await db.insert(authSessions).values({
+      id: 'erased-sid',
+      userId: USER,
+      provider: 'siwe',
+      client: 'web',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
     await withRequestGeneration('1', () => eraseAccount(USER));
     const [state] = await db.select().from(encryptionStates).where(eq(encryptionStates.userId, USER));
     expect(state).toMatchObject({ generation: 1, sessionEpoch: 1, survivingSid: null });

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
 import { encryptionStates } from '@/db/schema';
+import { withRequestGeneration } from '@/db/encryptionState';
 import {
   authSessions,
   encryptionProfiles,
@@ -38,6 +39,7 @@ import {
   rotateBody,
   rotateFile,
 } from '@/lib/rotation/crypto';
+import { eraseAccount } from '@/controllers/erase';
 import { createRotationService } from '../service';
 import type { BeginInput, RotationLimits, Worker } from '../contracts';
 
@@ -74,6 +76,7 @@ type FakeStorage = {
     headers: Record<string, string>;
   }>;
   verify: (object: FakeObject & { key: string }) => Promise<void>;
+  verifyMetadata: (object: FakeObject & { key: string }) => Promise<void>;
   readGrant: (object: FakeObject & { key: string }, expiresIn: number) => Promise<string>;
   removeKey: (key: string) => Promise<void>;
   sourceBytes: Map<string, number>;
@@ -104,6 +107,14 @@ function createFakeStorage(): FakeStorage {
     },
     uploadGrant: async (object) => ({ url: `upload://${object.key}`, headers: {} }),
     verify: async (object) => {
+      const stored = objects.get(object.key);
+      if (!stored || stored.bytes !== object.bytes || stored.checksum !== object.checksum)
+        throw new Error('object mismatch');
+    },
+    // The real adapter's metadata-only re-check. The fake store's `objects`
+    // entry *is* the provider's metadata, so this is the same assertion
+    // `verify` makes without the streamed re-hash.
+    verifyMetadata: async (object) => {
       const stored = objects.get(object.key);
       if (!stored || stored.bytes !== object.bytes || stored.checksum !== object.checksum)
         throw new Error('object mismatch');
@@ -540,14 +551,17 @@ describe('rotation service against real PGlite migrations', () => {
   });
   afterAll(teardownTestDb);
 
-  it.each(['maxItems', 'maxSourceBytes'] as const)('rejects begin before materializing an over-%s inventory', async (bound) => {
-    const fixture = await seedFixture(db);
-    const limits = bound === 'maxItems' ? { maxItems: 7 } : { maxSourceBytes: 1 };
-    await expect(begin(fixture, serviceFor(fixture, undefined, limits))).rejects.toMatchObject({ code: 'LIMIT' });
-    await expect(
-      db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
-    ).resolves.toHaveLength(0);
-  });
+  it.each(['maxItems', 'maxSourceBytes'] as const)(
+    'rejects begin before materializing an over-%s inventory',
+    async (bound) => {
+      const fixture = await seedFixture(db);
+      const limits = bound === 'maxItems' ? { maxItems: 7 } : { maxSourceBytes: 1 };
+      await expect(begin(fixture, serviceFor(fixture, undefined, limits))).rejects.toMatchObject({ code: 'LIMIT' });
+      await expect(
+        db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
+      ).resolves.toHaveLength(0);
+    },
+  );
 
   it('rotates a mixed vault atomically while preserving metadata, history order, tombstones, and files', async () => {
     const fixture = await seedFixture(db);
@@ -833,6 +847,74 @@ describe('rotation service against real PGlite migrations', () => {
     ).rejects.toMatchObject({
       code: 'CONFLICT',
     });
+  });
+
+  it('retires a tombstone once its re-check window closes, instead of sweeping it forever', async () => {
+    const fixture = await seedFixture(db);
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, fixture.sourceFile);
+    const input = {
+      iv: rotated.iv,
+      bytes: rotated.cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+    const service = serviceFor(fixture);
+    const prepared = await begin(fixture, service);
+    const grant = await service.reserveFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, input);
+    await service.cancel(fixture.actor, prepared.token);
+
+    fixture.now.value = new Date(grant.expiresAt.getTime() + 1);
+    await service.cleanup();
+    const [tombstone] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key));
+    expect(tombstone.completedAt).not.toBeNull();
+    expect(fixture.storage.removed).toEqual([grant.object.key]);
+
+    // Still inside the window: a late PUT could recreate the key, so the row
+    // is swept again.
+    fixture.now.value = new Date(tombstone.notBefore.getTime() + 1);
+    await service.cleanup();
+    expect(fixture.storage.removed).toHaveLength(2);
+
+    // Past it: the row is dropped rather than consuming a sweep's budget for
+    // the rest of the deployment's life.
+    fixture.now.value = new Date(tombstone.completedAt!.getTime() + 48 * 60 * 60 * 1000 + 1);
+    await service.cleanup();
+    await expect(
+      db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key)),
+    ).resolves.toHaveLength(0);
+    expect(fixture.storage.removed).toHaveLength(2);
+  });
+
+  it('retires a drained operation once its account has been erased', async () => {
+    const fixture = await seedFixture(db);
+    const prepared = await begin(fixture);
+    await stageAndVerify(fixture, prepared);
+    await confirm(fixture, prepared);
+    await prepared.service.commit(fixture.actor, prepared.token);
+
+    // The account is on the new generation now; erase is an ordinary fenced
+    // write and has to say so.
+    await withRequestGeneration('1', () => eraseAccount(USER_ID));
+    // The staged ciphertext goes with the account, not with the next cron run.
+    await expect(
+      db.select().from(rotationItems).where(eq(rotationItems.operationId, fixture.operationId)),
+    ).resolves.toHaveLength(0);
+
+    // The operation row itself survives only while its objects are still queued,
+    // because `rotation_cleanup` cascades from it. One sweep deletes the
+    // obsolete object and leaves a tombstone; the row goes when that tombstone
+    // is retired.
+    fixture.now.value = new Date(fixture.now.value.getTime() + 60 * 60 * 1000);
+    await serviceFor(fixture).cleanup();
+    await expect(
+      db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
+    ).resolves.toHaveLength(1);
+
+    fixture.now.value = new Date(fixture.now.value.getTime() + 49 * 60 * 60 * 1000);
+    await serviceFor(fixture).cleanup();
+    await expect(
+      db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
+    ).resolves.toHaveLength(0);
+    await expect(db.select().from(rotationCleanup)).resolves.toHaveLength(0);
   });
 
   it('does not delete an object that is still an active file reference during cleanup', async () => {

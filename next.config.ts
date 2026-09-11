@@ -24,17 +24,36 @@ const withSerwist = withSerwistInit({
  * Only the origin is added: the path, the signature and the bucket are not the
  * CSP's business, and naming a whole host is the narrowest thing this directive
  * can express.
+ *
+ * `headers()` is evaluated by `next build` and baked into the routes manifest,
+ * so this resolves at BUILD time. `AWS_S3_ENDPOINT` configured as a runtime-only
+ * variable would ship a policy with no bucket origin, and every signed transfer
+ * would then be blocked by the browser with nothing to see server-side. A
+ * production build therefore says out loud what it resolved, and refuses to
+ * proceed on an endpoint it cannot parse.
  */
 const storageOrigin = (() => {
   const endpoint = process.env.AWS_S3_ENDPOINT;
-  if (!endpoint) return null;
-  try {
-    return new URL(endpoint).origin;
-  } catch {
-    // A malformed endpoint is a deployment error, not a reason to widen the
-    // policy. Leave it out and let the transfer fail loudly.
+  if (!endpoint) {
+    if (isProduction)
+      console.warn(
+        '[csp] AWS_S3_ENDPOINT is not set in the BUILD environment. connect-src will not name a storage origin; ' +
+          'key rotation and direct file transfers will be blocked unless the bucket is reachable over plain https:. ' +
+          'If the endpoint is configured for runtime only, expose it to the build as well.',
+      );
     return null;
   }
+  let origin: string;
+  try {
+    origin = new URL(endpoint).origin;
+  } catch {
+    // A malformed endpoint is a deployment error, not a reason to widen the
+    // policy — and silently dropping it produces a failure with no server-side
+    // symptom at all. Fail the build instead.
+    throw new Error(`AWS_S3_ENDPOINT is not a valid URL: ${JSON.stringify(endpoint)}`);
+  }
+  if (isProduction) console.info(`[csp] connect-src storage origin: ${origin}`);
+  return origin;
 })();
 
 const contentSecurityPolicy = [

@@ -45,8 +45,14 @@ beforeEach(async () => {
   // Drain the encryption the previous test's teardown left in flight — React
   // Testing Library unmounts after the test, and an unmount flushes — so its
   // checkpoint cannot land inside this one.
+  //
+  // Clear on both sides of the drain. Clearing only before it would leave the
+  // late write in place, and clearing only after it assumes the drain is long
+  // enough — which it is not, reliably, for a jest worker competing with the
+  // rest of the suite for a key derivation.
   jest.useRealTimers();
-  for (let i = 0; i < 10; i += 1) await turn();
+  localStorage.clear();
+  for (let i = 0; i < 50; i += 1) await turn();
   localStorage.clear();
   jest.useFakeTimers();
 });
@@ -78,7 +84,13 @@ it('cleans up a confirmed save after the editor has unmounted, preserving anothe
   expect(loadDrafts()).toHaveLength(1);
   expect(loadDrafts()[0].title).toBe('Second');
   second.unmount();
-  await settle();
+  // The unmount flush writes the last ciphertext synchronously and then
+  // re-encrypts; that second write lands many turns later. Empty the slot and
+  // wait for it, so this test ends with nothing still in flight rather than
+  // handing the next one a draft that reappears after its own setup.
+  localStorage.clear();
+  await settle(() => loadDrafts().length === 1);
+  expect(loadDrafts()[0].title).toBe('Second');
 });
 
 it('retains failed encrypted edits and emits recovery after the editor unmounts', async () => {

@@ -117,3 +117,33 @@ describe('encryption.generation', () => {
     await expect((await caller(null)).generation()).resolves.toMatchObject({ rotationInProgress: true });
   });
 });
+
+describe('the rotation enablement switch', () => {
+  const original = process.env.ROTATION_DISABLED;
+  afterEach(() => {
+    if (original === undefined) delete process.env.ROTATION_DISABLED;
+    else process.env.ROTATION_DISABLED = original;
+  });
+
+  it('offers rotation by default', async () => {
+    await seedProfile(0);
+
+    await expect((await caller(null)).generation()).resolves.toMatchObject({ rotationAvailable: true });
+  });
+
+  it('withdraws the entry point when ROTATION_DISABLED is set, without hiding an operation in flight', async () => {
+    await seedProfile(0);
+    await db
+      .update(encryptionStates)
+      .set({ activeRotationId: '00000000-0000-7000-8000-000000000001' })
+      .where(eq(encryptionStates.userId, USER));
+    process.env.ROTATION_DISABLED = '1';
+
+    // Turning the feature off must never strand an account mid-rotation: the
+    // client offers resume/cancel on `rotationInProgress` alone.
+    await expect((await caller(null)).generation()).resolves.toMatchObject({
+      rotationAvailable: false,
+      rotationInProgress: true,
+    });
+  });
+});

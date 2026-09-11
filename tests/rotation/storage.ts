@@ -39,6 +39,14 @@ try {
     });
     assert.notEqual(altered.status, 200, 'cannot remove signed conditional header');
     await assert.rejects(store.verify({ ...object, bytes: bytes + 1 }));
+    // Commit re-verifies with provider metadata alone rather than a second
+    // streamed re-hash, so the provider has to report the SHA-256 it computed
+    // over the bytes it accepted — an ETag would not be the same claim.
+    await store.verifyMetadata(object);
+    await assert.rejects(store.verifyMetadata({ ...object, bytes: bytes + 1 }));
+    await assert.rejects(
+      store.verifyMetadata({ ...object, checksum: createHash('sha256').update('not these bytes').digest('base64') }),
+    );
     observations.push({
       bytes,
       uploadAndReadbackMs: performance.now() - start,

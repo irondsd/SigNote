@@ -14,6 +14,7 @@ import {
   sealNoteVersions,
   otpRecords,
   fileAttachments,
+  users,
   type RotationKind,
   type RotationCipherValue,
 } from '@/db/schema';
@@ -493,7 +494,11 @@ export function createRotationService(options: {
         const source = fileValue(item.source);
         const replacement = fileValue(item.replacement);
         if ((await storage.inspectSource(source.key)).bytes !== source.bytes) throw new RotationError('SOURCE_CORRUPT');
-        await storage.verify(replacement);
+        // Metadata only. `finalizeFile` already re-hashed these bytes end to end,
+        // and conditional create means the object cannot have changed since —
+        // so a second full read would add up to 100 MiB of transfer to the one
+        // request that must not time out, four times over if `commit` retries.
+        await storage.verifyMetadata(replacement);
       }
       return withAccountLock(actor.userId, async (db, state) => {
         const before = await owned(db, actor, token.operationId);
@@ -591,13 +596,24 @@ export function createRotationService(options: {
         });
       return expired;
     },
-    async cleanup(limit = 20) {
+    async cleanup(limit = limits.cleanupBatch) {
       await service.expire();
+      // Retire tombstones whose re-check window has closed. Without this the
+      // `due` query returns every object this deployment has ever deleted, one
+      // rotation's worth of them is enough to consume a whole sweep's budget
+      // from then on, and real deletes — which are what release an account's
+      // temporary-storage reservation — stop happening.
+      await getDb()
+        .delete(rotationCleanup)
+        .where(lte(rotationCleanup.completedAt, new Date(now().getTime() - limits.cleanupTombstoneMs)));
       const due = await getDb()
         .select()
         .from(rotationCleanup)
         .where(lte(rotationCleanup.notBefore, now()))
-        .orderBy(asc(rotationCleanup.notBefore))
+        // Pending work first: a re-check of an already-deleted key must never
+        // displace an object that has never been deleted. ASC alone would sort
+        // the pending rows (null `completedAt`) last.
+        .orderBy(sql`${rotationCleanup.completedAt} asc nulls first`, asc(rotationCleanup.notBefore))
         .limit(limit);
       let removed = 0;
       for (const candidate of due)
@@ -632,9 +648,11 @@ export function createRotationService(options: {
                 attempts: task.attempts + 1,
                 lastError: null,
                 // A PUT begun before expiry may finish after deletion. Durable
-                // tombstones are reaped again daily so such late objects cannot
-                // become permanent orphans. Active pointers are always rechecked.
-                notBefore: new Date(now().getTime() + 24 * 60 * 60 * 1000),
+                // tombstones are reaped again so such late objects cannot become
+                // permanent orphans; the row is dropped once the last grant that
+                // could recreate the key is long gone (`cleanupTombstoneMs`).
+                // Active pointers are always rechecked.
+                notBefore: new Date(now().getTime() + limits.cleanupResweepMs),
               })
               .where(eq(rotationCleanup.id, task.id));
             if (!task.completedAt && task.reservedBytes)
@@ -679,6 +697,20 @@ export function createRotationService(options: {
               await db.update(encryptionRotations).set({ phase: 'cleaned' }).where(eq(encryptionRotations.id, op.id));
           }
         });
+      // An erased account leaves its drained operations behind: `eraseAccount`
+      // drops the staged ciphertext immediately but cannot delete an operation
+      // whose objects are still queued, because `rotation_cleanup` cascades from
+      // it. Retire those rows once the queue is empty, so erasure completes on
+      // its own instead of leaving a permanent metadata trail.
+      await getDb()
+        .delete(encryptionRotations)
+        .where(
+          and(
+            inArray(encryptionRotations.phase, ['committed', 'cleaned', 'aborted']),
+            sql`not exists (select 1 from ${rotationCleanup} where ${rotationCleanup.operationId} = ${encryptionRotations.id})`,
+            sql`not exists (select 1 from ${users} where ${users.id} = ${encryptionRotations.userId})`,
+          ),
+        );
       return { removed };
     },
   };

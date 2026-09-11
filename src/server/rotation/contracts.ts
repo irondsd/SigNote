@@ -102,5 +102,16 @@ export const ROTATION_LIMITS = {
   maxResponseBytes: 3_000_000,
   retentionMs: 7 * 24 * 60 * 60 * 1000,
   grantSeconds: 60,
+  /** How long a deleted object's key is re-checked before its cleanup row is
+   * dropped. A PUT begun before grant expiry can land after the delete, so the
+   * key is swept again — but that window closes with the last issued grant, not
+   * "forever", and a tombstone that is never retired starves the sweep's budget
+   * (and holds the account's temporary-storage reservation) indefinitely. */
+  cleanupTombstoneMs: 48 * 60 * 60 * 1000,
+  /** Interval between re-sweeps of a deleted key, within the window above. */
+  cleanupResweepMs: 12 * 60 * 60 * 1000,
+  /** Object tasks processed per sweep. One rotation of a file-heavy vault emits
+   * one task per attachment, so this has to clear a whole operation at once. */
+  cleanupBatch: 200,
 };
 export type RotationLimits = typeof ROTATION_LIMITS;

@@ -9,6 +9,7 @@ import {
   updateProfile,
 } from '@/controllers/encryptionProfiles';
 import { getEncryptionState } from '@/db/encryptionState';
+import { rotationStartEnabled } from '@/server/rotation/enablement';
 import { protectedProcedure, router } from '@/server/trpc';
 
 const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/; // 32 bytes → 44-char base64
@@ -53,7 +54,7 @@ export const encryptionRouter = router({
       // Whether a *new* rotation may be started. Disabling the feature never
       // hides an operation already under way: status, resume and cancel keep
       // working, so this only decides whether the entry point is offered.
-      rotationAvailable: true,
+      rotationAvailable: rotationStartEnabled(),
     };
   }),
 

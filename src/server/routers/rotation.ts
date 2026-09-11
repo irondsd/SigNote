@@ -4,6 +4,7 @@ import { protectedProcedure, router } from '@/server/trpc';
 import { RotationError, beginSchema, itemRefSchema, payloadSchema, workerSchema } from '@/server/rotation/contracts';
 import { RotationStorageError } from '@/server/rotation/objectStore';
 import { getRotationService } from '@/server/rotation/instance';
+import { rotationStartEnabled } from '@/server/rotation/enablement';
 
 async function execute<T>(fn: () => Promise<T>): Promise<T> {
   try {
@@ -33,9 +34,14 @@ export const rotationRouter = router({
   status: protectedProcedure
     .input(z.object({ operationId: z.uuid().optional() }).optional())
     .query(({ ctx, input }) => execute(() => getRotationService().status(ctx, input?.operationId))),
-  begin: protectedProcedure
-    .input(beginSchema)
-    .mutation(({ ctx, input }) => execute(() => getRotationService().begin(ctx, input))),
+  begin: protectedProcedure.input(beginSchema).mutation(({ ctx, input }) =>
+    execute(() => {
+      // A real gate, not just a hidden button: `encryption.generation` reports
+      // the same flag so the client never offers a start it cannot make.
+      if (!rotationStartEnabled()) throw new TRPCError({ code: 'FORBIDDEN', message: 'ROTATION_UNAVAILABLE' });
+      return getRotationService().begin(ctx, input);
+    }),
+  ),
   inventory: protectedProcedure
     .input(workerSchema.extend({ after: itemRefSchema.optional() }))
     .query(({ ctx, input }) => execute(() => getRotationService().inventory(ctx, input, input.after))),

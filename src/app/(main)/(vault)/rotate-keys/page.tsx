@@ -447,9 +447,26 @@ export default function RotateKeysPage() {
         )}
 
         {error && (
-          <p className={s.error} role="alert" data-testid="rotation-error">
-            <ShieldAlert size={14} aria-hidden /> {error}
-          </p>
+          <div role="alert">
+            <p className={s.error} data-testid="rotation-error">
+              <ShieldAlert size={14} aria-hidden /> {error}
+            </p>
+            {/* Cancelling needs the same single-session prerequisite as every
+                other step, so a device signing in mid-rotation otherwise leaves
+                the user fenced with no way out. Offer the two actions as one. */}
+            {error.startsWith('Another session signed in.') && state.operation && (
+              <div className={s.actions}>
+                <Button
+                  variant="outline"
+                  onClick={() => void wizard.revokeAndCancel()}
+                  disabled={busy}
+                  data-testid="rotation-revoke-and-cancel"
+                >
+                  Revoke other sessions and cancel
+                </Button>
+              </div>
+            )}
+          </div>
         )}
         {busy && (
           <p className={s.hint} role="status">

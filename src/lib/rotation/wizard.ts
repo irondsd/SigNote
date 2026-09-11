@@ -155,6 +155,10 @@ export function describeRotationError(error: unknown): string {
   if (rotation.reason === 'SOURCE_CHANGED') return 'Your encrypted data changed during the rotation. Start again.';
   if (rotation.reason === 'SOURCE_CORRUPT') return 'Some encrypted data could not be read. Nothing has been changed.';
   if (rotation.reason === 'RECOVERY_REQUIRED') return 'Save and confirm the new recovery file first.';
+  // The server-side enablement switch. It only ever refuses a *new* rotation,
+  // so this can never strand an operation that is already under way.
+  if (rotation.reason === 'ROTATION_UNAVAILABLE')
+    return 'Changing your keys is temporarily unavailable. Nothing has been changed — please try again later.';
   switch (rotation.code) {
     case 'UNAUTHORIZED':
       return 'Your session ended. Sign in again to resume this rotation.';
@@ -179,6 +183,13 @@ export function createRotationWizard(deps: WizardDeps) {
   // state object, so no consumer can render or serialise them by accident.
   let sourceMek: CryptoKey | null = null;
   let target: { material: RotationMaterial; mek: CryptoKey; deviceShare: Uint8Array } | null = null;
+  /** The target device share is the one raw secret this wizard keeps for the
+   * whole operation — it is what the recovery file is built from. Dropping the
+   * reference is not enough; zero the bytes before letting them go. */
+  const releaseTarget = () => {
+    target?.deviceShare.fill(0);
+    target = null;
+  };
   let currentMaterial: WizardMaterial | null = null;
   let profileId: string | null = null;
   let abort: AbortController | null = null;
@@ -223,7 +234,9 @@ export function createRotationWizard(deps: WizardDeps) {
 
   const scan = deps.scanDrafts ?? draftReadiness;
 
-  return {
+  // Named rather than returned inline so steps that compose other steps can
+  // call them without depending on how the caller binds `this`.
+  const api = {
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -324,8 +337,18 @@ export function createRotationWizard(deps: WizardDeps) {
 
         const material = await deps.material();
         const deviceShare = await deriveDeviceShare(current, material.salt, material.kdf);
-        const mek = await importMEK(xor32(deviceShare, decodeShare(material.serverShare)));
-        deviceShare.fill(0);
+        const serverShare = decodeShare(material.serverShare);
+        const rawMek = xor32(deviceShare, serverShare);
+        let mek: CryptoKey;
+        try {
+          // `importMEK` copies into a non-extractable CryptoKey; the three raw
+          // buffers that produced it must not outlive this block.
+          mek = await importMEK(rawMek);
+        } finally {
+          deviceShare.fill(0);
+          serverShare.fill(0);
+          rawMek.fill(0);
+        }
         if (!(await verifyKeyCheck(mek, material.keyCheck))) throw new RotationWizardError('Incorrect passphrase.');
 
         currentMaterial = material;
@@ -336,17 +359,22 @@ export function createRotationWizard(deps: WizardDeps) {
         // key that opens nothing already done, so the chosen passphrase is
         // checked *against* the pending material instead.
         const pending = state.operation?.pendingMaterial ?? null;
+        let nextTarget: typeof target;
         if (pending) {
           try {
-            target = { material: pending as RotationMaterial, ...(await reopenRotationMaterial(next, pending)) };
+            nextTarget = { material: pending as RotationMaterial, ...(await reopenRotationMaterial(next, pending)) };
           } catch {
             throw new RotationWizardError(
               'That is not the new passphrase you chose for this rotation. If you have forgotten it, cancel and start again — your current data is untouched.',
             );
           }
         } else {
-          target = await createRotationMaterial(next);
+          nextTarget = await createRotationMaterial(next);
         }
+        // Re-entering this step mints a second device share. Zero the one it
+        // replaces rather than leaving it for the garbage collector.
+        releaseTarget();
+        target = nextTarget;
         set({ passphraseVerified: true, reusingPassphrase: current === next });
         return true;
       });
@@ -514,6 +542,25 @@ export function createRotationWizard(deps: WizardDeps) {
       });
     },
 
+    /**
+     * The way out of the one state a user can get stuck in.
+     *
+     * Cancelling requires the same single-session prerequisite as every other
+     * step, so a device that signs in mid-rotation leaves the user unable to
+     * cancel — while every vault write stays fenced. This does the two things
+     * in order, as one action, so the error can offer a button instead of an
+     * instruction.
+     */
+    async revokeAndCancel() {
+      const others = await api.revokeOtherSessions();
+      if (others === null) return null;
+      if (others > 0) {
+        set({ error: 'Another session is still signed in. Try again.' });
+        return null;
+      }
+      return api.cancel();
+    },
+
     /** Before activation only. The old vault and old passphrase are untouched. */
     async cancel() {
       return run(async () => {
@@ -521,7 +568,7 @@ export function createRotationWizard(deps: WizardDeps) {
         thawDraftWriting();
         set({ ...EMPTY, generation: state.generation, step: 'intro' });
         sourceMek = null;
-        target = null;
+        releaseTarget();
         return true;
       });
     },
@@ -531,7 +578,7 @@ export function createRotationWizard(deps: WizardDeps) {
       abort?.abort();
       abort = null;
       sourceMek = null;
-      target = null;
+      releaseTarget();
       currentMaterial = null;
       listeners.clear();
     },
@@ -544,6 +591,7 @@ export function createRotationWizard(deps: WizardDeps) {
       return currentMaterial;
     },
   };
+  return api;
 }
 
 function decodeShare(value: string): Uint8Array<ArrayBuffer> {

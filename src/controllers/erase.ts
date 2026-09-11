@@ -1,15 +1,18 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
 import { withVaultWrite } from '@/db/encryptionState';
 import {
   authIdentities,
   encryptionProfiles,
+  encryptionRotations,
   fileAttachments,
   notes,
   notificationPreferences,
   otpRecords,
   passkeyCredentials,
+  rotationCleanup,
+  rotationItems,
   sealNotes,
   secretNotes,
   securityPreferences,
@@ -39,6 +42,37 @@ export const eraseEncryptionProfile = (userId: string) =>
 
 export const eraseFiles = (userId: string) => withVaultWrite(userId, () => deleteFilesByUserId(userId));
 
+/**
+ * Rotation staging outlives its operation. A committed rotation keeps its
+ * `rotation_items` — a complete copy of every re-encrypted Secret, Seal, Seal
+ * version and Authenticator payload — until the object sweep has reclaimed the
+ * obsolete objects and flips the phase to `cleaned`. Erasure must not wait on a
+ * cron: drop the staged ciphertext here.
+ *
+ * The operation rows themselves hold only digests and counts, and they are what
+ * `rotation_cleanup` cascades from, so an operation with objects still queued is
+ * kept until that queue drains (`cleanup()` retires the drained, user-less rows).
+ * `withVaultWrite` has already established that none of them is active.
+ */
+async function eraseRotationStaging(db: ReturnType<typeof getDb>, userId: string) {
+  const rotations = await db
+    .select({ id: encryptionRotations.id })
+    .from(encryptionRotations)
+    .where(eq(encryptionRotations.userId, userId));
+  if (!rotations.length) return;
+  const ids = rotations.map((row) => row.id);
+  await db.delete(rotationItems).where(inArray(rotationItems.operationId, ids));
+  await db.update(encryptionRotations).set({ pendingMaterial: null }).where(inArray(encryptionRotations.id, ids));
+  await db
+    .delete(encryptionRotations)
+    .where(
+      and(
+        inArray(encryptionRotations.id, ids),
+        sql`not exists (select 1 from ${rotationCleanup} where ${rotationCleanup.operationId} = ${encryptionRotations.id})`,
+      ),
+    );
+}
+
 export const eraseAccount = async (userId: string) => {
   await withVaultWrite(userId, async () => {
     const db = getDb();
@@ -50,6 +84,7 @@ export const eraseAccount = async (userId: string) => {
     await db.delete(secretNotes).where(eq(secretNotes.userId, userId));
     await db.delete(notes).where(eq(notes.userId, userId));
     await db.delete(otpRecords).where(eq(otpRecords.userId, userId));
+    await eraseRotationStaging(db, userId);
     await db.delete(encryptionProfiles).where(eq(encryptionProfiles.userId, userId));
     await db.delete(authIdentities).where(eq(authIdentities.userId, userId));
     await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, userId));

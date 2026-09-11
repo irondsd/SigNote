@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
 import { cleanupExpiredRows } from '@/controllers/cleanup';
 import { cleanupDeletedFiles, cleanupOrphanedFiles } from '@/controllers/files';
 import { getRotationService } from '@/server/rotation/instance';
+import { safeBearerMatch } from '../cronAuth';
 
 export const runtime = 'nodejs';
-
-function safeBearerMatch(authHeader: string | null, secret: string | undefined): boolean {
-  if (!authHeader || !secret) return false;
-  const expected = `Bearer ${secret}`;
-  const a = Buffer.from(authHeader);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
 
 export async function GET(req: NextRequest) {
   if (!safeBearerMatch(req.headers.get('Authorization'), process.env.CRON_SECRET)) {

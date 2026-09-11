@@ -6,8 +6,13 @@ jest.mock('@/config/auth', () => ({ authOptions: {} }));
 jest.mock('@/controllers/authSessions', () => ({
   TOUCH_THROTTLE_MS: 5 * 60 * 1000,
   findSessionForValidation: jest.fn(),
-  isSessionEpochAllowed: (state: { sessionEpoch: number; survivingSid: string | null }, sid: string, epoch: number | null | undefined) =>
-    epoch !== null && (state.survivingSid === sid || (epoch === undefined ? state.sessionEpoch === 0 : epoch === state.sessionEpoch)),
+  isSessionEpochAllowed: (
+    state: { sessionEpoch: number; survivingSid: string | null },
+    sid: string,
+    epoch: number | null | undefined,
+  ) =>
+    epoch !== null &&
+    (state.survivingSid === sid || (epoch === undefined ? state.sessionEpoch === 0 : epoch === state.sessionEpoch)),
   SessionEpochError: class SessionEpochError extends Error {},
   touchSession: jest.fn(),
   upsertSessionIfMissing: jest.fn(),

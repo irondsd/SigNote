@@ -42,6 +42,14 @@ function validateObject(object: RotationObject) {
  * A fresh key by itself does NOT prevent a still-valid PUT from overwriting it.
  */
 export function createRotationObjectStore(client: S3Client, bucket: string) {
+  /** The provider's own statement about the stored bytes: exact length and the
+   * SHA-256 it computed over what it accepted, never an ETag. One round trip. */
+  const verifyMetadata = async (object: RotationObject): Promise<void> => {
+    validateObject(object);
+    const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: object.key, ChecksumMode: 'ENABLED' }));
+    if (head.ContentLength !== object.bytes || head.ChecksumSHA256 !== object.checksum)
+      throw new RotationStorageError('OBJECT_MISMATCH');
+  };
   return {
     /** Internal frozen inventory keys only, never a caller-supplied bucket key. */
     async sourceReadGrant(key: string, expiresIn: number) {
@@ -110,16 +118,22 @@ export function createRotationObjectStore(client: S3Client, bucket: string) {
         { expiresIn },
       );
     },
+    /** Re-verification after the object was accepted. A conditional create
+     * (`If-None-Match: '*'`) means it cannot have changed since, so re-reading
+     * it end to end proves nothing `verify` did not already prove — and at the
+     * documented 100 MiB bound, doing that inside the activation request is the
+     * most likely place for a commit to time out.
+     */
+    verifyMetadata,
     /** Verify origin bytes as well as provider metadata, never an ETag. Streams
      * server-side so verification does not buffer a whole object in a function.
+     *
+     * This is what establishes that a freshly uploaded object is real, and it
+     * belongs at `finalizeFile`, once per object. Later checks use
+     * `verifyMetadata`.
      */
     async verify(object: RotationObject): Promise<void> {
-      validateObject(object);
-      const head = await client.send(
-        new HeadObjectCommand({ Bucket: bucket, Key: object.key, ChecksumMode: 'ENABLED' }),
-      );
-      if (head.ContentLength !== object.bytes || head.ChecksumSHA256 !== object.checksum)
-        throw new RotationStorageError('OBJECT_MISMATCH');
+      await verifyMetadata(object);
       const result = await client.send(new GetObjectCommand({ Bucket: bucket, Key: object.key }));
       if (!result.Body) throw new RotationStorageError('OBJECT_MISMATCH');
       const hash = createHash('sha256');
