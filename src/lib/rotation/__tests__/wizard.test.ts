@@ -414,6 +414,35 @@ describe('a complete run', () => {
   });
 });
 
+describe('pausing', () => {
+  it('stops the worker without reporting a failure', async () => {
+    const h = await harness();
+    await advanceTo(h, 'running');
+
+    const processing = h.wizard.process();
+    h.wizard.pauseProcessing();
+    await processing;
+
+    // The user asked for this. Calling it an error would imply something went
+    // wrong with their data, and nothing did.
+    expect(h.wizard.getState().error).toBeNull();
+    expect(h.wizard.getState().busy).toBe(false);
+  });
+
+  it('keeps whatever the server already accepted, so resuming picks up', async () => {
+    const h = await harness();
+    await advanceTo(h, 'running');
+
+    const processing = h.wizard.process();
+    h.wizard.pauseProcessing();
+    await processing;
+    await h.wizard.process();
+
+    expect(h.wizard.getState().step).toBe('recovery');
+    for (const row of h.server.rows.values()) expect(row.verifiedDigest).toBe(row.replacementDigest);
+  });
+});
+
 describe('errors', () => {
   it('turns a fence conflict into an instruction, not a code', async () => {
     const conflict = Object.assign(new Error('CONFLICT'), {

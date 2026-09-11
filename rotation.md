@@ -1,8 +1,7 @@
 # Full encryption-key rotation
 
-Status: part 1 complete locally. Frontend/wizard/E2E implementation is part 2;
-production verification and release qualification are part 3. New rotations
-default to disabled.
+Status: parts 1 and 2 complete locally. Production verification and release
+qualification are part 3. New rotations default to disabled.
 
 ## Three-part delivery plan
 
@@ -268,6 +267,95 @@ and repeated late-object reclamation. Account erasure retains an epoch tombstone
 and revokes all sessions, preventing old tokens from becoming valid again.
 Generated migrations were applied only to disposable test databases. No production
 migration, feature enablement, frontend change, or release qualification is implied.
+
+### Part 2 progress — 2026-09-11
+
+Frontend, wizard and E2E are implemented. The feature remains disabled by
+default; `ENCRYPTION_ROTATION_ENABLED` is set only for the E2E run, never in a
+checked-in environment file.
+
+**Generation-aware clients.** `src/lib/encryptionGeneration.ts` keeps the
+account's generation and persists it as a marker whose `reconciled: false`
+survives a crash mid-purge. `encryption.generation` is the one ungated read, so
+a device with no marker can learn the number instead of deadlocking on a check
+it cannot pass; it carries no pending material. `generationLink` retries only
+for a device that had nothing to invalidate — a device that recorded N and is
+told N+1 never replays, because a mutation would push old-MEK ciphertext into
+the new vault and a query would fetch rows it cannot decrypt. It records and
+broadcasts instead, and `encryptionReconcile.ts` drops the device share, the
+cached `serverShare`, the Authenticator vault, encrypted drafts, the persisted
+query cache and the HTTP caches, completing the marker last.
+
+**Service worker.** Rotation, encryption, encrypted-tier and OTP procedures,
+`/api/files` and signed storage transfers are claimed NetworkOnly before
+`defaultCache`, and inherited entries are swept on activation. Plaintext Notes
+keep their offline reads: their rows hold no ciphertext, so a stale page is out
+of date rather than undecryptable. **The file-route offline change is real:** an
+attachment opened offline now fails instead of being served from a cache that
+may predate a rotation.
+
+**Transport.** `src/lib/rotation/client.ts` does not batch, counts bytes in both
+directions, and does not attach the global `unauthorizedLink`. A real 401 still
+stops everything, but the rotation's own code does it, keeping the durable
+operation identity for resume. Retries are bounded and apply to network and
+server faults only.
+
+**Engine.** `src/lib/rotation/engine.ts` walks the frozen inventory, stages,
+reads the staged ciphertext back and proves it decrypts to the same plaintext,
+then acknowledges it with an independently computed digest (`digest.ts` matches
+the server's byte for byte, asserted directly against it). Memory is bounded per
+item. Seal wrappers sort _after_ their bodies, so the walk is two passes and the
+second re-reads only the Seal range. An item the server already accepted is
+never re-encrypted, which is what keeps a half-processed Seal on one NEK.
+
+**Wizard.** `src/lib/rotation/wizard.ts` holds every rule with no React in it;
+`src/app/(main)/(vault)/rotate-keys/page.tsx` renders it. Prerequisites are
+re-checked rather than remembered, and the server checks them again in `begin`.
+Resuming reopens the operation's _pending_ material with the passphrase chosen
+when the rotation started — minting fresh material would produce a key that
+opens nothing already staged — and goes back through the prerequisites, because
+signing in again clears the server's record of which session owns the operation.
+Continuing then claims it, advancing the fence. Only messages the wizard wrote
+are shown verbatim; everything else is translated.
+
+**Authenticator.** Enrollment is now bound to the generation as well as the
+profile id, because a rotation deliberately keeps the id stable. An enrollment
+predating the field is adopted only at generation zero and treated as dead
+otherwise.
+
+E2E: `tests/pages/RotationPage.ts` plus `rotation`, `rotation-resume`,
+`rotation-concurrency` and `rotation-files` specs — 23 scenarios. The recovery
+step is a genuine download-and-reselect round trip. The object store models
+conditional create, checksum binding on write and on `HeadObject`, CORS, restart
+persistence and fault injection over a control path that exists only in the test
+run. Assertions compare decrypted plaintext, file bytes and preserved metadata.
+
+Four real bugs surfaced, none of which unit tests could have caught alone:
+
+- The rotation route rebuilt its bounded-body request with `new Request(req, …)`,
+  which throws `Cannot read private member #state` on a `NextRequest`. Node's own
+  `Request` survives that call, so only a real Next runtime reproduces it.
+- The CSP blocked every signed storage transfer. `connect-src https:` covers a
+  real bucket but not a configured S3-compatible endpoint, so the origin from
+  `AWS_S3_ENDPOINT` is now named explicitly — the mirror image of the CORS rules
+  the transfers already needed.
+- `encryption.profile` read the generation under the snapshot lock and dropped
+  it on the way out, so every enrolled Authenticator compared against `undefined`
+  and wiped itself. Router-level PGlite tests now assert the wire contract.
+- Storage transfers were called outside the retry wrapper, so a provider hiccup
+  on a multi-megabyte body was handed straight to the user.
+
+Validation: full Jest suite, ESLint/TypeScript, and the full Playwright suite
+(526 passing) against a production build. `tests/specs/account-linking.spec.ts:246`
+flakes at roughly one run in four; it was verified to flake identically on a
+worktree at `5df53d2`, before any part-2 work, and is tracked separately.
+
+Not yet done, and carried into part 3: service-worker behaviour against a real
+controlling worker (Playwright blocks registration, so the current specs prove
+nothing about it), desktop/PWA smoke, oversized-request and 413 handling end to
+end, runs at the documented 500-item and 100 MiB bounds, storage-restart
+persistence as a spec rather than a harness capability, and everything under
+"Validation and release gates" below.
 
 ## Goal and decisions
 

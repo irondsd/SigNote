@@ -358,14 +358,18 @@ export default function RotateKeysPage() {
             <p className={s.body}>Keep this page open. If it is interrupted you can sign in again and resume.</p>
             <RotationProgressBar state={state} />
             <div className={s.actions}>
-              <Button
-                variant="outline"
-                onClick={() => void wizard.cancel()}
-                disabled={busy}
-                data-testid="rotation-cancel"
-              >
-                Cancel
-              </Button>
+              {/* Pausing stops the worker where it stands. Everything already
+                  accepted by the server survives, so resuming picks up rather
+                  than starting over — and cancelling is still lossless. */}
+              {busy ? (
+                <Button variant="outline" onClick={() => wizard.pauseProcessing()} data-testid="rotation-pause">
+                  Pause
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => void wizard.cancel()} data-testid="rotation-cancel">
+                  Cancel
+                </Button>
+              )}
               <Button onClick={() => void wizard.process()} disabled={busy} data-testid="rotation-process">
                 {busy ? 'Working…' : state.progress ? 'Resume' : 'Begin re-encrypting'}
               </Button>

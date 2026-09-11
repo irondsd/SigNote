@@ -209,6 +209,13 @@ export function createRotationWizard(deps: WizardDeps) {
       set({ busy: false });
       return result;
     } catch (error) {
+      // Pausing aborts the worker mid-call, which surfaces as an abort error.
+      // That is the user getting what they asked for, not a failure — and
+      // labelling it one would imply something went wrong with their data.
+      if (abort?.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+        set({ busy: false });
+        return null;
+      }
       set({ busy: false, error: describeRotationError(error) });
       return null;
     }
