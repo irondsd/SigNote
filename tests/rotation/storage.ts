@@ -78,7 +78,7 @@ try {
   if (process.argv.includes('--restart')) {
     // These accepted objects must survive loss of the MinIO process. The
     // service is dedicated to this suite, with data on its own Docker volume.
-    await promisify(execFile)('docker', ['compose', '--profile', 'rotation', 'restart', 'rotation-minio']);
+    await promisify(execFile)('docker', ['compose', 'restart', 'minio']);
     const deadline = Date.now() + 30_000;
     while (true) {
       const ready = await fetch('http://127.0.0.1:9100/minio/health/live').catch(() => null);

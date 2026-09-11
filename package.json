@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:push:prod": "DRIZZLE_ENV=.env.prod drizzle-kit push",
@@ -36,10 +36,9 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:e2e": "playwright test",
     "test:e2e:prepare": "bun scripts/test-e2e-prepare.ts",
-    "rotation:local:up": "docker compose --profile rotation up -d db rotation-minio",
-    "rotation:local:locks": "bun tests/rotation/locks.ts",
-    "rotation:local:storage": "bun tests/rotation/storage.ts --restart",
-    "rotation:local:integration": "bun tests/rotation/integration.ts"
+    "test:rotation:locks": "bun tests/rotation/locks.ts",
+    "test:rotation:storage": "bun tests/rotation/storage.ts --restart",
+    "test:rotation:integration": "bun tests/rotation/integration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

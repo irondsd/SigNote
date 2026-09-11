@@ -1,5 +1,5 @@
-# Local development PostgreSQL. E2E starts its own native PostgreSQL process:
-# bun run test:e2e:prepare && bun run test:e2e
+# Local development services. E2E starts its own native PostgreSQL process and
+# its own in-process S3 mock: bun run test:e2e:prepare && bun run test:e2e
 services:
   db:
     image: postgres:18-alpine
@@ -19,29 +19,48 @@ services:
       timeout: 3s
       retries: 20
 
-  # Opt-in, isolated object store for rotation integration tests. The loopback
-  # ports avoid other local MinIO instances on 9000/9001. These are local-only
-  # credentials; neither the app's AWS environment nor production is used.
-  rotation-minio:
+  # The local object store. The app's AWS_S3_* variables point here in
+  # development, so attachments and rotation's direct signed transfers never
+  # touch a production bucket. The loopback ports avoid other local MinIO
+  # instances on 9000/9001. These credentials are local-only.
+  minio:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
-    profiles: ['rotation']
+    container_name: signote-minio
     restart: unless-stopped
     command: server /data --console-address ':9001'
     environment:
-      MINIO_ROOT_USER: signote-rotation-local
-      MINIO_ROOT_PASSWORD: signote-rotation-local-only
+      MINIO_ROOT_USER: signote-local
+      MINIO_ROOT_PASSWORD: signote-local-only
       MINIO_API_CORS_ALLOW_ORIGIN: 'http://localhost:5000,http://127.0.0.1:5000'
     ports:
       - '127.0.0.1:9100:9000'
       - '127.0.0.1:9101:9001'
     volumes:
-      - signote-rotation-minio-data:/data
+      - signote-minio-data:/data
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 3s
       timeout: 3s
       retries: 20
 
+  # Creates the two development buckets on first boot so a fresh clone (or a
+  # `docker compose down -v`) comes up with a usable store. Runs to completion
+  # and exits; `mc` ships in the pinned MinIO image, so no second image.
+  minio-init:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    container_name: signote-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+      - sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 signote-local signote-local-only &&
+        mc mb --ignore-existing local/signote-local &&
+        mc mb --ignore-existing local/signote-rotation-test
+
 volumes:
   signote-db-data:
-  signote-rotation-minio-data:
+  signote-minio-data:

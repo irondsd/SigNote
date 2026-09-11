@@ -9,7 +9,7 @@ export function localRotationS3() {
     region: 'us-east-1',
     endpoint: 'http://127.0.0.1:9100',
     forcePathStyle: true,
-    credentials: { accessKeyId: 'signote-rotation-local', secretAccessKey: 'signote-rotation-local-only' },
+    credentials: { accessKeyId: 'signote-local', secretAccessKey: 'signote-local-only' },
   });
 }
 export async function ensureRotationBucket(client: S3Client) {

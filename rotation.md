@@ -135,11 +135,19 @@ The user authorized local Docker PostgreSQL and an isolated MinIO service for
 part-1 development. External test-resource provisioning is no longer blocking
 that work. Production-provider validation remains a rollout gate.
 
-`bun run rotation:local:up` starts the resources. PostgreSQL tests create and
+`bun run db:up` starts the resources. PostgreSQL tests create and
 remove uniquely named databases on the existing loopback port 5434; they never
-use the development vault or an ambient database URL. The dedicated MinIO
-service uses a pinned image, its own persistent volume, loopback ports 9100/9101,
-and the private `signote-rotation-test` bucket. App AWS credentials are not used.
+use the development vault or an ambient database URL. The MinIO service uses a
+pinned image, its own persistent volume, loopback ports 9100/9101, and the
+private `signote-rotation-test` bucket. Production AWS credentials are not used.
+
+_(Superseded 2026-09-11: MinIO was an opt-in `rotation` compose profile named
+`rotation-minio`. It is now the permanent local object store — service `minio`,
+credentials `signote-local`/`signote-local-only` — and development points at its
+`signote-local` bucket instead of the production R2 bucket. The rotation scripts
+still use only `signote-rotation-test`, and `bun run rotation:local:*` is now
+`bun run test:rotation:*`.)_
+
 See `tests/rotation/README.md` for commands and local access details.
 
 The Docker layout comparison passed all injected rollback checks. At 75 MB of
@@ -250,7 +258,7 @@ requests fail with a conflict after activation. Part 2 must implement generation
 reconciliation, dedicated transport, service-worker rules and compatible readers
 before enabling the flag. Disabling the flag blocks only new operations.
 
-`bun run rotation:local:integration` applies real migrations to an owned database
+`bun run test:rotation:integration` applies real migrations to an owned database
 and runs the actual service against MinIO. A 500-entry run contained 30,762,760
 serialized source bytes and twenty 5,242,880-byte encrypted objects (100 MiB total). It paginated into
 11 responses under the transport budget. Native races cover a pre-existing writer,

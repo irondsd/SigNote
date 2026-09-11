@@ -3,10 +3,10 @@
 Run from the repository root:
 
 ```sh
-bun run rotation:local:up
-bun run rotation:local:locks
-bun run rotation:local:storage
-bun run rotation:local:integration
+bun run db:up
+bun run test:rotation:locks
+bun run test:rotation:storage
+bun run test:rotation:integration
 ```
 
 PostgreSQL uses the existing Docker service on `127.0.0.1:5434`. Each database
@@ -17,21 +17,25 @@ with prepared statements disabled, and checks row-lock contention, timeout
 rollback, metadata preservation, retained rows, and RLS. It is a baseline for
 controller integration tests, not a substitute for testing the rotation service.
 
-MinIO runs in its own Docker volume on `127.0.0.1:9100`; its console is at
+MinIO is the permanent local object store on `127.0.0.1:9100`; its console is at
 `http://127.0.0.1:9101`. Local credentials are declared in `docker-compose.yml`:
-user `signote-rotation-local`, password `signote-rotation-local-only`. The test
-helper creates the private `signote-rotation-test` bucket if it is missing. These
-are test credentials and the scripts do not read the app's AWS environment.
+user `signote-local`, password `signote-local-only`. These scripts write only to
+the private `signote-rotation-test` bucket — never to `signote-local`, which is
+where development attachments live — and they do not read the app's AWS
+environment. `minio-init` creates both buckets on first boot; the test helper
+also creates its own if it is missing.
 
-The storage command restarts **only the dedicated rotation MinIO service** to
-check persistence. It tests real signed PUT/GETs, SHA-256 and signed length,
-conditional-create protection against old PUT grants, expiry, HTTP no-store,
-localhost browser CORS, and cleanup. It waits for its PUT grants to expire before
-deleting only the objects it allocated. The bucket and volume remain available
-between runs. Stop the test storage without deleting its volume with:
+The storage command **restarts the MinIO container** to check that accepted
+objects survive it. That is the same container development uses, so expect a few
+seconds where local attachments are unreachable. It tests real signed PUT/GETs,
+SHA-256 and signed length, conditional-create protection against old PUT grants,
+expiry, HTTP no-store, localhost browser CORS, and cleanup. It waits for its PUT
+grants to expire before deleting only the objects it allocated. The bucket and
+volume remain available between runs. Stop the store without deleting its volume
+with:
 
 ```sh
-docker compose --profile rotation stop rotation-minio
+docker compose stop minio
 ```
 
 `src/server/rotation/objectStore.ts` is the reusable internal storage adapter.
