@@ -82,6 +82,12 @@ export const encryptionRouter = router({
       // changed id is exactly the signal an enrolled device must wipe on. The
       // id is an opaque uuid and not secret.
       profileId: profile._id,
+      // The *generation* is the second kill switch, and the one a rotation
+      // moves. A rotation deliberately keeps `profileId` stable — the account
+      // was not reset, only re-keyed — so a device comparing the id alone would
+      // accept new-generation ciphertext it cannot read. Read under the same
+      // lock as the snapshot, so it always describes this response.
+      generation: profile.generation,
       version: profile.version,
       salt: profile.salt,
       kdf: profile.kdf,
