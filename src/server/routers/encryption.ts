@@ -47,7 +47,14 @@ export const encryptionRouter = router({
    */
   generation: protectedProcedure.query(async ({ ctx }) => {
     const state = await getEncryptionState(ctx.userId);
-    return { generation: state.generation, rotationInProgress: state.activeRotationId !== null };
+    return {
+      generation: state.generation,
+      rotationInProgress: state.activeRotationId !== null,
+      // Whether a *new* rotation may be started. Disabling the feature never
+      // hides an operation already under way: status, resume and cancel keep
+      // working, so this only decides whether the entry point is offered.
+      rotationAvailable: process.env.ENCRYPTION_ROTATION_ENABLED === 'true',
+    };
   }),
 
   // GET /api/encryption/material — server share + KDF params for unlock.
