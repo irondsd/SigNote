@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
-import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { EmptyState, type EmptyStateNoun } from '@/components/EmptyState/EmptyState';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
@@ -41,6 +41,8 @@ type NewModalProps = {
 
 export type VaultListPageConfig<T> = {
   title: string;
+  /** Singular noun for the empty state — "No secrets yet" rather than the shared default. */
+  emptyNoun: EmptyStateNoun;
   archiveHref: string;
   newLabel: string;
   useItems: (params: { archived?: boolean }) => ListQuery<T>;
@@ -52,6 +54,7 @@ export type VaultListPageConfig<T> = {
 
 function VaultListPageContent<T>({
   title,
+  emptyNoun,
   archiveHref,
   newLabel,
   useItems,
@@ -157,7 +160,7 @@ function VaultListPageContent<T>({
       ) : phase === 'setup' ? (
         <EncryptionSetup displayName={showSetupDisplayName ? (session?.user?.name ?? undefined) : undefined} />
       ) : notes.length === 0 ? (
-        <EmptyState onNewNote={handleNew} />
+        <EmptyState onNewNote={handleNew} noun={emptyNoun} />
       ) : (
         <Grid
           notes={notes}

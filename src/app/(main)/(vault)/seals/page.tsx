@@ -8,6 +8,7 @@ import { VaultListPage } from '@/components/VaultPage/VaultListPage';
 export default function SealsPage() {
   return VaultListPage({
     title: 'Seals',
+    emptyNoun: 'seal',
     archiveHref: '/seals/archive',
     newLabel: 'New Seal',
     useItems: useSeals,
