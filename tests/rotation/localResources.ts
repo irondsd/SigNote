@@ -1,15 +1,45 @@
-/** Explicit loopback test resources. Never uses incoming DATABASE_URL/AWS env. */
+/**
+ * Explicit test resources. Never reads the app's `DATABASE_URL`/`AWS_*` env.
+ *
+ * The object store defaults to the loopback MinIO from `docker-compose.yml`.
+ * To qualify a *real* provider — the one check MinIO cannot stand in for —
+ * point the storage suite at a throwaway bucket there with the
+ * `ROTATION_TEST_S3_*` variables below. They are deliberately not the `AWS_*`
+ * names the app reads, so an exported production environment can never aim a
+ * test at the bucket that holds real attachments; and a remote bucket must
+ * already exist — the helper creates buckets only on the local store.
+ */
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 
-export const rotationTestBucket = 'signote-rotation-test';
+const remoteEndpoint = process.env.ROTATION_TEST_S3_ENDPOINT;
+/** True when the suite targets a provider other than the loopback MinIO. */
+export const remoteRotationStore = Boolean(remoteEndpoint);
+export const rotationStoreEndpoint = remoteEndpoint ?? 'http://127.0.0.1:9100';
+export const rotationTestBucket = remoteRotationStore
+  ? (process.env.ROTATION_TEST_S3_BUCKET ?? '')
+  : 'signote-rotation-test';
+if (remoteRotationStore) {
+  for (const name of [
+    'ROTATION_TEST_S3_BUCKET',
+    'ROTATION_TEST_S3_ACCESS_KEY_ID',
+    'ROTATION_TEST_S3_SECRET_ACCESS_KEY',
+  ])
+    if (!process.env[name]) throw new Error(`${name} is required when ROTATION_TEST_S3_ENDPOINT is set`);
+}
+
 export function localRotationS3() {
   return new S3Client({
-    region: 'us-east-1',
-    endpoint: 'http://127.0.0.1:9100',
+    region: remoteRotationStore ? (process.env.ROTATION_TEST_S3_REGION ?? 'auto') : 'us-east-1',
+    endpoint: rotationStoreEndpoint,
     forcePathStyle: true,
-    credentials: { accessKeyId: 'signote-local', secretAccessKey: 'signote-local-only' },
+    credentials: remoteRotationStore
+      ? {
+          accessKeyId: process.env.ROTATION_TEST_S3_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.ROTATION_TEST_S3_SECRET_ACCESS_KEY!,
+        }
+      : { accessKeyId: 'signote-local', secretAccessKey: 'signote-local-only' },
   });
 }
 export async function ensureRotationBucket(client: S3Client) {
@@ -17,6 +47,9 @@ export async function ensureRotationBucket(client: S3Client) {
     await client.send(new HeadBucketCommand({ Bucket: rotationTestBucket }));
   } catch (error) {
     if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode !== 404) throw error;
+    // A remote bucket is the operator's to create: it must be a throwaway one,
+    // and creating it here would hide a typo that pointed at the wrong account.
+    if (remoteRotationStore) throw new Error(`bucket ${rotationTestBucket} does not exist at ${rotationStoreEndpoint}`);
     await client.send(new CreateBucketCommand({ Bucket: rotationTestBucket }));
   }
 }

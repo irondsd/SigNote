@@ -655,8 +655,11 @@ export type PendingEncryptionMaterial = {
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
 };
+/** A file receipt carries `etag` only once `verify` has read its bytes back:
+ * absent on a source pointer, present on a staged replacement, which is what
+ * lets commit re-identify the object without hashing it again. */
 export type RotationCipherValue =
-  EncryptedPayload | { key: string; iv: string; bytes: number; checksum: string } | null;
+  EncryptedPayload | { key: string; iv: string; bytes: number; checksum: string; etag?: string } | null;
 
 export const encryptionRotations = pgTable(
   'encryption_rotations',

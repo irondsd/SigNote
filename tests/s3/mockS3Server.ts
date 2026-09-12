@@ -8,13 +8,23 @@ import type { AddressInfo } from 'net';
  * It began as a two-verb key/value server for the file-upload specs. Rotation
  * needs more from it, because the properties the rotation design leans on are
  * storage properties: an accepted object cannot be overwritten by a PUT grant
- * that is still valid, a body is bound to the checksum it was signed for, and a
+ * that is still valid, a body is bound to the length it was signed for, and a
  * verification read returns the exact bytes that were stored. A mock that
  * accepts every PUT would let all three regress silently.
  *
- * So this now models conditional create (`If-None-Match: *`), SHA-256 checksum
- * binding on write and on `HeadObject`, and browser CORS for the signed
- * cross-origin transfers. It deliberately does **not** verify signatures: the
+ * So this now models conditional create (`If-None-Match: *`), signed-length
+ * binding, entity tags on `GetObject`/`HeadObject`, and browser CORS for the
+ * signed cross-origin transfers.
+ *
+ * It deliberately behaves like **Cloudflare R2**, not like MinIO, on one point:
+ * an `x-amz-checksum-sha256` upload header is rejected as `NotImplemented`, and
+ * no checksum is ever returned from a read. R2 records SHA-256 only as a
+ * composite (multipart) checksum, so a single `PutObject` gets none — asking
+ * the provider to validate or report one is exactly the dependency that broke
+ * rotation for vaults with attachments. Keeping the mock strict here means
+ * reintroducing it fails E2E instead of only failing in production.
+ *
+ * It deliberately does **not** verify signatures: the
  * production adapter's signing is exercised against real MinIO by
  * `tests/rotation/storage.ts`, and reproducing SigV4 here would test
  * this file rather than the app.
@@ -33,7 +43,7 @@ export interface MockS3Server {
   objectCount: () => number;
 }
 
-type StoredObject = { body: Buffer; contentType: string; checksum: string };
+type StoredObject = { body: Buffer; contentType: string; etag: string };
 
 type Fault = { method: string; keyPattern: string; status: number; remaining: number };
 
@@ -59,17 +69,15 @@ function xmlError(res: http.ServerResponse, status: number, code: string, messag
 /**
  * Wide open because every origin in the run is a localhost port chosen at
  * startup. `ExposeHeaders` matters as much as the allow list: without it the
- * browser hides the checksum header from the page's own read-back.
+ * browser hides the `ETag` from the page's own read-back.
  */
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,PUT,HEAD,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': '*',
-  'Access-Control-Expose-Headers': 'ETag,Content-Length,x-amz-checksum-sha256',
+  'Access-Control-Expose-Headers': 'ETag,Content-Length',
   'Access-Control-Max-Age': '600',
 };
-
-const sha256 = (body: Buffer) => crypto.createHash('sha256').update(body).digest('base64');
 
 export async function startMockS3Server(): Promise<MockS3Server> {
   const store = new Map<string, StoredObject>();
@@ -133,11 +141,11 @@ export async function startMockS3Server(): Promise<MockS3Server> {
       let corrupted = 0;
       for (const [key, object] of store) {
         if (payload.keyPattern && key.includes(payload.keyPattern)) {
-          // Same length, different bytes: a checksum or a decrypt has to be what
-          // notices, not a size comparison.
           const body = Buffer.from(object.body);
           body[0] ^= 0xff;
-          store.set(key, { ...object, body, checksum: sha256(body) });
+          // The entity tag moves with the bytes, so what notices the tamper is
+          // the re-hash at finalize or a decrypt — never a size comparison.
+          store.set(key, { ...object, body, etag: `"${crypto.createHash('md5').update(body).digest('hex')}"` });
           corrupted++;
         }
       }
@@ -168,21 +176,22 @@ export async function startMockS3Server(): Promise<MockS3Server> {
       if (req.headers['if-none-match'] === '*' && store.has(key)) {
         return xmlError(res, 412, 'PreconditionFailed', 'At least one of the preconditions did not hold');
       }
-      const claimed = req.headers['x-amz-checksum-sha256'];
-      const actual = sha256(body);
-      if (typeof claimed === 'string' && claimed !== actual) {
-        return xmlError(res, 400, 'BadDigest', 'The checksum did not match the body');
+      // As R2 does: the provider has no full-object SHA-256 to validate against,
+      // so a grant that signs one cannot be uploaded at all.
+      if (req.headers['x-amz-checksum-sha256'] !== undefined) {
+        return xmlError(res, 501, 'NotImplemented', "Header 'x-amz-checksum-sha256' is not implemented");
       }
       const declared = req.headers['content-length'];
       if (typeof declared === 'string' && Number(declared) !== body.length) {
         return xmlError(res, 400, 'IncompleteBody', 'The body did not match the declared length');
       }
+      const etag = `"${crypto.createHash('md5').update(body).digest('hex')}"`;
       store.set(key, {
         body,
         contentType: (req.headers['content-type'] as string) ?? 'application/octet-stream',
-        checksum: actual,
+        etag,
       });
-      res.writeHead(200, { ETag: `"${crypto.createHash('md5').update(body).digest('hex')}"`, ...CORS });
+      res.writeHead(200, { ETag: etag, ...CORS });
       res.end();
       return;
     }
@@ -193,7 +202,9 @@ export async function startMockS3Server(): Promise<MockS3Server> {
       res.writeHead(200, {
         'Content-Type': object.contentType,
         'Content-Length': object.body.length,
-        'x-amz-checksum-sha256': object.checksum,
+        // `verify` takes the entity tag from this response and records it; no
+        // checksum is offered, exactly as on R2.
+        ETag: object.etag,
         ...CORS,
       });
       res.end(object.body);
@@ -210,9 +221,8 @@ export async function startMockS3Server(): Promise<MockS3Server> {
       res.writeHead(200, {
         'Content-Type': object.contentType,
         'Content-Length': object.body.length,
-        // Returned unconditionally. The SDK asks for it with ChecksumMode, and
-        // an omitted header would make `verify()` fail for the wrong reason.
-        'x-amz-checksum-sha256': object.checksum,
+        // What `verifyMetadata` re-identifies the object by at commit.
+        ETag: object.etag,
         ...CORS,
       });
       res.end();

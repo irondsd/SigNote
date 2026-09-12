@@ -4,8 +4,9 @@
  *
  * It is not a mock of the engine's calls: it holds real staged rows, binds
  * idempotency keys to payload digests, refuses a Seal body whose wrapper is not
- * staged, and keeps a real object store with checksum and conditional-create
- * behaviour. It shares `digest()` with the production server rather than
+ * staged, and keeps a real object store with signed-length and conditional-create
+ * behaviour — the checksum is proven by reading bytes back at finalize, as the
+ * real adapter does. It shares `digest()` with the production server rather than
  * reimplementing it, so a client digest that disagrees fails here too.
  *
  * What it deliberately does not model is authorization, account locking or the
@@ -68,6 +69,10 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
   const faults = options.faults ?? new Map<string, Error>();
   const calls: string[] = [];
   let grantCounter = 0;
+  /** The length each upload grant was signed for. The provider enforces this
+   * (a signed `content-length` is not optional) even though it is not asked to
+   * validate the checksum. */
+  const grantBytes = new Map<string, number>();
 
   const rows = new Map<string, Row>(
     seed.map((item) => [
@@ -190,11 +195,12 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
       if (!row.fileGrant || row.fileGrant.iv !== file.iv || row.fileGrant.checksum !== file.checksum) {
         row.fileGrant = { key: `rotation/${operationId}/object-${++grantCounter}`, ...file };
       }
+      grantBytes.set(row.fileGrant.key, row.fileGrant.bytes);
       return {
         object: row.fileGrant,
         grant: {
           url: `memory://${row.fileGrant.key}`,
-          headers: { 'if-none-match': '*', 'x-amz-checksum-sha256': row.fileGrant.checksum },
+          headers: { 'if-none-match': '*', 'content-type': 'application/octet-stream' },
         },
         expiresAt: new Date(Date.now() + 60_000),
       };
@@ -207,9 +213,12 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
       const stored = objects.get(objectKey);
       // Verification reads the origin bytes, never the uploader's claim.
       if (!stored || stored.byteLength !== row.fileGrant.bytes || sha256(stored) !== row.fileGrant.checksum) {
+        // Conditional create makes this key unusable for a retry, so it is
+        // retired here exactly as the service retires it.
+        row.fileGrant = null;
         throw new FakeRotationError('OBJECT_MISMATCH');
       }
-      const staged = stageValue(row, row.fileGrant, stageKey);
+      const staged = stageValue(row, { ...row.fileGrant, etag: `etag:${objectKey}` }, stageKey);
       staged.fileVerified = true;
       return { ...staged, operationId } as unknown as RotationItem;
     },
@@ -269,7 +278,10 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
         (error as { data?: unknown }).data = { code: 'CONFLICT', httpStatus: 412 };
         throw error;
       }
-      if (headers['x-amz-checksum-sha256'] !== sha256(body)) throw new Error('BadDigest');
+      // The grant binds length and create-only semantics, not the checksum: the
+      // provider is not asked to validate it, so a wrong body is accepted here
+      // and rejected by `finalizeFile` reading it back.
+      if (body.byteLength !== grantBytes.get(objectKey)) throw new Error('IncorrectContentLength');
       objects.set(objectKey, body);
     },
   };

@@ -1,11 +1,29 @@
-/** Real signed-transfer integration tests on the isolated Docker MinIO only. */
+/**
+ * Real signed-transfer integration tests against the isolated Docker MinIO —
+ * or, with `ROTATION_TEST_S3_*` set, against a throwaway bucket on a real
+ * provider, which is the only way to learn whether that provider honours the
+ * conditional create and signed-length binding the adapter depends on.
+ *
+ * It does NOT require a provider checksum. The adapter deliberately asks for
+ * none, because R2 has no full-object SHA-256 for a single `PutObject`; the
+ * checksum is proven by `verify` reading the accepted bytes back instead.
+ */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { createRotationObjectStore, type RotationObject } from '../../src/server/rotation/objectStore';
-import { ensureRotationBucket, localRotationS3, rotationTestBucket } from './localResources';
+import {
+  ensureRotationBucket,
+  localRotationS3,
+  remoteRotationStore,
+  rotationStoreEndpoint,
+  rotationTestBucket,
+} from './localResources';
+
+/** The browser origin the bucket's CORS policy must admit. */
+const appOrigin = process.env.ROTATION_TEST_APP_ORIGIN ?? 'http://localhost:5000';
 
 const client = localRotationS3();
 const store = createRotationObjectStore(client, rotationTestBucket);
@@ -20,14 +38,18 @@ try {
     objects.push(object);
     const grant = await store.uploadGrant(object, 2);
     const signedHeaders = new URL(grant.url).searchParams.get('X-Amz-SignedHeaders')!.split(';');
-    for (const header of ['content-length', 'if-none-match', 'x-amz-checksum-sha256'])
-      assert(signedHeaders.includes(header));
+    for (const header of ['content-length', 'if-none-match']) assert(signedHeaders.includes(header));
+    // Not signed and not sent: no provider is asked to validate a full-object
+    // SHA-256, because R2 has none for a single `PutObject`.
+    assert(!signedHeaders.includes('x-amz-checksum-sha256'), 'grant must not bind a provider checksum');
+    assert(!('x-amz-checksum-sha256' in grant.headers));
     const start = performance.now();
     const put = await fetch(grant.url, { method: 'PUT', headers: grant.headers, body: new Uint8Array(body) });
     assert.equal(put.status, 200, 'signed PUT');
     const repeat = await fetch(grant.url, { method: 'PUT', headers: grant.headers, body: new Uint8Array(body) });
     assert.equal(repeat.status, 412, 'old grant cannot overwrite accepted bytes');
-    await store.verify(object);
+    const { etag } = await store.verify(object);
+    assert(etag.length > 0 && !etag.includes('"'), 'verify must report a normalized entity tag');
     const read = await fetch(await store.readGrant(object, 30), { cache: 'no-store' });
     assert.equal(read.status, 200);
     assert.equal(read.headers.get('cache-control'), 'private, no-store');
@@ -39,51 +61,89 @@ try {
     });
     assert.notEqual(altered.status, 200, 'cannot remove signed conditional header');
     await assert.rejects(store.verify({ ...object, bytes: bytes + 1 }));
-    // Commit re-verifies with provider metadata alone rather than a second
-    // streamed re-hash, so the provider has to report the SHA-256 it computed
-    // over the bytes it accepted — an ETag would not be the same claim.
-    await store.verifyMetadata(object);
-    await assert.rejects(store.verifyMetadata({ ...object, bytes: bytes + 1 }));
+    // Commit re-identifies the object by length and the entity tag `verify`
+    // recorded, rather than paying for a second streamed re-hash. It is an
+    // identity check on bytes that conditional create has already frozen.
+    await store.verifyMetadata({ ...object, etag });
+    await assert.rejects(store.verifyMetadata({ ...object, etag, bytes: bytes + 1 }));
+    await assert.rejects(store.verifyMetadata({ ...object, etag: 'not-the-stored-tag' }));
     await assert.rejects(
-      store.verifyMetadata({ ...object, checksum: createHash('sha256').update('not these bytes').digest('base64') }),
+      store.verifyMetadata({ ...object, etag: '' }),
+      'a receipt with no tag cannot be re-identified',
     );
     observations.push({
       bytes,
       uploadAndReadbackMs: performance.now() - start,
       overwriteStatus: repeat.status,
       tamperedHeaderStatus: altered.status,
+      etagReported: true,
     });
   }
+  // Each of the three negative cases gets its own key, because a corrupt body
+  // is now *accepted* by the provider and would poison a shared one.
   const body = randomBytes(32);
-  const object = store.allocate(randomUUID(), body.length, createHash('sha256').update(body).digest('base64'));
-  objects.push(object);
-  const grant = await store.uploadGrant(object, 1);
+  const digestOf = (value: Uint8Array) => createHash('sha256').update(value).digest('base64');
+
+  // 1. Same length, wrong bytes. Nothing at the provider is in a position to
+  // notice, so the read-back in `verify` is what has to — and the key is then
+  // unusable, which is exactly why the service retires it and reserves a new one.
+  const corruptTarget = store.allocate(randomUUID(), body.length, digestOf(body));
+  objects.push(corruptTarget);
+  const corruptGrant = await store.uploadGrant(corruptTarget, 60);
   const corrupt = new Uint8Array(body);
   corrupt[0] ^= 1;
-  const mismatch = await fetch(grant.url, { method: 'PUT', headers: grant.headers, body: corrupt });
-  assert.equal(mismatch.status, 400, 'provider must validate checksum');
-  const changedSize = await fetch(grant.url, { method: 'PUT', headers: grant.headers, body: new Uint8Array(33) });
+  const corruptPut = await fetch(corruptGrant.url, { method: 'PUT', headers: corruptGrant.headers, body: corrupt });
+  assert.equal(corruptPut.status, 200, 'provider accepts a body it was never given a checksum for');
+  await assert.rejects(store.verify(corruptTarget), 'read-back must reject bytes the client did not declare');
+  assert.equal(
+    (await fetch(corruptGrant.url, { method: 'PUT', headers: corruptGrant.headers, body: new Uint8Array(body) }))
+      .status,
+    412,
+    'a poisoned key cannot be repaired by re-uploading, so it must be retired',
+  );
+
+  // 2. A body whose length is not the one the grant was signed for.
+  const lengthTarget = store.allocate(randomUUID(), body.length, digestOf(body));
+  objects.push(lengthTarget);
+  const lengthGrant = await store.uploadGrant(lengthTarget, 60);
+  const changedSize = await fetch(lengthGrant.url, {
+    method: 'PUT',
+    headers: lengthGrant.headers,
+    body: new Uint8Array(33),
+  });
   assert.equal(changedSize.status, 403, 'signed length must match body');
+
+  // 3. An expired grant creates nothing.
+  const expiringTarget = store.allocate(randomUUID(), body.length, digestOf(body));
+  objects.push(expiringTarget);
+  const expiringGrant = await store.uploadGrant(expiringTarget, 1);
   await new Promise((resolve) => setTimeout(resolve, 2100));
-  const expired = await fetch(grant.url, { method: 'PUT', headers: grant.headers, body: new Uint8Array(body) });
+  const expired = await fetch(expiringGrant.url, {
+    method: 'PUT',
+    headers: expiringGrant.headers,
+    body: new Uint8Array(body),
+  });
   assert.equal(expired.status, 403, 'expired grants cannot create data');
-  await assert.rejects(client.send(new GetObjectCommand({ Bucket: rotationTestBucket, Key: object.key })));
-  const cors = await fetch(`http://127.0.0.1:9100/${rotationTestBucket}/cors-probe`, {
+  await assert.rejects(client.send(new GetObjectCommand({ Bucket: rotationTestBucket, Key: expiringTarget.key })));
+  await assert.rejects(client.send(new GetObjectCommand({ Bucket: rotationTestBucket, Key: lengthTarget.key })));
+  const cors = await fetch(`${rotationStoreEndpoint}/${rotationTestBucket}/cors-probe`, {
     method: 'OPTIONS',
     headers: {
-      Origin: 'http://localhost:5000',
+      Origin: appOrigin,
       'Access-Control-Request-Method': 'PUT',
-      'Access-Control-Request-Headers': 'if-none-match,x-amz-checksum-sha256,content-type',
+      'Access-Control-Request-Headers': 'if-none-match,content-type',
     },
   });
-  assert.equal(cors.headers.get('access-control-allow-origin'), 'http://localhost:5000');
+  assert.equal(cors.headers.get('access-control-allow-origin'), appOrigin, `bucket CORS must admit ${appOrigin}`);
   observations.push({
-    checksumMismatchStatus: mismatch.status,
+    corruptBodyAcceptedByProvider: corruptPut.status,
+    corruptBodyRejectedByReadBack: true,
+    poisonedKeyReuseStatus: 412,
     wrongLengthStatus: changedSize.status,
     expiredGrantStatus: expired.status,
     browserOriginCors: true,
   });
-  if (process.argv.includes('--restart')) {
+  if (process.argv.includes('--restart') && !remoteRotationStore) {
     // These accepted objects must survive loss of the MinIO process. The
     // store is shared with local development; only the test bucket is isolated.
     await promisify(execFile)('docker', ['compose', 'restart', 'minio']);
@@ -116,7 +176,9 @@ try {
 process.stdout.write(
   JSON.stringify(
     {
-      scope: 'isolated local MinIO, not production-provider qualification',
+      scope: remoteRotationStore
+        ? `signed transfers against ${rotationStoreEndpoint} bucket ${rotationTestBucket}`
+        : 'isolated local MinIO, not production-provider qualification',
       generatedAt: new Date().toISOString(),
       observations,
     },

@@ -36,13 +36,22 @@ import {
 type Operation = typeof encryptionRotations.$inferSelect;
 type Item = typeof rotationItems.$inferSelect;
 type Ref = { kind: RotationKind; resourceId: string };
-type FileValue = { key: string; iv: string; bytes: number; checksum: string };
+type FileValue = { key: string; iv: string; bytes: number; checksum: string; etag?: string };
 type Storage = ReturnType<typeof createRotationObjectStore>;
 const terminal = (op: Operation) => ['committed', 'cleaned', 'aborted'].includes(op.phase);
 const committed = (op: Operation) => op.phase === 'committed' || op.phase === 'cleaned';
 const fileValue = (value: RotationCipherValue): FileValue => {
   if (!value || !('key' in value)) throw new RotationError('SOURCE_CORRUPT');
   return value;
+};
+/** A staged replacement whose bytes `finalizeFile` read back, so commit can
+ * re-identify the object by the entity tag recorded then. A replacement without
+ * one was written by an older build and cannot be re-identified; it must be
+ * staged again rather than activated on length alone. */
+const verifiedFileValue = (value: RotationCipherValue): FileValue & { etag: string } => {
+  const file = fileValue(value);
+  if (!file.etag) throw new RotationError('INCOMPLETE');
+  return { ...file, etag: file.etag };
 };
 const itemWhere = (operationId: string, ref: Ref) =>
   and(
@@ -288,6 +297,31 @@ export function createRotationService(options: {
       .returning();
     await touch(db, op, { stagedBytes: op.stagedBytes + bytes });
     return result;
+  }
+  /** Drop a reservation whose stored object cannot be accepted, so the next
+   * `reserveFile` allocates a new key for the same content.
+   *
+   * The object is queued rather than deleted: an upload grant for it may still
+   * be in flight, and deleting now would let that delayed PUT recreate an
+   * object nothing tracks. Quota therefore stays charged until grant-safe
+   * cleanup succeeds, exactly as it does for a cancelled reservation.
+   */
+  async function retireGrant(actor: Actor, token: Worker, resourceId: string, key: string) {
+    try {
+      await withAccountLock(actor.userId, async (db, state) => {
+        const op = await worker(db, actor, token, state);
+        const ref = { kind: 'file' as const, resourceId };
+        const item = await getItem(db, op.id, ref);
+        // A concurrent attempt may already have retired or superseded this
+        // grant, and a staged item's object was accepted and must be kept.
+        if (!item.fileGrant || item.fileGrant.key !== key || item.replacementDigest !== null) return;
+        await queue(db, op, item.fileGrant.key, item.grantExpiresAt ?? now(), item.fileGrant.bytes);
+        await db.update(rotationItems).set({ fileGrant: null, grantExpiresAt: null }).where(itemWhere(op.id, ref));
+      });
+    } catch {
+      // Never mask the verification failure that brought us here. `abort` still
+      // queues the grant, and the next finalize attempt retries this retirement.
+    }
   }
 
   const service = {
@@ -558,12 +592,22 @@ export function createRotationService(options: {
       });
       const sourceInfo = await storage.inspectSource(inspected.source.key);
       if (sourceInfo.bytes !== inspected.source.bytes) throw new RotationError('SOURCE_CORRUPT');
-      await storage.verify(inspected.grant);
+      let verified: { etag: string };
+      try {
+        verified = await storage.verify(inspected.grant);
+      } catch (error) {
+        // The bytes at this key are not the bytes we asked for, and conditional
+        // create means they can never be replaced — so a retry that reused this
+        // reservation would fail forever on a 412. Retire the key instead, and
+        // let the next `reserveFile` allocate a fresh one for the same content.
+        await retireGrant(actor, token, resourceId, key);
+        throw error;
+      }
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
         const item = await getItem(db, op.id, { kind: 'file', resourceId });
         if (!item.fileGrant || digest(item.fileGrant) !== digest(inspected.grant)) throw new RotationError('CONFLICT');
-        const staged = await stageValue(db, op, item, item.fileGrant, stageKey);
+        const staged = await stageValue(db, op, item, { ...item.fileGrant, etag: verified.etag }, stageKey);
         await db.update(rotationItems).set({ fileVerified: true }).where(itemWhere(op.id, item));
         return { ...staged, fileVerified: true };
       });
@@ -595,12 +639,13 @@ export function createRotationService(options: {
       if (preparation.receipt) return preparation.receipt;
       for (const item of preparation.files) {
         const source = fileValue(item.source);
-        const replacement = fileValue(item.replacement);
+        const replacement = verifiedFileValue(item.replacement);
         if ((await storage.inspectSource(source.key)).bytes !== source.bytes) throw new RotationError('SOURCE_CORRUPT');
-        // Metadata only. `finalizeFile` already re-hashed these bytes end to end,
-        // and conditional create means the object cannot have changed since —
-        // so a second full read would add up to 100 MiB of transfer to the one
-        // request that must not time out, four times over if `commit` retries.
+        // Length and entity tag only. `finalizeFile` already re-hashed these
+        // bytes end to end, and conditional create means the object cannot have
+        // changed since — so a second full read would add up to 100 MiB of
+        // transfer to the one request that must not time out, four times over if
+        // `commit` retries.
         await storage.verifyMetadata(replacement);
       }
       return withAccountLock(actor.userId, async (db, state) => {

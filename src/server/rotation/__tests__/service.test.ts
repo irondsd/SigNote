@@ -60,6 +60,7 @@ const PLAIN_FILE_ID = 'rotation-plain-file';
 type FakeObject = {
   bytes: number;
   checksum: string;
+  etag?: string;
   body?: Uint8Array;
 };
 type FakeStoredObject = FakeObject & { key: string };
@@ -75,14 +76,18 @@ type FakeStorage = {
     url: string;
     headers: Record<string, string>;
   }>;
-  verify: (object: FakeObject & { key: string }) => Promise<void>;
-  verifyMetadata: (object: FakeObject & { key: string }) => Promise<void>;
+  verify: (object: FakeObject & { key: string }) => Promise<{ etag: string }>;
+  verifyMetadata: (object: FakeObject & { key: string; etag: string }) => Promise<void>;
   readGrant: (object: FakeObject & { key: string }, expiresIn: number) => Promise<string>;
   removeKey: (key: string) => Promise<void>;
   sourceBytes: Map<string, number>;
   objects: Map<string, FakeStoredObject>;
   removed: string[];
 };
+
+/** An entity tag is the provider's name for the bytes it holds, so the fake
+ * derives one from those bytes rather than storing an independent value. */
+const etagFor = (object: FakeObject) => object.etag ?? `etag:${object.bytes}:${object.checksum}`;
 
 function createFakeStorage(): FakeStorage {
   let sequence = 0;
@@ -106,17 +111,19 @@ function createFakeStorage(): FakeStorage {
       return object;
     },
     uploadGrant: async (object) => ({ url: `upload://${object.key}`, headers: {} }),
+    // Like the real adapter, this is the only place the checksum is proven, and
+    // it reports the entity tag the provider would have for those bytes.
     verify: async (object) => {
       const stored = objects.get(object.key);
       if (!stored || stored.bytes !== object.bytes || stored.checksum !== object.checksum)
         throw new Error('object mismatch');
+      return { etag: etagFor(stored) };
     },
-    // The real adapter's metadata-only re-check. The fake store's `objects`
-    // entry *is* the provider's metadata, so this is the same assertion
-    // `verify` makes without the streamed re-hash.
+    // The real adapter's metadata-only re-check: length plus the entity tag
+    // recorded at finalize, never a second re-hash.
     verifyMetadata: async (object) => {
       const stored = objects.get(object.key);
-      if (!stored || stored.bytes !== object.bytes || stored.checksum !== object.checksum)
+      if (!stored || stored.bytes !== object.bytes || !object.etag || etagFor(stored) !== object.etag)
         throw new Error('object mismatch');
     },
     readGrant: async (object) => `read://${object.key}`,
@@ -819,6 +826,60 @@ describe('rotation service against real PGlite migrations', () => {
     expect(fixture.storage.removed.filter((key) => key === firstGrant.object.key)).toHaveLength(2);
     expect(fixture.storage.objects.has(firstGrant.object.key)).toBe(false);
     await expect(service.reserveFile(fixture.actor, second.token, ENCRYPTED_FILE_ID, input)).resolves.toBeDefined();
+  });
+
+  it('retires the key of an object it refused, so the same file can be staged again', async () => {
+    const fixture = await seedFixture(db);
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, fixture.sourceFile);
+    const input = {
+      iv: rotated.iv,
+      bytes: rotated.cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+    const service = serviceFor(fixture);
+    const prepared = await begin(fixture, service);
+    const first = await service.reserveFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, input);
+
+    // The provider is no longer asked to validate a checksum, so a body that
+    // does not match the client's declaration is accepted and stored. The
+    // read-back in `verify` is what refuses it.
+    fixture.storage.objects.set(first.object.key, {
+      ...first.object,
+      checksum: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      body: new Uint8Array(input.bytes),
+    });
+    await expect(
+      service.finalizeFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, first.object.key, 'file-stage'),
+    ).rejects.toBeDefined();
+
+    // Conditional create means those bytes can never be replaced, so reusing
+    // this reservation would fail forever. The grant is gone and the key is
+    // queued for grant-safe cleanup rather than deleted while a PUT may land.
+    const [item] = await db
+      .select()
+      .from(rotationItems)
+      .where(and(eq(rotationItems.operationId, prepared.token.operationId), eq(rotationItems.kind, 'file')));
+    expect(item.fileGrant).toBeNull();
+    expect(item.replacementDigest).toBeNull();
+    await expect(
+      db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, first.object.key)),
+    ).resolves.toHaveLength(1);
+
+    // A retry with the identical content therefore gets a fresh key, and the
+    // correct bytes there stage normally.
+    const second = await service.reserveFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, input);
+    expect(second.object.key).not.toBe(first.object.key);
+    fixture.storage.objects.get(second.object.key)!.body = new Uint8Array(input.bytes);
+    const finalized = await service.finalizeFile(
+      fixture.actor,
+      prepared.token,
+      ENCRYPTED_FILE_ID,
+      second.object.key,
+      'file-stage',
+    );
+    expect(finalized.fileVerified).toBe(true);
+    // Commit re-identifies the object by the tag recorded here, so it has one.
+    expect((finalized.replacement as { etag?: string }).etag).toBeTruthy();
   });
 
   it("reclaims the account's own abandoned objects on begin, so a retry is not blocked until the sweep", async () => {
