@@ -732,6 +732,10 @@ export const rotationCleanup = pgTable(
     attempts: integer('attempts').notNull().default(0),
     lastError: text('last_error'),
     completedAt: ts('completed_at'),
+    /** When the object was last confirmed gone. A tombstone is only retired
+     * once this is at or past the end of its re-check window, so a missed
+     * sweep delays retirement instead of stranding a late-arriving object. */
+    lastSweptAt: ts('last_swept_at'),
   },
   (t) => [
     uniqueIndex('rotation_cleanup_object_unique').on(t.objectKey),

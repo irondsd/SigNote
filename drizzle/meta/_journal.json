@@ -85,6 +85,13 @@
       "when": 1789084989828,
       "tag": "0011_rotation_file_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789170627884,
+      "tag": "0012_rotation_cleanup_last_swept",
+      "breakpoints": true
     }
   ]
 }

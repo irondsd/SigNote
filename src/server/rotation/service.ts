@@ -242,6 +242,7 @@ export function createRotationService(options: {
             .update(rotationCleanup)
             .set({
               completedAt: task.completedAt ?? now(),
+              lastSweptAt: now(),
               attempts: task.attempts + 1,
               lastError: null,
               // A PUT begun before expiry may finish after deletion. Durable
@@ -705,9 +706,26 @@ export function createRotationService(options: {
       // rotation's worth of them is enough to consume a whole sweep's budget
       // from then on, and real deletes — which are what release an account's
       // temporary-storage reservation — stop happening.
+      //
+      // The window closing is not on its own enough: age is measured from the
+      // first delete, but what makes retirement safe is a *sweep* that found
+      // the key gone after the last grant that could recreate it had expired.
+      // If the schedule skips the whole window — a paused cron, a deployment
+      // gap — a late PUT that landed after the first delete is still there,
+      // and dropping the row here would leak it with nothing left pointing at
+      // it. So retire only what `last_swept_at` says was re-checked at or past
+      // the end of the window; anything else stays until a sweep confirms it,
+      // which the drain below does.
       await getDb()
         .delete(rotationCleanup)
-        .where(lte(rotationCleanup.completedAt, new Date(now().getTime() - limits.cleanupTombstoneMs)));
+        .where(
+          and(
+            lte(rotationCleanup.completedAt, new Date(now().getTime() - limits.cleanupTombstoneMs)),
+            // NULL `last_swept_at` (a row written before the column existed)
+            // fails this comparison, so it is re-checked once rather than dropped.
+            sql`${rotationCleanup.lastSweptAt} >= ${rotationCleanup.completedAt} + make_interval(secs => ${limits.cleanupTombstoneMs / 1000})`,
+          ),
+        );
       const removed = await drainCleanup({ limit });
       const finished = await getDb()
         .select()

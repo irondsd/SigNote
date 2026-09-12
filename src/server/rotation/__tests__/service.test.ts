@@ -908,14 +908,96 @@ describe('rotation service against real PGlite migrations', () => {
     await service.cleanup();
     expect(fixture.storage.removed).toHaveLength(2);
 
-    // Past it: the row is dropped rather than consuming a sweep's budget for
-    // the rest of the deployment's life.
+    // Past it: one last sweep confirms the key is gone, and only then is the
+    // row dropped rather than consuming a sweep's budget for the rest of the
+    // deployment's life.
     fixture.now.value = new Date(tombstone.completedAt!.getTime() + 48 * 60 * 60 * 1000 + 1);
+    await service.cleanup();
+    const [confirmed] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key));
+    expect(confirmed.lastSweptAt).toEqual(fixture.now.value);
+    expect(fixture.storage.removed).toHaveLength(3);
+
     await service.cleanup();
     await expect(
       db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key)),
     ).resolves.toHaveLength(0);
+    expect(fixture.storage.removed).toHaveLength(3);
+  });
+
+  it('does not retire a tombstone the sweep skipped, so a late object still gets deleted', async () => {
+    const fixture = await seedFixture(db);
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, fixture.sourceFile);
+    const input = {
+      iv: rotated.iv,
+      bytes: rotated.cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+    const service = serviceFor(fixture);
+    const prepared = await begin(fixture, service);
+    const grant = await service.reserveFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, input);
+    await service.cancel(fixture.actor, prepared.token);
+
+    fixture.now.value = new Date(grant.expiresAt.getTime() + 1);
+    await service.cleanup();
+    const [tombstone] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key));
+    expect(fixture.storage.removed).toEqual([grant.object.key]);
+
+    // A PUT that began before the grant expired lands after the delete, and
+    // then the daily sweep does not run for the whole re-check window.
+    fixture.storage.objects.set(grant.object.key, { ...grant.object, body: new Uint8Array(input.bytes) });
+    fixture.now.value = new Date(tombstone.completedAt!.getTime() + 48 * 60 * 60 * 1000 + 60_000);
+    await service.cleanup();
+
+    // Retiring the row on age alone would leave that object with nothing left
+    // pointing at it. It is deleted first, and only the next sweep retires it.
+    expect(fixture.storage.objects.has(grant.object.key)).toBe(false);
     expect(fixture.storage.removed).toHaveLength(2);
+    await service.cleanup();
+    await expect(
+      db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key)),
+    ).resolves.toHaveLength(0);
+  });
+
+  it('keeps a tombstone whose re-delete failed across the deadline, until one succeeds', async () => {
+    const fixture = await seedFixture(db);
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, fixture.sourceFile);
+    const input = {
+      iv: rotated.iv,
+      bytes: rotated.cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+    const service = serviceFor(fixture);
+    const prepared = await begin(fixture, service);
+    const grant = await service.reserveFile(fixture.actor, prepared.token, ENCRYPTED_FILE_ID, input);
+    await service.cancel(fixture.actor, prepared.token);
+
+    fixture.now.value = new Date(grant.expiresAt.getTime() + 1);
+    await service.cleanup();
+    const [tombstone] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key));
+
+    // A late PUT recreates the key, and every re-delete past the deadline is
+    // refused by the provider.
+    fixture.storage.objects.set(grant.object.key, { ...grant.object, body: new Uint8Array(input.bytes) });
+    const removeKey = fixture.storage.removeKey;
+    fixture.storage.removeKey = async () => {
+      throw new Error('provider unavailable');
+    };
+    fixture.now.value = new Date(tombstone.completedAt!.getTime() + 48 * 60 * 60 * 1000 + 1);
+    await service.cleanup();
+    const [failed] = await db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key));
+    expect(failed.lastError).toBe('OBJECT_DELETE_FAILED');
+    expect(failed.lastSweptAt).toEqual(tombstone.completedAt);
+    expect(fixture.storage.objects.has(grant.object.key)).toBe(true);
+
+    // The provider recovers: the object goes, and only then does the row.
+    fixture.storage.removeKey = removeKey;
+    fixture.now.value = new Date(failed.notBefore.getTime() + 1);
+    await service.cleanup();
+    expect(fixture.storage.objects.has(grant.object.key)).toBe(false);
+    await service.cleanup();
+    await expect(
+      db.select().from(rotationCleanup).where(eq(rotationCleanup.objectKey, grant.object.key)),
+    ).resolves.toHaveLength(0);
   });
 
   it('retires a drained operation once its account has been erased', async () => {
@@ -943,7 +1025,11 @@ describe('rotation service against real PGlite migrations', () => {
       db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
     ).resolves.toHaveLength(1);
 
+    // Past the re-check window the tombstone is swept one final time, and the
+    // sweep after that — the one that finds nothing left to delete — retires
+    // both it and the operation row.
     fixture.now.value = new Date(fixture.now.value.getTime() + 49 * 60 * 60 * 1000);
+    await serviceFor(fixture).cleanup();
     await serviceFor(fixture).cleanup();
     await expect(
       db.select().from(encryptionRotations).where(eq(encryptionRotations.userId, USER_ID)),
