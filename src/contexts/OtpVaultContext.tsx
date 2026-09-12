@@ -80,6 +80,11 @@ type OtpVaultValue = {
   clockSuspect: boolean;
   /** Vaults belonging to *other* accounts, offered for removal on sign-in. */
   strandedUserIds: string[];
+  /** False while `phase` is 'ready' but no record snapshot has arrived yet —
+   *  the list is empty because nothing has been fetched, not because the vault
+   *  is. Enrollment is the one path that gets there, so the page waits for the
+   *  first sync instead of flashing the empty state. */
+  hydrated: boolean;
 
   enroll: (mek: CryptoKey, options: { trust: boolean }) => Promise<void>;
   forget: () => Promise<void>;
@@ -172,6 +177,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const [records, setRecords] = useState<AuthRecord[]>([]);
   const [serverTimeOffsetMs, setOffset] = useState(0);
   const [strandedUserIds, setStranded] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   // The key never enters React state: it is not renderable, and keeping it in a
   // ref avoids it being captured by stale closures across a re-render.
@@ -237,6 +243,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
         setOffset(0);
         setSyncState('signed-out');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setHydrated(true);
         setResolvedSessionKey(resolvingSessionKey);
         return;
       }
@@ -254,6 +261,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
         setOffset(0);
         setSyncState('idle');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setHydrated(true);
         setResolvedSessionKey(resolvingSessionKey);
         return;
       }
@@ -270,6 +278,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       setRecords(decrypted);
       setSyncState(sessionStatus === 'authenticated' ? 'idle' : 'signed-out');
       setPhase('ready');
+      setHydrated(true);
       setResolvedSessionKey(resolvingSessionKey);
     })();
 
@@ -358,6 +367,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
             // longer read. Clear them before anything renders the new snapshot.
             setRecords([]);
             setPhase('not-enrolled');
+            setHydrated(true);
             setSyncState('online');
           }
         }
@@ -381,9 +391,14 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (!isCurrent()) return;
       setOffset(offset);
       await refresh(next);
-      if (isCurrent()) setSyncState('online');
+      if (!isCurrent()) return;
+      setHydrated(true);
+      setSyncState('online');
     } catch (err) {
       if (!isCurrent()) return;
+      // The snapshot is as good as it is going to get; show the list (or the
+      // empty state) alongside the offline banner rather than spinning on.
+      setHydrated(true);
       if (await handleOtpUnauthorized(err)) {
         setSyncState('signed-out');
       } else {
@@ -476,6 +491,8 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       generationRef.current = generation;
       setKey(key, trust);
       setVaultUserId(sessionUserId);
+      // No records have been fetched for this key yet. See `hydrated`.
+      setHydrated(false);
       setPhase('ready');
     },
     [sessionUserId, setKey],
@@ -659,6 +676,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
+      hydrated,
       enroll,
       forget,
       forgetUser,
@@ -680,6 +698,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
+      hydrated,
       enroll,
       forget,
       forgetUser,
