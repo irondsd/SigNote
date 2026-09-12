@@ -470,7 +470,7 @@ export default function RotateKeysPage() {
         )}
         {busy && (
           <p className={s.hint} role="status">
-            <Loader2 size={14} aria-hidden /> Working…
+            <Loader2 size={14} aria-hidden className="animate-spin" /> Working…
           </p>
         )}
       </div>

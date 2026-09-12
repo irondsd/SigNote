@@ -150,9 +150,11 @@
 }
 
 .hint {
+  display: flex;
+  gap: 4px;
   font-size: 13px;
   color: var(--muted-foreground);
-  margin: 0;
+  margin: 0 auto;
 }
 
 .progressTrack {
