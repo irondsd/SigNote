@@ -10,6 +10,7 @@ import { reconcileToGeneration } from '@/lib/encryptionReconcile';
 import { loadStoredMaterial, saveStoredMaterial, type StoredMaterial } from '@/lib/encryptionMaterialStore';
 import { loadVault, saveVault } from '@/lib/otpStore';
 import { queryCacheStorage } from '@/lib/idb';
+import { getQueryClient } from '@/utils/getQueryClient';
 
 const ALICE = 'user-alice';
 
@@ -164,4 +165,28 @@ it('keeps reconciliation pending when removing the device share fails', async ()
   } finally {
     fault.mockRestore();
   }
+});
+
+it('removes live ciphertext and cancels a delayed query before marking reconciliation complete', async () => {
+  const qc = getQueryClient();
+  qc.setQueryData(['secrets', ALICE], { ciphertext: 'old-secret' });
+  qc.setQueryData(['seals', ALICE], { wrappedNoteKey: 'old-wrapper' });
+  qc.setQueryData(['versions', 'seals', 'seal-1'], ['old-history']);
+  let deliver!: (value: string) => void;
+  const pending = qc
+    .fetchQuery({
+      queryKey: ['secrets', ALICE, 'delayed'],
+      queryFn: () =>
+        new Promise<string>((resolve) => {
+          deliver = resolve;
+        }),
+    })
+    .catch(() => undefined);
+  observeGeneration(ALICE, 1);
+  observeGeneration(ALICE, 2);
+  expect(await reconcileToGeneration({ userId: ALICE, generation: 2 })).toBe(true);
+  deliver('old ciphertext arriving after cleanup');
+  await pending;
+  expect(qc.getQueryCache().getAll()).toHaveLength(0);
+  expect(needsReconciliation(ALICE)).toBe(false);
 });

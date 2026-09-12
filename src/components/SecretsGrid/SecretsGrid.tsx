@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
@@ -53,8 +54,8 @@ export function SecretsGrid({
         setSelected(note);
         setSelectedDecrypted(content);
       } catch {
-        setSelected(note);
-        setSelectedDecrypted('');
+        clearNoteIdParam();
+        toast.error('Could not decrypt this Secret. Lock and unlock your vault, then try again.');
       }
     },
     [mek],
@@ -69,8 +70,8 @@ export function SecretsGrid({
         setSelected(noteToOpen);
         setSelectedDecrypted(content);
       } catch {
-        setSelected(noteToOpen);
-        setSelectedDecrypted('');
+        clearNoteIdParam();
+        toast.error('Could not decrypt this Secret. Lock and unlock your vault, then try again.');
       }
     } else {
       setSelected(noteToOpen || null);

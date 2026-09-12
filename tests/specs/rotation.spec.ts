@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 
 import { RotationPage } from '../pages/RotationPage';
+import { SecretsPage } from '../pages/SecretsPage';
 import { testDb } from '../fixtures/db';
 import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
 import { seedSecrets } from '../fixtures/seedSecrets';
@@ -77,6 +78,45 @@ async function mixedVault(page: import('@playwright/test').Page) {
 
   return { rotationPage, address, userId, mekBytes, secret, archivedSecret, seal, plainNote, file };
 }
+
+test('first opens after rotation use fresh ciphertext even with slow list responses', async ({ page }) => {
+  page.setDefaultTimeout(15_000);
+  const vault = await mixedVault(page);
+  const secretsPage = new SecretsPage(page);
+  const nav = (path: string) => page.locator(`a[href="${path}"]:visible`).first().click();
+
+  // Warm both in-memory lists and the persister, using client navigation so
+  // they survive into the wizard (page.goto would hide this regression).
+  await nav('/secrets');
+  await expect(secretsPage.secretCard('Bank')).toBeVisible();
+  await secretsPage.unlock(RotationPage.PASSPHRASE);
+  await nav('/seals');
+  await expect(page.getByTestId('secret-card').filter({ hasText: 'Will' })).toBeVisible();
+  await nav('/profile');
+  await page.getByTestId('profile-rotate-keys').click();
+  await vault.rotationPage.runUntilActivation();
+  await vault.rotationPage.activate();
+  await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'false');
+
+  // Old cache data must not be rendered during a slow revalidation.
+  await page.route('**/api/trpc/**', async (route) => {
+    const url = route.request().url();
+    if (url.includes('secrets.list') || url.includes('seals.list')) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    await route.continue();
+  });
+  await page.getByTestId('rotation-finish').click();
+  await secretsPage.unlock(RotationPage.NEW_PASSPHRASE);
+  await secretsPage.secretCard('Bank').click();
+  await expect(page.getByTestId('tiptap-editor')).toContainText('account 1234');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await nav('/seals');
+  await page.getByTestId('secret-card').filter({ hasText: 'Will' }).click();
+  await page.getByTestId('decrypt-btn').click();
+  await expect(page.getByTestId('tiptap-editor')).toContainText('sealed body');
+  await expect(page.getByText('Failed to decrypt. The note may be corrupted.')).not.toBeVisible();
+});
 
 test.describe('full rotation on a mixed vault', () => {
   test('re-encrypts everything, preserves plaintext and metadata, and blocks the old key', async ({ page }) => {

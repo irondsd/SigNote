@@ -84,6 +84,8 @@ export type WizardDeps = {
   newOperationId(): string;
   scanDrafts?: () => DraftReadiness;
   prepareClient?: () => Promise<void>;
+  /** Finish local key/cache cleanup before offering navigation out of the wizard. */
+  afterCommit?: (generation: number) => Promise<void>;
 };
 
 export type SessionsState = { checked: boolean; otherSessions: number; revoked: number | null };
@@ -536,7 +538,9 @@ export function createRotationWizard(deps: WizardDeps) {
     async commit() {
       return run(async () => {
         const operation = await deps.rotation.commit(token());
-        set({ operation, step: 'done' });
+        set({ operation });
+        await deps.afterCommit?.(operation.targetGeneration);
+        set({ step: 'done' });
         thawDraftWriting();
         return operation;
       });

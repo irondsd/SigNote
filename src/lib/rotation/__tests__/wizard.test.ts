@@ -56,7 +56,14 @@ async function realMaterial(passphrase: string) {
 
 type Harness = Awaited<ReturnType<typeof harness>>;
 
-async function harness(options: { otherSessions?: number; seed?: SeedItem[]; faults?: Map<string, Error> } = {}) {
+async function harness(
+  options: {
+    otherSessions?: number;
+    seed?: SeedItem[];
+    faults?: Map<string, Error>;
+    afterCommit?: WizardDeps['afterCommit'];
+  } = {},
+) {
   const { mek, material } = await realMaterial(CURRENT);
   const seed: SeedItem[] = options.seed ?? [
     { kind: 'secret', resourceId: 'secret-1', source: await encryptSecretBody(mek, 'kept exactly') },
@@ -117,6 +124,7 @@ async function harness(options: { otherSessions?: number; seed?: SeedItem[]; fau
     material: async () => material,
     profile: async () => ({ exists: true, profileId: PROFILE, generation: 0 }),
     newOperationId: () => OPERATION,
+    afterCommit: options.afterCommit,
   };
 
   return {
@@ -471,5 +479,35 @@ describe('errors', () => {
     await h.wizard.process();
 
     expect(h.wizard.getState().error).toMatch(/Revoke other sessions again/);
+  });
+
+  it('waits for local reconciliation before showing completion or thawing drafts', async () => {
+    let finish!: () => void;
+    const cleaned = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const afterCommit = jest.fn(() => cleaned);
+    const h = await harness({ afterCommit });
+    await advanceTo(h, 'commit');
+    const committing = h.wizard.commit();
+    while (!afterCommit.mock.calls.length) await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h.wizard.getState()).toMatchObject({ step: 'commit', busy: true, operation: { phase: 'committed' } });
+    expect(isDraftWritingFrozen()).toBe(true);
+    finish();
+    await committing;
+    expect(h.wizard.getState()).toMatchObject({ step: 'done', busy: false });
+    expect(isDraftWritingFrozen()).toBe(false);
+  });
+
+  it('keeps completion blocked when local reconciliation fails', async () => {
+    const h = await harness({
+      afterCommit: async () => {
+        throw new Error('local cleanup failed');
+      },
+    });
+    await advanceTo(h, 'commit');
+    await h.wizard.commit();
+    expect(h.wizard.getState()).toMatchObject({ step: 'commit', operation: { phase: 'committed' } });
+    expect(isDraftWritingFrozen()).toBe(true);
   });
 });

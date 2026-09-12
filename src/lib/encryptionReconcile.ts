@@ -23,6 +23,7 @@ import { announceVaultRemoval, removeVault } from '@/lib/otpStore';
 import { loadDrafts, clearDraft } from '@/lib/draft';
 import { queryCacheStorage } from '@/lib/idb';
 import { completeReconciliation } from '@/lib/encryptionGeneration';
+import { getQueryClient } from '@/utils/getQueryClient';
 
 /** Cache names written by `src/sw.ts` and Serwist's `defaultCache` that can
  * hold a response body belonging to the superseded generation. */
@@ -108,6 +109,13 @@ export async function reconcileToGeneration({
 
   if (!dropLocalKeyMaterial()) ok = false;
   if (!dropEncryptedDrafts()) ok = false;
+
+  // Removing only the IndexedDB snapshot leaves cached ciphertext available
+  // during the next mount's background refetch. Cancel first so a pending query
+  // cannot restore it, then remove it rather than merely marking it stale.
+  const queryClient = getQueryClient();
+  await step(queryClient.cancelQueries());
+  queryClient.clear();
 
   await step(clearStoredMaterial(userId));
 
