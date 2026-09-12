@@ -1,10 +1,10 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Address } from 'viem';
-import { POSITION_STEP } from '@/config/constants';
+import { POSITION_STEP } from '../../src/config/constants';
 import { noteVersions, notes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
-import type { NoteColor, NotePattern } from '@/config/noteStyles';
+import type { NoteColor, NotePattern } from '../../src/config/noteStyles';
 
 /** The inserted row, plus the `_id` alias the app's API exposes — specs
  *  address seeded rows the same way the client sees them. */

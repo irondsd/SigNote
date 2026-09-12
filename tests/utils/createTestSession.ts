@@ -2,7 +2,7 @@ import { encode } from 'next-auth/jwt';
 import { v7 as uuidv7 } from 'uuid';
 import type { Address } from 'viem';
 import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
-import { captureSessionEpoch } from '@/controllers/authSessions';
+import { captureSessionEpoch } from '../../src/controllers/authSessions';
 
 const SECRET = process.env.NEXTAUTH_SECRET ?? 'test-secret';
 

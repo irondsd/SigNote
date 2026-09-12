@@ -7,8 +7,8 @@ import {
   HKDF_INFO_SECRET_BODY,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
-} from '@/config/constants';
-import type { EncryptedPayload } from '@/types/crypto';
+} from '../../src/config/constants';
+import type { EncryptedPayload } from '../../src/types/crypto';
 import { encryptionProfiles, sealNotes, sealNoteVersions, secretNotes, secretNoteVersions } from '../../src/db/schema';
 import { testDb } from '../fixtures/db';
 

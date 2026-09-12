@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 
-import { getSealKeyString, HKDF_INFO_SECRET_BODY } from '@/config/constants';
+import { getSealKeyString, HKDF_INFO_SECRET_BODY } from '../../src/config/constants';
 import { sealNotes, sealNoteVersions, secretNoteVersions } from '../../src/db/schema';
 import { testDb } from './db';
 

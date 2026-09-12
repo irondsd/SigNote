@@ -1,7 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 
-import { HKDF_INFO_FILE_ENC } from '@/config/constants';
+import { HKDF_INFO_FILE_ENC } from '../../src/config/constants';
 import { fileAttachments } from '../../src/db/schema';
 import { testDb } from './db';
 

@@ -10,13 +10,6 @@ import { SealsPage } from '../pages/SealsPage';
 import { trpcMutationOf, trpcGet, trpcPost } from '../utils/trpc';
 import { settleModal } from '../utils/settleModal';
 
-// The list GET is often batched behind other procedures (e.g.
-// `/api/trpc/profile.get,notes.list?batch=1`), so match the procedure anywhere
-// in the URL rather than anchored to the `/api/trpc/` prefix.
-const listRefetchOf =
-  (tier: 'notes' | 'secrets' | 'seals') => (r: { url(): string; request(): { method(): string } }) =>
-    r.url().includes(`${tier}.list`) && r.request().method() === 'GET';
-
 test.describe.configure({ mode: 'parallel' });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -239,7 +232,10 @@ test.describe('burn-after-reading arming', () => {
   test('opening a burn-after-reading note arms expiresAt → note is gone after reload', async ({ page }) => {
     const { account } = makeAccount();
     const title = `burn-arm-${Date.now()}`;
-    const [seeded] = await seedNotes(account.address, [{ title, burnAfterReading: true }]);
+    // A note that never burns, seeded purely so the post-navigation list has
+    // something to render. See the assertions at the end.
+    const sentinel = `burn-arm-survivor-${Date.now()}`;
+    const [seeded] = await seedNotes(account.address, [{ title, burnAfterReading: true }, { title: sentinel }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
@@ -267,14 +263,15 @@ test.describe('burn-after-reading arming', () => {
     // `?id=<noteId>` URL param set on card click, which after re-fetch would
     // make `useInitialNoteId` re-open the modal and re-fire the arming hook
     // with a fresh expiresAt, racing the list-query filter.
-    // Only the server filters expired notes; the persisted client list cache
-    // still holds the armed note, so wait for the post-navigation list refetch
-    // to reconcile before asserting (the card is hidden once it lands).
-    const listRefetch = page.waitForResponse(listRefetchOf('notes'));
     await page.goto('/');
-    await expect(page.getByTestId('display-name').first()).toBeVisible({ timeout: 10000 });
-    await listRefetch;
-    await expect(notesPage.noteCard(title)).toHaveCount(0, { timeout: 10000 });
+    // Only the server filters expired notes, so the armed card is painted from
+    // the persisted client cache and vanishes when the list refetch lands
+    // (`refetchOnMount: 'always'`). Waiting on the sentinel rather than on that
+    // response is what makes this safe both ways: it proves the list rendered,
+    // so `toHaveCount(0)` cannot pass against a page that has not painted, and
+    // it cannot hang if the refetch is batched, coalesced or already in flight.
+    await expect(notesPage.noteCard(sentinel)).toBeVisible({ timeout: 15000 });
+    await expect(notesPage.noteCard(title)).toHaveCount(0, { timeout: 15000 });
   });
 
   test('user can spare a burn-after-reading note by disabling it before closing', async ({ page }) => {
@@ -374,7 +371,11 @@ test.describe('secrets tier — burn-after-reading', () => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `secret-arm-${Date.now()}`;
-    await seedSecrets(account.address, mekBytes, [{ title, content: 'secret body', burnAfterReading: true }]);
+    const sentinel = `secret-arm-survivor-${Date.now()}`;
+    await seedSecrets(account.address, mekBytes, [
+      { title, content: 'secret body', burnAfterReading: true },
+      { title: sentinel, content: 'stays put' },
+    ]);
 
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly(account.address);
@@ -386,13 +387,12 @@ test.describe('secrets tier — burn-after-reading', () => {
 
     // Banner appears after arming — confirm it, then reload directly.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
-    // Title is plaintext on secrets — no unlock needed to verify it's gone.
-    // Wait for the post-reload list refetch to reconcile the persisted client
-    // cache (which still holds the armed secret) before asserting.
-    const listRefetch = page.waitForResponse(listRefetchOf('secrets'));
+    // Title is plaintext on secrets — no unlock needed to verify it's gone,
+    // and the sentinel card renders locked too. It stands in for the list
+    // having rendered at all, so the count assertion below can't pass early.
     await page.reload();
-    await listRefetch;
-    await expect(secretsPage.secretCard(title)).toHaveCount(0, { timeout: 10000 });
+    await expect(secretsPage.secretCard(sentinel)).toBeVisible({ timeout: 15000 });
+    await expect(secretsPage.secretCard(title)).toHaveCount(0, { timeout: 15000 });
   });
 });
 
@@ -451,7 +451,11 @@ test.describe('seals tier — burn-after-reading', () => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);
     const title = `seal-arm-${Date.now()}`;
-    await seedSeals(account.address, mekBytes, [{ title, content: 'seal body', burnAfterReading: true }]);
+    const sentinel = `seal-arm-survivor-${Date.now()}`;
+    await seedSeals(account.address, mekBytes, [
+      { title, content: 'seal body', burnAfterReading: true },
+      { title: sentinel, content: 'stays put' },
+    ]);
 
     const sealsPage = new SealsPage(page);
     await sealsPage.signInDirectly(account.address);
@@ -466,11 +470,10 @@ test.describe('seals tier — burn-after-reading', () => {
     // Banner appears after arming.
     await expect(page.getByTestId('self-destruct-banner')).toBeVisible();
 
-    // Wait for the post-reload list refetch to reconcile the persisted client
-    // cache (which still holds the armed seal) before asserting.
-    const listRefetch = page.waitForResponse(listRefetchOf('seals'));
+    // Seal titles are plaintext, so the sentinel card renders locked and
+    // stands in for the list having rendered before the count is asserted.
     await page.reload();
-    await listRefetch;
-    await expect(sealsPage.sealCard(title)).toHaveCount(0, { timeout: 10000 });
+    await expect(sealsPage.sealCard(sentinel)).toBeVisible({ timeout: 15000 });
+    await expect(sealsPage.sealCard(title)).toHaveCount(0, { timeout: 15000 });
   });
 });

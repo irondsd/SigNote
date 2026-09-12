@@ -51,8 +51,8 @@ export class RotationPage extends BasePage {
   }
 
   /** The wizard's current step, read from the container rather than inferred. */
-  async step(): Promise<string> {
-    return (await this.page.getByTestId('rotation-wizard').getAttribute('data-step')) ?? '';
+  async step(timeout = 10_000): Promise<string> {
+    return (await this.page.getByTestId('rotation-wizard').getAttribute('data-step', { timeout })) ?? '';
   }
 
   async expectStep(step: string, timeout = 20_000): Promise<void> {
@@ -93,18 +93,71 @@ export class RotationPage extends BasePage {
     await this.expectStep('running', 40_000);
   }
 
-  /** Runs the worker and waits for every item to be durably accepted. */
-  async processAll(timeout = 120_000): Promise<void> {
+  /**
+   * Runs the worker and waits for every item to be durably accepted.
+   *
+   * The wait is bounded by *stalling*, not by a deadline. A flat timeout has to
+   * be set for the slowest run the suite contains — 500 items and 100 MiB of
+   * files, six workers deep — which makes it both too short there and useless
+   * everywhere else. This instead fails as soon as the wizard stops making
+   * progress, and otherwise waits as long as it keeps making it.
+   *
+   * `hardTimeout` remains as a backstop against a wizard that reports progress
+   * forever without finishing; leave it alone unless a spec has a reason.
+   */
+  async processAll({ stallTimeout = 60_000, hardTimeout = 480_000 } = {}): Promise<void> {
     await this.page.getByTestId('rotation-process').click();
-    await expect(this.page.getByTestId('rotation-wizard')).toHaveAttribute('data-step', 'recovery', { timeout });
+
+    const startedAt = Date.now();
+    let lastMovedAt = Date.now();
+    let lastProgress = '';
+
+    for (;;) {
+      const step = await this.step();
+      if (step === 'recovery') return;
+
+      // A wizard that surfaced an error is done moving; say what it said
+      // rather than sitting out the stall window to report a timeout.
+      const error = await this.error();
+      if (error) throw new Error(`Rotation stopped with an error during processing: ${error}`);
+
+      const progress = await this.progress(2_000).catch(() => null);
+      const signature = progress ? `${progress.processed} items / ${progress.bytesProcessed} bytes` : '';
+      if (signature !== lastProgress) {
+        lastProgress = signature;
+        lastMovedAt = Date.now();
+      }
+
+      const stalledFor = Date.now() - lastMovedAt;
+      if (stalledFor > stallTimeout)
+        throw new Error(
+          `Rotation made no progress for ${Math.round(stalledFor / 1000)}s at step "${step}" ` +
+            `(${lastProgress || 'no progress reported'}).`,
+        );
+      if (Date.now() - startedAt > hardTimeout)
+        throw new Error(
+          `Rotation still at step "${step}" after ${Math.round(hardTimeout / 1000)}s ` +
+            `(${lastProgress || 'no progress reported'}); it was still moving, so raise hardTimeout if that is expected.`,
+        );
+
+      await this.page.waitForTimeout(500);
+    }
   }
 
-  async progress(): Promise<{ processed: number; total: number }> {
-    const bar = this.page.getByTestId('rotation-progress');
-    return {
-      processed: Number(await bar.getAttribute('data-processed')),
-      total: Number(await bar.getAttribute('data-total')),
-    };
+  /**
+   * All three counters out of one read, so a watcher comparing them across
+   * polls cannot see two halves of different renders.
+   */
+  async progress(timeout = 10_000): Promise<{ processed: number; total: number; bytesProcessed: number }> {
+    return this.page.getByTestId('rotation-progress').evaluate(
+      (bar) => ({
+        processed: Number(bar.getAttribute('data-processed')),
+        total: Number(bar.getAttribute('data-total')),
+        bytesProcessed: Number(bar.getAttribute('data-bytes-processed')),
+      }),
+      undefined,
+      { timeout },
+    );
   }
 
   /**

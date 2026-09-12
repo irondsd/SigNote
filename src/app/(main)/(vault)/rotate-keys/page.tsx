@@ -485,7 +485,16 @@ function RotationProgressBar({ state }: { state: NonNullable<ReturnType<typeof u
   const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
 
   return (
-    <div className={s.section} data-testid="rotation-progress" data-processed={processed} data-total={total}>
+    <div
+      className={s.section}
+      data-testid="rotation-progress"
+      data-processed={processed}
+      data-total={total}
+      // Item count alone sits still through a large file transfer, so the byte
+      // counter is exposed too: together they are what a watcher reads to tell
+      // slow from stuck.
+      data-bytes-processed={progress?.bytesProcessed ?? 0}
+    >
       <div className={s.progressTrack}>
         <div className={s.progressBar} style={{ width: `${percent}%` }} />
       </div>

@@ -6,7 +6,7 @@ import {
   ENC_VERSION,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
-} from '@/config/constants';
+} from '../../src/config/constants';
 import { encryptionProfiles } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';

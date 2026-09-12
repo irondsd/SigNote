@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { Address } from 'viem';
-import { getSealKeyString, POSITION_STEP } from '@/config/constants';
+import { getSealKeyString, POSITION_STEP } from '../../src/config/constants';
 import { sealNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';

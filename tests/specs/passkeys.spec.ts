@@ -3,7 +3,14 @@ import { eq } from 'drizzle-orm';
 
 import { schema, testDb } from '../fixtures/db';
 import { configureGoogleUser } from '../utils/googleAuth';
-import { fillStable, expectSignedIn, openSignInModal, signInWithEmail, signOut } from '../utils/emailSignIn';
+import {
+  fillStable,
+  expectSignedIn,
+  openSignInModal,
+  SERVER_ROUND_TRIP_MS,
+  signInWithEmail,
+  signOut,
+} from '../utils/emailSignIn';
 import { waitForCode } from '../utils/emailInbox';
 import { trpcData, trpcMutate, trpcQuery } from '../utils/trpc';
 import { addVirtualAuthenticator } from '../utils/virtualAuthenticator';
@@ -14,6 +21,19 @@ import { injectSession } from '../utils/injectSession';
 test.describe.configure({ mode: 'parallel' });
 
 const uniqueEmail = (label: string) => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+
+/**
+ * Clicks Add and waits for the row it produces.
+ *
+ * That row is not one render away: it is a WebAuthn ceremony plus the
+ * registration round trip plus the list refetch that follows it, so it waits on
+ * the server budget the rest of the suite uses rather than on the expect
+ * default, which six parallel workers can outrun.
+ */
+async function addPasskey(page: Page, expectedRows: number) {
+  await page.getByTestId('add-passkey-btn').click();
+  await expect(page.getByTestId('passkey-row')).toHaveCount(expectedRows, { timeout: SERVER_ROUND_TRIP_MS });
+}
 
 async function reachPasskeyAccountCreation(page: Page) {
   await openSignInModal(page);
@@ -71,7 +91,7 @@ test('signs up, signs back in, and manages passkeys', async ({ page }) => {
     await expect(page.getByText('Passkey', { exact: true }).first()).toBeVisible();
 
     await page.goto('/passkeys');
-    await expect(page.getByTestId('passkey-row')).toHaveCount(1);
+    await expect(page.getByTestId('passkey-row')).toHaveCount(1, { timeout: SERVER_ROUND_TRIP_MS });
     // A passkey-only account may not remove its last way back in.
     await expect(page.getByRole('button', { name: /^Remove / })).toBeDisabled();
     const [onlyPasskey] = await trpcData<Array<{ id: string }>>(await trpcQuery(page.request, 'passkeys.list'));
@@ -83,8 +103,7 @@ test('signs up, signs back in, and manages passkeys', async ({ page }) => {
     // Swap in a fresh virtual authenticator to represent a second device.
     await authenticator.dispose();
     authenticator = await addVirtualAuthenticator(page);
-    await page.getByTestId('add-passkey-btn').click();
-    await expect(page.getByTestId('passkey-row')).toHaveCount(2);
+    await addPasskey(page, 2);
 
     const newest = page.getByTestId('passkey-row').first();
     await newest.getByRole('button', { name: /^Rename / }).click();
@@ -95,7 +114,7 @@ test('signs up, signs back in, and manages passkeys', async ({ page }) => {
 
     await newest.getByRole('button', { name: 'Remove Travel key' }).click();
     await page.getByRole('button', { name: 'Remove passkey' }).click();
-    await expect(page.getByTestId('passkey-row')).toHaveCount(1);
+    await expect(page.getByTestId('passkey-row')).toHaveCount(1, { timeout: SERVER_ROUND_TRIP_MS });
   } finally {
     await authenticator.dispose();
   }
@@ -239,8 +258,10 @@ test('an email account can add a passkey and then detach its email', async ({ pa
     expect(userId).toBeTruthy();
 
     await page.goto('/passkeys');
-    await page.getByTestId('add-passkey-btn').click();
-    await expect(page.getByTestId('passkey-row')).toHaveCount(1);
+    // The page renders nothing until its three queries land; the empty state is
+    // the proof they have, and that Add is the button of a settled list.
+    await expect(page.getByText('No passkeys yet')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
+    await addPasskey(page, 1);
 
     await page.goto('/profile');
     await page.getByTestId('unlink-email').click();
@@ -275,7 +296,7 @@ test('a passkey account can add an email and then remove its passkey', async ({ 
     await page.goto('/passkeys');
     await page.getByRole('button', { name: /^Remove / }).click();
     await page.getByRole('button', { name: 'Remove passkey' }).click();
-    await expect(page.getByTestId('passkey-row')).toHaveCount(0);
+    await expect(page.getByTestId('passkey-row')).toHaveCount(0, { timeout: SERVER_ROUND_TRIP_MS });
   } finally {
     await authenticator.dispose();
   }
