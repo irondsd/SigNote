@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { withVaultWrite } from '@/db/encryptionState';
 import { MAX_TITLE } from '@/config/constants';
 import { linkFilesToNote } from '@/controllers/files';
 import {
@@ -39,22 +40,24 @@ export const sealsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const tagIds = input.tags ? await getOwnedTagIds(ctx.userId, input.tags) : undefined;
-      // encryptedBody and wrappedNoteKey are optional for the 2-step create flow.
-      const seal = await createSeal(
-        ctx.userId,
-        input.title ?? '',
-        input.encryptedBody ?? null,
-        input.wrappedNoteKey ?? null,
-        input.color,
-        input.pattern,
-        tagIds,
-      );
-      if (tagIds?.length) await touchTags(tagIds);
+      return withVaultWrite(ctx.userId, async () => {
+        const tagIds = input.tags ? await getOwnedTagIds(ctx.userId, input.tags) : undefined;
+        // encryptedBody and wrappedNoteKey are optional for the 2-step create flow.
+        const seal = await createSeal(
+          ctx.userId,
+          input.title ?? '',
+          input.encryptedBody ?? null,
+          input.wrappedNoteKey ?? null,
+          input.color,
+          input.pattern,
+          tagIds,
+        );
+        if (tagIds?.length) await touchTags(ctx.userId, tagIds);
 
-      if (input.fileIds?.length) await linkFilesToNote(ctx.userId, seal._id.toString(), 'seal', input.fileIds);
+        if (input.fileIds?.length) await linkFilesToNote(ctx.userId, seal._id.toString(), 'seal', input.fileIds);
 
-      return seal;
+        return seal;
+      });
     }),
 
   update: protectedProcedure
@@ -68,14 +71,16 @@ export const sealsRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const seal = assertOwner(await getSealById(input.id), ctx.userId);
-      const updated = await updateSeal(input.id, {
-        title: input.title !== undefined ? input.title : seal.title,
-        encryptedBody: input.encryptedBody !== undefined ? input.encryptedBody : seal.encryptedBody,
-        wrappedNoteKey: input.wrappedNoteKey !== undefined ? input.wrappedNoteKey : seal.wrappedNoteKey,
+      return withVaultWrite(ctx.userId, async () => {
+        const seal = assertOwner(await getSealById(input.id), ctx.userId);
+        const updated = await updateSeal(input.id, {
+          title: input.title !== undefined ? input.title : seal.title,
+          encryptedBody: input.encryptedBody !== undefined ? input.encryptedBody : seal.encryptedBody,
+          wrappedNoteKey: input.wrappedNoteKey !== undefined ? input.wrappedNoteKey : seal.wrappedNoteKey,
+        });
+        if (input.fileIds?.length) await linkFilesToNote(ctx.userId, input.id, 'seal', input.fileIds);
+        return updated;
       });
-      if (input.fileIds?.length) await linkFilesToNote(ctx.userId, input.id, 'seal', input.fileIds);
-      return updated;
     }),
 
   ...commonTierProcedures(getSealById, sealOps),

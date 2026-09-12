@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { and, isNotNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, lt, or, sql } from 'drizzle-orm';
 
 import { OTP_TOMBSTONE_RETENTION_MS } from '@/config/constants';
 import { getDb } from '@/db/client';
+import { withVaultMaintenance } from '@/db/encryptionState';
 import { SESSION_LIFETIME_MS } from './authSessions';
 import { purgeOtpTombstones } from './otpRecords';
 import {
@@ -12,6 +13,7 @@ import {
   emailSignInCodes,
   fileAttachments,
   notes,
+  otpRecords,
   passkeyChallenges,
   sealNotes,
   secretNotes,
@@ -30,7 +32,6 @@ import {
 const GRACE_MS = 3600_000;
 
 export async function cleanupExpiredRows() {
-  const db = getDb();
   const now = new Date();
   const cutoff = new Date(now.getTime() - GRACE_MS);
   const removed: Record<string, number> = {};
@@ -42,12 +43,40 @@ export async function cleanupExpiredRows() {
     ['secretNotes', secretNotes],
     ['sealNotes', sealNotes],
   ] as const) {
-    const rows = await (db as any)
-      .delete(table)
-      .where(or(lt(table.deletedAt, cutoff), lt(table.expiresAt, cutoff)))
-      .returning({ id: table.id });
-    removed[name] = rows.length;
+    const candidates = await (getDb() as any)
+      .select({ id: table.id, userId: table.userId })
+      .from(table)
+      .where(or(lt(table.deletedAt, cutoff), lt(table.expiresAt, cutoff)));
+    const byUser = new Map<string, string[]>();
+    for (const row of candidates as { id: string; userId: string }[]) {
+      const ids = byUser.get(row.userId) ?? [];
+      ids.push(row.id);
+      byUser.set(row.userId, ids);
+    }
+    let count = 0;
+    for (const [userId, ids] of byUser) {
+      const result = await withVaultMaintenance(userId, async () => {
+        // Re-select under the account fence. Rows that became eligible after
+        // the initial scan are safe to leave for the next pass; rows that are
+        // part of a newly active rotation are never deleted here.
+        const rows = await (getDb() as any)
+          .delete(table)
+          .where(
+            and(
+              eq(table.userId, userId),
+              inArray(table.id, ids),
+              or(lt(table.deletedAt, cutoff), lt(table.expiresAt, cutoff)),
+            ),
+          )
+          .returning({ id: table.id });
+        return rows.length;
+      });
+      if (result !== null) count += result;
+    }
+    removed[name] = count;
   }
+
+  const db = getDb();
 
   // Auth rows expire with no grace — the model TTLs used expireAfterSeconds: 0.
   const nonces = await db.delete(authNonces).where(lt(authNonces.expiresAt, now)).returning({ n: authNonces.nonce });
@@ -86,15 +115,51 @@ export async function cleanupExpiredRows() {
   // Authenticator tombstones, on their own 30-day clock rather than the note
   // sweep's one hour: a tombstone is what tells a device that has been offline
   // that a credential was deleted, so purging one early lets that device
-  // resurrect it from its local cache on the next full-snapshot sync.
-  removed.otpRecords = await purgeOtpTombstones(new Date(now.getTime() - OTP_TOMBSTONE_RETENTION_MS));
+  // resurrect it from its local cache on the next full-snapshot sync. Group by
+  // owner so a rotation can defer only the affected account.
+  const otpCutoff = new Date(now.getTime() - OTP_TOMBSTONE_RETENTION_MS);
+  const otpCandidates = await db
+    .select({ userId: otpRecords.userId })
+    .from(otpRecords)
+    .where(lt(otpRecords.deletedAt, otpCutoff));
+  const otpUsers = [...new Set(otpCandidates.map((row) => row.userId))];
+  let otpRemoved = 0;
+  for (const userId of otpUsers) {
+    const result = await withVaultMaintenance(userId, async () => purgeOtpTombstones(otpCutoff, userId));
+    if (result !== null) otpRemoved += result;
+  }
+  removed.otpRecords = otpRemoved;
 
   // Attachment rows whose S3 object was already removed an hour ago.
-  const files = await db
-    .delete(fileAttachments)
-    .where(and(isNotNull(fileAttachments.storageDeletedAt), lt(fileAttachments.storageDeletedAt, cutoff)))
-    .returning({ id: fileAttachments.id });
-  removed.fileAttachments = files.length;
+  const fileCandidates = await db
+    .select({ id: fileAttachments.id, userId: fileAttachments.userId })
+    .from(fileAttachments)
+    .where(and(isNotNull(fileAttachments.storageDeletedAt), lt(fileAttachments.storageDeletedAt, cutoff)));
+  const fileUsers = new Map<string, string[]>();
+  for (const row of fileCandidates) {
+    const ids = fileUsers.get(row.userId) ?? [];
+    ids.push(row.id);
+    fileUsers.set(row.userId, ids);
+  }
+  let fileRemoved = 0;
+  for (const [userId, ids] of fileUsers) {
+    const result = await withVaultMaintenance(userId, async () => {
+      const rows = await getDb()
+        .delete(fileAttachments)
+        .where(
+          and(
+            eq(fileAttachments.userId, userId),
+            inArray(fileAttachments.id, ids),
+            isNotNull(fileAttachments.storageDeletedAt),
+            lt(fileAttachments.storageDeletedAt, cutoff),
+          ),
+        )
+        .returning({ id: fileAttachments.id });
+      return rows.length;
+    });
+    if (result !== null) fileRemoved += result;
+  }
+  removed.fileAttachments = fileRemoved;
 
   return removed;
 }

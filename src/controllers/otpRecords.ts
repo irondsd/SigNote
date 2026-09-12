@@ -2,6 +2,7 @@ import { and, count, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 
 import { MAX_OTP_RECORDS_PER_USER } from '@/config/constants';
 import { getDb } from '@/db/client';
+import { currentRequestGeneration, withVaultMaintenance, withVaultRead, withVaultWrite } from '@/db/encryptionState';
 import { otpRecords } from '@/db/schema';
 import type { NoteColor, NotePattern } from '@/config/noteStyles';
 import type { EncryptedPayload } from '@/types/crypto';
@@ -31,6 +32,7 @@ export type OtpRecordRow = {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  generation: number;
 };
 
 /** Presentation fields, plaintext columns rather than envelope contents. */
@@ -84,12 +86,15 @@ export class OtpLimitError extends Error {
  * that is absent here was purged server-side and should be dropped locally.
  */
 export const listOtpRecords = async (userId: string): Promise<OtpRecordRow[]> =>
-  getDb()
-    .select(columns)
-    .from(otpRecords)
-    .where(eq(otpRecords.userId, userId))
-    // Descending, as the note tiers order their lists: highest position first.
-    .orderBy(desc(otpRecords.position));
+  withVaultRead(userId, async ({ generation }) => {
+    const rows = await getDb()
+      .select(columns)
+      .from(otpRecords)
+      .where(eq(otpRecords.userId, userId))
+      // Descending, as the note tiers order their lists: highest position first.
+      .orderBy(desc(otpRecords.position));
+    return rows.map((row) => ({ ...row, generation }));
+  });
 
 const getRecord = async (userId: string, id: string): Promise<OtpRecordRow | null> => {
   const rows = await getDb()
@@ -97,16 +102,17 @@ const getRecord = async (userId: string, id: string): Promise<OtpRecordRow | nul
     .from(otpRecords)
     .where(and(eq(otpRecords.id, id), eq(otpRecords.userId, userId)))
     .limit(1);
-  return rows[0] ?? null;
+  return rows[0] ? { ...rows[0], generation: currentRequestGeneration() } : null;
 };
 
-export const countLiveOtpRecords = async (userId: string): Promise<number> => {
-  const rows = await getDb()
-    .select({ n: count() })
-    .from(otpRecords)
-    .where(and(eq(otpRecords.userId, userId), isNull(otpRecords.deletedAt)));
-  return rows[0]?.n ?? 0;
-};
+export const countLiveOtpRecords = async (userId: string): Promise<number> =>
+  withVaultRead(userId, async () => {
+    const rows = await getDb()
+      .select({ n: count() })
+      .from(otpRecords)
+      .where(and(eq(otpRecords.userId, userId), isNull(otpRecords.deletedAt)));
+    return rows[0]?.n ?? 0;
+  });
 
 type CreateInput = {
   id: string;
@@ -121,38 +127,44 @@ type CreateInput = {
  * deleted credential, and reusing a live one would silently overwrite it.
  */
 export const createOtpRecord = async (userId: string, input: CreateInput): Promise<OtpRecordRow> => {
-  const db = getDb();
+  return withVaultWrite(userId, async () => {
+    const db = getDb();
 
-  // Anti-abuse, not a security boundary: two concurrent creates can both pass
-  // this check and land one over the cap. That is fine — the point is to stop
-  // the table being used as free blob storage, not to enforce an exact number.
-  if ((await countLiveOtpRecords(userId)) >= MAX_OTP_RECORDS_PER_USER) throw new OtpLimitError();
+    // Anti-abuse, not a security boundary: two concurrent creates can both pass
+    // this check and land one over the cap. That is fine — the point is to stop
+    // the table being used as free blob storage, not to enforce an exact number.
+    const liveRows = await db
+      .select({ n: count() })
+      .from(otpRecords)
+      .where(and(eq(otpRecords.userId, userId), isNull(otpRecords.deletedAt)));
+    if ((liveRows[0]?.n ?? 0) >= MAX_OTP_RECORDS_PER_USER) throw new OtpLimitError();
 
-  const now = new Date();
-  const rows = await db
-    .insert(otpRecords)
-    .values({
-      id: input.id,
-      userId,
-      payload: input.payload,
-      payloadVersion: input.payloadVersion,
-      position: input.position,
-      archived: input.archived ?? false,
-      color: input.color ?? null,
-      pattern: input.pattern ?? null,
-      revision: 1,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoNothing({ target: otpRecords.id })
-    .returning(columns);
+    const now = new Date();
+    const rows = await db
+      .insert(otpRecords)
+      .values({
+        id: input.id,
+        userId,
+        payload: input.payload,
+        payloadVersion: input.payloadVersion,
+        position: input.position,
+        archived: input.archived ?? false,
+        color: input.color ?? null,
+        pattern: input.pattern ?? null,
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({ target: otpRecords.id })
+      .returning(columns);
 
-  const row = rows[0];
-  if (row) return row;
+    const row = rows[0];
+    if (row) return { ...row, generation: currentRequestGeneration() };
 
-  // The id exists. It may belong to another user, in which case the caller
-  // learns only that the id is taken — never whose it is.
-  throw new OtpConflictError('A record with this id already exists', await getRecord(userId, input.id));
+    // The id exists. It may belong to another user, in which case the caller
+    // learns only that the id is taken — never whose it is.
+    throw new OtpConflictError('A record with this id already exists', await getRecord(userId, input.id));
+  });
 };
 
 type UpdateInput = {
@@ -168,32 +180,34 @@ type UpdateInput = {
  * so the current row travels back with the conflict.
  */
 export const updateOtpRecord = async (userId: string, input: UpdateInput): Promise<OtpRecordRow> => {
-  const patch: Record<string, unknown> = { revision: sql`${otpRecords.revision} + 1`, updatedAt: new Date() };
-  if (input.payload !== undefined) patch.payload = input.payload;
-  if (input.position !== undefined) patch.position = input.position;
-  if (input.archived !== undefined) patch.archived = input.archived;
-  if (input.color !== undefined) patch.color = input.color;
-  if (input.pattern !== undefined) patch.pattern = input.pattern;
+  return withVaultWrite(userId, async () => {
+    const patch: Record<string, unknown> = { revision: sql`${otpRecords.revision} + 1`, updatedAt: new Date() };
+    if (input.payload !== undefined) patch.payload = input.payload;
+    if (input.position !== undefined) patch.position = input.position;
+    if (input.archived !== undefined) patch.archived = input.archived;
+    if (input.color !== undefined) patch.color = input.color;
+    if (input.pattern !== undefined) patch.pattern = input.pattern;
 
-  // Only the revision bump left: the caller asked for nothing.
-  if (Object.keys(patch).length === 2) throw new Error('updateOtpRecord: nothing to update');
+    // Only the revision bump left: the caller asked for nothing.
+    if (Object.keys(patch).length === 2) throw new Error('updateOtpRecord: nothing to update');
 
-  const rows = await getDb()
-    .update(otpRecords)
-    .set(patch)
-    .where(
-      and(
-        eq(otpRecords.id, input.id),
-        eq(otpRecords.userId, userId),
-        eq(otpRecords.revision, input.expectedRevision),
-        isNull(otpRecords.deletedAt),
-      ),
-    )
-    .returning(columns);
+    const rows = await getDb()
+      .update(otpRecords)
+      .set(patch)
+      .where(
+        and(
+          eq(otpRecords.id, input.id),
+          eq(otpRecords.userId, userId),
+          eq(otpRecords.revision, input.expectedRevision),
+          isNull(otpRecords.deletedAt),
+        ),
+      )
+      .returning(columns);
 
-  const row = rows[0];
-  if (row) return row;
-  throw new OtpConflictError('The record changed elsewhere', await getRecord(userId, input.id));
+    const row = rows[0];
+    if (row) return { ...row, generation: currentRequestGeneration() };
+    throw new OtpConflictError('The record changed elsewhere', await getRecord(userId, input.id));
+  });
 };
 
 /**
@@ -201,23 +215,25 @@ export const updateOtpRecord = async (userId: string, input: UpdateInput): Promi
  * revision advances so the deletion wins over any edit still in flight.
  */
 export const deleteOtpRecord = async (userId: string, id: string, expectedRevision: number): Promise<OtpRecordRow> => {
-  const now = new Date();
-  const rows = await getDb()
-    .update(otpRecords)
-    .set({ payload: null, deletedAt: now, updatedAt: now, revision: sql`${otpRecords.revision} + 1` })
-    .where(
-      and(
-        eq(otpRecords.id, id),
-        eq(otpRecords.userId, userId),
-        eq(otpRecords.revision, expectedRevision),
-        isNull(otpRecords.deletedAt),
-      ),
-    )
-    .returning(columns);
+  return withVaultWrite(userId, async () => {
+    const now = new Date();
+    const rows = await getDb()
+      .update(otpRecords)
+      .set({ payload: null, deletedAt: now, updatedAt: now, revision: sql`${otpRecords.revision} + 1` })
+      .where(
+        and(
+          eq(otpRecords.id, id),
+          eq(otpRecords.userId, userId),
+          eq(otpRecords.revision, expectedRevision),
+          isNull(otpRecords.deletedAt),
+        ),
+      )
+      .returning(columns);
 
-  const row = rows[0];
-  if (row) return row;
-  throw new OtpConflictError('The record changed elsewhere', await getRecord(userId, id));
+    const row = rows[0];
+    if (row) return { ...row, generation: currentRequestGeneration() };
+    throw new OtpConflictError('The record changed elsewhere', await getRecord(userId, id));
+  });
 };
 
 /**
@@ -231,24 +247,39 @@ export const reorderOtpRecords = async (
 ): Promise<OtpRecordRow[]> => {
   if (items.length === 0) return listOtpRecords(userId);
 
-  const now = new Date();
-  await getDb().transaction(async (tx) => {
-    for (const item of items) {
-      await tx
-        .update(otpRecords)
-        .set({ position: item.position, updatedAt: now, revision: sql`${otpRecords.revision} + 1` })
-        .where(and(eq(otpRecords.id, item.id), eq(otpRecords.userId, userId), isNull(otpRecords.deletedAt)));
-    }
-  });
+  return withVaultWrite(userId, async () => {
+    const now = new Date();
+    await getDb().transaction(async (tx) => {
+      for (const item of items) {
+        await tx
+          .update(otpRecords)
+          .set({ position: item.position, updatedAt: now, revision: sql`${otpRecords.revision} + 1` })
+          .where(and(eq(otpRecords.id, item.id), eq(otpRecords.userId, userId), isNull(otpRecords.deletedAt)));
+      }
+    });
 
-  return listOtpRecords(userId);
+    return listOtpRecords(userId);
+  });
 };
 
 /** Purges tombstones older than the cutoff. Called from the cleanup sweep. */
-export const purgeOtpTombstones = async (cutoff: Date): Promise<number> => {
-  const rows = await getDb()
-    .delete(otpRecords)
-    .where(and(isNotNull(otpRecords.deletedAt), lt(otpRecords.deletedAt, cutoff)))
-    .returning({ id: otpRecords.id });
-  return rows.length;
+export const purgeOtpTombstones = async (cutoff: Date, userId?: string): Promise<number> => {
+  const run = async () => {
+    const rows = await getDb()
+      .delete(otpRecords)
+      .where(
+        and(
+          ...(userId ? [eq(otpRecords.userId, userId)] : []),
+          isNotNull(otpRecords.deletedAt),
+          lt(otpRecords.deletedAt, cutoff),
+        ),
+      )
+      .returning({ id: otpRecords.id });
+    return rows.length;
+  };
+  if (userId) {
+    const result = await withVaultMaintenance(userId, run);
+    return result ?? 0;
+  }
+  return run();
 };

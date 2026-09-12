@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { timingSafeEqual } from 'node:crypto';
 import { cleanupExpiredRows } from '@/controllers/cleanup';
 import { cleanupDeletedFiles, cleanupOrphanedFiles } from '@/controllers/files';
+import { getRotationService } from '@/server/rotation/instance';
+import { safeBearerMatch } from '../cronAuth';
 
 export const runtime = 'nodejs';
-
-function safeBearerMatch(authHeader: string | null, secret: string | undefined): boolean {
-  if (!authHeader || !secret) return false;
-  const expected = `Bearer ${secret}`;
-  const a = Buffer.from(authHeader);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
 
 export async function GET(req: NextRequest) {
   if (!safeBearerMatch(req.headers.get('Authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // Resolve abandoned operations before ordinary purge catches up. Committed
+  // object cleanup is retryable and never reverses activation.
+  const rotation = await getRotationService().cleanup();
 
   // Step 1: reap rows past their expiry. Must run first, because step 2
   // detects an orphan by its parent note being gone.
@@ -30,5 +26,8 @@ export async function GET(req: NextRequest) {
   // Step 3: delete S3 objects for soft-deleted files
   const storage = await cleanupDeletedFiles();
 
-  return NextResponse.json({ expired, orphans, storage });
+  return NextResponse.json(
+    { expired, orphans, storage, rotation },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }

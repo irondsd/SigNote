@@ -4,6 +4,7 @@ import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
 import { MAX_SEARCH, MAX_VERSIONS, POSITION_STEP, VERSION_COMPRESSION_WINDOW_MS } from '@/config/constants';
 import { getDb, type Db } from './client';
+import { currentRequestGeneration, withVaultRead, withVaultWrite } from './encryptionState';
 
 /**
  * Shared data layer for the three note tiers. The tables differ only in their
@@ -31,12 +32,16 @@ export type TierHeadRow = {
   expiresAt: Date | null;
   burnAfterReading: boolean;
   tags: string[];
+  /** Encryption generation used for this consistent snapshot. */
+  generation: number;
 } & Record<string, unknown>;
 
 export type TierVersionRow = {
   _id: string;
   title: string;
   createdAt: Date;
+  /** Encryption generation used for this consistent snapshot. */
+  generation: number;
 } & Record<string, unknown>;
 
 export type MetaPatch = { pinned?: boolean; expiresAt?: Date | null; burnAfterReading?: boolean };
@@ -138,7 +143,11 @@ export function makeTierRepo(cfg: TierConfig) {
     return map;
   };
 
-  const mapHead = (raw: Record<string, unknown>, tags: string[]): TierHeadRow => {
+  const mapHead = (
+    raw: Record<string, unknown>,
+    tags: string[],
+    generation = currentRequestGeneration(),
+  ): TierHeadRow => {
     const head: Record<string, unknown> = {
       _id: raw.id,
       userId: raw.userId,
@@ -154,16 +163,18 @@ export function makeTierRepo(cfg: TierConfig) {
       expiresAt: raw.expiresAt,
       burnAfterReading: raw.burnAfterReading,
       tags,
+      generation,
     };
     for (const key of cfg.contentKeys) head[key] = raw[key];
     return head as TierHeadRow;
   };
 
-  const mapVersion = (raw: Record<string, unknown>): TierVersionRow => {
+  const mapVersion = (raw: Record<string, unknown>, generation = currentRequestGeneration()): TierVersionRow => {
     const version: Record<string, unknown> = {
       _id: raw.id,
       title: raw.title,
       createdAt: raw.createdAt,
+      generation,
     };
     for (const key of versions.contentKeys) version[key] = raw[key];
     return version as TierVersionRow;
@@ -180,10 +191,14 @@ export function makeTierRepo(cfg: TierConfig) {
     return selection;
   };
 
-  const withTags = async (db: Db, raw: Record<string, unknown> | undefined): Promise<TierHeadRow | null> => {
+  const withTags = async (
+    db: Db,
+    raw: Record<string, unknown> | undefined,
+    generation = currentRequestGeneration(),
+  ): Promise<TierHeadRow | null> => {
     if (!raw) return null;
     const tagMap = await tagsFor(db, [raw.id as string]);
-    return mapHead(raw, tagMap.get(raw.id as string) ?? []);
+    return mapHead(raw, tagMap.get(raw.id as string) ?? [], generation);
   };
 
   const findRawById = async (db: Db, id: string): Promise<Record<string, unknown> | undefined> => {
@@ -244,6 +259,24 @@ export function makeTierRepo(cfg: TierConfig) {
     return (rows[0]?.position ?? 0) + POSITION_STEP;
   };
 
+  /** Resolve ownership before taking the account lock for an id-addressed
+   * operation. The second lookup always happens inside the fenced transaction;
+   * this preflight only identifies which account lock is required. */
+  const ownerForId = async (id: string): Promise<string | null> => {
+    const rows = (await (getDb() as any)
+      .select({ userId: cols.userId })
+      .from(table)
+      .where(eq(cols.id, id))
+      .limit(1)) as { userId: string }[];
+    return rows[0]?.userId ?? null;
+  };
+
+  const writeById = async <T>(id: string, fn: () => Promise<T>): Promise<T | null> => {
+    const userId = await ownerForId(id);
+    if (!userId) return null;
+    return withVaultWrite(userId, fn);
+  };
+
   return {
     async create(
       userId: string,
@@ -252,134 +285,148 @@ export function makeTierRepo(cfg: TierConfig) {
       pattern?: string | null,
       tagIds?: string[],
     ): Promise<TierHeadRow> {
-      return getDb().transaction(async (tx: any) => {
-        const now = new Date();
-        const position = await getNextPosition(tx, userId);
-        const rows = (await tx
-          .insert(table)
-          .values({
-            userId,
-            ...data,
-            position,
-            ...(color != null && { color }),
-            ...(pattern != null && { pattern }),
-            createdAt: now,
-            updatedAt: now,
-          })
-          .returning(headColumns())) as Record<string, unknown>[];
-        const row = rows[0];
-        const appliedTags = Array.isArray(tagIds) && tagIds.length > 0 ? tagIds : [];
-        if (appliedTags.length > 0) await replaceTags(tx, row.id as string, appliedTags);
-        return mapHead(row, appliedTags);
-      });
+      return withVaultWrite(userId, async () =>
+        getDb().transaction(async (tx: any) => {
+          const now = new Date();
+          const position = await getNextPosition(tx, userId);
+          const rows = (await tx
+            .insert(table)
+            .values({
+              userId,
+              ...data,
+              position,
+              ...(color != null && { color }),
+              ...(pattern != null && { pattern }),
+              createdAt: now,
+              updatedAt: now,
+            })
+            .returning(headColumns())) as Record<string, unknown>[];
+          const row = rows[0];
+          const appliedTags = Array.isArray(tagIds) && tagIds.length > 0 ? tagIds : [];
+          if (appliedTags.length > 0) await replaceTags(tx, row.id as string, appliedTags);
+          return mapHead(row, appliedTags);
+        }),
+      );
     },
 
     async list(userId: string, opts: ListOptions = {}): Promise<TierHeadRow[]> {
-      const db = getDb();
-      const { archived, limit = 30, offset = 0, search = '', tagIds, tagMode = 'or' } = opts;
+      return withVaultRead(userId, async ({ generation }) => {
+        const db = getDb();
+        const { archived, limit = 30, offset = 0, search = '', tagIds, tagMode = 'or' } = opts;
 
-      const conditions: SQL[] = [
-        eq(cols.userId, userId) as SQL,
-        isNull(cols.deletedAt) as SQL,
-        or(isNull(cols.expiresAt), gt(cols.expiresAt, new Date())) as SQL,
-      ];
-      if (archived !== undefined) conditions.push(eq(cols.archived, archived) as SQL);
-
-      if (tagIds && tagIds.length > 0) {
-        if (tagMode === 'and') {
-          conditions.push(
-            sql`(select count(*) from ${join.table} where ${join.cols.noteId} = ${cols.id} and ${join.cols.tagId} in (${sql.join(
-              tagIds.map((t) => sql`${t}`),
-              sql`, `,
-            )})) = ${tagIds.length}`,
-          );
-        } else {
-          conditions.push(
-            exists(
-              (db as any)
-                .select({ one: sql`1` })
-                .from(join.table)
-                .where(and(eq(join.cols.noteId, cols.id), inArray(join.cols.tagId, tagIds))),
-            ) as unknown as SQL,
-          );
-        }
-      }
-
-      const normalized = search.trim().slice(0, MAX_SEARCH);
-      const tsquery = normalized ? buildPrefixTsQuery(normalized) : null;
-
-      // A search that reduces to no searchable terms (punctuation only) matches
-      // nothing, rather than silently listing everything.
-      if (normalized && !tsquery) return [];
-
-      // Search results rank by relevance — a title hit (weight A) outranks a
-      // body hit (weight B) — then fall back to recency. Browsing without a
-      // search term keeps the user's manual ordering.
-      let orderBy: SQL[];
-      if (tsquery) {
-        const query = sql`to_tsquery('english', ${tsquery})`;
-        conditions.push(sql`${cols.searchTsv} @@ ${query}` as SQL);
-        orderBy = [
-          desc(cols.pinned) as SQL,
-          sql`ts_rank(${cols.searchTsv}, ${query}) desc`,
-          desc(cols.updatedAt) as SQL,
+        const conditions: SQL[] = [
+          eq(cols.userId, userId) as SQL,
+          isNull(cols.deletedAt) as SQL,
+          or(isNull(cols.expiresAt), gt(cols.expiresAt, new Date())) as SQL,
         ];
-      } else {
-        orderBy = [desc(cols.pinned) as SQL, desc(cols.position) as SQL];
-      }
+        if (archived !== undefined) conditions.push(eq(cols.archived, archived) as SQL);
 
-      const rows = (await (db as any)
-        .select(headColumns())
-        .from(table)
-        .where(and(...conditions))
-        .orderBy(...orderBy)
-        .offset(offset)
-        .limit(limit)) as Record<string, unknown>[];
+        if (tagIds && tagIds.length > 0) {
+          if (tagMode === 'and') {
+            conditions.push(
+              sql`(select count(*) from ${join.table} where ${join.cols.noteId} = ${cols.id} and ${join.cols.tagId} in (${sql.join(
+                tagIds.map((t) => sql`${t}`),
+                sql`, `,
+              )})) = ${tagIds.length}`,
+            );
+          } else {
+            conditions.push(
+              exists(
+                (db as any)
+                  .select({ one: sql`1` })
+                  .from(join.table)
+                  .where(and(eq(join.cols.noteId, cols.id), inArray(join.cols.tagId, tagIds))),
+              ) as unknown as SQL,
+            );
+          }
+        }
 
-      const tagMap = await tagsFor(
-        db,
-        rows.map((r) => r.id as string),
-      );
-      return rows.map((r) => mapHead(r, tagMap.get(r.id as string) ?? []));
+        const normalized = search.trim().slice(0, MAX_SEARCH);
+        const tsquery = normalized ? buildPrefixTsQuery(normalized) : null;
+
+        // A search that reduces to no searchable terms (punctuation only) matches
+        // nothing, rather than silently listing everything.
+        if (normalized && !tsquery) return [];
+
+        // Search results rank by relevance — a title hit (weight A) outranks a
+        // body hit (weight B) — then fall back to recency. Browsing without a
+        // search term keeps the user's manual ordering.
+        let orderBy: SQL[];
+        if (tsquery) {
+          const query = sql`to_tsquery('english', ${tsquery})`;
+          conditions.push(sql`${cols.searchTsv} @@ ${query}` as SQL);
+          orderBy = [
+            desc(cols.pinned) as SQL,
+            sql`ts_rank(${cols.searchTsv}, ${query}) desc`,
+            desc(cols.updatedAt) as SQL,
+          ];
+        } else {
+          orderBy = [desc(cols.pinned) as SQL, desc(cols.position) as SQL];
+        }
+
+        const rows = (await (db as any)
+          .select(headColumns())
+          .from(table)
+          .where(and(...conditions))
+          .orderBy(...orderBy)
+          .offset(offset)
+          .limit(limit)) as Record<string, unknown>[];
+
+        const tagMap = await tagsFor(
+          db,
+          rows.map((r) => r.id as string),
+        );
+        return rows.map((r) => mapHead(r, tagMap.get(r.id as string) ?? [], generation));
+      });
     },
 
     async getByIdActive(id: string): Promise<TierHeadRow | null> {
-      const db = getDb();
-      const rows = (await (db as any).select(headColumns()).from(table).where(activeById(id)).limit(1)) as Record<
-        string,
-        unknown
-      >[];
-      return withTags(db, rows[0]);
+      const userId = await ownerForId(id);
+      if (!userId) return null;
+      return withVaultRead(userId, async ({ generation }) => {
+        const db = getDb();
+        const rows = (await (db as any).select(headColumns()).from(table).where(activeById(id)).limit(1)) as Record<
+          string,
+          unknown
+        >[];
+        return withTags(db, rows[0], generation);
+      });
     },
 
     async getVersionsByIdActive(id: string): Promise<{ userId: string; versions: TierVersionRow[] } | null> {
-      const db = getDb();
-      const heads = (await (db as any)
-        .select({ id: cols.id, userId: cols.userId })
-        .from(table)
-        .where(activeById(id))
-        .limit(1)) as { id: string; userId: string }[];
-      if (!heads[0]) return null;
-      const rows = (await (db as any)
-        .select()
-        .from(versions.table)
-        .where(eq(versions.cols.noteId, id))
-        .orderBy(asc(versions.cols.seq))) as Record<string, unknown>[];
-      return { userId: heads[0].userId, versions: rows.map(mapVersion) };
+      const userId = await ownerForId(id);
+      if (!userId) return null;
+      return withVaultRead(userId, async ({ generation }) => {
+        const db = getDb();
+        const heads = (await (db as any)
+          .select({ id: cols.id, userId: cols.userId })
+          .from(table)
+          .where(activeById(id))
+          .limit(1)) as { id: string; userId: string }[];
+        if (!heads[0]) return null;
+        const rows = (await (db as any)
+          .select()
+          .from(versions.table)
+          .where(eq(versions.cols.noteId, id))
+          .orderBy(asc(versions.cols.seq))) as Record<string, unknown>[];
+        return { userId: heads[0].userId, versions: rows.map((row) => mapVersion(row, generation)) };
+      });
     },
 
     // Idempotent: deleting an id that's already gone still resolves to the
     // head. Null only when the parent note itself is missing/expired.
     async deleteVersionById(id: string, versionId: string): Promise<TierHeadRow | null> {
-      return getDb().transaction(async (tx: any) => {
-        const heads = (await tx.select(headColumns()).from(table).where(activeById(id)).limit(1)) as Record<
-          string,
-          unknown
-        >[];
-        if (!heads[0]) return null;
-        await tx.delete(versions.table).where(and(eq(versions.cols.noteId, id), eq(versions.cols.id, versionId)));
-        return withTags(tx, heads[0]);
-      });
+      return writeById(id, async () =>
+        getDb().transaction(async (tx: any) => {
+          const heads = (await tx.select(headColumns()).from(table).where(activeById(id)).limit(1)) as Record<
+            string,
+            unknown
+          >[];
+          if (!heads[0]) return null;
+          await tx.delete(versions.table).where(and(eq(versions.cols.noteId, id), eq(versions.cols.id, versionId)));
+          return withTags(tx, heads[0]);
+        }),
+      );
     },
 
     /**
@@ -396,22 +443,24 @@ export function makeTierRepo(cfg: TierConfig) {
         snapshot: (Record<string, unknown> & { createdAt: Date }) | null;
       },
     ): Promise<TierHeadRow | null> {
-      return getDb().transaction(async (tx: any) => {
-        const head = await findRawById(tx, id);
-        if (!head) return null;
+      return writeById(id, async () =>
+        getDb().transaction(async (tx: any) => {
+          const head = await findRawById(tx, id);
+          if (!head) return null;
 
-        const { changed, set, snapshot } = compute(head);
-        if (!changed) return withTags(tx, head);
+          const { changed, set, snapshot } = compute(head);
+          if (!changed) return withTags(tx, head);
 
-        if (snapshot) {
-          const last = await latestVersionCreatedAt(tx, id);
-          if (shouldRecordVersion(last, snapshot.createdAt)) {
-            await insertVersionCapped(tx, id, snapshot);
+          if (snapshot) {
+            const last = await latestVersionCreatedAt(tx, id);
+            if (shouldRecordVersion(last, snapshot.createdAt)) {
+              await insertVersionCapped(tx, id, snapshot);
+            }
           }
-        }
 
-        return updateHead(tx, id, { ...set, updatedAt: new Date() });
-      });
+          return updateHead(tx, id, { ...set, updatedAt: new Date() });
+        }),
+      );
     },
 
     /**
@@ -425,43 +474,47 @@ export function makeTierRepo(cfg: TierConfig) {
       setFromVersion: (version: Record<string, unknown>) => Record<string, unknown>,
       snapshotOfHead: (head: Record<string, unknown>) => Record<string, unknown>,
     ): Promise<TierHeadRow | null> {
-      return getDb().transaction(async (tx: any) => {
-        const head = await findRawById(tx, id);
-        if (!head) return null;
+      return writeById(id, async () =>
+        getDb().transaction(async (tx: any) => {
+          const head = await findRawById(tx, id);
+          if (!head) return null;
 
-        const versionRows = (await tx
-          .select()
-          .from(versions.table)
-          .where(and(eq(versions.cols.noteId, id), eq(versions.cols.id, versionId)))
-          .limit(1)) as Record<string, unknown>[];
-        const version = versionRows[0];
-        if (!version) return null;
+          const versionRows = (await tx
+            .select()
+            .from(versions.table)
+            .where(and(eq(versions.cols.noteId, id), eq(versions.cols.id, versionId)))
+            .limit(1)) as Record<string, unknown>[];
+          const version = versionRows[0];
+          if (!version) return null;
 
-        // Snapshot is stamped with when the pre-restore head was *saved*
-        // (its updatedAt), not restore time.
-        await insertVersionCapped(tx, id, { ...snapshotOfHead(head), createdAt: head.updatedAt });
+          // Snapshot is stamped with when the pre-restore head was *saved*
+          // (its updatedAt), not restore time.
+          await insertVersionCapped(tx, id, { ...snapshotOfHead(head), createdAt: head.updatedAt });
 
-        return updateHead(tx, id, { ...setFromVersion(version), updatedAt: new Date() });
-      });
+          return updateHead(tx, id, { ...setFromVersion(version), updatedAt: new Date() });
+        }),
+      );
     },
 
     /** The discrete single-field mutations shared by all tiers (`commonOps`). */
     ops: {
-      softDelete: (id: string) => updateHead(getDb(), id, { deletedAt: new Date() }),
-      restore: (id: string) => updateHead(getDb(), id, { deletedAt: null }),
-      archive: (id: string) => updateHead(getDb(), id, { archived: true }),
-      unarchive: (id: string) => updateHead(getDb(), id, { archived: false }),
-      updateColor: (id: string, color: string | null) => updateHead(getDb(), id, { color }),
-      updatePattern: (id: string, pattern: string | null) => updateHead(getDb(), id, { pattern }),
-      updatePosition: (id: string, position: number) => updateHead(getDb(), id, { position }),
+      softDelete: (id: string) => writeById(id, () => updateHead(getDb(), id, { deletedAt: new Date() })),
+      restore: (id: string) => writeById(id, () => updateHead(getDb(), id, { deletedAt: null })),
+      archive: (id: string) => writeById(id, () => updateHead(getDb(), id, { archived: true })),
+      unarchive: (id: string) => writeById(id, () => updateHead(getDb(), id, { archived: false })),
+      updateColor: (id: string, color: string | null) => writeById(id, () => updateHead(getDb(), id, { color })),
+      updatePattern: (id: string, pattern: string | null) => writeById(id, () => updateHead(getDb(), id, { pattern })),
+      updatePosition: (id: string, position: number) => writeById(id, () => updateHead(getDb(), id, { position })),
       updateTags: async (id: string, tagIds: string[]): Promise<TierHeadRow | null> =>
-        getDb().transaction(async (tx: any) => {
-          const head = await findRawById(tx, id);
-          if (!head) return null;
-          await replaceTags(tx, id, tagIds);
-          return mapHead(head, tagIds);
-        }),
-      applyPatch: (id: string, update: MetaPatch) => updateHead(getDb(), id, { ...update }),
+        writeById(id, async () =>
+          getDb().transaction(async (tx: any) => {
+            const head = await findRawById(tx, id);
+            if (!head) return null;
+            await replaceTags(tx, id, tagIds);
+            return mapHead(head, tagIds);
+          }),
+        ),
+      applyPatch: (id: string, update: MetaPatch) => writeById(id, () => updateHead(getDb(), id, { ...update })),
     },
 
     /** Internals used by cross-tier queries (tag counts, orphan checks, erase). */

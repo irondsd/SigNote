@@ -39,6 +39,11 @@ for (const tier of ['note', 'secret', 'seal'] as const) {
     await page.getByTestId('tiptap-editor').locator('[contenteditable=true]').fill('Keep this body');
     const release = await holdWrite(page, `${tier}s.create`, true);
     try {
+      // The create modal is still settling when the body is filled: Tiptap
+      // builds its DOM in an effect and the backdrop re-centres around it, and
+      // a Save click that lands mid-shift is dropped on the common ancestor
+      // without ever reaching React. See settleModal.
+      await settleModal(page);
       await page.getByTestId(`save-${tier}-btn`).click();
       await expect(page.getByTestId('note-modal')).toHaveCount(0);
       await expect(
@@ -99,6 +104,7 @@ for (const tier of ['note', 'secret', 'seal'] as const) {
     await page.getByTestId('tiptap-editor').locator('[contenteditable=true]').fill('Unsaved edited body');
     const release = await holdWrite(page, `${tier}s.update`, true);
     try {
+      await settleModal(page);
       await page.getByTestId('save-btn').click();
       await expect(page.getByTestId('save-btn')).toHaveCount(0);
       await page.getByRole('button', { name: 'Close', exact: true }).click();
@@ -124,6 +130,7 @@ test('a successful create clears its recovery after unmount without clearing a n
   await page.getByTestId('note-title-input').fill('First save');
   const release = await holdWrite(page, 'notes.create', false);
   try {
+    await settleModal(page);
     await page.getByTestId('save-note-btn').click();
     await expect(page.getByTestId('note-modal')).toHaveCount(0);
     await page.getByTestId('new-note-btn').click();
@@ -146,6 +153,7 @@ for (const tier of ['secret', 'seal'] as const) {
     // Seals create the row first, then encrypt with its real id and write the body.
     const release = await holdWrite(page, tier === 'seal' ? 'seals.update' : 'secrets.create', false);
     try {
+      await settleModal(page);
       await page.getByTestId(`save-${tier}-btn`).click();
       await expect(page.getByTestId('note-modal')).toHaveCount(0);
       expect(await drafts(page)).toEqual([expect.objectContaining({ title: 'Encrypted save' })]);

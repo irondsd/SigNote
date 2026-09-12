@@ -84,6 +84,7 @@ async function setup() {
   process.env.AWS_ACCESS_KEY_ID = 'test-key';
   process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
   (globalThis as GlobalWithServers).__MOCK_S3__ = mockS3;
+  process.env.MOCK_S3_CONTROL_URL = `http://127.0.0.1:${mockS3.port}/__control`;
   console.log(`Mock S3 server started on port ${mockS3.port}`);
 
   // A fresh, locally owned cluster per run; never use an environment-provided

@@ -37,7 +37,9 @@ test.describe('desktop browser sign-in', () => {
 
   test('offers every sign-in method on the browser authorization page', async ({ page }) => {
     const state = randomBytes(32).toString('base64url');
-    const codeChallenge = createHash('sha256').update(randomBytes(32).toString('base64url'), 'utf8').digest('base64url');
+    const codeChallenge = createHash('sha256')
+      .update(randomBytes(32).toString('base64url'), 'utf8')
+      .digest('base64url');
     const attemptResponse = await page.request.post('/api/desktop-auth/attempts', {
       data: { state, codeChallenge, codeChallengeMethod: 'S256' },
     });

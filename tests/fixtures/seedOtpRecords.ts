@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
 import { v7 as uuidv7 } from 'uuid';
 
-import { getOtpRecordAad, HKDF_INFO_OTP_VAULT, POSITION_STEP } from '@/config/constants';
+import { getOtpRecordAad, HKDF_INFO_OTP_VAULT, POSITION_STEP } from '../../src/config/constants';
 import { otpRecords } from '../../src/db/schema';
 import type { NoteColor, NotePattern } from '../../src/config/noteStyles';
 import { getOrCreateUserId } from './getOrCreateUserId';

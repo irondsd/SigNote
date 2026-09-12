@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Address } from 'viem';
-import { HKDF_INFO_SECRET_BODY, POSITION_STEP } from '@/config/constants';
+import { HKDF_INFO_SECRET_BODY, POSITION_STEP } from '../../src/config/constants';
 import { secretNotes } from '../../src/db/schema';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';

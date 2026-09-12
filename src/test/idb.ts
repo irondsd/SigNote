@@ -1,14 +1,22 @@
 /**
  * Browser storage shims for the jsdom test environment.
  *
- * jsdom provides neither Web Crypto nor `structuredClone`, and fake-indexeddb
- * clones every value on write. Import this once, before the module under test.
+ * jsdom provides neither Web Crypto, `TextEncoder` nor `structuredClone`, and
+ * fake-indexeddb clones every value on write. Import this once, before the
+ * module under test.
  */
 import 'fake-indexeddb/auto';
 import { webcrypto } from 'node:crypto';
+import { TextDecoder, TextEncoder } from 'node:util';
 
 if (!globalThis.crypto?.subtle) {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+}
+
+// jsdom ships neither, and `lib/crypto.ts` encodes every passphrase and AAD
+// through them, so anything touching real encryption needs them present.
+if (typeof globalThis.TextEncoder !== 'function') {
+  Object.assign(globalThis, { TextEncoder, TextDecoder });
 }
 
 /**

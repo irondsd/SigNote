@@ -107,8 +107,7 @@ function readDoc(fileName: string): DocEntry | null {
   const lines = fs.readFileSync(file, 'utf-8').split('\n');
 
   const headingIndex = lines.findIndex((line) => line.startsWith('# '));
-  const title =
-    headingIndex === -1 ? slugToNavLabel(slug) : stripTrailingGlyphs(lines[headingIndex].slice(2).trim());
+  const title = headingIndex === -1 ? slugToNavLabel(slug) : stripTrailingGlyphs(lines[headingIndex].slice(2).trim());
 
   // The docs are written lead-first, so the paragraph under the H1 is already
   // the summary — no second copy to maintain.

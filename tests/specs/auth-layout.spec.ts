@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 import { AuthenticatorPage } from '../pages/AuthenticatorPage';
+import { seedNotes } from '../fixtures/seedNotes';
 import { seedOtpRecords } from '../fixtures/seedOtpRecords';
 
 test.describe.configure({ mode: 'parallel' });
@@ -117,7 +118,6 @@ test.describe('authenticator card sizing', () => {
     const { address, mekBytes } = await authPage.signInDirectly();
     await seedOtpRecords(address, mekBytes, LONG.slice(0, 3));
 
-    const { seedNotes } = await import('../fixtures/seedNotes');
     await seedNotes(address, [{ title: 'Note one' }, { title: 'Note two' }, { title: 'Note three' }]);
 
     await page.reload();

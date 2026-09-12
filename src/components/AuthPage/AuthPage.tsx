@@ -92,7 +92,10 @@ export function AuthPage({ archived }: AuthPageProps) {
   };
 
   const body = () => {
-    if (vault.phase === 'loading' || status === 'loading') {
+    // `ready` without a snapshot is the moment straight after enrolling: the key
+    // is in hand but the first sync is still in flight, and an empty `records`
+    // there means "not fetched", not "no credentials".
+    if (vault.phase === 'loading' || status === 'loading' || (vault.phase === 'ready' && !vault.hydrated)) {
       return (
         <div className={s.loading}>
           <span className={s.spinner} />

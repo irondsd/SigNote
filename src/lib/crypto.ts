@@ -18,7 +18,12 @@ import { EncryptedPayload, KdfParams } from '@/types/crypto';
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
 export function toBase64(buf: ArrayBuffer | Uint8Array): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf instanceof ArrayBuffer ? buf : buf)));
+  const bytes = new Uint8Array(buf instanceof ArrayBuffer ? buf : buf);
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += 8192) {
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 8192)));
+  }
+  return btoa(chunks.join(''));
 }
 
 export function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
@@ -273,7 +278,8 @@ export async function encryptSealBody(mek: CryptoKey, plaintext: string, sealId:
  * Re-encrypts a seal body under its *existing* NEK. Edits must use this rather
  * than encryptSealBody: version history stores ciphertext-only snapshots and
  * relies on the head's wrappedNoteKey decrypting every historical body, so the
- * NEK must never rotate once a seal has one.
+ * NEK must never rotate during ordinary edits. Full vault rotation separately
+ * stages a fresh wrapper and every retained body before atomic activation.
  */
 export async function encryptSealBodyWithExistingKey(
   mek: CryptoKey,

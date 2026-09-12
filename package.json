@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 5000",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
+    "local:up": "docker compose up -d",
+    "local:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:push:prod": "DRIZZLE_ENV=.env.prod drizzle-kit push",
@@ -30,15 +30,19 @@
     "icons:web": "node scripts/build-web-icons.mjs",
     "start": "next start",
     "lint": "eslint && npx tsc --noEmit",
-    "format": "prettier --write . | grep -v '(unchanged)'",
+    "format": "prettier --write . | { grep -v '(unchanged)' || true; }",
     "test:bundle": "node tests/provider/bundle.mjs",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:e2e": "playwright test",
-    "test:e2e:prepare": "bun scripts/test-e2e-prepare.ts"
+    "test:e2e:prepare": "bun scripts/test-e2e-prepare.ts",
+    "test:rotation:locks": "bun tests/rotation/locks.ts",
+    "test:rotation:storage": "bun tests/rotation/storage.ts --restart",
+    "test:rotation:integration": "bun tests/rotation/integration.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",
+    "@aws-sdk/s3-request-presigner": "3.1121.0",
     "@base-ui/react": "^1.7.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

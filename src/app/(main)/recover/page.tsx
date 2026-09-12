@@ -22,7 +22,12 @@ import {
   verifyKeyCheck,
   xor32,
 } from '@/lib/crypto';
-import { decodeDeviceShare, parseBackupText, type RecoveryBackup } from '@/lib/recoveryBackup';
+import {
+  decodeDeviceShare,
+  parseBackupText,
+  ROTATION_RECOVERY_BACKUP_VERSION,
+  type RecoveryBackup,
+} from '@/lib/recoveryBackup';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { cn } from '@/utils/cn';
 import s from './page.module.scss';
@@ -118,8 +123,16 @@ export default function RecoverPage() {
       const valid = await verifyKeyCheck(candidate, material.keyCheck);
 
       if (!valid) {
+        // A v2 file is the recovery file for a *pending* rotation, so it only
+        // ever unlocks the generation that rotation was going to activate. If it
+        // does not match, that rotation was cancelled or has not finished — a
+        // different situation from a v1 file that predates a passphrase change
+        // or a completed rotation, and one that reads as alarming if the two
+        // are reported with the same words.
         setUploadError(
-          'This file appears valid but does not match your current encryption profile. It may have been made before a passphrase change.',
+          backup.version === ROTATION_RECOVERY_BACKUP_VERSION
+            ? 'This file was saved for a key change that was never completed, so it does not unlock your vault. Use the recovery file you had before that key change.'
+            : 'This file appears valid but does not match your current encryption profile. It may have been made before a passphrase or key change.',
         );
         return;
       }

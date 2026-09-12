@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
+import { withVaultRead, withVaultWrite } from '@/db/encryptionState';
 import { securityPreferences } from '@/db/schema';
 
 export type SecurityPreferences = {
@@ -17,16 +18,18 @@ export type SecurityPreferences = {
 const DEFAULTS: SecurityPreferences = { cacheServerShare: false, blurAuthCodes: true };
 
 export const getSecurityPreferences = async (userId: string): Promise<SecurityPreferences> => {
-  const rows = await getDb()
-    .select({
-      cacheServerShare: securityPreferences.cacheServerShare,
-      blurAuthCodes: securityPreferences.blurAuthCodes,
-    })
-    .from(securityPreferences)
-    .where(eq(securityPreferences.userId, userId))
-    .limit(1);
+  return withVaultRead(userId, async () => {
+    const rows = await getDb()
+      .select({
+        cacheServerShare: securityPreferences.cacheServerShare,
+        blurAuthCodes: securityPreferences.blurAuthCodes,
+      })
+      .from(securityPreferences)
+      .where(eq(securityPreferences.userId, userId))
+      .limit(1);
 
-  return rows[0] ?? DEFAULTS;
+    return rows[0] ?? DEFAULTS;
+  });
 };
 
 /**
@@ -38,16 +41,28 @@ export const setSecurityPreferences = async (
   userId: string,
   patch: Partial<SecurityPreferences>,
 ): Promise<SecurityPreferences> => {
-  const current = await getSecurityPreferences(userId);
-  const next = { ...current, ...patch };
+  return withVaultWrite(userId, async () => {
+    const rows = await getDb()
+      .select({
+        cacheServerShare: securityPreferences.cacheServerShare,
+        blurAuthCodes: securityPreferences.blurAuthCodes,
+      })
+      .from(securityPreferences)
+      .where(eq(securityPreferences.userId, userId))
+      .limit(1);
+    const current = rows[0] ?? DEFAULTS;
+    const next = { ...current, ...patch };
 
-  await getDb()
-    .insert(securityPreferences)
-    .values({ userId, ...next })
-    .onConflictDoUpdate({ target: securityPreferences.userId, set: next });
+    await getDb()
+      .insert(securityPreferences)
+      .values({ userId, ...next })
+      .onConflictDoUpdate({ target: securityPreferences.userId, set: next });
 
-  return next;
+    return next;
+  });
 };
 
 export const eraseSecurityPreferences = (userId: string) =>
-  getDb().delete(securityPreferences).where(eq(securityPreferences.userId, userId));
+  withVaultWrite(userId, async () => {
+    await getDb().delete(securityPreferences).where(eq(securityPreferences.userId, userId));
+  });

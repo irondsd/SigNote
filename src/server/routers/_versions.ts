@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { withVaultWrite } from '@/db/encryptionState';
 import { assertOwner } from '@/server/ownership';
 import { objectId } from '@/server/schemas/common';
 import { protectedProcedure, router } from '@/server/trpc';
@@ -32,20 +33,24 @@ export function makeVersionsRouter<R>(opts: {
     delete: protectedProcedure
       .input(z.object({ id: objectId, versionId: objectId }))
       .mutation(async ({ ctx, input }) => {
-        assertOwner(await opts.getById(input.id), ctx.userId);
-        const updated = await opts.deleteVersion(input.id, input.versionId);
-        if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Not found' });
-        return { success: true as const };
+        return withVaultWrite(ctx.userId, async () => {
+          assertOwner(await opts.getById(input.id), ctx.userId);
+          const updated = await opts.deleteVersion(input.id, input.versionId);
+          if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Not found' });
+          return { success: true as const };
+        });
       }),
 
     restore: protectedProcedure
       .input(z.object({ id: objectId, versionId: objectId, fileIds: z.array(objectId).optional() }))
       .mutation(async ({ ctx, input }) => {
-        assertOwner(await opts.getById(input.id), ctx.userId);
-        const updated = await opts.restoreVersion(input.id, input.versionId);
-        if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Version not found' });
-        await opts.relink(ctx.userId, input.id, updated, input.fileIds);
-        return updated;
+        return withVaultWrite(ctx.userId, async () => {
+          assertOwner(await opts.getById(input.id), ctx.userId);
+          const updated = await opts.restoreVersion(input.id, input.versionId);
+          if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Version not found' });
+          await opts.relink(ctx.userId, input.id, updated, input.fileIds);
+          return updated;
+        });
       }),
   });
 }

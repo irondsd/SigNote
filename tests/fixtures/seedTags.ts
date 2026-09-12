@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 import { tags as tagsTable } from '../../src/db/schema';
-import { autoTagColor, type TagColor } from '@/config/noteStyles';
+import { autoTagColor, type TagColor } from '../../src/config/noteStyles';
 import { getOrCreateUserId } from './getOrCreateUserId';
 import { testDb } from './db';
 

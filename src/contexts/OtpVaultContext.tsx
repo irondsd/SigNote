@@ -80,6 +80,11 @@ type OtpVaultValue = {
   clockSuspect: boolean;
   /** Vaults belonging to *other* accounts, offered for removal on sign-in. */
   strandedUserIds: string[];
+  /** False while `phase` is 'ready' but no record snapshot has arrived yet —
+   *  the list is empty because nothing has been fetched, not because the vault
+   *  is. Enrollment is the one path that gets there, so the page waits for the
+   *  first sync instead of flashing the empty state. */
+  hydrated: boolean;
 
   enroll: (mek: CryptoKey, options: { trust: boolean }) => Promise<void>;
   forget: () => Promise<void>;
@@ -172,11 +177,15 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
   const [records, setRecords] = useState<AuthRecord[]>([]);
   const [serverTimeOffsetMs, setOffset] = useState(0);
   const [strandedUserIds, setStranded] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   // The key never enters React state: it is not renderable, and keeping it in a
   // ref avoids it being captured by stale closures across a re-render.
   const keyRef = useRef<CryptoKey | null>(null);
   const profileIdRef = useRef<string | null>(null);
+  /** The encryption generation this key was derived under; null for an
+   *  enrollment made before the field existed. See `OtpVaultEntry`. */
+  const generationRef = useRef<number | null>(null);
   const trustedRef = useRef(false);
   const vaultUserIdRef = useRef<string | null>(vaultUserId);
   const sessionUserIdRef = useRef<string | null>(sessionUserId);
@@ -227,12 +236,14 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (!target) {
         setKey(null, false);
         profileIdRef.current = null;
+        generationRef.current = null;
         setVaultUserId(null);
         setCached([]);
         setRecords([]);
         setOffset(0);
         setSyncState('signed-out');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setHydrated(true);
         setResolvedSessionKey(resolvingSessionKey);
         return;
       }
@@ -244,11 +255,13 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (!vault) {
         setKey(null, false);
         profileIdRef.current = null;
+        generationRef.current = null;
         setCached([]);
         setRecords([]);
         setOffset(0);
         setSyncState('idle');
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
+        setHydrated(true);
         setResolvedSessionKey(resolvingSessionKey);
         return;
       }
@@ -259,11 +272,13 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
 
       setKey(vault.key, true);
       profileIdRef.current = vault.profileId;
+      generationRef.current = vault.generation ?? null;
       setOffset(vault.serverTimeOffsetMs);
       setCached(next);
       setRecords(decrypted);
       setSyncState(sessionStatus === 'authenticated' ? 'idle' : 'signed-out');
       setPhase('ready');
+      setHydrated(true);
       setResolvedSessionKey(resolvingSessionKey);
     })();
 
@@ -312,28 +327,59 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
     try {
       const [{ records: wire, serverTime }, profile] = await Promise.all([
         otpTrpcClient.otp.list.query() as Promise<{ records: WireRecord[]; serverTime: number }>,
-        otpTrpcClient.encryption.profile.query() as Promise<{ exists: boolean; profileId?: string }>,
+        otpTrpcClient.encryption.profile.query() as Promise<{
+          exists: boolean;
+          profileId?: string;
+          generation?: number;
+        }>,
       ]);
 
-      // The profile generation is the only remote kill switch in v1. A new id
-      // means the encryption profile was reset, so this key can no longer
-      // decrypt anything and the device returns to not-enrolled.
+      // Two remote kill switches, and they answer different questions. A new
+      // profile id means the encryption profile was *reset* — a different
+      // account vault entirely. A new generation means the same profile's keys
+      // were *rotated*, which deliberately keeps the id stable: without this
+      // second check the device would see a matching id, accept
+      // new-generation ciphertext, and decrypt none of it while still
+      // presenting itself as enrolled.
       if (!isCurrent()) return;
 
-      if (!profile.exists || !profileId || profile.profileId !== profileId) {
+      const enrolledGeneration = generationRef.current;
+      const reported = profile.generation;
+      // An enrollment predating the field is adopted only at generation zero,
+      // which was true of every one of them when this shipped. Anything else
+      // is an enrollment whose generation cannot be established, and an
+      // unverifiable key is treated as a dead one.
+      const generationStale =
+        typeof reported !== 'number' ||
+        (enrolledGeneration === null ? reported !== 0 : reported !== enrolledGeneration);
+
+      if (!profile.exists || !profileId || profile.profileId !== profileId || generationStale) {
         try {
           await removeVault(userId);
         } finally {
           announceVaultRemoval(userId);
           if (isCurrent()) {
             setKey(null, false);
+            profileIdRef.current = null;
+            generationRef.current = null;
             setCached([]);
+            // Codes on screen were generated from a seed this device can no
+            // longer read. Clear them before anything renders the new snapshot.
             setRecords([]);
             setPhase('not-enrolled');
+            setHydrated(true);
             setSyncState('online');
           }
         }
         return;
+      }
+
+      // A legacy enrollment just proved itself against generation zero; record
+      // it so the next rotation is caught by the comparison above rather than
+      // by the legacy branch again.
+      if (enrolledGeneration === null) {
+        generationRef.current = reported;
+        if (persist) await updateVault(userId, { generation: reported });
       }
 
       const offset = serverTime - Date.now();
@@ -345,9 +391,14 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (!isCurrent()) return;
       setOffset(offset);
       await refresh(next);
-      if (isCurrent()) setSyncState('online');
+      if (!isCurrent()) return;
+      setHydrated(true);
+      setSyncState('online');
     } catch (err) {
       if (!isCurrent()) return;
+      // The snapshot is as good as it is going to get; show the list (or the
+      // empty state) alongside the offline banner rather than spinning on.
+      setHydrated(true);
       if (await handleOtpUnauthorized(err)) {
         setSyncState('signed-out');
       } else {
@@ -406,8 +457,15 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       if (!sessionUserId) throw new Error('Sign in to set up the authenticator');
 
       const key = await deriveOtpVaultKey(mek);
-      const profile = (await otpTrpcClient.encryption.profile.query()) as { exists: boolean; profileId?: string };
+      const profile = (await otpTrpcClient.encryption.profile.query()) as {
+        exists: boolean;
+        profileId?: string;
+        generation?: number;
+      };
       const profileId = profile.profileId ?? '';
+      // The key was derived from a MEK the caller had to unlock to obtain, so
+      // the generation the server reports now is the one it belongs to.
+      const generation = profile.generation ?? 0;
 
       if (trust) {
         try {
@@ -415,6 +473,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
             userId: sessionUserId,
             key,
             profileId,
+            generation,
             deviceId: uuidv7(),
             enrolledAt: Date.now(),
             serverTimeOffsetMs: 0,
@@ -429,8 +488,11 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       }
 
       profileIdRef.current = profileId;
+      generationRef.current = generation;
       setKey(key, trust);
       setVaultUserId(sessionUserId);
+      // No records have been fetched for this key yet. See `hydrated`.
+      setHydrated(false);
       setPhase('ready');
     },
     [sessionUserId, setKey],
@@ -443,6 +505,8 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       setStranded((prev) => prev.filter((id) => id !== userId));
       if (userId === vaultUserId) {
         setKey(null, false);
+        profileIdRef.current = null;
+        generationRef.current = null;
         setCached([]);
         setRecords([]);
         setPhase(sessionUserId ? 'not-enrolled' : 'signed-out');
@@ -612,6 +676,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
+      hydrated,
       enroll,
       forget,
       forgetUser,
@@ -633,6 +698,7 @@ export function OtpVaultProvider({ children }: { children: React.ReactNode }) {
       serverTimeOffsetMs,
       clockSuspect,
       strandedUserIds,
+      hydrated,
       enroll,
       forget,
       forgetUser,

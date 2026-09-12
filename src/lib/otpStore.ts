@@ -26,9 +26,24 @@ export type OtpVaultEntry = {
   /** Non-extractable AES-GCM key. Stored as a CryptoKey via structured clone —
    *  never as raw bytes, so ordinary script on the origin cannot export it. */
   key: CryptoKey;
-  /** The encryption-profile generation this key belongs to. A mismatch reported
-   *  by an authenticated sync means the profile was reset and this key is dead. */
+  /** The encryption profile this key belongs to. A mismatch reported by an
+   *  authenticated sync means the profile was reset and this key is dead. */
   profileId: string;
+  /**
+   * The encryption *generation* this key was derived under.
+   *
+   * Separate from `profileId` because a full key rotation deliberately keeps
+   * the profile id stable — the account's identity did not change, only every
+   * key under it. Without this, a rotated account would hand an enrolled device
+   * a matching profile id and new-generation ciphertext, and the device would
+   * decrypt nothing while believing it was still enrolled.
+   *
+   * Optional only for enrollments made before this field existed. Those are
+   * adopted when the account reports generation zero — true of every one of
+   * them at the time this shipped, since no account could have rotated yet —
+   * and treated as dead otherwise, rather than trusted blindly.
+   */
+  generation?: number;
   /** Random per-device id, kept so a future `otp_devices` table can add remote
    *  revocation without re-enrolling anyone. Unused in v1. */
   deviceId: string;

@@ -20,6 +20,7 @@ import {
   UserRound,
   Info,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ import { useProfile, useUpdateDisplayName, type TierCounts } from '@/hooks/usePr
 import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import { useSecurityPreferences, useUpdateSecurityPreferences } from '@/hooks/useSecurityPreferences';
+import { useRotationAvailability } from '@/hooks/useRotationAvailability';
 import s from './page.module.scss';
 import Link from 'next/link';
 import { announceVaultRemoval, loadVault, removeVault } from '@/lib/otpStore';
@@ -146,6 +148,7 @@ function ProfilePageContent() {
   const { tags, isLoading: tagsLoading } = useTags();
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
   const { data: security, isLoading: securityLoading } = useSecurityPreferences();
+  const { data: rotation } = useRotationAvailability();
   const { mutate: updateSecurity } = useUpdateSecurityPreferences();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -609,6 +612,35 @@ function ProfilePageContent() {
             </div>
 
             <div className={s.divider} />
+
+            {/* Offered when the feature is available, and also whenever an
+                operation already exists — turning the feature off must never
+                strand an account mid-rotation with no way back to it. */}
+            {profile?.hasEncryptionProfile && (rotation?.rotationAvailable || rotation?.rotationInProgress) && (
+              <>
+                <div className={s.actionRow}>
+                  <div className={s.actionInfo}>
+                    <span className={s.actionLabel}>Encryption keys</span>
+                    <span className={s.actionDesc}>
+                      {rotation.rotationInProgress
+                        ? 'A key rotation is in progress. Continue or cancel it.'
+                        : 'Replace every encryption key and re-encrypt all of your encrypted data.'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/rotate-keys')}
+                    data-testid="profile-rotate-keys"
+                  >
+                    <RefreshCw size={14} />
+                    {rotation.rotationInProgress ? 'Continue' : 'Rotate'}
+                  </Button>
+                </div>
+
+                <div className={s.divider} />
+              </>
+            )}
 
             <div className={s.actionRow}>
               <div className={s.actionInfo}>

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { SessionEpochError } from '@/controllers/authSessions';
 import { consumeDesktopAuthAttempt } from '@/controllers/desktopAuth';
-import { createDesktopSession } from '@/lib/desktopSession';
+import { createDesktopSession, type DesktopSessionCookie } from '@/lib/desktopSession';
 import { acceptsJson, isSameOriginMutation } from '@/lib/requestSecurity';
 import { exchangeDesktopAttemptSchema } from '@/server/schemas/desktopAuth';
 
@@ -26,7 +27,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Desktop sign-in request is invalid or expired' }, { status });
   }
 
-  const cookie = await createDesktopSession(request, consumed.userId, consumed.provider);
+  let cookie: DesktopSessionCookie | null;
+  try {
+    cookie = await createDesktopSession(request, consumed.userId, consumed.provider);
+  } catch (err) {
+    // The browser handoff may race with revoke-all. The desktop token was
+    // captured under the old epoch and must not be minted after the fence.
+    if (err instanceof SessionEpochError) {
+      return NextResponse.json({ error: 'Session revoked' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    }
+    throw err;
+  }
   if (!cookie) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
   const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });

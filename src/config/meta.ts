@@ -47,6 +47,7 @@ export const PRIVATE_ROUTE_PREFIXES = [
   '/notifications',
   '/profile',
   '/recover',
+  '/rotate-keys',
   '/search',
   '/seals',
   '/secrets',

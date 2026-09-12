@@ -1,0 +1,1 @@
+ALTER TABLE "rotation_cleanup" ADD COLUMN "last_swept_at" timestamp with time zone;

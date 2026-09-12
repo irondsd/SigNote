@@ -463,10 +463,13 @@ test.describe('notifications', () => {
     await expectSignedIn(page);
 
     await page.goto('/profile');
-    await expect(page.getByTestId('manage-notifications-btn')).toBeEnabled();
+    await expect(page.getByTestId('manage-notifications-btn')).toBeEnabled({ timeout: SERVER_ROUND_TRIP_MS });
 
     await page.goto('/notifications');
-    await expect(page.getByTestId('pref-product-news')).toBeVisible();
+    // The page renders nothing until the session resolves and skeletons until
+    // the settings query lands — two round trips after the document, so this
+    // waits on the server rather than on a render.
+    await expect(page.getByTestId('pref-product-news')).toBeVisible({ timeout: SERVER_ROUND_TRIP_MS });
     // The one that cannot be switched off, listed anyway.
     await expect(page.getByTestId('pref-sign-in-codes')).toBeDisabled();
   });

@@ -4,6 +4,7 @@ import { geistMono, inter } from '@/config/fonts';
 import { Web3ProviderLazy } from '@/providers/Web3ProviderLazy';
 import { ReactQueryProvider } from '@/providers/ReactQueryProvider';
 import { AuthSessionProvider } from '@/providers/AuthSessionProvider';
+import { EncryptionGenerationProvider } from '@/providers/EncryptionGenerationProvider';
 import { cn } from '@/utils/cn';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
@@ -22,9 +23,11 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" storageKey="sn-theme">
           <AuthSessionProvider>
             <PostHogIdentify />
-            <ReactQueryProvider>
-              <Web3ProviderLazy>{children}</Web3ProviderLazy>
-            </ReactQueryProvider>
+            <EncryptionGenerationProvider>
+              <ReactQueryProvider>
+                <Web3ProviderLazy>{children}</Web3ProviderLazy>
+              </ReactQueryProvider>
+            </EncryptionGenerationProvider>
           </AuthSessionProvider>
           <Toaster />
           <ServiceWorkerRegistration />

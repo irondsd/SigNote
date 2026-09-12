@@ -11,8 +11,10 @@ export const POST = withSession(async (request, { userId, provider }) => {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
   // Any signed-in browser session may authorize the desktop app; the provider
-  // only labels the session it mints. A JWT without the claim predates the
-  // sessions feature and has to be re-issued before it can vouch for a device.
+  // only labels the session it mints. A JWT missing that claim cannot say how
+  // the user signed in, so it has to be re-issued before it can vouch for a
+  // device. This is about the provider claim alone — a token missing its `sid`
+  // never reaches a handler, `authenticateRequest` 401s it first.
   if (!provider) {
     throw new RouteAuthError(403, 'Sign in again to authorize the desktop app');
   }

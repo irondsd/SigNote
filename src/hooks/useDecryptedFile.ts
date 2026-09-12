@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFileEncryption } from '@/contexts/FileEncryptionContext';
 import { decryptFileBytes } from '@/lib/crypto';
+import { generationHeaders } from '@/lib/encryptionGeneration';
 
 type DecryptedFileState = {
   blobUrl: string | null;
@@ -32,7 +33,7 @@ export function useDecryptedFile(fileId: string | null) {
       setState({ blobUrl: null, loading: true, error: null });
 
       try {
-        const res = await fetch(`/api/files/${fileId}`, { signal: controller.signal });
+        const res = await fetch(`/api/files/${fileId}`, { signal: controller.signal, headers: generationHeaders() });
         if (!res.ok) throw new Error('Failed to fetch file');
 
         const isEncrypted = res.headers.get('X-File-Encrypted') === 'true';

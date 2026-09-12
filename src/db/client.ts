@@ -4,6 +4,7 @@ import path from 'node:path';
 import postgres from 'postgres';
 
 import * as schema from './schema';
+import { accountTransaction } from './transactionContext';
 
 /** Common supertype of the postgres-js and PGlite drizzle instances — every
  *  query in the app is written against this, so tests can swap in PGlite. */
@@ -53,7 +54,7 @@ export function connectToDatabase(): Db {
 
 /** The app-wide database handle, connecting lazily on first use. */
 export function getDb(): Db {
-  return globalForDb._signoteDb ?? connectToDatabase();
+  return accountTransaction.getStore()?.db ?? globalForDb._signoteDb ?? connectToDatabase();
 }
 
 /** Test hook: inject a PGlite-backed drizzle instance in place of a real pool. */

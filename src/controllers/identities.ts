@@ -1,10 +1,19 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 
 import { getDb } from '@/db/client';
+import {
+  currentRequestGeneration,
+  VaultConflictError,
+  withAccountLock,
+  withVaultRead,
+  withVaultWrite,
+} from '@/db/encryptionState';
 import { releaseEmailOwnership } from './userEmail';
 import {
   authIdentities,
   encryptionProfiles,
+  otpRecords,
+  fileAttachments,
   notes,
   passkeyCredentials,
   sealNotes,
@@ -67,10 +76,11 @@ const mapIdentity = (row: RawIdentity): IdentityRow => ({
   updatedAt: row.updatedAt,
 });
 
-export const getUserIdentities = async (userId: string): Promise<IdentityRow[]> => {
-  const rows = await getDb().select().from(authIdentities).where(eq(authIdentities.userId, userId));
-  return rows.map(mapIdentity);
-};
+export const getUserIdentities = async (userId: string): Promise<IdentityRow[]> =>
+  withVaultRead(userId, async () => {
+    const rows = await getDb().select().from(authIdentities).where(eq(authIdentities.userId, userId));
+    return rows.map(mapIdentity);
+  });
 
 export const linkIdentity = async (
   primaryUserId: string,
@@ -78,9 +88,7 @@ export const linkIdentity = async (
   providerSubject: string,
   identityData: Record<string, unknown>,
 ) => {
-  const db = getDb();
-
-  const existingRows = await db
+  const existingRows = await getDb()
     .select()
     .from(authIdentities)
     .where(and(eq(authIdentities.provider, provider), eq(authIdentities.providerSubject, providerSubject)))
@@ -93,91 +101,141 @@ export const linkIdentity = async (
       return;
     }
 
-    // Belongs to a different user — check for encrypted data
+    // Belongs to a different user — lock both accounts in stable order before
+    // checking/migrating anything. A merge that races rotation on either side
+    // must fail before moving a single row.
     const secondaryUserId = existing.userId;
-    const [secretsCount, sealsCount] = await Promise.all([
-      db
-        .select({ n: count() })
-        .from(secretNotes)
-        .where(and(eq(secretNotes.userId, secondaryUserId), isNull(secretNotes.deletedAt))),
-      db
-        .select({ n: count() })
-        .from(sealNotes)
-        .where(and(eq(sealNotes.userId, secondaryUserId), isNull(sealNotes.deletedAt))),
-    ]);
+    const [firstId, secondId] = [primaryUserId, secondaryUserId].sort();
+    return withAccountLock(firstId, async (_firstDb, firstState) => {
+      if (firstState.activeRotationId) throw new VaultConflictError('ROTATION_IN_PROGRESS');
+      return withAccountLock(secondId, async (_secondDb, secondState) => {
+        if (secondState.activeRotationId) throw new VaultConflictError('ROTATION_IN_PROGRESS');
+        const primaryState = firstId === primaryUserId ? firstState : secondState;
+        if (primaryState.generation !== currentRequestGeneration()) throw new VaultConflictError('GENERATION_MISMATCH');
+        const db = getDb();
+        const currentRows = await db
+          .select()
+          .from(authIdentities)
+          .where(and(eq(authIdentities.provider, provider), eq(authIdentities.providerSubject, providerSubject)))
+          .limit(1);
+        const current = currentRows[0];
+        if (!current) {
+          await db.insert(authIdentities).values({
+            userId: primaryUserId,
+            provider,
+            providerSubject,
+            lastLoginAt: new Date(),
+            email: typeof identityData.email === 'string' ? identityData.email : undefined,
+            emailVerified: typeof identityData.emailVerified === 'boolean' ? identityData.emailVerified : undefined,
+            rawProfileJson:
+              identityData.rawProfileJson && typeof identityData.rawProfileJson === 'object'
+                ? (identityData.rawProfileJson as Record<string, unknown>)
+                : undefined,
+          });
+          return;
+        }
+        if (current.userId === primaryUserId) return;
 
-    if (Number(secretsCount[0].n) > 0 || Number(sealsCount[0].n) > 0) {
-      throw new ConflictEncryptedDataError();
-    }
+        if (current.userId !== secondaryUserId) throw new AlreadyLinkedError();
+        // Every retained encrypted resource must block a merge, including
+        // trash, authenticator tombstones and unlinked attachments.
+        const [secretsCount, sealsCount, authCount, fileCount] = await Promise.all([
+          db.select({ n: count() }).from(secretNotes).where(eq(secretNotes.userId, secondaryUserId)),
+          db.select({ n: count() }).from(sealNotes).where(eq(sealNotes.userId, secondaryUserId)),
+          db.select({ n: count() }).from(otpRecords).where(eq(otpRecords.userId, secondaryUserId)),
+          db
+            .select({ n: count() })
+            .from(fileAttachments)
+            .where(
+              and(
+                eq(fileAttachments.userId, secondaryUserId),
+                eq(fileAttachments.encrypted, true),
+                isNull(fileAttachments.storageDeletedAt),
+              ),
+            ),
+        ]);
 
-    // The merged-away account may hold the only address between the two. It
-    // was proven once and shouldn't evaporate with the row — but it can only
-    // move to an account that doesn't already have one, and only after the old
-    // row is gone, or the two collide on the unique index mid-transaction.
-    const [primaryRow, secondaryRow] = await Promise.all([
-      db.select({ email: users.email }).from(users).where(eq(users.id, primaryUserId)).limit(1),
-      db
-        .select({ email: users.email, verifiedAt: users.emailVerifiedAt, owner: users.emailOwnerIdentityId })
-        .from(users)
-        .where(eq(users.id, secondaryUserId))
-        .limit(1),
-    ]);
-    const inheritedEmail = !primaryRow[0]?.email && secondaryRow[0]?.email ? secondaryRow[0] : null;
+        if (
+          Number(secretsCount[0].n) > 0 ||
+          Number(sealsCount[0].n) > 0 ||
+          Number(authCount[0].n) > 0 ||
+          Number(fileCount[0].n) > 0
+        ) {
+          throw new ConflictEncryptedDataError();
+        }
 
-    await db.transaction(async (tx) => {
-      // Migrate notes
-      await tx.update(notes).set({ userId: primaryUserId }).where(eq(notes.userId, secondaryUserId));
+        // The merged-away account may hold the only address between the two. It
+        // was proven once and shouldn't evaporate with the row — but it can only
+        // move to an account that doesn't already have one, and only after the old
+        // row is gone, or the two collide on the unique index mid-transaction.
+        const [primaryRow, secondaryRow] = await Promise.all([
+          db.select({ email: users.email }).from(users).where(eq(users.id, primaryUserId)).limit(1),
+          db
+            .select({ email: users.email, verifiedAt: users.emailVerifiedAt, owner: users.emailOwnerIdentityId })
+            .from(users)
+            .where(eq(users.id, secondaryUserId))
+            .limit(1),
+        ]);
+        const inheritedEmail = !primaryRow[0]?.email && secondaryRow[0]?.email ? secondaryRow[0] : null;
 
-      // Remove secondary encryption profile (if any, but no secrets/seals)
-      await tx.delete(encryptionProfiles).where(eq(encryptionProfiles.userId, secondaryUserId));
+        // Migrate notes
+        await db.update(notes).set({ userId: primaryUserId }).where(eq(notes.userId, secondaryUserId));
 
-      // Move all identities of secondary to primary. Their ids don't change,
-      // so an `email_owner_identity_id` pointing at one stays valid.
-      await tx.update(authIdentities).set({ userId: primaryUserId }).where(eq(authIdentities.userId, secondaryUserId));
+        // Remove secondary encryption profile (if any, but no secrets/seals)
+        await db.delete(encryptionProfiles).where(eq(encryptionProfiles.userId, secondaryUserId));
 
-      // Passkeys are sibling sign-in methods rather than auth identities, but
-      // they must follow the account through the same merge.
-      await tx
-        .update(passkeyCredentials)
-        .set({ userId: primaryUserId })
-        .where(eq(passkeyCredentials.userId, secondaryUserId));
+        // Move all identities of secondary to primary. Their ids don't change,
+        // so an `email_owner_identity_id` pointing at one stays valid.
+        await db
+          .update(authIdentities)
+          .set({ userId: primaryUserId })
+          .where(eq(authIdentities.userId, secondaryUserId));
 
-      // Delete secondary user record
-      await tx.delete(users).where(eq(users.id, secondaryUserId));
+        // Passkeys are sibling sign-in methods rather than auth identities, but
+        // they must follow the account through the same merge.
+        await db
+          .update(passkeyCredentials)
+          .set({ userId: primaryUserId })
+          .where(eq(passkeyCredentials.userId, secondaryUserId));
 
-      if (inheritedEmail) {
-        await tx
-          .update(users)
-          .set({
-            email: inheritedEmail.email,
-            emailVerifiedAt: inheritedEmail.verifiedAt,
-            emailOwnerIdentityId: inheritedEmail.owner,
-          })
-          .where(eq(users.id, primaryUserId));
-      }
+        // Delete secondary user record
+        await db.delete(users).where(eq(users.id, secondaryUserId));
+
+        if (inheritedEmail) {
+          await db
+            .update(users)
+            .set({
+              email: inheritedEmail.email,
+              emailVerifiedAt: inheritedEmail.verifiedAt,
+              emailOwnerIdentityId: inheritedEmail.owner,
+            })
+            .where(eq(users.id, primaryUserId));
+        }
+      });
     });
-
-    return;
   }
 
-  await db.insert(authIdentities).values({
-    userId: primaryUserId,
-    provider,
-    providerSubject,
-    lastLoginAt: new Date(),
-    email: typeof identityData.email === 'string' ? identityData.email : undefined,
-    emailVerified: typeof identityData.emailVerified === 'boolean' ? identityData.emailVerified : undefined,
-    rawProfileJson:
-      identityData.rawProfileJson && typeof identityData.rawProfileJson === 'object'
-        ? (identityData.rawProfileJson as Record<string, unknown>)
-        : undefined,
+  await withVaultWrite(primaryUserId, async () => {
+    await getDb()
+      .insert(authIdentities)
+      .values({
+        userId: primaryUserId,
+        provider,
+        providerSubject,
+        lastLoginAt: new Date(),
+        email: typeof identityData.email === 'string' ? identityData.email : undefined,
+        emailVerified: typeof identityData.emailVerified === 'boolean' ? identityData.emailVerified : undefined,
+        rawProfileJson:
+          identityData.rawProfileJson && typeof identityData.rawProfileJson === 'object'
+            ? (identityData.rawProfileJson as Record<string, unknown>)
+            : undefined,
+      });
   });
 };
 
 export const unlinkIdentity = async (userId: string, provider: string): Promise<boolean> => {
-  const db = getDb();
-
-  return db.transaction(async (tx) => {
+  return withVaultWrite(userId, async () => {
+    const tx = getDb();
     if (!(await lockSignInMethods(userId, tx))) return false;
 
     const identity = await tx

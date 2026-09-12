@@ -117,7 +117,7 @@ export const notes = pgTable(
     index('notes_deleted_idx').on(t.deletedAt),
     index('notes_search_tsv_idx').using('gin', t.searchTsv),
   ],
-);
+).enableRLS();
 
 export const noteVersions = pgTable(
   'note_versions',
@@ -132,7 +132,7 @@ export const noteVersions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('note_versions_note_idx').on(t.noteId, t.createdAt)],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Tier 2 — Secrets (AES-GCM, shared session key)
@@ -153,7 +153,7 @@ export const secretNotes = pgTable(
     index('secret_notes_deleted_idx').on(t.deletedAt),
     index('secret_notes_search_tsv_idx').using('gin', t.searchTsv),
   ],
-);
+).enableRLS();
 
 export const secretNoteVersions = pgTable(
   'secret_note_versions',
@@ -168,7 +168,7 @@ export const secretNoteVersions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('secret_note_versions_note_idx').on(t.noteId, t.createdAt)],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Tier 3 — Seals (AES-GCM, per-note wrapped key; NEK never rotates)
@@ -189,7 +189,7 @@ export const sealNotes = pgTable(
     index('seal_notes_deleted_idx').on(t.deletedAt),
     index('seal_notes_search_tsv_idx').using('gin', t.searchTsv),
   ],
-);
+).enableRLS();
 
 export const sealNoteVersions = pgTable(
   'seal_note_versions',
@@ -204,7 +204,7 @@ export const sealNoteVersions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('seal_note_versions_note_idx').on(t.noteId, t.createdAt)],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Tags + per-tier join tables. `sort_order` preserves the picker's ordering.
@@ -224,7 +224,7 @@ export const tags = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('tags_user_name_unique').on(t.userId, t.name)],
-);
+).enableRLS();
 
 const joinColumns = (parent: typeof notes | typeof secretNotes | typeof sealNotes) => ({
   noteId: text('note_id')
@@ -240,17 +240,17 @@ const joinColumns = (parent: typeof notes | typeof secretNotes | typeof sealNote
 export const noteTags = pgTable('note_tags', joinColumns(notes), (t) => [
   primaryKey({ columns: [t.noteId, t.tagId] }),
   index('note_tags_tag_idx').on(t.tagId),
-]);
+]).enableRLS();
 
 export const secretNoteTags = pgTable('secret_note_tags', joinColumns(secretNotes), (t) => [
   primaryKey({ columns: [t.noteId, t.tagId] }),
   index('secret_note_tags_tag_idx').on(t.tagId),
-]);
+]).enableRLS();
 
 export const sealNoteTags = pgTable('seal_note_tags', joinColumns(sealNotes), (t) => [
   primaryKey({ columns: [t.noteId, t.tagId] }),
   index('seal_note_tags_tag_idx').on(t.tagId),
-]);
+]).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Users / auth
@@ -292,7 +292,7 @@ export const users = pgTable(
   // to the person typing it. Deliberately *not* normalising Gmail dots or
   // plus-addressing — provider-specific canonicalisation ages badly.
   (t) => [uniqueIndex('users_email_unique').on(sql`lower(${t.email})`)],
-);
+).enableRLS();
 
 export type IdentityProvider = 'google' | 'siwe';
 export type AuthProvider = IdentityProvider | 'email' | 'passkey';
@@ -320,7 +320,7 @@ export const authIdentities = pgTable(
     uniqueIndex('auth_identities_provider_subject_unique').on(t.provider, t.providerSubject),
     index('auth_identities_user_idx').on(t.userId),
   ],
-);
+).enableRLS();
 
 // PK is the `sid` claim NextAuth stamps into the JWT — an ObjectId hex string
 // for sessions issued before the Postgres cutover, a UUIDv7 for new ones.
@@ -346,7 +346,7 @@ export const authSessions = pgTable(
     index('auth_sessions_user_updated_idx').on(t.userId, t.updatedAt),
     index('auth_sessions_expires_idx').on(t.expiresAt),
   ],
-);
+).enableRLS();
 
 export const authNonces = pgTable(
   'auth_nonces',
@@ -358,7 +358,7 @@ export const authNonces = pgTable(
     ip: text('ip'),
   },
   (t) => [index('auth_nonces_ip_created_idx').on(t.ip, t.createdAt), index('auth_nonces_expires_idx').on(t.expiresAt)],
-);
+).enableRLS();
 
 export type DesktopAuthAttemptStatus = 'pending' | 'authorized' | 'consumed';
 
@@ -394,7 +394,7 @@ export const desktopAuthAttempts = pgTable(
       .on(t.authorizationCodeHash)
       .where(sql`${t.authorizationCodeHash} is not null`),
   ],
-);
+).enableRLS();
 
 /**
  * One-time codes for email sign-in, and for attaching an address to an existing
@@ -425,7 +425,7 @@ export const emailSignInCodes = pgTable(
     // Swept by the same cron that reaps nonces and expired sessions.
     index('email_sign_in_codes_expires_idx').on(t.expiresAt),
   ],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Passkeys (WebAuthn)
@@ -459,7 +459,7 @@ export const passkeyCredentials = pgTable(
     uniqueIndex('passkey_credentials_credential_unique').on(t.credentialId),
     index('passkey_credentials_user_idx').on(t.userId),
   ],
-);
+).enableRLS();
 
 /** Short-lived, single-use state for registration and authentication. */
 export const passkeyChallenges = pgTable(
@@ -477,7 +477,7 @@ export const passkeyChallenges = pgTable(
     index('passkey_challenges_ip_created_idx').on(t.ip, t.createdAt),
     index('passkey_challenges_expires_idx').on(t.expiresAt),
   ],
-);
+).enableRLS();
 
 export const encryptionProfiles = pgTable(
   'encryption_profiles',
@@ -493,7 +493,7 @@ export const encryptionProfiles = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('encryption_profiles_user_unique').on(t.userId)],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Notification preferences
@@ -519,7 +519,7 @@ export const notificationPreferences = pgTable(
     updatedAt: updatedAtAuto(),
   },
   (t) => [uniqueIndex('notification_preferences_user_unique').on(t.userId)],
-);
+).enableRLS();
 
 /**
  * Choices about what this account is willing to trade away for convenience.
@@ -546,7 +546,7 @@ export const securityPreferences = pgTable(
     updatedAt: updatedAtAuto(),
   },
   (t) => [uniqueIndex('security_preferences_user_unique').on(t.userId)],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // File attachments (S3-backed)
@@ -577,7 +577,7 @@ export const fileAttachments = pgTable(
     index('file_attachments_note_idx').on(t.noteId),
     index('file_attachments_storage_deleted_idx').on(t.storageDeletedAt),
   ],
-);
+).enableRLS();
 
 // ---------------------------------------------------------------------------
 // Authenticator (TOTP)
@@ -634,4 +634,114 @@ export const otpRecords = pgTable(
     // Drives the tombstone sweep in controllers/cleanup.ts.
     index('otp_records_deleted_idx').on(t.deletedAt),
   ],
-);
+).enableRLS();
+
+// Stable account encryption/session state. Independent of profile format/id.
+export const encryptionStates = pgTable('encryption_states', {
+  userId: text('user_id').primaryKey(),
+  generation: integer('generation').notNull().default(0),
+  sessionEpoch: integer('session_epoch').notNull().default(0),
+  survivingSid: text('surviving_sid'),
+  rotationSessionSid: text('rotation_session_sid'),
+  activeRotationId: text('active_rotation_id'),
+}).enableRLS();
+
+export type RotationPhase = 'preparing' | 'migrating' | 'ready' | 'committed' | 'aborted' | 'cleaned';
+export type RotationKind = 'secret' | 'secret-version' | 'seal' | 'seal-version' | 'seal-wrapper' | 'auth' | 'file';
+export type PendingEncryptionMaterial = {
+  version: number;
+  serverShare: string;
+  salt: string;
+  kdf: KdfParams;
+  keyCheck: EncryptedPayload;
+};
+/** A file receipt carries `etag` only once `verify` has read its bytes back:
+ * absent on a source pointer, present on a staged replacement, which is what
+ * lets commit re-identify the object without hashing it again. */
+export type RotationCipherValue =
+  EncryptedPayload | { key: string; iv: string; bytes: number; checksum: string; etag?: string } | null;
+
+export const encryptionRotations = pgTable(
+  'encryption_rotations',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    ownerSid: text('owner_sid').notNull(),
+    workerFence: integer('worker_fence').notNull().default(1),
+    sourceGeneration: integer('source_generation').notNull(),
+    targetGeneration: integer('target_generation').notNull(),
+    profileId: text('profile_id').notNull(),
+    profileDigest: text('profile_digest').notNull(),
+    beginDigest: text('begin_digest').notNull(),
+    phase: text('phase').$type<RotationPhase>().notNull().default('preparing'),
+    paused: boolean('paused').notNull().default(false),
+    pendingMaterial: jsonb('pending_material').$type<PendingEncryptionMaterial>(),
+    inventoryDigest: text('inventory_digest').notNull(),
+    itemCount: integer('item_count').notNull(),
+    sourceBytes: bigint('source_bytes', { mode: 'number' }).notNull(),
+    fileBytes: bigint('file_bytes', { mode: 'number' }).notNull(),
+    stagedBytes: bigint('staged_bytes', { mode: 'number' }).notNull().default(0),
+    reservedFileBytes: bigint('reserved_file_bytes', { mode: 'number' }).notNull().default(0),
+    recoveryDigest: text('recovery_digest'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    expiresAt: ts('expires_at').notNull(),
+    committedAt: ts('committed_at'),
+  },
+  (t) => [
+    index('encryption_rotations_user_idx').on(t.userId, t.createdAt),
+    uniqueIndex('encryption_rotations_one_active')
+      .on(t.userId)
+      .where(sql`${t.phase} in ('preparing', 'migrating', 'ready')`),
+    index('encryption_rotations_expiry_idx').on(t.expiresAt),
+  ],
+).enableRLS();
+
+export const rotationItems = pgTable(
+  'rotation_items',
+  {
+    operationId: text('operation_id')
+      .notNull()
+      .references(() => encryptionRotations.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<RotationKind>().notNull(),
+    resourceId: text('resource_id').notNull(),
+    parentId: text('parent_id'),
+    sourceDigest: text('source_digest').notNull(),
+    source: jsonb('source').$type<RotationCipherValue>(),
+    replacement: jsonb('replacement').$type<RotationCipherValue>(),
+    replacementDigest: text('replacement_digest'),
+    verifiedDigest: text('verified_digest'),
+    stageKey: text('stage_key'),
+    stagedBytes: integer('staged_bytes').notNull().default(0),
+    // File grant ownership is reserved durably before issuing any presigned URL.
+    fileGrant: jsonb('file_grant').$type<{ key: string; bytes: number; checksum: string; iv: string }>(),
+    grantExpiresAt: ts('grant_expires_at'),
+    fileVerified: boolean('file_verified').notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.operationId, t.kind, t.resourceId] })],
+).enableRLS();
+
+export const rotationCleanup = pgTable(
+  'rotation_cleanup',
+  {
+    id: id(),
+    operationId: text('operation_id')
+      .notNull()
+      .references(() => encryptionRotations.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+    objectKey: text('object_key').notNull(),
+    reservedBytes: integer('reserved_bytes').notNull().default(0),
+    notBefore: ts('not_before').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    completedAt: ts('completed_at'),
+    /** When the object was last confirmed gone. A tombstone is only retired
+     * once this is at or past the end of its re-check window, so a missed
+     * sweep delays retirement instead of stranding a late-arriving object. */
+    lastSweptAt: ts('last_swept_at'),
+  },
+  (t) => [
+    uniqueIndex('rotation_cleanup_object_unique').on(t.objectKey),
+    index('rotation_cleanup_due_idx').on(t.notBefore),
+  ],
+).enableRLS();

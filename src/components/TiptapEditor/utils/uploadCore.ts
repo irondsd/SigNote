@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, isImageMime, UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
 import type { FileEncryptionContext } from './uploadFile';
+import { generationHeaders } from '@/lib/encryptionGeneration';
 
 export function validateFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE) return `File "${file.name}" exceeds 5 MB limit`;
@@ -71,7 +72,7 @@ export async function uploadAndUpdateNode(
   try {
     const formData = await buildFormData(file, encryptionCtx);
 
-    const res = await fetch('/api/files', { method: 'POST', body: formData });
+    const res = await fetch('/api/files', { method: 'POST', body: formData, headers: generationHeaders() });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Upload failed' }));
       throw new Error(err.error || 'Upload failed');

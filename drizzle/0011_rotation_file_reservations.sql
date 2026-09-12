@@ -1,0 +1,2 @@
+ALTER TABLE "encryption_rotations" ADD COLUMN "reserved_file_bytes" bigint DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "rotation_cleanup" ADD COLUMN "reserved_bytes" integer DEFAULT 0 NOT NULL;

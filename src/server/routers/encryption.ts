@@ -8,6 +8,8 @@ import {
   ProfileAlreadyExistsError,
   updateProfile,
 } from '@/controllers/encryptionProfiles';
+import { getEncryptionState } from '@/db/encryptionState';
+import { rotationStartEnabled } from '@/server/rotation/enablement';
 import { protectedProcedure, router } from '@/server/trpc';
 
 const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/; // 32 bytes → 44-char base64
@@ -32,6 +34,30 @@ const kdf = z.object({
 });
 
 export const encryptionRouter = router({
+  /**
+   * The one encryption read that is *not* generation-gated, and the only way a
+   * device with no marker can learn which generation to claim. Every other
+   * procedure refuses a request whose header disagrees with the account state,
+   * so bootstrapping through one of them would be a deadlock: you cannot learn
+   * the number without already knowing it.
+   *
+   * It discloses nothing an authenticated owner cannot already read — a counter
+   * and whether their own vault is frozen — and deliberately no pending
+   * rotation material, so the app's boot path never carries the next
+   * generation's `serverShare`.
+   */
+  generation: protectedProcedure.query(async ({ ctx }) => {
+    const state = await getEncryptionState(ctx.userId);
+    return {
+      generation: state.generation,
+      rotationInProgress: state.activeRotationId !== null,
+      // Whether a *new* rotation may be started. Disabling the feature never
+      // hides an operation already under way: status, resume and cancel keep
+      // working, so this only decides whether the entry point is offered.
+      rotationAvailable: rotationStartEnabled(),
+    };
+  }),
+
   // GET /api/encryption/material — server share + KDF params for unlock.
   material: protectedProcedure.query(async ({ ctx }) => {
     const material = await getMaterialByUserId(ctx.userId);
@@ -57,6 +83,12 @@ export const encryptionRouter = router({
       // changed id is exactly the signal an enrolled device must wipe on. The
       // id is an opaque uuid and not secret.
       profileId: profile._id,
+      // The *generation* is the second kill switch, and the one a rotation
+      // moves. A rotation deliberately keeps `profileId` stable — the account
+      // was not reset, only re-keyed — so a device comparing the id alone would
+      // accept new-generation ciphertext it cannot read. Read under the same
+      // lock as the snapshot, so it always describes this response.
+      generation: profile.generation,
       version: profile.version,
       salt: profile.salt,
       kdf: profile.kdf,

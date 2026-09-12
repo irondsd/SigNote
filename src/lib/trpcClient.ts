@@ -1,8 +1,9 @@
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 
 import type { AppRouter } from '@/server/routers/_app';
-import { unauthorizedLink } from './trpcLinks';
+import { generationLink, unauthorizedLink } from './trpcLinks';
 import { getSessionClientHeaders } from './sessionClient';
+import { generationHeaders } from './encryptionGeneration';
 
 /**
  * Vanilla (imperative) tRPC client for code paths that call procedures outside
@@ -12,5 +13,12 @@ import { getSessionClientHeaders } from './sessionClient';
  * against `AppRouter`.
  */
 export const trpcClient = createTRPCClient<AppRouter>({
-  links: [unauthorizedLink, httpBatchLink({ url: '/api/trpc', headers: getSessionClientHeaders })],
+  links: [
+    unauthorizedLink,
+    generationLink,
+    httpBatchLink({
+      url: '/api/trpc',
+      headers: () => ({ ...getSessionClientHeaders(), ...generationHeaders() }),
+    }),
+  ],
 });

@@ -24,41 +24,37 @@ const logoSrc = `data:image/svg+xml;base64,${logo.toString('base64')}`;
 
 export default function Image() {
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '80px',
-          background: BACKGROUND,
-          backgroundImage: `radial-gradient(circle at 88% 12%, rgba(220, 119, 2, 0.22), transparent 55%)`,
-          color: '#FAFAFA',
-          fontFamily: 'sans-serif',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
-          <img src={logoSrc} width={112} height={112} alt="" />
-          <div style={{ fontSize: 88, fontWeight: 700, letterSpacing: '-0.02em' }}>{SITE_NAME}</div>
-        </div>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '80px',
+        background: BACKGROUND,
+        backgroundImage: `radial-gradient(circle at 88% 12%, rgba(220, 119, 2, 0.22), transparent 55%)`,
+        color: '#FAFAFA',
+        fontFamily: 'sans-serif',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+        <img src={logoSrc} width={112} height={112} alt="" />
+        <div style={{ fontSize: 88, fontWeight: 700, letterSpacing: '-0.02em' }}>{SITE_NAME}</div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ fontSize: 60, fontWeight: 600, letterSpacing: '-0.02em', color: AMBER_TEXT }}>
-            {SITE_TAGLINE}
-          </div>
-          <div style={{ fontSize: 34, color: '#A3A3A3', lineHeight: 1.35 }}>
-            Encrypted in your browser. The server only ever stores ciphertext.
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: 30, color: '#E5E5E5' }}>
-          <div style={{ display: 'flex', width: '64px', height: '6px', borderRadius: '3px', background: AMBER }} />
-          <div style={{ display: 'flex' }}>Notes · Secrets · Seals</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ fontSize: 60, fontWeight: 600, letterSpacing: '-0.02em', color: AMBER_TEXT }}>{SITE_TAGLINE}</div>
+        <div style={{ fontSize: 34, color: '#A3A3A3', lineHeight: 1.35 }}>
+          Encrypted in your browser. The server only ever stores ciphertext.
         </div>
       </div>
-    ),
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: 30, color: '#E5E5E5' }}>
+        <div style={{ display: 'flex', width: '64px', height: '6px', borderRadius: '3px', background: AMBER }} />
+        <div style={{ display: 'flex' }}>Notes · Secrets · Seals</div>
+      </div>
+    </div>,
     size,
   );
 }
