@@ -3,9 +3,20 @@
 // unauthorized responses triggering multiple sign-outs.
 let signingOut = false;
 
+// Requests already in flight when the user signs out on purpose come back 401.
+// Those are the sign-out's own echo, not an ended session: announcing one and
+// reloading to `/` would tear down whatever the user did next.
+const DELIBERATE_SIGN_OUT_GRACE_MS = 30_000;
+let deliberateSignOutAt = 0;
+
+export const noteDeliberateSignOut = () => {
+  deliberateSignOutAt = Date.now();
+};
+
 export const handleUnauthorized = async () => {
   if (typeof window === 'undefined') return;
   if (signingOut) return;
+  if (Date.now() - deliberateSignOutAt < DELIBERATE_SIGN_OUT_GRACE_MS) return;
   signingOut = true;
 
   // Tell other tabs to drop their session too — mirrors SidebarNav's manual sign-out.

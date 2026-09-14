@@ -3,12 +3,11 @@ import type { Page } from '@playwright/test';
 /**
  * A navigation tore the frame down between the two sides of an `evaluate`.
  *
- * Sign-out is the case that produces it: `SidebarNav` calls
- * `signOut({ redirect: false })`, so the sign-in button appears without a
- * navigation — but any authenticated request still in flight then 401s and
- * `handleUnauthorized` finishes with `signOut({ callbackUrl: '/' })`, a real
- * one. A caller that waits on rendered state is therefore *already* past its
- * assertion when that navigation lands.
+ * `SidebarNav` signs out with `signOut({ redirect: false })` and tells
+ * `handleUnauthorized` to ignore the 401s its in-flight requests come back
+ * with, so a deliberate sign-out no longer navigates. Other paths still do —
+ * a revoked session ends in `signOut({ callbackUrl: '/' })` — and a caller
+ * waiting on rendered state is already past its assertion when that lands.
  */
 const isNavigationTeardown = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);

@@ -16,6 +16,7 @@ import { shortenAddress } from '@/utils/shortenAddress';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { clearDraft } from '@/lib/draft';
 import { requestWalletDisconnect } from '@/lib/walletEvents';
+import { noteDeliberateSignOut } from '@/lib/authRedirect';
 
 const ThemeToggle = dynamic(() => import('@/components/ThemeToggle/ThemeToggle').then((mod) => mod.ThemeToggle), {
   ssr: false,
@@ -48,6 +49,7 @@ export function SidebarNav({ onNavClick }: SidebarNavProps) {
   const handleSignOut = async () => {
     clearDraft();
     requestWalletDisconnect();
+    noteDeliberateSignOut();
     signOut({ redirect: false });
     const channel = new BroadcastChannel('signote-auth');
     channel.postMessage({ type: 'logout' });

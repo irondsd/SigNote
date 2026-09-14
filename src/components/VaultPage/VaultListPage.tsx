@@ -77,6 +77,7 @@ function VaultListPageContent<T>({
   // needed it anyway.
   const [restored, setRestored] = useState<DraftContent | null>(null);
   const promptedFor = useRef<string | null>(null);
+  const vaultLoading = phase === 'loading';
   useEffect(() => {
     if (!draftRestore) {
       setRestored(null);
@@ -88,6 +89,12 @@ function VaultListPageContent<T>({
       setRestored(plain);
       return;
     }
+
+    // The toast offers Continue as soon as the page mounts, which can be before
+    // the session has resolved. Unlock material requested then is sent with no
+    // bound account and refused by the generation fence when it arrives, so
+    // wait until the vault state is known — as the reload rehydration does.
+    if (vaultLoading) return;
 
     let live = true;
     const open = async (key: CryptoKey) => {
@@ -117,7 +124,7 @@ function VaultListPageContent<T>({
     };
     // `execute` changes identity with the MEK; re-running on that alone would ask twice.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftRestore, lockType, mek]);
+  }, [draftRestore, lockType, mek, vaultLoading]);
 
   const modalOpen = showNew || !!restored;
   const initialContent = restored ?? undefined;
