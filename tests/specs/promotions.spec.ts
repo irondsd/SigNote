@@ -10,7 +10,6 @@ import { seedSecretVersions } from '../fixtures/seedVersions';
 import { makeAccount } from '../utils/makeAccount';
 import { settleModal } from '../utils/settleModal';
 import { NotesPage } from '../pages/NotesPage';
-import { SealsPage } from '../pages/SealsPage';
 import { SecretsPage } from '../pages/SecretsPage';
 import { decryptStoredFile } from '../fixtures/seedEncryptedFile';
 
@@ -132,10 +131,9 @@ test.describe('tier promotion', () => {
     await moved;
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
-    const sealsPage = new SealsPage(page);
-    await page.getByRole('link', { name: 'Seals', exact: true }).click();
+    await page.getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/seals\\?id=${secret.id}$`));
     await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
-    await sealsPage.sealCard(title).click();
     await page.getByRole('button', { name: 'Decrypt to view' }).click();
     await expect(page.getByTestId('tiptap-editor')).toContainText('current shared-key content');
     await settleModal(page);

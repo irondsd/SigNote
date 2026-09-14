@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import { toast } from 'sonner';
 
@@ -63,7 +64,13 @@ function usePromotionCache(source: 'notes' | 'secrets', destination: 'secrets' |
   };
 }
 
+function promotedNoteUrl(destination: 'secrets' | 'seals', result: { id: string; archived: boolean }) {
+  const path = result.archived ? `/${destination}/archive` : `/${destination}`;
+  return `${path}?id=${encodeURIComponent(result.id)}`;
+}
+
 export function usePromoteNoteToSecret() {
+  const router = useRouter();
   const { cancelSourceVersions, reconcile } = usePromotionCache('notes', 'secrets');
   return useMutation({
     networkMode: 'always',
@@ -102,10 +109,13 @@ export function usePromoteNoteToSecret() {
           throw error;
         }
       }),
-    onSuccess: async (_data, { id }) => {
+    onSuccess: async (data, { id }) => {
       await reconcile(id);
       posthog.capture('note_promoted', { from: 'note', to: 'secret' });
-      toast.success('Moved to Secrets', { description: 'The note and its history are now encrypted.' });
+      toast.success('Moved to Secrets', {
+        description: 'The note and its history are now encrypted.',
+        action: { label: 'Open', onClick: () => router.push(promotedNoteUrl('secrets', data)) },
+      });
     },
     onError: () => {
       posthog.capture('mutation_failed', { tier: 'note', operation: 'promote' });
@@ -114,6 +124,7 @@ export function usePromoteNoteToSecret() {
 }
 
 export function usePromoteSecretToSeal() {
+  const router = useRouter();
   const { cancelSourceVersions, reconcile } = usePromotionCache('secrets', 'seals');
   return useMutation({
     networkMode: 'always',
@@ -144,10 +155,13 @@ export function usePromoteSecretToSeal() {
           })),
         });
       }),
-    onSuccess: async (_data, { id }) => {
+    onSuccess: async (data, { id }) => {
       await reconcile(id);
       posthog.capture('note_promoted', { from: 'secret', to: 'seal' });
-      toast.success('Moved to Seals', { description: 'This item now has its own encryption key.' });
+      toast.success('Moved to Seals', {
+        description: 'This item now has its own encryption key.',
+        action: { label: 'Open', onClick: () => router.push(promotedNoteUrl('seals', data)) },
+      });
     },
     onError: () => {
       posthog.capture('mutation_failed', { tier: 'secret', operation: 'promote' });
