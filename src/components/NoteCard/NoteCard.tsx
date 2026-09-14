@@ -31,6 +31,7 @@ export function NoteCard({ note, onClick, showArchivedBadge = false }: NoteCardP
       archived={note.archived}
       pinned={note.pinned}
       hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
+      saving={note._id.startsWith('temp-')}
       tags={resolve(note.tags)}
       data-testid="note-card"
       content={

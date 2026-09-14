@@ -109,7 +109,13 @@ export function useCreateTier<T extends WithId, TInput>(
       });
       callbacks?.onError?.(vars);
     },
-    onSettled: settledHandler<T>(qc, root),
+    // Not awaited: React Query holds `mutateAsync` open until onSettled's
+    // promise settles, and the card already carries the server row from
+    // onSuccess. Waiting on the list refetch would leave callers (the "Saving…"
+    // toast, the draft slot) pending long after the note is saved and openable.
+    onSettled: (data, err, vars, context) => {
+      void settledHandler<T>(qc, root)(data, err, vars, context);
+    },
   });
 }
 

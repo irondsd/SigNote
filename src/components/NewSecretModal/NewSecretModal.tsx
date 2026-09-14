@@ -37,15 +37,17 @@ export function NewSecretModal({ onClose, initialContent }: NewSecretModalProps)
       await guard.execute(async (mek) => {
         const encryptedBody = prepared.content ? await encryptSecretBody(mek, prepared.content) : null;
         const fileIds = extractFileIds(prepared.content);
-        form.save(() =>
-          createSecret.mutateAsync({
-            title: prepared.title,
-            encryptedBody,
-            color: form.color,
-            pattern: form.pattern,
-            fileIds,
-            tags: form.tags,
-          }),
+        form.save(
+          () =>
+            createSecret.mutateAsync({
+              title: prepared.title,
+              encryptedBody,
+              color: form.color,
+              pattern: form.pattern,
+              fileIds,
+              tags: form.tags,
+            }),
+          { showProgress: fileIds.length > 0 },
         );
         onClose();
       });

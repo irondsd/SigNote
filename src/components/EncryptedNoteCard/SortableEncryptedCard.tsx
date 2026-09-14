@@ -52,6 +52,7 @@ export function SortableEncryptedCard({
         archived={archived}
         pinned={pinned}
         hasExpiry={hasExpiry}
+        saving={id.startsWith('temp-')}
         burnAfterReading={burnAfterReading}
         tagIds={tagIds}
       />

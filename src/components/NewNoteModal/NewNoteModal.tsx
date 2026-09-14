@@ -5,6 +5,7 @@ import { TiptapEditor } from '@/components/TiptapEditor/TiptapEditor';
 import { NewNoteModalShell } from '@/components/NewModal/NewNoteModalShell';
 import { useNewNoteForm } from '@/hooks/useNewNoteForm';
 import type { DraftContent } from '@/lib/draft';
+import { extractFileIds } from '@/lib/fileIds';
 
 type NewNoteModalProps = {
   onClose: () => void;
@@ -18,7 +19,9 @@ export function NewNoteModal({ onClose, initialContent }: NewNoteModalProps) {
   const handleSave = () => {
     const prepared = form.prepare();
     if (!prepared) return;
-    form.save(() => createNote.mutateAsync({ ...prepared, color: form.color, pattern: form.pattern, tags: form.tags }));
+    form.save(() => createNote.mutateAsync({ ...prepared, color: form.color, pattern: form.pattern, tags: form.tags }), {
+      showProgress: extractFileIds(prepared.content).length > 0,
+    });
     onClose();
   };
 

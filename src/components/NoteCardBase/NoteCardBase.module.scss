@@ -202,6 +202,23 @@
   color: var(--destructive);
 }
 
+.savingIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+
+  svg {
+    animation: savingSpin 0.9s linear infinite;
+  }
+}
+
+@keyframes savingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .footer {
   position: relative;
   z-index: 2;

@@ -19,6 +19,7 @@ type EncryptedNoteCardProps = {
   archived?: boolean;
   pinned?: boolean;
   hasExpiry?: boolean;
+  saving?: boolean;
   burnAfterReading?: boolean;
   tagIds?: string[];
 };
@@ -35,6 +36,7 @@ export function EncryptedNoteCard({
   archived = false,
   pinned = false,
   hasExpiry = false,
+  saving = false,
   burnAfterReading = false,
   tagIds,
 }: EncryptedNoteCardProps) {
@@ -65,6 +67,7 @@ export function EncryptedNoteCard({
       archived={archived}
       pinned={pinned}
       hasExpiry={hasExpiry}
+      saving={saving}
       tags={resolve(tagIds)}
       content={content}
     />

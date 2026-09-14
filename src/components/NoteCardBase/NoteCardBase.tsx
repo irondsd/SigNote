@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Archive, Flame, Pin } from 'lucide-react';
+import { Archive, Flame, LoaderCircle, Pin } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import { Tag, type TagLike } from '@/components/Tag/Tag';
@@ -20,6 +20,8 @@ type NoteCardBaseProps = {
   content?: React.ReactNode;
   pinned?: boolean;
   hasExpiry?: boolean;
+  /** Optimistic card whose create hasn't reached the server yet — it can't be opened until it does. */
+  saving?: boolean;
   tags?: TagLike[];
   'data-testid'?: string;
 };
@@ -35,6 +37,7 @@ export function NoteCardBase({
   content,
   pinned = false,
   hasExpiry = false,
+  saving = false,
   tags,
   'data-testid': testId,
 }: NoteCardBaseProps) {
@@ -60,8 +63,13 @@ export function NoteCardBase({
         (e.key === 'Enter' || e.key === ' ') && onClick((e.currentTarget as HTMLElement).getBoundingClientRect())
       }
     >
-      {(pinned || hasExpiry) && (
+      {(pinned || hasExpiry || saving) && (
         <div className={s.indicators}>
+          {saving && (
+            <span className={s.savingIndicator} data-testid="saving-flag" aria-label="Saving" title="Saving…">
+              <LoaderCircle size={12} />
+            </span>
+          )}
           {pinned && (
             <span className={s.pinIndicator} data-testid="pin-flag" aria-label="Pinned">
               <Pin size={12} />

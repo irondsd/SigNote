@@ -36,18 +36,22 @@ export function NewSealModal({ onClose, initialContent }: NewSealModalProps) {
       setSaving(true);
       await guard.execute(async (mek) => {
         const fileIds = extractFileIds(prepared.content);
-        form.save(() =>
-          createSeal.mutateAsync({
-            title: prepared.title,
-            color: form.color,
-            pattern: form.pattern,
-            fileIds,
-            tags: form.tags,
-            encryptBody: async (sealId: string) => {
-              if (!prepared.content) return null;
-              return encryptSealBody(mek, prepared.content, sealId);
-            },
-          }),
+        // Always shown: a seal takes two round trips (create, then the body
+        // encrypted against its id), so it is never instant.
+        form.save(
+          () =>
+            createSeal.mutateAsync({
+              title: prepared.title,
+              color: form.color,
+              pattern: form.pattern,
+              fileIds,
+              tags: form.tags,
+              encryptBody: async (sealId: string) => {
+                if (!prepared.content) return null;
+                return encryptSealBody(mek, prepared.content, sealId);
+              },
+            }),
+          { showProgress: true },
         );
         onClose();
       });

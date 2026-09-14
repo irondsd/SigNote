@@ -49,6 +49,27 @@ it('creates immediately, replaces the temporary id without refetch, and survives
   expect(items()[0]._id).toBe('server-id');
 });
 
+it('create resolves once the server has the note, without waiting for the list refetch', async () => {
+  const never = new Promise<void>(() => {});
+  jest.spyOn(qc, 'invalidateQueries').mockReturnValue(never);
+  jest.spyOn(qc, 'refetchQueries').mockReturnValue(never);
+  const hook = renderHook(
+    () =>
+      useCreateTier(
+        'notes',
+        async (input: Item) => ({ ...input, _id: 'server-id' }),
+        (input, id) => ({ ...input, _id: id }),
+      ),
+    { wrapper },
+  );
+  await act(async () => {
+    await expect(hook.result.current.mutateAsync({ ...original, title: 'New' })).resolves.toMatchObject({
+      _id: 'server-id',
+    });
+  });
+  expect(qc.invalidateQueries).toHaveBeenCalled();
+});
+
 it('a failed create does not roll back a different in-flight create', async () => {
   const first = deferred<Item>();
   const second = deferred<Item>();
