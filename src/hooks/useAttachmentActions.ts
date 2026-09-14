@@ -1,8 +1,22 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import { generationHeaders } from '@/lib/encryptionGeneration';
+import { useFileEncryption } from '@/contexts/FileEncryptionContext';
+import { fetchFileBlob } from '@/hooks/useDecryptedFile';
 
+function saveUrl(url: string, filename: string) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
+
+/**
+ * `blobUrl` is the already-loaded file, when the view needs one to render (an
+ * image preview). Without it, download fetches and decrypts on demand — a file
+ * card has nothing to show, so it shouldn't pull the file until asked.
+ */
 export function useAttachmentActions(
   fileId: string | null,
   filename: string,
@@ -10,6 +24,9 @@ export function useAttachmentActions(
   deleteNode: () => void,
   mimeType?: string,
 ) {
+  const { mek } = useFileEncryption();
+  const [downloading, setDownloading] = useState(false);
+
   const handleDelete = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -31,20 +48,31 @@ export function useAttachmentActions(
   );
 
   const handleDownload = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
       if (blobUrl) {
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        a.click();
-        posthog.capture('file_downloaded', { mime_category: getMimeCategory(mimeType) });
+        saveUrl(blobUrl, filename);
+      } else {
+        if (!fileId || downloading) return;
+        setDownloading(true);
+        try {
+          const url = URL.createObjectURL(await fetchFileBlob(fileId, mek));
+          saveUrl(url, filename);
+          // Revoke on the next tick: the click has to start the save first.
+          setTimeout(() => URL.revokeObjectURL(url), 0);
+        } catch {
+          toast.error('Failed to download file');
+          return;
+        } finally {
+          setDownloading(false);
+        }
       }
+      posthog.capture('file_downloaded', { mime_category: getMimeCategory(mimeType) });
     },
-    [blobUrl, filename, mimeType],
+    [blobUrl, fileId, mek, downloading, filename, mimeType],
   );
 
-  return { handleDelete, handleDownload };
+  return { handleDelete, handleDownload, downloading };
 }
 
 function getMimeCategory(mimeType?: string): 'image' | 'document' | 'other' {

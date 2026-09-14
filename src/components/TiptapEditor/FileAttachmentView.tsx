@@ -3,7 +3,6 @@
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react';
 import { File, FileText, FileSpreadsheet, FileArchive, Trash2, X, Loader2, Download } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useDecryptedFile } from '@/hooks/useDecryptedFile';
 import { useAttachmentActions } from '@/hooks/useAttachmentActions';
 import s from './FileAttachmentView.module.scss';
 
@@ -40,31 +39,33 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
   const { fileId, filename, size, mimeType, uploadStatus } = node.attrs;
   const isEditable = editor.isEditable;
   const isUploading = uploadStatus === 'uploading';
-  const { blobUrl } = useDecryptedFile(isUploading ? null : fileId);
-  const { handleDelete, handleDownload } = useAttachmentActions(fileId, filename, blobUrl, deleteNode, mimeType);
+  // No preview to render, so the file is only fetched when the user downloads it.
+  const { handleDelete, handleDownload, downloading } = useAttachmentActions(
+    fileId,
+    filename,
+    null,
+    deleteNode,
+    mimeType,
+  );
+  const canDownload = !isUploading && !!fileId;
 
   const handleCancel = (e: React.MouseEvent) => {
     e.stopPropagation();
     deleteNode();
   };
 
-  const handleCardClick = () => {
-    if (!isEditable && blobUrl) {
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename;
-      a.click();
-    }
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (!isEditable && canDownload) handleDownload(e);
   };
 
   return (
     <NodeViewWrapper className={s.wrapper}>
       <div
-        className={`${s.card} ${isUploading ? s.uploading : ''} ${!isEditable && blobUrl ? s.clickable : ''} ${selected && isEditable ? s.selected : ''}`}
+        className={`${s.card} ${isUploading ? s.uploading : ''} ${!isEditable && canDownload ? s.clickable : ''} ${selected && isEditable ? s.selected : ''}`}
         onClick={handleCardClick}
       >
         <div className={s.icon}>
-          {isUploading ? <Loader2 size={24} className={s.spinner} /> : <FileIcon mimeType={mimeType} />}
+          {isUploading || downloading ? <Loader2 size={24} className={s.spinner} /> : <FileIcon mimeType={mimeType} />}
         </div>
         <div className={s.info}>
           <span className={s.filename}>{filename}</span>
@@ -80,8 +81,14 @@ export function FileAttachmentView({ node, deleteNode, editor, selected }: NodeV
             </Button>
           ) : (
             <>
-              {blobUrl && (
-                <Button variant="ghost" size="icon-sm" onClick={handleDownload} title="Download file">
+              {canDownload && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  title="Download file"
+                >
                   <Download size={16} />
                 </Button>
               )}
