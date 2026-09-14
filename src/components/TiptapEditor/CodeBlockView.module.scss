@@ -1,7 +1,12 @@
 .wrapper {
   position: relative;
-  background: var(--muted);
-  border: 1px solid var(--border);
+  // Alpha-only surface: darkens the note's tint instead of replacing it, and
+  // the blur softens any pattern behind the code without losing its hue.
+  background: var(--code-block-bg);
+  // No -webkit- twin: the CSS pipeline drops the property entirely when both
+  // spellings are present, and adds the prefix itself where it's needed.
+  backdrop-filter: blur(7px) saturate(1.25);
+  border: 1px solid var(--code-block-border);
   border-radius: 8px;
   overflow: hidden;
   margin: 0.4em 0;
@@ -41,10 +46,14 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: var(--muted-foreground);
-  opacity: 0.4;
+  opacity: 0.55;
   user-select: none;
   pointer-events: none;
   z-index: 1;
+
+  :global(.dark) & {
+    opacity: 0.7;
+  }
 }
 
 .copyBtn {
@@ -70,8 +79,8 @@
 
   // Button hover overrides the wrapper-hover opacity
   &:hover {
-    opacity: 0.8 !important;
-    background: var(--accent);
+    opacity: 0.9 !important;
+    background: var(--code-control-hover);
     color: var(--foreground);
   }
 

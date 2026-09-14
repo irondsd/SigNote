@@ -82,7 +82,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.875em;
       background: var(--code-bg);
-      border: 1px solid var(--border);
+      border: 1px solid var(--code-border);
       border-radius: 4px;
       padding: 1px 5px;
     }
@@ -148,7 +148,7 @@
       transition: background 0.1s;
 
       &:hover {
-        background: var(--accent);
+        background: var(--code-bg-hover);
       }
     }
   }

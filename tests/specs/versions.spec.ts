@@ -148,7 +148,9 @@ test.describe('version history', () => {
   test('timeline refreshes after an edit instead of serving the stale cache', async ({ page }) => {
     const { account } = makeAccount();
     const tag = `vh-stale-${Date.now()}`;
-    await seedNotes(account.address, [seededHistory(tag)]);
+    // The head was last saved half an hour ago, so its content has stood past
+    // the compression window and the edit below must snapshot it.
+    await seedNotes(account.address, [{ ...seededHistory(tag), updatedAt: new Date(Date.now() - HOUR / 2) }]);
 
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly(account.address);
@@ -158,8 +160,7 @@ test.describe('version history', () => {
     await expect(page.getByTestId('version-row')).toHaveCount(3);
     await page.getByTestId('version-history-close').click();
 
-    // Edit the note. The seeded versions are hours old (outside the
-    // compression window), so this edit records a fresh snapshot.
+    // Edit the note; this records a fresh snapshot of the head.
     await page.getByTestId('edit-btn').click();
     await page.getByTestId('note-title-input').fill(`${tag} edited`);
     const patchPromise = page.waitForResponse(

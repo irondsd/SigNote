@@ -22,6 +22,8 @@ export type SeedNote = {
   pinned?: boolean;
   expiresAt?: Date | null;
   burnAfterReading?: boolean;
+  /** When the head's content was last saved. Defaults to now. */
+  updatedAt?: Date;
   versions?: { title: string; content: string; createdAt?: Date }[];
 };
 
@@ -57,7 +59,7 @@ export const seedNotesForUser = async (userId: string, seeds: SeedNote[]): Promi
         pattern: note.pattern ?? null,
         position,
         createdAt: now,
-        updatedAt: now,
+        updatedAt: note.updatedAt ?? now,
         deletedAt: note.deletedAt !== undefined ? note.deletedAt : null,
         pinned: note.pinned ?? false,
         expiresAt: note.expiresAt ?? null,
