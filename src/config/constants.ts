@@ -13,8 +13,8 @@ export const MAX_TAGS_PER_NOTE = 10;
 
 // Version history (embedded per-note snapshots of title + body)
 export const MAX_VERSIONS = 10;
-// Edits landing within this window of the latest version collapse into the same
-// version (the previous snapshot is suppressed) so an autosave burst counts once.
+// A head displaced by an edit is recorded as a version only if its content stood
+// for at least this long, so an autosave burst counts once — as its final state.
 export const VERSION_COMPRESSION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // Auto-lock timing

@@ -113,12 +113,13 @@ export function buildPrefixTsQuery(search: string): string | null {
   return terms.map((term) => `${term}:*`).join(' & ');
 }
 
-/** Version compression: a snapshot landing within the window of the previous
- *  version is suppressed so an autosave burst counts as one version. */
-export function shouldRecordVersion(lastCreatedAt: Date | null, snapshotCreatedAt: Date): boolean {
-  return (
-    lastCreatedAt === null || snapshotCreatedAt.getTime() - lastCreatedAt.getTime() >= VERSION_COMPRESSION_WINDOW_MS
-  );
+/** Version compression: a displaced head is recorded only if its content stood
+ *  for at least the window (or history is empty), so an autosave burst counts
+ *  as one version — its final state. Measured against the time of the edit,
+ *  not the previous version: comparing two save times drops a burst's last
+ *  state no matter how long it stood. */
+export function shouldRecordVersion(hasVersions: boolean, snapshotCreatedAt: Date, now: Date = new Date()): boolean {
+  return !hasVersions || now.getTime() - snapshotCreatedAt.getTime() >= VERSION_COMPRESSION_WINDOW_MS;
 }
 
 export function makeTierRepo(cfg: TierConfig) {
@@ -225,14 +226,13 @@ export function makeTierRepo(cfg: TierConfig) {
     }
   };
 
-  const latestVersionCreatedAt = async (db: Db, noteId: string): Promise<Date | null> => {
+  const hasVersions = async (db: Db, noteId: string): Promise<boolean> => {
     const rows = (await (db as any)
-      .select({ createdAt: versions.cols.createdAt })
+      .select({ id: versions.cols.id })
       .from(versions.table)
       .where(eq(versions.cols.noteId, noteId))
-      .orderBy(desc(versions.cols.seq))
-      .limit(1)) as { createdAt: Date }[];
-    return rows[0]?.createdAt ?? null;
+      .limit(1)) as { id: string }[];
+    return rows.length > 0;
   };
 
   // Insert a snapshot, then drop everything beyond the newest MAX_VERSIONS.
@@ -452,8 +452,7 @@ export function makeTierRepo(cfg: TierConfig) {
           if (!changed) return withTags(tx, head);
 
           if (snapshot) {
-            const last = await latestVersionCreatedAt(tx, id);
-            if (shouldRecordVersion(last, snapshot.createdAt)) {
+            if (shouldRecordVersion(await hasVersions(tx, id), snapshot.createdAt)) {
               await insertVersionCapped(tx, id, snapshot);
             }
           }

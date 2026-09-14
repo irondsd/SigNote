@@ -3,7 +3,8 @@ import { v7 as uuidv7 } from 'uuid';
 
 import { MAX_VERSIONS, VERSION_COMPRESSION_WINDOW_MS } from '@/config/constants';
 import type { Db } from '@/db/client';
-import { noteVersions, notes, sealNoteVersions, secretNoteVersions } from '@/db/schema';
+import { notes, sealNotes } from '@/db/schema';
+import { shouldRecordVersion } from '@/db/tier';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import { type EncryptedPayload } from '@/types/crypto';
 import {
@@ -48,14 +49,34 @@ const noteHistory = async (id: string) => (await getNoteVersions(id))!.versions 
 const secretHistory = async (id: string) => (await getSecretVersions(id))!.versions as unknown as EncVersion[];
 const sealHistory = async (id: string) => (await getSealVersions(id))!.versions as unknown as EncVersion[];
 
-type VersionsTable = typeof noteVersions | typeof secretNoteVersions | typeof sealNoteVersions;
-
-// Push the createdAt of every recorded version back beyond the compression
-// window so the next edit is guaranteed to record a fresh version.
-async function ageVersions(table: VersionsTable, id: string) {
+// Push the head's last save back beyond the compression window, as if its
+// content had stood that long, so the next edit is guaranteed to record it.
+async function ageHead(id: string) {
   const past = new Date(Date.now() - VERSION_COMPRESSION_WINDOW_MS - 1000);
-  await db.update(table).set({ createdAt: past }).where(eq(table.noteId, id));
+  await db.update(notes).set({ updatedAt: past }).where(eq(notes.id, id));
 }
+
+async function ageSealHead(id: string, ms: number) {
+  await db.update(sealNotes).set({ updatedAt: new Date(Date.now() - ms) }).where(eq(sealNotes.id, id));
+}
+
+describe('shouldRecordVersion', () => {
+  const now = new Date('2026-09-14T13:50:00Z');
+  const ago = (ms: number) => new Date(now.getTime() - ms);
+
+  it('always records into an empty history', () => {
+    expect(shouldRecordVersion(false, ago(1000), now)).toBe(true);
+  });
+
+  it('suppresses content that stood less than the window', () => {
+    expect(shouldRecordVersion(true, ago(VERSION_COMPRESSION_WINDOW_MS - 1), now)).toBe(false);
+  });
+
+  it('records content that stood for the window or longer', () => {
+    expect(shouldRecordVersion(true, ago(VERSION_COMPRESSION_WINDOW_MS), now)).toBe(true);
+    expect(shouldRecordVersion(true, ago(3 * 3600_000), now)).toBe(true);
+  });
+});
 
 describe('note versioning', () => {
   it('records a pre-edit snapshot on the first edit and advances the head', async () => {
@@ -105,7 +126,7 @@ describe('note versioning', () => {
     const id = note._id.toString();
 
     await updateNote(id, 'v1', 'body1'); // snapshot of v0
-    await ageVersions(noteVersions, id);
+    await ageHead(id);
     await updateNote(id, 'v2', 'body2'); // window elapsed → snapshot of v1
 
     const versions = await noteHistory(id);
@@ -114,13 +135,26 @@ describe('note versioning', () => {
     expect(versions[1].content).toBe('body1');
   });
 
+  it("keeps a burst's final state once it has stood, however soon after the last version it was saved", async () => {
+    const note = await createNote(userId, 'v0', 'body0');
+    const id = note._id.toString();
+
+    await updateNote(id, 'v1', 'body1'); // first snapshot: body0
+    await updateNote(id, 'v2', 'body2'); // burst → body1 suppressed
+    await ageHead(id); // body2 stands; its save is still seconds after body0's version
+    await updateNote(id, 'v3', 'body3'); // → snapshot of body2
+
+    const versions = await noteHistory(id);
+    expect(versions.map((v) => v.content)).toEqual(['body0', 'body2']);
+  });
+
   it('caps history at MAX_VERSIONS, dropping the oldest', async () => {
     const note = await createNote(userId, 't0', 'c0');
     const id = note._id.toString();
 
     for (let i = 1; i <= MAX_VERSIONS + 5; i++) {
       await updateNote(id, `t${i}`, `c${i}`);
-      await ageVersions(noteVersions, id);
+      await ageHead(id);
     }
 
     const versions = await noteHistory(id);
@@ -135,7 +169,7 @@ describe('note versioning', () => {
     const note = await createNote(userId, 'v0', 'body0');
     const id = note._id.toString();
     await updateNote(id, 'v1', 'body1');
-    await ageVersions(noteVersions, id);
+    await ageHead(id);
     await updateNote(id, 'v2', 'body2'); // versions: [body0, body1], head = v2
 
     const target = (await noteHistory(id))[0]; // body0
@@ -202,7 +236,7 @@ describe('note versioning', () => {
     const note = await createNote(userId, 'v0', 'body0');
     const id = note._id.toString();
     await updateNote(id, 'v1', 'body1');
-    await ageVersions(noteVersions, id);
+    await ageHead(id);
     await updateNote(id, 'v2', 'body2'); // versions: [body0, body1], head = v2
 
     const target = (await noteHistory(id))[0]; // body0
@@ -316,6 +350,22 @@ describe('seal versioning', () => {
     expect(versions[0].encryptedBody?.ciphertext).toBe('c0');
     // version rows carry no wrappedNoteKey
     expect((versions[0] as Record<string, unknown>).wrappedNoteKey).toBeUndefined();
+  });
+
+  // Regression: created, quick burst of edits, left for hours, edited again —
+  // the burst's final state must land in history rather than vanish.
+  it('records the state a seal was left in after a burst, once it has stood for hours', async () => {
+    const seal = await createSeal(userId, 'l0', pay('c0'), pay('wrap'));
+    const id = seal._id.toString();
+
+    await updateSeal(id, { encryptedBody: pay('c1') }); // first snapshot: c0
+    await updateSeal(id, { encryptedBody: pay('c12') }); // burst → c1 suppressed
+    await updateSeal(id, { encryptedBody: pay('c123') }); // burst → c12 suppressed
+    await ageSealHead(id, 3 * 3600_000); // c123 stands for three hours
+    await updateSeal(id, { encryptedBody: pay('c1235555') });
+
+    const versions = await sealHistory(id);
+    expect(versions.map((v) => v.encryptedBody?.ciphertext)).toEqual(['c0', 'c123']);
   });
 
   it('does not version a wrappedNoteKey-only change', async () => {
