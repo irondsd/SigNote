@@ -5,22 +5,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { trpcClient } from '@/lib/trpcClient';
-import {
-  clearDeviceShare,
-  createKeyCheck,
-  deriveDeviceShare,
-  generateSalt,
-  generateServerShare,
-  getDefaultKdfParams,
-  getEncVersion,
-  importMEK,
-  loadDeviceShare,
-  saveDeviceShare,
-  verifyKeyCheck,
-  xor32,
-} from '@/lib/crypto';
-import { clearStoredMaterial, type MaterialCachePolicy, type StoredMaterial } from '@/lib/encryptionMaterialStore';
+import { clearDeviceShare, loadDeviceShare, saveDeviceShare } from '@/lib/crypto';
+import { clearStoredMaterial, type MaterialCachePolicy } from '@/lib/encryptionMaterialStore';
 import { fetchEncryptionMaterial } from '@/lib/encryptionMaterial';
+import { acquireVaultKeyWithPassphrase, createVaultProfile, reconstructMek } from '@/lib/vaultKey';
 import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import { HARD_LOCK_MS, SOFT_LOCK_TS_KEY } from '@/config/constants';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
@@ -36,8 +24,6 @@ type ProfileData = {
 
 type ProfileResponse = { exists: false } | ({ exists: true } & ProfileData);
 
-type MaterialResponse = StoredMaterial;
-
 export type EncryptionPhase = 'loading' | 'setup' | 'locked' | 'unlocked';
 export type LockType = 'none' | 'soft';
 
@@ -48,34 +34,14 @@ type EncryptionContextValue = {
    *  and close themselves if it advances — the correct way to detect a hard-lock event. */
   lockSerial: number;
   mek: CryptoKey | null;
-  unlock: (passphrase: string) => Promise<void>;
+  unlock: (passphrase: string) => Promise<CryptoKey>;
   /** Checks the encryption passphrase without changing the vault lock state. */
   verifyPassphrase: (passphrase: string) => Promise<void>;
   lock: () => void;
   softLock: () => void;
-  rehydrate: () => Promise<void>;
+  rehydrate: () => Promise<CryptoKey>;
   setupProfile: (passphrase: string) => Promise<void>;
 };
-
-// ─── Private helpers ─────────────────────────────────────────────────────────
-
-async function reconstructMek(deviceShare: Uint8Array, material: MaterialResponse): Promise<CryptoKey | null> {
-  const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
-  const mekBytes = xor32(deviceShare, serverShareBytes);
-  const candidate = await importMEK(mekBytes);
-  return (await verifyKeyCheck(candidate, material.keyCheck)) ? candidate : null;
-}
-
-async function verifiedMekFromPassphrase(
-  passphrase: string,
-  policy: MaterialCachePolicy,
-): Promise<{ mek: CryptoKey; deviceShare: Uint8Array }> {
-  const material = await fetchEncryptionMaterial(policy);
-  const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
-  const mek = await reconstructMek(deviceShare, material);
-  if (!mek) throw new Error('Incorrect passphrase');
-  return { mek, deviceShare };
-}
 
 // ─── Internal hook ────────────────────────────────────────────────────────────
 
@@ -178,18 +144,19 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   })();
 
   const unlock = useCallback(
-    async (passphrase: string): Promise<void> => {
-      const { mek: key, deviceShare } = await verifiedMekFromPassphrase(passphrase, policyRef.current);
+    async (passphrase: string): Promise<CryptoKey> => {
+      const { mek: key, deviceShare } = await acquireVaultKeyWithPassphrase(passphrase, policyRef.current);
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
       sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
+      return key;
     },
     [setMek],
   );
 
   const verifyPassphrase = useCallback(async (passphrase: string): Promise<void> => {
-    await verifiedMekFromPassphrase(passphrase, policyRef.current);
+    await acquireVaultKeyWithPassphrase(passphrase, policyRef.current);
   }, []);
 
   const lock = useCallback(() => {
@@ -208,7 +175,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     sessionStorage.setItem(SOFT_LOCK_TS_KEY, Date.now().toString());
   }, [setMek]);
 
-  const rehydrate = useCallback(async (): Promise<void> => {
+  const rehydrate = useCallback(async (): Promise<CryptoKey> => {
     const softLockTs = sessionStorage.getItem(SOFT_LOCK_TS_KEY);
     if (softLockTs && Date.now() - parseInt(softLockTs, 10) > HARD_LOCK_MS) {
       clearDeviceShare();
@@ -230,35 +197,18 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     setMek(key);
     setLockType('none');
     sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
+    return key;
   }, [setMek]);
 
   const setupProfile = useCallback(
     async (passphrase: string): Promise<void> => {
-      const salt = generateSalt();
-      const serverShareB64 = generateServerShare();
-      const kdfParams = getDefaultKdfParams();
-
-      const deviceShare = await deriveDeviceShare(passphrase, salt, kdfParams);
-      const serverShareBytes = Uint8Array.from(atob(serverShareB64), (c) => c.charCodeAt(0));
-      const mekBytes = xor32(deviceShare, serverShareBytes);
-      const newMek = await importMEK(mekBytes);
-
-      const keyCheck = await createKeyCheck(newMek);
-
       try {
-        await trpcClient.encryption.create.mutate({
-          version: getEncVersion(),
-          serverShare: serverShareB64,
-          salt,
-          kdf: kdfParams,
-          keyCheck,
-        });
+        const { mek: newMek, deviceShare } = await createVaultProfile(passphrase);
+        saveDeviceShare(deviceShare);
+        setMek(newMek);
       } catch (e) {
         throw new Error(e instanceof Error ? e.message : 'Failed to create encryption profile');
       }
-
-      saveDeviceShare(deviceShare);
-      setMek(newMek);
 
       // Invalidate profile query so the page re-renders in unlocked state
       await qc.invalidateQueries({ queryKey: ['encryption-profile'] });

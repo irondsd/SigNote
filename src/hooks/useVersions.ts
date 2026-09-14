@@ -40,7 +40,8 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
 ) {
   return useQuery({
     queryKey: versionsKey(tier, id),
-    queryFn: async () => (await trpcClient[tier].versions.list.query({ id })) as unknown as V[],
+    queryFn: async ({ signal }) =>
+      (await trpcClient[tier].versions.list.query({ id }, { signal })) as unknown as V[],
     select: (versions) => [...versions].reverse(),
     enabled,
   });

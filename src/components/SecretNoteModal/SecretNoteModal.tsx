@@ -29,9 +29,15 @@ import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmD
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { usePromoteSecretToSeal } from '@/hooks/usePromotions';
 
 const VersionHistoryModal = dynamic(
   () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
+  { ssr: false },
+);
+
+const SecretPromotionDialog = dynamic(
+  () => import('@/components/PromotionDialog/PromotionDialog').then((module) => module.SecretPromotionDialog),
   { ssr: false },
 );
 
@@ -46,11 +52,13 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   const { mek, phase, lockType, lockSerial, rehydrate: ctxRehydrate } = useEncryption();
   const [content, setContent] = useState(decryptedContent);
   const [saving, setSaving] = useState(false);
+  const [promotionOpen, setPromotionOpen] = useState(false);
 
   const deleteSecret = useDeleteSecret();
   const undeleteSecret = useUndeleteSecret();
   const updateSecret = useUpdateSecret();
   const createSecret = useCreateSecret();
+  const promoteSecret = usePromoteSecretToSeal();
 
   const {
     noteId,
@@ -121,7 +129,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     }
   }, [lockSerial, editing, onClose]);
 
-  const versionsQuery = useVersions<EncryptedVersion>('secrets', noteId, { enabled: menuOpened || historyOpen });
+  const versionsQuery = useVersions<EncryptedVersion>('secrets', noteId, {
+    enabled: (menuOpened || historyOpen) && !promotionOpen,
+  });
   const decryptVersionBody = useCallback(
     (payload: EncryptedPayload) =>
       mek ? decryptSecretBody(mek, payload) : Promise.reject(new Error('Vault is locked')),
@@ -311,6 +321,11 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
             onSetExpiry={handleSetExpiry}
             onVersionHistory={openHistory}
             onOpenChange={(open) => open && setMenuOpened(true)}
+            promotion={{
+              label: 'Promote to Seals',
+              disabled: Boolean(burnAfterReading && expiresAt),
+              onSelect: () => setPromotionOpen(true),
+            }}
           />
         }
       >
@@ -346,6 +361,17 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
           </FileEncryptionProvider>
         </NoteContentVeil>
       </SharedNoteModal>
+
+      {promotionOpen && (
+        <SecretPromotionDialog
+          onCancel={() => setPromotionOpen(false)}
+          onDone={() => {
+            setPromotionOpen(false);
+            onClose();
+          }}
+          onPromote={(key, onProgress) => promoteSecret.mutateAsync({ id: noteId, mek: key, onProgress })}
+        />
+      )}
 
       {guard.PassphraseGuard}
 

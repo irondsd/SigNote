@@ -21,9 +21,15 @@ import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmD
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
+import { usePromoteNoteToSecret } from '@/hooks/usePromotions';
 
 const VersionHistoryModal = dynamic(
   () => import('@/components/VersionHistoryModal/VersionHistoryModal').then((m) => m.VersionHistoryModal),
+  { ssr: false },
+);
+
+const NotePromotionDialog = dynamic(
+  () => import('@/components/PromotionDialog/PromotionDialog').then((module) => module.NotePromotionDialog),
   { ssr: false },
 );
 
@@ -36,11 +42,13 @@ type NoteModalProps = {
 export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const [content, setContent] = useState(note.content ?? '');
   const [savedContent, setSavedContent] = useState(note.content ?? '');
+  const [promotionOpen, setPromotionOpen] = useState(false);
 
   const deleteNote = useDeleteNote();
   const undeleteNote = useUndeleteNote();
   const updateNote = useUpdateNote();
   const createNote = useCreateNote();
+  const promoteNote = usePromoteNoteToSecret();
 
   const {
     noteId,
@@ -95,7 +103,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   const recovery = useDraftRecovery('note', { title, content, sourceId: noteId, color, pattern, tags }, isDirty);
   const handleClose = () => confirmClose(onClose);
 
-  const versionsQuery = useVersions<PlainVersion>('notes', noteId, { enabled: menuOpened || historyOpen });
+  const versionsQuery = useVersions<PlainVersion>('notes', noteId, {
+    enabled: (menuOpened || historyOpen) && !promotionOpen,
+  });
   const versions: DisplayVersion[] | undefined = versionsQuery.data;
 
   const handleRestored = (v: DisplayVersion) => {
@@ -214,6 +224,11 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
             onSetExpiry={handleSetExpiry}
             onVersionHistory={openHistory}
             onOpenChange={(open) => open && setMenuOpened(true)}
+            promotion={{
+              label: 'Promote to Secrets',
+              disabled: noteId.startsWith('temp-') || Boolean(burnAfterReading && expiresAt),
+              onSelect: () => setPromotionOpen(true),
+            }}
           />
         }
       >
@@ -238,6 +253,17 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
           onUploadingChange={setIsUploading}
         />
       </SharedNoteModal>
+
+      {promotionOpen && (
+        <NotePromotionDialog
+          onCancel={() => setPromotionOpen(false)}
+          onDone={() => {
+            setPromotionOpen(false);
+            onClose();
+          }}
+          onPromote={(key, onProgress) => promoteNote.mutateAsync({ id: noteId, mek: key, onProgress })}
+        />
+      )}
 
       {showConfirm && (
         <ConfirmDiscardDialog

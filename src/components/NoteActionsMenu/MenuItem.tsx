@@ -37,7 +37,9 @@ export function MenuItem({
       onClick={onClick}
       {...rest}
     >
-      <span className={s.itemIcon}>{icon}</span>
+      <span className={s.itemIcon} aria-hidden="true">
+        {icon}
+      </span>
       <span className={s.itemLabel}>
         <span>{label}</span>
         {hint && <span className={s.itemHint}>{hint}</span>}

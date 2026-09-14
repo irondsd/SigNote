@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { createFileAttachment, ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from '@/controllers/files';
+import { createFileAttachment, ALLOWED_MIME_TYPES, MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE } from '@/controllers/files';
 import { withSession } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
@@ -21,7 +21,8 @@ export const POST = withSession(async (req, { userId }) => {
     return NextResponse.json({ error: 'Missing encryption IV' }, { status: 400 });
   }
 
-  if (file.size > MAX_FILE_SIZE) {
+  const sizeLimit = isEncrypted ? MAX_ENCRYPTED_FILE_SIZE : MAX_FILE_SIZE;
+  if (file.size > sizeLimit) {
     return NextResponse.json({ error: 'File too large (max 5 MB)' }, { status: 413 });
   }
 

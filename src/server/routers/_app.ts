@@ -8,6 +8,7 @@ import { notificationsRouter } from './notifications';
 import { otpRouter } from './otp';
 import { passkeysRouter } from './passkeys';
 import { profileRouter } from './profile';
+import { promotionsRouter } from './promotions';
 import { sealsRouter } from './seals';
 import { securityRouter } from './security';
 import { secretsRouter } from './secrets';
@@ -25,6 +26,7 @@ export const appRouter = router({
   tags: tagsRouter,
   sessions: sessionsRouter,
   profile: profileRouter,
+  promotions: promotionsRouter,
   notifications: notificationsRouter,
   security: securityRouter,
   emailAuth: emailAuthRouter,

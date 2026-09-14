@@ -1,4 +1,7 @@
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+// AES-GCM appends a 16-byte authentication tag. The user-facing limit applies
+// to plaintext, so encrypted uploads need exactly that much envelope headroom.
+export const MAX_ENCRYPTED_FILE_SIZE = MAX_FILE_SIZE + 16;
 export const MAX_USER_STORAGE = 100 * 1024 * 1024; // 100 MB
 
 export const ALLOWED_MIME_TYPES = new Set([

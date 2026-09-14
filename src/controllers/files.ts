@@ -2,13 +2,13 @@
 import { and, eq, exists, gt, inArray, isNotNull, isNull, lt, lte, or, sum } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
+import { ALLOWED_MIME_TYPES, MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
 import { getDb } from '@/db/client';
 import { currentRequestGeneration, withVaultMaintenance, withVaultRead, withVaultWrite } from '@/db/encryptionState';
 import { fileAttachments, notes, sealNotes, secretNotes, type NoteTier } from '@/db/schema';
 import { deleteFromS3, uploadToS3 } from '@/lib/s3';
 
-export { MAX_FILE_SIZE, ALLOWED_MIME_TYPES };
+export { MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE, ALLOWED_MIME_TYPES };
 export type { NoteTier };
 
 export type FileRow = {
@@ -56,7 +56,8 @@ export async function createFileAttachment(
   },
 ): Promise<FileRow> {
   return withVaultWrite(userId, async () => {
-    if (file.buffer.length > MAX_FILE_SIZE) {
+    const sizeLimit = file.encrypted ? MAX_ENCRYPTED_FILE_SIZE : MAX_FILE_SIZE;
+    if (file.buffer.length > sizeLimit) {
       throw new Error('File too large');
     }
     if (!file.encrypted && !ALLOWED_MIME_TYPES.has(file.mimeType)) {

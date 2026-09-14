@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, History, MoreVertical, Pin, PinOff, Timer } from 'lucide-react';
+import { ChevronRight, History, MoreVertical, Pin, PinOff, Timer, SquareArrowUp } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { MenuItem } from './MenuItem';
@@ -18,6 +18,11 @@ type NoteActionsMenuProps = {
   onVersionHistory?: () => void;
   /** Fired on first open so the parent can prefetch the version list. */
   onOpenChange?: (open: boolean) => void;
+  promotion?: {
+    label: string;
+    onSelect: () => void;
+    disabled?: boolean;
+  };
 };
 
 export function NoteActionsMenu({
@@ -28,6 +33,7 @@ export function NoteActionsMenu({
   onSetExpiry,
   onVersionHistory,
   onOpenChange,
+  promotion,
 }: NoteActionsMenuProps) {
   const [open, setOpen] = useState(false);
   const [pane, setPane] = useState<'main' | 'expiry'>('main');
@@ -102,6 +108,18 @@ export function NoteActionsMenu({
                 onClick={() => {
                   onVersionHistory();
                   close();
+                }}
+              />
+            )}
+            {promotion && (
+              <MenuItem
+                data-testid="promote-tier-item"
+                icon={<SquareArrowUp size={16} className="" />}
+                label={promotion.label}
+                disabled={promotion.disabled}
+                onClick={() => {
+                  close();
+                  promotion.onSelect();
                 }}
               />
             )}
