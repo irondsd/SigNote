@@ -7,8 +7,14 @@ import posthog from 'posthog-js';
 import { trpcClient } from '@/lib/trpcClient';
 import { clearDeviceShare, loadDeviceShare, saveDeviceShare } from '@/lib/crypto';
 import { clearStoredMaterial, type MaterialCachePolicy } from '@/lib/encryptionMaterialStore';
-import { fetchEncryptionMaterial } from '@/lib/encryptionMaterial';
-import { acquireVaultKeyWithPassphrase, createVaultProfile, reconstructMek } from '@/lib/vaultKey';
+import { createEncryptionMaterialPreloader, fetchEncryptionMaterial } from '@/lib/encryptionMaterial';
+import {
+  acquireVaultKeyFromMaterial,
+  acquireVaultKeyWithPassphrase,
+  createVaultProfile,
+  IncorrectPassphraseError,
+  reconstructMek,
+} from '@/lib/vaultKey';
 import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import { HARD_LOCK_MS, SOFT_LOCK_TS_KEY } from '@/config/constants';
 import { type EncryptedPayload, type KdfParams } from '@/types/crypto';
@@ -34,6 +40,10 @@ type EncryptionContextValue = {
    *  and close themselves if it advances — the correct way to detect a hard-lock event. */
   lockSerial: number;
   mek: CryptoKey | null;
+  /** Starts the short-lived material request used by unlock(). */
+  preloadUnlockMaterial: () => void;
+  /** Drops any material retained for an open unlock prompt. */
+  clearPreloadedUnlockMaterial: () => void;
   unlock: (passphrase: string) => Promise<CryptoKey>;
   /** Checks the encryption passphrase without changing the vault lock state. */
   verifyPassphrase: (passphrase: string) => Promise<void>;
@@ -123,10 +133,14 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   // deletes what a device that was never the one toggled had kept.
   const { data: security } = useSecurityPreferences();
   const policyRef = useRef<MaterialCachePolicy>({ userId, allowed: security?.cacheServerShare });
+  const [unlockMaterialPreloader] = useState(createEncryptionMaterialPreloader);
   useEffect(() => {
     policyRef.current = { userId, allowed: security?.cacheServerShare };
     if (userId && security?.cacheServerShare === false) void clearStoredMaterial(userId).catch(() => undefined);
   }, [userId, security?.cacheServerShare]);
+  useEffect(() => {
+    unlockMaterialPreloader.clear();
+  }, [userId, unlockMaterialPreloader]);
 
   const { mek, setMek } = useMekRehydration(sessionStatus, profileExists, policyRef);
   // If deviceShare is already in sessionStorage on mount, treat as soft-locked so
@@ -143,16 +157,32 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     return mek ? 'unlocked' : 'locked';
   })();
 
+  const preloadUnlockMaterial = useCallback(() => {
+    if (!policyRef.current.userId) return;
+    unlockMaterialPreloader.preload(policyRef.current);
+  }, [unlockMaterialPreloader]);
+
+  const clearPreloadedUnlockMaterial = useCallback(() => {
+    unlockMaterialPreloader.clear();
+  }, [unlockMaterialPreloader]);
+
   const unlock = useCallback(
     async (passphrase: string): Promise<CryptoKey> => {
-      const { mek: key, deviceShare } = await acquireVaultKeyWithPassphrase(passphrase, policyRef.current);
+      const material = await unlockMaterialPreloader.load(policyRef.current);
+      const { mek: key, deviceShare } = await acquireVaultKeyFromMaterial(passphrase, material).catch((error) => {
+        // Wrong-password retries can safely reuse the same material. Any other
+        // crypto/material failure gets a fresh request on the next attempt.
+        if (!(error instanceof IncorrectPassphraseError)) unlockMaterialPreloader.clear();
+        throw error;
+      });
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
       sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
+      unlockMaterialPreloader.clear();
       return key;
     },
-    [setMek],
+    [setMek, unlockMaterialPreloader],
   );
 
   const verifyPassphrase = useCallback(async (passphrase: string): Promise<void> => {
@@ -166,7 +196,8 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     setLockType('none');
     setLockSerial((s) => s + 1);
     sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
-  }, [setMek]);
+    unlockMaterialPreloader.clear();
+  }, [setMek, unlockMaterialPreloader]);
 
   const softLock = useCallback(() => {
     posthog.capture('vault_locked', { type: 'soft' });
@@ -218,7 +249,20 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <EncryptionContext.Provider
-      value={{ phase, lockType, lockSerial, mek, unlock, verifyPassphrase, lock, softLock, rehydrate, setupProfile }}
+      value={{
+        phase,
+        lockType,
+        lockSerial,
+        mek,
+        preloadUnlockMaterial,
+        clearPreloadedUnlockMaterial,
+        unlock,
+        verifyPassphrase,
+        lock,
+        softLock,
+        rehydrate,
+        setupProfile,
+      }}
     >
       {children}
     </EncryptionContext.Provider>

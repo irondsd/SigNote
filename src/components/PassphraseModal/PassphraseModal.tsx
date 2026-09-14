@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { X, Eye, EyeOff } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { EncryptionMaterialUnavailableError } from '@/lib/encryptionMaterial';
+import { IncorrectPassphraseError } from '@/lib/vaultKey';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
@@ -18,12 +20,20 @@ type PassphraseModalProps = {
 };
 
 export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseModalProps) {
-  const { unlock } = useEncryption();
+  const { unlock, preloadUnlockMaterial, clearPreloadedUnlockMaterial } = useEncryption();
+  const passphraseId = useId();
+  const hintId = useId();
+  const errorId = useId();
   const [passphrase, setPassphrase] = useState('');
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
+
+  useEffect(() => {
+    preloadUnlockMaterial();
+    return clearPreloadedUnlockMaterial;
+  }, [clearPreloadedUnlockMaterial, preloadUnlockMaterial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,10 +47,22 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
       await unlock(passphrase);
       posthog.capture('vault_unlocked');
       onSuccess();
-    } catch {
-      posthog.capture('vault_unlock_failed');
-      setError('Incorrect passphrase. Please try again.');
-      setHasFailed(true);
+    } catch (caught) {
+      const reason =
+        caught instanceof IncorrectPassphraseError
+          ? 'incorrect_passphrase'
+          : caught instanceof EncryptionMaterialUnavailableError
+            ? 'material_unavailable'
+            : 'unknown';
+      posthog.capture('vault_unlock_failed', { reason });
+      setError(
+        reason === 'incorrect_passphrase'
+          ? 'Incorrect passphrase. Please try again.'
+          : caught instanceof EncryptionMaterialUnavailableError
+            ? caught.message
+            : "We couldn't unlock your encrypted notes. Please try again.",
+      );
+      setHasFailed(reason === 'incorrect_passphrase');
       setLoading(false);
     }
   };
@@ -56,7 +78,9 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
         </div>
 
         <form className={s.body} onSubmit={handleSubmit}>
-          <p className={s.hint}>Enter your passphrase to decrypt your notes for this session.</p>
+          <p id={hintId} className={s.hint}>
+            Enter your passphrase to decrypt your notes for this session.
+          </p>
 
           <input
             type="text"
@@ -68,7 +92,11 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
           />
 
           <div className={s.inputWrapper}>
+            <label htmlFor={passphraseId} className="sr-only">
+              Encryption passphrase
+            </label>
             <Input
+              id={passphraseId}
               type={showPassphrase ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="Your passphrase"
@@ -76,6 +104,8 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
               onChange={(e) => setPassphrase(e.target.value)}
               disabled={loading}
               autoFocus
+              aria-invalid={!!error}
+              aria-describedby={error ? `${hintId} ${errorId}` : hintId}
               className={s.inputWithIcon}
             />
             <Button
@@ -91,7 +121,11 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
             </Button>
           </div>
 
-          {error && <p className={s.error}>{error}</p>}
+          {error && (
+            <p id={errorId} className={s.error} role="alert">
+              {error}
+            </p>
+          )}
           {hasFailed && (
             <p className={s.recoverLink}>
               Forgot your passphrase?{' '}

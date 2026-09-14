@@ -18,6 +18,13 @@ import { trpcClient } from '@/lib/trpcClient';
 
 export type AcquiredVaultKey = { mek: CryptoKey; deviceShare: Uint8Array };
 
+export class IncorrectPassphraseError extends Error {
+  constructor() {
+    super('Incorrect passphrase');
+    this.name = 'IncorrectPassphraseError';
+  }
+}
+
 export async function reconstructMek(deviceShare: Uint8Array, material: StoredMaterial): Promise<CryptoKey | null> {
   const serverShareBytes = Uint8Array.from(atob(material.serverShare), (c) => c.charCodeAt(0));
   const mekBytes = xor32(deviceShare, serverShareBytes);
@@ -30,9 +37,16 @@ export async function acquireVaultKeyWithPassphrase(
   policy: MaterialCachePolicy,
 ): Promise<AcquiredVaultKey> {
   const material = await fetchEncryptionMaterial(policy);
+  return acquireVaultKeyFromMaterial(passphrase, material);
+}
+
+export async function acquireVaultKeyFromMaterial(
+  passphrase: string,
+  material: StoredMaterial,
+): Promise<AcquiredVaultKey> {
   const deviceShare = await deriveDeviceShare(passphrase, material.salt, material.kdf);
   const mek = await reconstructMek(deviceShare, material);
-  if (!mek) throw new Error('Incorrect passphrase');
+  if (!mek) throw new IncorrectPassphraseError();
   return { mek, deviceShare };
 }
 
