@@ -24,6 +24,8 @@ import { captureSessionEpoch } from '@/controllers/authSessions';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  // Our own page instead of NextAuth's built-in one; copy lives in lib/authErrors.ts.
+  pages: { error: '/auth/error' },
   session: {
     strategy: 'jwt',
     maxAge: AUTH_SESSION_MAX_AGE_SECONDS,
@@ -185,7 +187,7 @@ export const authOptions: NextAuthOptions = {
         if ('error' in result) {
           // A string return is a redirect. The address belongs to someone, and
           // Google didn't vouch for it, so there is nothing safe to do here.
-          return '/?auth_error=email_taken';
+          return '/auth/error?error=EmailTaken';
         }
 
         if (result.created) after(() => sendWelcomeEmail(result.user._id));

@@ -111,9 +111,11 @@ test.describe('Google sign-in', () => {
     await page.goto('/');
     await clickGoogleSignIn(page);
 
-    // NextAuth receives the error from the OAuth callback and redirects to its
-    // own error page at /api/auth/error. Wait for that navigation to complete.
-    await page.waitForURL(/\/api\/auth\/error|[?&]error=/, { timeout: 15000 });
+    // NextAuth receives the error from the OAuth callback and redirects to our
+    // error page (`pages.error`). Wait for that navigation to complete.
+    await page.waitForURL(/\/auth\/error\?error=/, { timeout: 15000 });
+    await expect(page.getByTestId('auth-error')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to sign in' })).toBeVisible();
 
     // Navigate back to the app and confirm no session was established.
     await page.goto('/');
