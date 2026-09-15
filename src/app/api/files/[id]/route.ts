@@ -25,6 +25,8 @@ export const GET = withSession(async (req, { userId, params: { id } }) => {
     headers['X-File-Encrypted'] = 'true';
     if (doc.encryptionIv) headers['X-Encryption-IV'] = doc.encryptionIv;
     headers['X-Original-MimeType'] = doc.mimeType;
+    headers['X-File-Key-Scope'] = doc.keyScope;
+    if (doc.keyNoteId) headers['X-File-Key-Note'] = doc.keyNoteId;
   }
 
   // @ts-expect-error -- Node Readable is accepted by the Response constructor at runtime

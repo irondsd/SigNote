@@ -11,7 +11,8 @@ import { makeAccount } from '../utils/makeAccount';
 import { settleModal } from '../utils/settleModal';
 import { NotesPage } from '../pages/NotesPage';
 import { SecretsPage } from '../pages/SecretsPage';
-import { decryptStoredFile } from '../fixtures/seedEncryptedFile';
+import { decryptStoredFile, seedEncryptedFile } from '../fixtures/seedEncryptedFile';
+import { decryptSealHead } from '../utils/vaultCrypto';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -108,15 +109,26 @@ test.describe('tier promotion', () => {
     await expect(page.getByTestId('version-content')).toContainText('earlier private content');
   });
 
-  test('moves an unlocked secret and all history to a uniquely keyed Seal', async ({ page }) => {
+  test('moves an unlocked secret, all history and its attachments to a uniquely keyed Seal', async ({ page }) => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
     const title = `Promoted secret ${Date.now()}`;
-    const [secret] = await seedSecrets(account.address, mekBytes, [{ title, content: 'current shared-key content' }]);
-    await seedSecretVersions(secret.id, mekBytes, [{ title: 'Earlier secret', content: 'earlier shared-key content' }]);
-
     const secretsPage = new SecretsPage(page);
     await secretsPage.signInDirectly(account.address);
+    const file = await seedEncryptedFile(page.request, mekBytes, { filename: 'deed.pdf' });
+    const attachment =
+      `<div data-type="file-attachment" fileid="${file.fileId}" filename="deed.pdf" size="${file.plaintext.length}" mimetype="application/pdf" uploadstatus="complete" ` +
+      `data-file-id="${file.fileId}" data-filename="deed.pdf" data-size="${file.plaintext.length}" data-mime-type="application/pdf"></div>`;
+    const [secret] = await seedSecrets(account.address, mekBytes, [
+      { title, content: `<p>current shared-key content</p>${attachment}` },
+    ]);
+    await seedSecretVersions(secret.id, mekBytes, [{ title: 'Earlier secret', content: 'earlier shared-key content' }]);
+    await testDb()
+      .update(fileAttachments)
+      .set({ noteId: secret.id, noteTier: 'secret' })
+      .where(eq(fileAttachments.id, file.fileId));
+
+    await secretsPage.goto();
     await secretsPage.unlock();
     await secretsPage.secretCard(title).click();
     await settleModal(page);
@@ -131,11 +143,25 @@ test.describe('tier promotion', () => {
     await moved;
     await expect(secretsPage.secretCard(title)).not.toBeVisible();
 
+    // The attachment is re-encrypted under the Seal's own key, not carried over
+    // on the vault key, and the body points at the copy.
+    const storedFiles = await testDb().select().from(fileAttachments);
+    expect(storedFiles.find((row) => row.id === file.fileId)?.deletedAt).toBeTruthy();
+    const replacement = storedFiles.find((row) => row.id !== file.fileId && row.noteId === secret.id);
+    expect(replacement).toMatchObject({ noteTier: 'seal', keyScope: 'seal', keyNoteId: secret.id, deletedAt: null });
+    expect(Buffer.from(await decryptStoredFile(page.request, replacement!.id, mekBytes))).toEqual(
+      Buffer.from(file.plaintext),
+    );
+    const head = await decryptSealHead(secret.id, mekBytes);
+    expect(head).toContain(`data-file-id="${replacement!.id}"`);
+    expect(head).toContain(`data-key-note-id="${secret.id}"`);
+
     await page.getByRole('button', { name: 'Open', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/seals\\?id=${secret.id}$`));
     await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Decrypt to view' }).click();
     await expect(page.getByTestId('tiptap-editor')).toContainText('current shared-key content');
+    await expect(page.getByTestId('tiptap-editor')).toContainText('deed.pdf');
     await settleModal(page);
     await page.getByTestId('more-actions-btn').click();
     await page.getByTestId('version-history-item').click();

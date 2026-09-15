@@ -16,6 +16,8 @@ export function useNewNoteForm(
   onClose: () => void,
   initialContent?: InitialContent,
   mek?: CryptoKey | null,
+  /** A new Seal's minted id and wrapped key, kept with the draft. */
+  sealKey?: InitialContent['sealKey'],
 ) {
   const state = useNewNoteState(tier, onClose, initialContent);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,6 +47,7 @@ export function useNewNoteForm(
       tags,
       draftId: initialContent?.draftId,
       sourceId: initialContent?.sourceId,
+      sealKey,
     },
     state.isDirty,
     mek,

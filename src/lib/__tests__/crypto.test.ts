@@ -16,6 +16,11 @@ import {
   decryptSealBody,
   encryptFileBytes,
   decryptFileBytes,
+  encryptSealFileBytes,
+  decryptSealFileBytes,
+  generateSealKey,
+  importSealKey,
+  encryptAesGcm as encryptWithKey,
   deriveDeviceShare,
   getDefaultKdfParams,
   generateSalt,
@@ -237,6 +242,53 @@ describe('file bytes encryption', () => {
     const view = new Uint8Array(cipherBytes);
     view[0] ^= 0x01;
     await expect(decryptFileBytes(mek, iv, view.buffer as ArrayBuffer)).rejects.toThrow();
+  });
+});
+
+describe('seal file bytes encryption', () => {
+  const sealId = 'seal-123';
+  const plain = new Uint8Array([9, 8, 7, 6, 5]) as Uint8Array<ArrayBuffer>;
+
+  it('encrypts under a pre-minted NEK that the body is later wrapped with', async () => {
+    const mek = await freshMek();
+    const nek = generateSealKey();
+    // The attachment is uploaded before the Seal's first save…
+    const { wrappedNoteKey } = await encryptSealBody(mek, 'body', sealId, nek.slice());
+    const uploadKey = await crypto.subtle.importKey('raw', nek, 'AES-GCM', false, ['encrypt']);
+    const { iv, cipherBytes } = await encryptSealFileBytes(uploadKey, sealId, plain);
+    // …and opens later with the key unwrapped from the stored Seal.
+    const noteKey = await importSealKey(mek, sealId, wrappedNoteKey);
+    expect(await decryptSealFileBytes(noteKey, sealId, iv, cipherBytes)).toEqual(plain);
+  });
+
+  it('does not open under another Seal id', async () => {
+    const mek = await freshMek();
+    const { wrappedNoteKey } = await encryptSealBody(mek, 'body', sealId);
+    const noteKey = await importSealKey(mek, sealId, wrappedNoteKey);
+    const { iv, cipherBytes } = await encryptSealFileBytes(noteKey, sealId, plain);
+    await expect(decryptSealFileBytes(noteKey, 'seal-other', iv, cipherBytes)).rejects.toThrow();
+  });
+
+  it('does not open with the vault file key', async () => {
+    const mek = await freshMek();
+    const { wrappedNoteKey } = await encryptSealBody(mek, 'body', sealId);
+    const noteKey = await importSealKey(mek, sealId, wrappedNoteKey);
+    const { iv, cipherBytes } = await encryptSealFileBytes(noteKey, sealId, plain);
+    await expect(decryptFileBytes(mek, iv, cipherBytes)).rejects.toThrow();
+  });
+
+  it('keeps a body ciphertext from passing as a file (distinct binding)', async () => {
+    const mek = await freshMek();
+    const { wrappedNoteKey } = await encryptSealBody(mek, 'body', sealId);
+    const noteKey = await importSealKey(mek, sealId, wrappedNoteKey);
+    const body = await encryptWithKey(noteKey, 'body', `seal-wrap:v1:${sealId}`);
+    const bytes = Uint8Array.from(atob(body.ciphertext), (c) => c.charCodeAt(0));
+    await expect(decryptSealFileBytes(noteKey, sealId, body.iv, bytes.buffer as ArrayBuffer)).rejects.toThrow();
+  });
+
+  it('rejects a wrapper under the wrong MEK', async () => {
+    const { wrappedNoteKey } = await encryptSealBody(await freshMek(), 'body', sealId);
+    await expect(importSealKey(await freshMek(), sealId, wrappedNoteKey)).rejects.toThrow();
   });
 });
 

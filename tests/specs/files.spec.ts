@@ -7,7 +7,7 @@ import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { fileAttachments } from '../../src/db/schema';
+import { fileAttachments, sealNotes } from '../../src/db/schema';
 import { testDb } from '../fixtures/db';
 import { trpcMutationOf } from '../utils/trpc';
 
@@ -188,6 +188,7 @@ async function assertFileEncrypted(fileId: string) {
   expect(rows[0]).toBeTruthy();
   expect(rows[0].encrypted).toBe(true);
   expect(rows[0].encryptionIv).toBeTruthy();
+  return rows[0];
 }
 
 async function openNewSecret(page: import('@playwright/test').Page) {
@@ -261,7 +262,8 @@ test.describe('encrypted file uploads', () => {
   test('secret: file uploaded via drop zone is encrypted', async ({ page }) => {
     await openNewSecret(page);
     const fileId = await uploadViaDropZone(page, pngPath);
-    await assertFileEncrypted(fileId);
+    const row = await assertFileEncrypted(fileId);
+    expect(row).toMatchObject({ keyScope: 'vault', keyNoteId: null });
   });
 
   test('secret: file uploaded via direct drop is encrypted', async ({ page }) => {
@@ -270,10 +272,39 @@ test.describe('encrypted file uploads', () => {
     await assertFileEncrypted(fileId);
   });
 
-  test('seal: file uploaded via drop zone is encrypted', async ({ page }) => {
+  test('seal: file uploaded via drop zone is encrypted under the seal key', async ({ page }) => {
     await openNewSeal(page);
     const fileId = await uploadViaDropZone(page, pngPath);
-    await assertFileEncrypted(fileId);
+    const row = await assertFileEncrypted(fileId);
+    expect(row.keyScope).toBe('seal');
+    expect(row.keyNoteId).toBeTruthy();
+  });
+
+  test('seal: a new seal is saved as the seal its attachment is keyed to, and the image opens', async ({ page }) => {
+    await openNewSeal(page);
+    const title = await page.getByTestId('note-title-input').inputValue();
+    const fileId = await uploadViaDropZone(page, pngPath);
+    const uploaded = await assertFileEncrypted(fileId);
+    await expect(page.locator('img[src^="blob:"]')).toBeVisible({ timeout: 10000 });
+
+    const savePromise = page.waitForResponse(trpcMutationOf('seals.'));
+    await page.getByTestId('save-seal-btn').click();
+    await savePromise;
+
+    await expect
+      .poll(async () => {
+        const [seal] = await testDb().select().from(sealNotes).where(eq(sealNotes.title, title));
+        return seal?.wrappedNoteKey ? seal.id : null;
+      })
+      .toBe(uploaded.keyNoteId);
+    await expect
+      .poll(async () => (await testDb().select().from(fileAttachments).where(eq(fileAttachments.id, fileId)))[0])
+      .toMatchObject({ noteId: uploaded.keyNoteId, noteTier: 'seal', keyScope: 'seal' });
+
+    // Reopened from the saved row: the image decrypts under the stored Seal key.
+    await new SealsPage(page).sealCard(title).click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.locator('img[src^="blob:"]')).toBeVisible({ timeout: 10000 });
   });
 
   test('seal: file uploaded via direct drop is encrypted', async ({ page }) => {

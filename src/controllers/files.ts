@@ -5,11 +5,11 @@ import { v7 as uuidv7 } from 'uuid';
 import { ALLOWED_MIME_TYPES, MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
 import { getDb } from '@/db/client';
 import { currentRequestGeneration, withVaultMaintenance, withVaultRead, withVaultWrite } from '@/db/encryptionState';
-import { fileAttachments, notes, sealNotes, secretNotes, type NoteTier } from '@/db/schema';
+import { fileAttachments, notes, sealNotes, secretNotes, type FileKeyScope, type NoteTier } from '@/db/schema';
 import { deleteFromS3, uploadToS3 } from '@/lib/s3';
 
 export { MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE, ALLOWED_MIME_TYPES };
-export type { NoteTier };
+export type { FileKeyScope, NoteTier };
 
 export type FileRow = {
   _id: string;
@@ -22,6 +22,8 @@ export type FileRow = {
   mimeType: string;
   encrypted: boolean;
   encryptionIv: string | null;
+  keyScope: FileKeyScope;
+  keyNoteId: string | null;
   createdAt: Date;
   deletedAt: Date | null;
   storageDeletedAt: Date | null;
@@ -44,6 +46,24 @@ export async function getUserStorageUsed(userId: string): Promise<number> {
   });
 }
 
+/**
+ * Validates which key an upload claims to be under. A Seal-keyed file must be
+ * encrypted and name its Seal; a vault file names none. The Seal need not exist
+ * yet — a new Seal's id is minted in the browser before its first save.
+ */
+export function resolveFileKeyBinding(input: {
+  encrypted?: boolean;
+  keyScope?: string | null;
+  keyNoteId?: string | null;
+}): { keyScope: FileKeyScope; keyNoteId: string | null } {
+  const keyScope = input.keyScope || 'vault';
+  if (keyScope === 'vault' && !input.keyNoteId) return { keyScope, keyNoteId: null };
+  if (keyScope === 'seal' && input.encrypted && input.keyNoteId && input.keyNoteId.length <= 64) {
+    return { keyScope, keyNoteId: input.keyNoteId };
+  }
+  throw new Error('Invalid file key binding');
+}
+
 export async function createFileAttachment(
   userId: string,
   file: {
@@ -53,8 +73,11 @@ export async function createFileAttachment(
     buffer: Buffer;
     encrypted?: boolean;
     encryptionIv?: string;
+    keyScope?: string | null;
+    keyNoteId?: string | null;
   },
 ): Promise<FileRow> {
+  const binding = resolveFileKeyBinding(file);
   return withVaultWrite(userId, async () => {
     const sizeLimit = file.encrypted ? MAX_ENCRYPTED_FILE_SIZE : MAX_FILE_SIZE;
     if (file.buffer.length > sizeLimit) {
@@ -96,6 +119,7 @@ export async function createFileAttachment(
           s3Key,
           encrypted: file.encrypted ?? false,
           encryptionIv: file.encryptionIv ?? null,
+          ...binding,
           createdAt: new Date(),
         })
         .returning();
@@ -208,7 +232,28 @@ export async function linkFilesToNote(
 ): Promise<void> {
   if (!fileIds.length) return;
   await withVaultWrite(userId, async () => {
-    await getDb()
+    const db = getDb();
+    // A Seal-keyed file opens only under its own Seal's key, so it links only to
+    // that Seal — and only once the Seal stores the key (a wrapper-less Seal
+    // would leave it unreadable, and give key rotation nothing to re-key it
+    // under). Anything else is skipped like any other foreign id.
+    const keyAllowed =
+      noteTier === 'seal'
+        ? or(
+            eq(fileAttachments.keyScope, 'vault'),
+            and(
+              eq(fileAttachments.keyScope, 'seal'),
+              eq(fileAttachments.keyNoteId, noteId),
+              exists(
+                db
+                  .select({ id: sealNotes.id })
+                  .from(sealNotes)
+                  .where(and(eq(sealNotes.id, noteId), isNotNull(sealNotes.wrappedNoteKey))),
+              ),
+            ),
+          )
+        : eq(fileAttachments.keyScope, 'vault');
+    await db
       .update(fileAttachments)
       .set({ noteId, noteTier })
       .where(
@@ -216,6 +261,7 @@ export async function linkFilesToNote(
           inArray(fileAttachments.id, fileIds),
           eq(fileAttachments.userId, userId),
           isNull(fileAttachments.deletedAt),
+          keyAllowed,
         ),
       );
   });

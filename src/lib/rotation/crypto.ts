@@ -1,10 +1,11 @@
 /** Browser/worker primitives only. No storage, network, or active-vault writes. */
-import { getOtpRecordAad, getSealKeyString } from '@/config/constants';
+import { getOtpRecordAad, getSealFileAad, getSealKeyString } from '@/config/constants';
 import {
   createKeyCheck,
   decryptBytesAesGcm,
   deriveDeviceShare,
   deriveFileEncKey,
+  encodeUtf8,
   deriveOtpVaultKey,
   deriveSealWrapKey,
   deriveSecretBodyKey,
@@ -223,10 +224,40 @@ export async function verifyRotatedBody(
 }
 
 export type RotationFile = { iv: string; cipherBytes: ArrayBuffer };
-async function decryptFile(mek: CryptoKey, file: RotationFile) {
+
+/**
+ * The key a file object is under: the vault file key, or a Seal's note key
+ * (read through that Seal's wrapper under the given MEK) bound to the Seal id.
+ */
+export type RotationFileKey = { kind: 'vault' } | { kind: 'seal'; sealId: string; wrappedNoteKey: EncryptedPayload };
+export type RotationFileKeys = { source: RotationFileKey; target: RotationFileKey };
+const VAULT_FILE_KEYS: RotationFileKeys = { source: { kind: 'vault' }, target: { kind: 'vault' } };
+
+/** A Seal's file never leaves that Seal. Vault → Seal is the one-way migration. */
+function checkFileKeys({ source, target }: RotationFileKeys) {
+  if (
+    (source.kind === 'seal' && (target.kind !== 'seal' || source.sealId !== target.sealId)) ||
+    (target.kind === 'seal' && !target.sealId)
+  ) {
+    throw new Error('Rotation identity mismatch');
+  }
+}
+
+async function fileKey(mek: CryptoKey, key: RotationFileKey) {
+  if (key.kind === 'vault') return { key: await deriveFileEncKey(mek), additionalData: undefined };
+  const seal = await bodyKey(mek, { kind: 'seal', recordId: key.sealId, wrappedNoteKey: key.wrappedNoteKey });
+  return { key: seal.key, additionalData: encodeUtf8(getSealFileAad(key.sealId)) };
+}
+
+async function decryptFile(mek: CryptoKey, file: RotationFile, key: RotationFileKey) {
   const iv = decodeCanonical(file.iv, 12);
+  const { key: fileCryptoKey, additionalData } = await fileKey(mek, key);
   return new Uint8Array(
-    await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, await deriveFileEncKey(mek), file.cipherBytes),
+    await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv, ...(additionalData && { additionalData }) },
+      fileCryptoKey,
+      file.cipherBytes,
+    ),
   );
 }
 
@@ -234,13 +265,20 @@ export async function rotateFile(
   sourceMek: CryptoKey,
   targetMek: CryptoKey,
   source: RotationFile,
+  keys: RotationFileKeys = VAULT_FILE_KEYS,
 ): Promise<RotationFile> {
-  const plain = await decryptFile(sourceMek, source);
+  checkFileKeys(keys);
+  const plain = await decryptFile(sourceMek, source, keys.source);
   try {
     const iv = crypto.getRandomValues(new Uint8Array(12));
+    const { key, additionalData } = await fileKey(targetMek, keys.target);
     return {
       iv: toBase64(iv),
-      cipherBytes: await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await deriveFileEncKey(targetMek), plain),
+      cipherBytes: await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, ...(additionalData && { additionalData }) },
+        key,
+        plain,
+      ),
     };
   } finally {
     plain.fill(0);
@@ -252,11 +290,13 @@ export async function verifyRotatedFile(
   targetMek: CryptoKey,
   source: RotationFile,
   staged: RotationFile,
+  keys: RotationFileKeys = VAULT_FILE_KEYS,
 ) {
-  const plain = await decryptFile(sourceMek, source);
+  checkFileKeys(keys);
+  const plain = await decryptFile(sourceMek, source, keys.source);
   let replacement: Uint8Array | undefined;
   try {
-    replacement = await decryptFile(targetMek, staged);
+    replacement = await decryptFile(targetMek, staged, keys.target);
     if (plain.length !== replacement.length || plain.some((byte, i) => byte !== replacement![i])) {
       throw new Error('Rotation verification mismatch');
     }

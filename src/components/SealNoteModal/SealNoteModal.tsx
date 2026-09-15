@@ -25,7 +25,8 @@ import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { decryptSealBody, encryptSealBody, encryptSealBodyWithExistingKey } from '@/lib/crypto';
 import type { EncryptedPayload } from '@/types/crypto';
-import { extractFileIds } from '@/lib/fileIds';
+import { extractFileIds, stripSealKeyedAttachments } from '@/lib/fileIds';
+import { useSealKeys } from '@/hooks/useSealKeys';
 import { TooltipOrPopover } from '@/components/TooltipOrPopover/TooltipOrPopover';
 import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
@@ -61,6 +62,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const mountLockSerialRef = useRef(lockSerial);
 
   const guard = useEncryptionGuard();
+  // A never-written Seal has no stored key; one is minted here so attachments
+  // can be uploaded under it, and the first save stores it.
+  const sealKeys = useSealKeys(note._id, note.wrappedNoteKey, mek);
 
   const deleteSeal = useDeleteSeal();
   const undeleteSeal = useUndeleteSeal();
@@ -211,12 +215,15 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   };
 
   const handleDuplicate = (v: { title: string; content: string }) => {
+    // The copy is a different Seal with its own key: attachments under this
+    // Seal's key could never open there, nor be linked to it.
+    const content = stripSealKeyedAttachments(v.content);
     void guard.execute(async (currentMek) => {
       createSeal.mutate({
         title: v.title,
         color,
         pattern,
-        encryptBody: async (sealId) => (v.content.trim() ? encryptSealBody(currentMek, v.content, sealId) : null),
+        encryptBody: async (sealId) => (content.trim() ? encryptSealBody(currentMek, content, sealId) : null),
       });
     });
   };
@@ -276,8 +283,10 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         if (decryptedContent.trim()) {
           // Reuse the existing NEK: version snapshots store ciphertext only and
           // are decrypted with the head's wrappedNoteKey, so it must not rotate.
-          const encrypted = note.wrappedNoteKey
-            ? await encryptSealBodyWithExistingKey(currentMek, decryptedContent, note._id, note.wrappedNoteKey)
+          // A Seal with none yet takes the minted one its attachments are under.
+          const wrapper = note.wrappedNoteKey ?? sealKeys.wrappedNoteKey;
+          const encrypted = wrapper
+            ? await encryptSealBodyWithExistingKey(currentMek, decryptedContent, note._id, wrapper)
             : await encryptSealBody(currentMek, decryptedContent, note._id);
           encryptedBody = encrypted.encryptedBody;
           wrappedNoteKey = encrypted.wrappedNoteKey;
@@ -316,6 +325,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
       note.encryptedBody,
       note.wrappedNoteKey,
       note._id,
+      sealKeys.wrappedNoteKey,
       updateSeal,
       setEditing,
       setShowFormatBar,
@@ -526,7 +536,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         <NoteContentVeil ciphertext={note.encryptedBody?.ciphertext} hasPlaintext={isDecrypted}>
           {isDecrypted ? (
             <div className={s.decryptedBody}>
-              <FileEncryptionProvider mek={mek}>
+              <FileEncryptionProvider mek={mek} seal={{ id: note._id, noteKey: sealKeys.noteKey }}>
                 <TiptapEditor
                   key={editing ? 'editing' : 'viewing'}
                   content={decryptedContent}
@@ -536,8 +546,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                       recovery.save(
                         async () => {
                           if (!html.trim()) return updateSeal.mutateAsync({ id: note._id, encryptedBody: null });
-                          const encrypted = note.wrappedNoteKey
-                            ? await encryptSealBodyWithExistingKey(mek!, html, note._id, note.wrappedNoteKey)
+                          const wrapper = note.wrappedNoteKey ?? sealKeys.wrappedNoteKey;
+                          const encrypted = wrapper
+                            ? await encryptSealBodyWithExistingKey(mek!, html, note._id, wrapper)
                             : await encryptSealBody(mek!, html, note._id);
                           return updateSeal.mutateAsync({ id: note._id, ...encrypted });
                         },
@@ -557,8 +568,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
                   onEditorReady={setEditor}
                   allowFileUpload
                   onUploadingChange={setIsUploading}
-                  fileEncryptionCtx={mek ? { mek } : undefined}
+                  fileEncryptionCtx={sealKeys.noteKey ? { sealId: note._id, noteKey: sealKeys.noteKey } : undefined}
                   requiresEncryption
+                  sealId={note._id}
                 />
               </FileEncryptionProvider>
             </div>

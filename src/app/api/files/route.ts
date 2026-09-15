@@ -39,6 +39,8 @@ export const POST = withSession(async (req, { userId }) => {
       buffer,
       encrypted: isEncrypted,
       encryptionIv: encryptionIv ?? undefined,
+      keyScope: formData.get('keyScope') as string | null,
+      keyNoteId: formData.get('keyNoteId') as string | null,
     });
 
     return NextResponse.json(

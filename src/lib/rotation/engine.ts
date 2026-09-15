@@ -20,7 +20,9 @@
  * a body cannot be re-encrypted until its wrapper exists, because the wrapper
  * *is* the new note key. So the walk is two passes: the first handles
  * everything whose key is already in hand and records each Seal's source and
- * replacement wrappers; the second re-reads only the Seal body range.
+ * replacement wrappers; the second re-reads only the Seal body range. A Seal's
+ * attachments (`seal-file`) sort inside that range and wait for the wrapper
+ * too: they are re-keyed under the Seal's new note key, not the vault's.
  *
  * **A staged item is never re-encrypted.** Resuming with a fresh IV would
  * produce a different digest for the same plaintext, which the server correctly
@@ -43,6 +45,7 @@ import {
   verifyRotatedBody,
   verifyRotatedFile,
   type RotationBody,
+  type RotationFileKeys,
 } from './crypto';
 import { rotationDigest } from './digest';
 import { asRotationError, RotationTransportError, withRotationRetry, type RetryOptions } from './client';
@@ -79,12 +82,14 @@ export type RotationApi = {
     generation: number;
     workerFence: number;
     resourceId: string;
+    kind?: FileKind;
   }): Promise<{ url: string; bytes: number; iv: string }>;
   reserveFile(input: {
     operationId: string;
     generation: number;
     workerFence: number;
     resourceId: string;
+    kind?: FileKind;
     file: { bytes: number; iv: string; checksum: string };
   }): Promise<{
     object: { key: string; bytes: number; checksum: string; iv: string };
@@ -96,6 +101,7 @@ export type RotationApi = {
     generation: number;
     workerFence: number;
     resourceId: string;
+    kind?: FileKind;
     objectKey: string;
     stageKey: string;
   }): Promise<RotationItem>;
@@ -104,6 +110,7 @@ export type RotationApi = {
     generation: number;
     workerFence: number;
     resourceId: string;
+    kind?: FileKind;
   }): Promise<{ url: string; iv: string; bytes: number; replacementDigest: string }>;
   confirmRecovery(input: {
     operationId: string;
@@ -161,9 +168,12 @@ export class RotationItemError extends Error {
   }
 }
 
+type FileKind = Extract<RotationKind, 'file' | 'seal-file'>;
+const isFileKind = (kind: RotationKind): kind is FileKind => kind === 'file' || kind === 'seal-file';
+
 /** Ordering the server sorts by; the Seal body range sits between these. */
 const BODY_KINDS: RotationKind[] = ['auth', 'file', 'secret', 'secret-version'];
-const SEAL_BODY_KINDS: RotationKind[] = ['seal', 'seal-version'];
+const SEAL_BODY_KINDS: RotationKind[] = ['seal', 'seal-file', 'seal-version'];
 
 const isPayload = (value: RotationCipherValue): value is EncryptedPayload =>
   value !== null && 'ciphertext' in value && 'iv' in value;
@@ -332,25 +342,54 @@ export function createRotationEngine(options: RotationEngineOptions) {
     }
   }
 
-  async function processFile(item: RotationItem): Promise<void> {
+  /**
+   * The keys a file moves between. A vault attachment stays on the vault file
+   * key. A Seal attachment lands on its Seal's new note key — so, like the
+   * Seal's bodies, it needs that wrapper first — and one still on the vault key
+   * from before attachments were Seal-keyed moves onto it here.
+   */
+  function fileKeys(item: RotationItem & { kind: FileKind }): RotationFileKeys {
+    const source = item.source;
+    const scope = source !== null && 'key' in source ? (source.scope ?? 'vault') : 'vault';
+    if (item.kind === 'file') {
+      if (scope !== 'vault') throw new RotationItemError(item.kind, item.resourceId, 'SOURCE_CORRUPT');
+      return { source: { kind: 'vault' }, target: { kind: 'vault' } };
+    }
+    const sealId = item.parentId;
+    const wrappers = sealId ? sealWrappers.get(sealId) : undefined;
+    if (!sealId || !wrappers) throw new RotationItemError(item.kind, item.resourceId, 'MISSING_SEAL_WRAPPER');
+    return {
+      source: scope === 'seal' ? { kind: 'seal', sealId, wrappedNoteKey: wrappers.source } : { kind: 'vault' },
+      target: { kind: 'seal', sealId, wrappedNoteKey: wrappers.replacement },
+    };
+  }
+
+  async function processFile(item: RotationItem & { kind: FileKind }): Promise<void> {
     const resourceId = item.resourceId;
+    const kind = item.kind;
+    const keys = fileKeys(item);
     const { sourceInfo, sourceBytes } = await call(async () => {
-      const sourceInfo = await api.sourceFile({ ...token, resourceId });
+      const sourceInfo = await api.sourceFile({ ...token, resourceId, kind });
       return { sourceInfo, sourceBytes: await transfer.download(sourceInfo.url) };
     });
     // Storage transfers get the same bounded backoff as the RPCs. A provider
     // hiccup on a multi-megabyte body is the most likely transient fault in the
     // whole run, and the least useful one to hand back to the user.
     if (sourceBytes.byteLength !== sourceInfo.bytes) {
-      throw new RotationItemError('file', resourceId, 'SOURCE_CORRUPT');
+      throw new RotationItemError(kind, resourceId, 'SOURCE_CORRUPT');
     }
 
-    let staged = item;
+    let staged: RotationItem = item;
     if (item.replacementDigest === null) {
-      const replacement = await rotateFile(sourceMek, targetMek, {
-        iv: sourceInfo.iv,
-        cipherBytes: sourceBytes,
-      });
+      const replacement = await rotateFile(
+        sourceMek,
+        targetMek,
+        {
+          iv: sourceInfo.iv,
+          cipherBytes: sourceBytes,
+        },
+        keys,
+      );
       const checksum = toBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', replacement.cipherBytes)));
       const reservation = await call(async () => {
         // Renew the signed URL on retry. Reusing the exact bytes/IV/checksum
@@ -358,6 +397,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
         const reservation = await api.reserveFile({
           ...token,
           resourceId,
+          kind,
           file: { bytes: replacement.cipherBytes.byteLength, iv: replacement.iv, checksum },
         });
         try {
@@ -370,13 +410,19 @@ export function createRotationEngine(options: RotationEngineOptions) {
         return reservation;
       });
       staged = await call(() =>
-        api.finalizeFile({ ...token, resourceId, objectKey: reservation.object.key, stageKey: stageKeyFor(item) }),
+        api.finalizeFile({
+          ...token,
+          resourceId,
+          kind,
+          objectKey: reservation.object.key,
+          stageKey: stageKeyFor(item),
+        }),
       );
     }
-    if (staged.replacementDigest === null) throw new RotationItemError('file', resourceId, 'STAGING_INCOMPLETE');
+    if (staged.replacementDigest === null) throw new RotationItemError(kind, resourceId, 'STAGING_INCOMPLETE');
 
     const { stagedInfo, stagedBytes } = await call(async () => {
-      const stagedInfo = await api.stagedFile({ ...token, resourceId });
+      const stagedInfo = await api.stagedFile({ ...token, resourceId, kind });
       return { stagedInfo, stagedBytes: await transfer.download(stagedInfo.url) };
     });
     await verifyRotatedFile(
@@ -384,9 +430,10 @@ export function createRotationEngine(options: RotationEngineOptions) {
       targetMek,
       { iv: sourceInfo.iv, cipherBytes: sourceBytes },
       { iv: stagedInfo.iv, cipherBytes: stagedBytes },
+      keys,
     );
     if (stagedInfo.replacementDigest !== staged.replacementDigest) {
-      throw new RotationItemError('file', resourceId, 'DIGEST_MISMATCH');
+      throw new RotationItemError(kind, resourceId, 'DIGEST_MISMATCH');
     }
 
     bytesProcessed += sourceInfo.bytes;
@@ -394,7 +441,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
       await acknowledge(item, staged.replacementDigest);
     } else {
       processed++;
-      report('file');
+      report(kind);
     }
   }
 
@@ -429,7 +476,7 @@ export function createRotationEngine(options: RotationEngineOptions) {
         if (!kinds.includes(item.kind)) continue;
         try {
           if (item.kind === 'seal-wrapper') await processWrapper(item);
-          else if (item.kind === 'file') await processFile(item);
+          else if (isFileKind(item.kind)) await processFile(item as RotationItem & { kind: FileKind });
           else await processBody(item);
         } catch (error) {
           if (error instanceof RotationItemError) throw error;

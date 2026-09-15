@@ -31,7 +31,15 @@ export const createSeal = (
   color?: string | null,
   pattern?: string | null,
   tags?: string[],
-) => sealTier.create(userId, { title, encryptedBody, wrappedNoteKey }, color, pattern, tags) as Promise<SealRow>;
+  id?: string,
+) =>
+  sealTier.create(
+    userId,
+    { ...(id && { id }), title, encryptedBody, wrappedNoteKey },
+    color,
+    pattern,
+    tags,
+  ) as Promise<SealRow>;
 
 export const getSealsByUserId = (
   userId: string,

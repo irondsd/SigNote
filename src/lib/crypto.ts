@@ -11,6 +11,7 @@ import {
   HKDF_INFO_SECRET_BODY,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
+  getSealFileAad,
   getSealKeyString,
 } from '@/config/constants';
 import { EncryptedPayload, KdfParams } from '@/types/crypto';
@@ -253,23 +254,55 @@ type SealEncryptResult = {
   wrappedNoteKey: EncryptedPayload;
 };
 
-export async function encryptSealBody(mek: CryptoKey, plaintext: string, sealId: string): Promise<SealEncryptResult> {
+/** A fresh random Note Encryption Key (NEK). The caller zeroes it when done. */
+export function generateSealKey(): Uint8Array<ArrayBuffer> {
+  return crypto.getRandomValues(new Uint8Array(32));
+}
+
+/** Wraps a raw NEK under this Seal's wrapping key, bound to the Seal id. */
+export async function wrapSealKey(
+  mek: CryptoKey,
+  sealId: string,
+  nek: Uint8Array<ArrayBuffer>,
+): Promise<EncryptedPayload> {
+  return encryptBytesAesGcm(await deriveSealWrapKey(mek, sealId), nek, getSealKeyString(sealId));
+}
+
+/**
+ * Unwraps a Seal's NEK into a non-extractable working key. This is the key
+ * both the body and the Seal's attachments are encrypted under; the raw bytes
+ * are zeroed before returning.
+ */
+export async function importSealKey(
+  mek: CryptoKey,
+  sealId: string,
+  wrappedNoteKey: EncryptedPayload,
+): Promise<CryptoKey> {
   const aad = getSealKeyString(sealId);
+  const nek = await decryptBytesAesGcm(await deriveSealWrapKey(mek, sealId), wrappedNoteKey, aad);
+  try {
+    if (nek.length !== 32) throw new Error('Invalid Seal key');
+    return await crypto.subtle.importKey('raw', nek, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  } finally {
+    nek.fill(0);
+  }
+}
 
-  // Generate random Note Encryption Key (NEK)
-  const nek = crypto.getRandomValues(new Uint8Array(32));
-
-  // Import NEK as AES-GCM key for body encryption
+/**
+ * Encrypts a new Seal body. Pass `nek` when the key already exists — a new
+ * Seal mints it when the editor opens, so attachments uploaded before the
+ * first save are under the same key the body is about to be.
+ */
+export async function encryptSealBody(
+  mek: CryptoKey,
+  plaintext: string,
+  sealId: string,
+  nek: Uint8Array<ArrayBuffer> = generateSealKey(),
+): Promise<SealEncryptResult> {
+  const aad = getSealKeyString(sealId);
   const nekKey = await crypto.subtle.importKey('raw', nek, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
-
-  // Encrypt body with NEK
   const encryptedBody = await encryptAesGcm(nekKey, plaintext, aad);
-
-  // Derive seal wrapping key from MEK + sealId
-  const sealWrapKey = await deriveSealWrapKey(mek, sealId);
-
-  // Wrap NEK with sealWrapKey
-  const wrappedNoteKey = await encryptBytesAesGcm(sealWrapKey, nek, aad);
+  const wrappedNoteKey = await wrapSealKey(mek, sealId, nek);
 
   return { encryptedBody, wrappedNoteKey };
 }
@@ -342,6 +375,35 @@ export async function decryptFileBytes(mek: CryptoKey, ivB64: string, cipherByte
   const iv = fromBase64(ivB64);
 
   const plainBytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, fileKey, cipherBytes);
+
+  return new Uint8Array(plainBytes);
+}
+
+/** A Seal attachment, under the Seal's own NEK (see `importSealKey`). */
+export async function encryptSealFileBytes(
+  noteKey: CryptoKey,
+  sealId: string,
+  plainBytes: Uint8Array<ArrayBuffer>,
+): Promise<{ iv: string; cipherBytes: ArrayBuffer }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const additionalData = encodeUtf8(getSealFileAad(sealId));
+  const cipherBytes = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, noteKey, plainBytes);
+
+  return { iv: toBase64(iv), cipherBytes };
+}
+
+export async function decryptSealFileBytes(
+  noteKey: CryptoKey,
+  sealId: string,
+  ivB64: string,
+  cipherBytes: ArrayBuffer,
+): Promise<Uint8Array> {
+  const additionalData = encodeUtf8(getSealFileAad(sealId));
+  const plainBytes = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fromBase64(ivB64), additionalData },
+    noteKey,
+    cipherBytes,
+  );
 
   return new Uint8Array(plainBytes);
 }

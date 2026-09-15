@@ -12,6 +12,13 @@ export type DraftData = {
   color?: string | null;
   pattern?: string | null;
   tags?: string[];
+  /**
+   * A new Seal's id and note key, minted when its editor opened. Attachments
+   * uploaded before the first save are under that key, so a recovered draft has
+   * to save as the same Seal with the same key. The key is kept wrapped under
+   * the MEK — ciphertext, exactly as the Seal row will store it.
+   */
+  sealKey?: { id: string; wrappedNoteKey: EncryptedPayload };
 };
 
 /**
@@ -33,7 +40,7 @@ export type StoredDraft = Omit<DraftData, 'content'> & {
 };
 
 export type DraftContent = Pick<DraftData, 'title' | 'content'> &
-  Partial<Pick<DraftData, 'draftId' | 'sourceId' | 'color' | 'pattern' | 'tags'>>;
+  Partial<Pick<DraftData, 'draftId' | 'sourceId' | 'color' | 'pattern' | 'tags' | 'sealKey'>>;
 
 const DRAFT_KEY = 'sn_draft';
 const keyFor = (id?: string) => (id ? `${DRAFT_KEY}:${id}` : DRAFT_KEY);

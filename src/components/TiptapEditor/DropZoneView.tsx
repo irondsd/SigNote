@@ -11,7 +11,7 @@ import s from './DropZoneView.module.scss';
 export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { mek } = useFileEncryption();
+  const { mek, seal } = useFileEncryption();
   const isEditable = editor.isEditable;
 
   const requiresEncryption = !!(
@@ -23,17 +23,24 @@ export function DropZoneView({ editor, deleteNode }: NodeViewProps) {
     (files: FileList | File[]) => {
       const fileArray = Array.from(files);
       if (!fileArray.length) return;
-      if (requiresEncryption && !mek) {
+      // Inside a Seal, new files go under the Seal's own note key.
+      const encCtx = seal
+        ? seal.noteKey
+          ? { sealId: seal.id, noteKey: seal.noteKey }
+          : undefined
+        : mek
+          ? { mek }
+          : undefined;
+      if (requiresEncryption && !encCtx) {
         toast.error('Unlock required to attach files');
         return;
       }
       deleteNode();
-      const encCtx = mek ? { mek } : undefined;
       for (const file of fileArray) {
         uploadFileToEditor(editor, file, encCtx);
       }
     },
-    [editor, deleteNode, mek, requiresEncryption],
+    [editor, deleteNode, mek, seal, requiresEncryption],
   );
 
   const handleDrop = useCallback(

@@ -60,6 +60,7 @@ export type FakeServerOptions = {
 };
 
 const key = (kind: RotationKind, resourceId: string) => `${kind}:${resourceId}`;
+const isFileKind = (kind: RotationKind) => kind === 'file' || kind === 'seal-file';
 const sha256 = (bytes: ArrayBuffer) => createHash('sha256').update(Buffer.from(bytes)).digest('base64');
 
 export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOptions = {}) {
@@ -153,7 +154,7 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
     async stage({ item, replacement, stageKey }) {
       record(`stage:${item.kind}:${item.resourceId}`);
       const row = get(item.kind, item.resourceId);
-      if (row.kind === 'file') throw new FakeRotationError('INVALID_INPUT');
+      if (isFileKind(row.kind)) throw new FakeRotationError('INVALID_INPUT');
       if (row.source === null ? replacement !== null : replacement === null) {
         throw new FakeRotationError('INVALID_INPUT');
       }
@@ -174,21 +175,25 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
       if (row.replacementDigest === null || row.replacementDigest !== replacementDigest) {
         throw new FakeRotationError('CONFLICT');
       }
-      if (row.kind === 'file' && !row.fileVerified) throw new FakeRotationError('CONFLICT');
+      if (isFileKind(row.kind) && !row.fileVerified) throw new FakeRotationError('CONFLICT');
       row.verifiedDigest = replacementDigest;
       return status();
     },
 
-    async sourceFile({ resourceId }) {
+    async sourceFile({ resourceId, kind = 'file' }) {
       record(`sourceFile:${resourceId}`);
-      const row = get('file', resourceId);
+      const row = get(kind, resourceId);
       const source = row.source as { key: string; iv: string; bytes: number };
       return { url: `memory://${source.key}`, bytes: source.bytes, iv: source.iv };
     },
 
-    async reserveFile({ resourceId, file }) {
+    async reserveFile({ resourceId, kind = 'file', file }) {
       record(`reserveFile:${resourceId}`);
-      const row = get('file', resourceId);
+      const row = get(kind, resourceId);
+      // A Seal attachment is re-keyed under the Seal's new note key.
+      if (row.kind === 'seal-file' && get('seal-wrapper', row.parentId!).replacementDigest === null) {
+        throw new FakeRotationError('INCOMPLETE');
+      }
       const source = row.source as { key: string; iv: string; bytes: number };
       if (file.bytes !== source.bytes || file.iv === source.iv) throw new FakeRotationError('INVALID_INPUT');
       if (row.replacementDigest !== null) throw new FakeRotationError('CONFLICT');
@@ -206,9 +211,9 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
       };
     },
 
-    async finalizeFile({ resourceId, objectKey, stageKey }) {
+    async finalizeFile({ resourceId, kind = 'file', objectKey, stageKey }) {
       record(`finalizeFile:${resourceId}`);
-      const row = get('file', resourceId);
+      const row = get(kind, resourceId);
       if (!row.fileGrant || row.fileGrant.key !== objectKey) throw new FakeRotationError('CONFLICT');
       const stored = objects.get(objectKey);
       // Verification reads the origin bytes, never the uploader's claim.
@@ -223,9 +228,9 @@ export function createFakeRotationServer(seed: SeedItem[], options: FakeServerOp
       return { ...staged, operationId } as unknown as RotationItem;
     },
 
-    async stagedFile({ resourceId }) {
+    async stagedFile({ resourceId, kind = 'file' }) {
       record(`stagedFile:${resourceId}`);
-      const row = get('file', resourceId);
+      const row = get(kind, resourceId);
       if (!row.fileVerified || row.replacementDigest === null) throw new FakeRotationError('INCOMPLETE');
       const replacement = row.replacement as { key: string; iv: string; bytes: number };
       return {

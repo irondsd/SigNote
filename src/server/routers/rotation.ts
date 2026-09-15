@@ -1,7 +1,14 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { protectedProcedure, router } from '@/server/trpc';
-import { RotationError, beginSchema, itemRefSchema, payloadSchema, workerSchema } from '@/server/rotation/contracts';
+import {
+  RotationError,
+  beginSchema,
+  fileKindSchema,
+  itemRefSchema,
+  payloadSchema,
+  workerSchema,
+} from '@/server/rotation/contracts';
 import { RotationStorageError } from '@/server/rotation/objectStore';
 import { getRotationService } from '@/server/rotation/instance';
 import { rotationStartEnabled } from '@/server/rotation/enablement';
@@ -81,12 +88,15 @@ export const rotationRouter = router({
     .input(workerSchema)
     .mutation(({ ctx, input }) => execute(() => getRotationService().cancel(ctx, input))),
   sourceFile: protectedProcedure
-    .input(workerSchema.extend({ resourceId: z.string().min(1).max(128) }))
-    .query(({ ctx, input }) => execute(() => getRotationService().sourceFile(ctx, input, input.resourceId))),
+    .input(workerSchema.extend({ resourceId: z.string().min(1).max(128), kind: fileKindSchema.default('file') }))
+    .query(({ ctx, input }) =>
+      execute(() => getRotationService().sourceFile(ctx, input, input.resourceId, input.kind)),
+    ),
   reserveFile: protectedProcedure
     .input(
       workerSchema.extend({
         resourceId: z.string().min(1).max(128),
+        kind: fileKindSchema.default('file'),
         file: z
           .object({
             bytes: z
@@ -101,22 +111,27 @@ export const rotationRouter = router({
       }),
     )
     .mutation(({ ctx, input }) =>
-      execute(() => getRotationService().reserveFile(ctx, input, input.resourceId, input.file)),
+      execute(() => getRotationService().reserveFile(ctx, input, input.resourceId, input.file, input.kind)),
     ),
   finalizeFile: protectedProcedure
     .input(
       workerSchema.extend({
         resourceId: z.string().min(1).max(128),
+        kind: fileKindSchema.default('file'),
         objectKey: z.string().max(128),
         stageKey: z.string().min(1).max(128),
       }),
     )
     .mutation(({ ctx, input }) =>
-      execute(() => getRotationService().finalizeFile(ctx, input, input.resourceId, input.objectKey, input.stageKey)),
+      execute(() =>
+        getRotationService().finalizeFile(ctx, input, input.resourceId, input.objectKey, input.stageKey, input.kind),
+      ),
     ),
   stagedFile: protectedProcedure
-    .input(workerSchema.extend({ resourceId: z.string().min(1).max(128) }))
-    .query(({ ctx, input }) => execute(() => getRotationService().stagedFile(ctx, input, input.resourceId))),
+    .input(workerSchema.extend({ resourceId: z.string().min(1).max(128), kind: fileKindSchema.default('file') }))
+    .query(({ ctx, input }) =>
+      execute(() => getRotationService().stagedFile(ctx, input, input.resourceId, input.kind)),
+    ),
   commit: protectedProcedure
     .input(workerSchema)
     .mutation(({ ctx, input }) => execute(() => getRotationService().commit(ctx, input))),

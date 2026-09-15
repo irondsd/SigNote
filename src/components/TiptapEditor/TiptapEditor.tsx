@@ -37,6 +37,9 @@ type TiptapEditorProps = {
   onUploadingChange?: (isUploading: boolean) => void;
   fileEncryptionCtx?: FileEncryptionContext;
   requiresEncryption?: boolean;
+  /** The Seal this editor belongs to. Attachments bound to any other Seal are
+   * stripped from pasted and dropped content. */
+  sealId?: string;
 };
 
 export function TiptapEditor({
@@ -50,16 +53,18 @@ export function TiptapEditor({
   onUploadingChange,
   fileEncryptionCtx,
   requiresEncryption = false,
+  sealId,
 }: TiptapEditorProps) {
   const editableRef = useRef(editable);
   const uploadingRef = useRef(false);
   const onUploadingChangeRef = useRef(onUploadingChange);
   onUploadingChangeRef.current = onUploadingChange;
-  const encryptionRef = useRef<{ ctx: FileEncryptionContext | undefined; required: boolean }>({
+  const encryptionRef = useRef<{ ctx: FileEncryptionContext | undefined; required: boolean; sealId?: string }>({
     ctx: fileEncryptionCtx,
     required: requiresEncryption,
+    sealId,
   });
-  encryptionRef.current = { ctx: fileEncryptionCtx, required: requiresEncryption };
+  encryptionRef.current = { ctx: fileEncryptionCtx, required: requiresEncryption, sealId };
 
   const extensions = useMemo(() => {
     const base: Extension[] = [

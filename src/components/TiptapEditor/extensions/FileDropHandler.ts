@@ -1,11 +1,16 @@
 import { Extension } from '@tiptap/core';
+import type { Slice } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import { toast } from 'sonner';
 import type { FileEncryptionContext } from '../utils/uploadFile';
 import { UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
 import { validateFile, getNodeType, makeAttrs, uploadAndUpdateNode } from '../utils/uploadCore';
+import { stripForeignAttachments } from '../utils/foreignAttachments';
 
-export type EncryptionRef = { current: { ctx: FileEncryptionContext | undefined; required: boolean } };
+export type EncryptionRef = {
+  current: { ctx: FileEncryptionContext | undefined; required: boolean; sealId?: string };
+};
 
 export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef }>({
   name: 'fileDropHandler',
@@ -28,6 +33,21 @@ export const FileDropHandler = Extension.create<{ encryptionRef?: EncryptionRef 
       new Plugin({
         key: new PluginKey('fileDropHandler'),
         props: {
+          // Pasted or dropped editor content, including from another Seal's
+          // editor: attachments bound to a different Seal are left out.
+          transformPasted(slice: Slice) {
+            const { slice: kept, dropped } = stripForeignAttachments(slice, encryptionRef?.current.sealId);
+            if (dropped) {
+              toast.error(
+                dropped === 1
+                  ? 'An attachment from another seal was left out'
+                  : `${dropped} attachments from another seal were left out`,
+                { description: "It is encrypted with that seal's key and can only be opened there." },
+              );
+            }
+            return kept;
+          },
+
           handleDrop(view: EditorView, event: DragEvent) {
             if (!view.editable) return false;
             if (!event.dataTransfer?.files.length) return false;

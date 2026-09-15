@@ -14,6 +14,7 @@ import { encryptedPayload, objectId } from '@/server/schemas/common';
 import { protectedProcedure, router } from '@/server/trpc';
 
 const version = z.object({ id: objectId, encryptedBody: encryptedPayload.nullable() });
+const fileReplacements = z.array(z.object({ sourceId: objectId, encryptedId: objectId })).max(100);
 
 const mapPromotionError = (error: unknown): never => {
   if (!(error instanceof PromotionError)) throw error;
@@ -57,7 +58,7 @@ export const promotionsRouter = router({
         expectedUpdatedAt: z.string().datetime(),
         encryptedBody: encryptedPayload.nullable(),
         versions: z.array(version).max(MAX_VERSIONS),
-        fileReplacements: z.array(z.object({ sourceId: objectId, encryptedId: objectId })).max(100),
+        fileReplacements,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -76,6 +77,7 @@ export const promotionsRouter = router({
         encryptedBody: encryptedPayload.nullable(),
         wrappedNoteKey: encryptedPayload.nullable(),
         versions: z.array(version).max(MAX_VERSIONS),
+        fileReplacements,
       }),
     )
     .mutation(async ({ ctx, input }) => {

@@ -37,6 +37,7 @@ beforeEach(() => {
   prepareSecret.mockReset().mockResolvedValue({
     secret: { _id: 'secret-id', encryptedBody: null, updatedAt: '2026-09-14T00:00:00.000Z' },
     versions: [],
+    attachments: [],
   });
   commitPromotion.mockReset().mockResolvedValue({ id: 'secret-id', archived: false, generation: 1 });
   queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } });

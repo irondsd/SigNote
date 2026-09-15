@@ -23,13 +23,16 @@ import {
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import {
   decryptFileBytes,
+  decryptSealFileBytes,
   decryptSecretBody,
   deriveOtpVaultKey,
   decryptSealBody,
   encryptFileBytes,
+  encryptSealFileBytes,
   encryptSecretBody,
   encryptSealBody,
   encryptSealBodyWithExistingKey,
+  importSealKey,
 } from '@/lib/crypto';
 import { encryptOtpRecord, toOtpSecrets, decryptOtpRecord } from '@/lib/otp/record';
 import {
@@ -38,6 +41,7 @@ import {
   rotateAuth,
   rotateBody,
   rotateFile,
+  type RotationFileKeys,
 } from '@/lib/rotation/crypto';
 import { eraseAccount } from '@/controllers/erase';
 import { createRotationService } from '../service';
@@ -56,6 +60,9 @@ const AUTH_ID = 'rotation-auth';
 const AUTH_TOMBSTONE_ID = 'rotation-auth-tombstone';
 const ENCRYPTED_FILE_ID = 'rotation-encrypted-file';
 const PLAIN_FILE_ID = 'rotation-plain-file';
+const SEAL_FILE_ID = 'rotation-seal-file';
+const LEGACY_SEAL_FILE_ID = 'rotation-legacy-seal-file';
+const UNSAVED_SEAL_FILE_ID = 'rotation-unsaved-seal-file';
 
 type FakeObject = {
   bytes: number;
@@ -147,6 +154,9 @@ type Fixture = {
   storage: FakeStorage;
   now: { value: Date };
   sourceFile: { iv: string; cipherBytes: ArrayBuffer; plain: Uint8Array };
+  /** Attached to SEAL_ID, keyed by file id: one under the Seal's note key, one
+   * still on the vault key. */
+  sealFiles: Record<string, { iv: string; cipherBytes: ArrayBuffer; plain: Uint8Array; scope: 'vault' | 'seal' }>;
   metadata: {
     secret: { title: string; position: number; archived: boolean; pinned: boolean };
     seal: { title: string; position: number; archived: boolean; pinned: boolean };
@@ -362,6 +372,54 @@ async function seedFixture(db: Db): Promise<Fixture> {
     },
   ]);
 
+  // A Seal's own attachment, one attached before attachments were Seal-keyed,
+  // and a Seal-keyed upload whose Seal was never saved.
+  const sealNoteKey = await importSealKey(old.mek, SEAL_ID, sealHead.wrappedNoteKey);
+  const sealFilePlain = new TextEncoder().encode('seal-keyed attachment bytes');
+  const legacyFilePlain = new TextEncoder().encode('legacy seal attachment bytes');
+  const sealFiles: Fixture['sealFiles'] = {
+    [SEAL_FILE_ID]: {
+      ...(await encryptSealFileBytes(sealNoteKey, SEAL_ID, sealFilePlain)),
+      plain: sealFilePlain,
+      scope: 'seal',
+    },
+    [LEGACY_SEAL_FILE_ID]: {
+      ...(await encryptFileBytes(old.mek, legacyFilePlain)),
+      plain: legacyFilePlain,
+      scope: 'vault',
+    },
+  };
+  const unsavedFile = await encryptSealFileBytes(sealNoteKey, 'never-saved-seal', sealFilePlain);
+  const encryptedRow = (
+    id: string,
+    file: { iv: string; cipherBytes: ArrayBuffer },
+    values: Partial<typeof fileAttachments.$inferInsert>,
+  ) => {
+    storage.sourceBytes.set(`source/${id}`, file.cipherBytes.byteLength);
+    return {
+      id,
+      userId: USER_ID,
+      s3Key: `source/${id}`,
+      filename: `${id}.bin`,
+      size: file.cipherBytes.byteLength,
+      mimeType: 'application/octet-stream',
+      encrypted: true,
+      encryptionIv: file.iv,
+      createdAt,
+      ...values,
+    };
+  };
+  await db.insert(fileAttachments).values([
+    encryptedRow(SEAL_FILE_ID, sealFiles[SEAL_FILE_ID], {
+      noteId: SEAL_ID,
+      noteTier: 'seal',
+      keyScope: 'seal',
+      keyNoteId: SEAL_ID,
+    }),
+    encryptedRow(LEGACY_SEAL_FILE_ID, sealFiles[LEGACY_SEAL_FILE_ID], { noteId: SEAL_ID, noteTier: 'seal' }),
+    encryptedRow(UNSAVED_SEAL_FILE_ID, unsavedFile, { keyScope: 'seal', keyNoteId: 'never-saved-seal' }),
+  ]);
+
   const [secretVersionRow] = await db
     .select({ seq: secretNoteVersions.seq })
     .from(secretNoteVersions)
@@ -380,6 +438,7 @@ async function seedFixture(db: Db): Promise<Fixture> {
     storage,
     now,
     sourceFile: { ...sourceFile, plain },
+    sealFiles,
     metadata: {
       secret: { title: 'Secret title', position: 12, archived: true, pinned: true },
       seal: { title: 'Seal title', position: 25, archived: false, pinned: true },
@@ -449,7 +508,7 @@ async function stageAndVerify(
   staged.push({ kind: 'seal-wrapper', resourceId: SEAL_ID, replacementDigest: wrapper.replacementDigest! });
 
   for (const item of items) {
-    if (item.kind === 'seal-wrapper' || item.kind === 'file') continue;
+    if (item.kind === 'seal-wrapper' || item.kind === 'file' || item.kind === 'seal-file') continue;
     const existing = preStaged.get(`${item.kind}:${item.resourceId}`);
     if (existing) {
       staged.push(existing);
@@ -524,6 +583,36 @@ async function stageAndVerify(
   );
   staged.push({ kind: 'file', resourceId: ENCRYPTED_FILE_ID, replacementDigest: finalized.replacementDigest! });
 
+  // Seal attachments go onto the Seal's new note key — the wrapper staged above.
+  for (const [id, file] of Object.entries(fixture.sealFiles)) {
+    by('seal-file', id);
+    const keys: RotationFileKeys = {
+      source:
+        file.scope === 'seal'
+          ? { kind: 'seal', sealId: SEAL_ID, wrappedNoteKey: payload(sourceSeal) }
+          : { kind: 'vault' },
+      target: { kind: 'seal', sealId: SEAL_ID, wrappedNoteKey: targetWrapper },
+    };
+    const rotated = await rotateFile(fixture.old.mek, fixture.target.mek, file, keys);
+    const sealReserved = await service.reserveFile(
+      fixture.actor,
+      token,
+      id,
+      { iv: rotated.iv, bytes: rotated.cipherBytes.byteLength, checksum },
+      'seal-file',
+    );
+    fixture.storage.objects.get(sealReserved.object.key)!.body = new Uint8Array(rotated.cipherBytes);
+    const sealFinalized = await service.finalizeFile(
+      fixture.actor,
+      token,
+      id,
+      sealReserved.object.key,
+      `file-stage-${id}`,
+      'seal-file',
+    );
+    staged.push({ kind: 'seal-file', resourceId: id, replacementDigest: sealFinalized.replacementDigest! });
+  }
+
   if (!options.skipVerify) {
     for (const item of staged)
       await service.verify(
@@ -583,7 +672,16 @@ describe('rotation service against real PGlite migrations', () => {
 
     const staged = await stageAndVerify(fixture, prepared);
     expect(staged.items.map((item) => item.kind)).toEqual(
-      expect.arrayContaining(['secret', 'secret-version', 'seal-wrapper', 'seal', 'seal-version', 'auth', 'file']),
+      expect.arrayContaining([
+        'secret',
+        'secret-version',
+        'seal-wrapper',
+        'seal',
+        'seal-file',
+        'seal-version',
+        'auth',
+        'file',
+      ]),
     );
     await confirm(fixture, prepared);
     const receipt = await prepared.service.commit(fixture.actor, prepared.token);
@@ -629,6 +727,20 @@ describe('rotation service against real PGlite migrations', () => {
     await expect(decryptFileBytes(fixture.target.mek, encryptedFile.encryptionIv!, replacementBytes)).resolves.toEqual(
       fixture.sourceFile.plain,
     );
+    expect(encryptedFile).toMatchObject({ keyScope: 'vault', keyNoteId: null });
+
+    // Both Seal attachments are now under the Seal's new note key, and say so.
+    const newNoteKey = await importSealKey(fixture.target.mek, SEAL_ID, seal.wrappedNoteKey!);
+    for (const [id, file] of Object.entries(fixture.sealFiles)) {
+      const row = files.find((candidate) => candidate.id === id)!;
+      expect(row).toMatchObject({ keyScope: 'seal', keyNoteId: SEAL_ID });
+      expect(row.s3Key).not.toBe(`source/${id}`);
+      const bytes = fixture.storage.objects.get(row.s3Key)!.body!.slice().buffer as ArrayBuffer;
+      await expect(decryptSealFileBytes(newNoteKey, SEAL_ID, row.encryptionIv!, bytes)).resolves.toEqual(file.plain);
+    }
+    // The unsaved upload's key died with its draft: never inventoried, retired.
+    expect(staged.items.some((item) => item.resourceId === UNSAVED_SEAL_FILE_ID)).toBe(false);
+    expect(files.find((row) => row.id === UNSAVED_SEAL_FILE_ID)?.deletedAt).not.toBeNull();
     expect((await db.select().from(encryptionStates).where(eq(encryptionStates.userId, USER_ID)))[0]).toMatchObject({
       generation: 1,
       activeRotationId: null,
@@ -1113,5 +1225,33 @@ describe('rotation service against real PGlite migrations', () => {
     });
     await serviceFor(fixture).cleanup();
     expect(fixture.storage.removed).not.toContain(encryptedFile.s3Key);
+  });
+
+  it('refuses to reserve a Seal attachment before its Seal has a new note key', async () => {
+    const fixture = await seedFixture(db);
+    const prepared = await begin(fixture);
+    const input = {
+      iv: Buffer.from(crypto.getRandomValues(new Uint8Array(12))).toString('base64'),
+      bytes: fixture.sealFiles[SEAL_FILE_ID].cipherBytes.byteLength,
+      checksum: Buffer.from(new Uint8Array(32)).toString('base64'),
+    };
+
+    await expect(
+      prepared.service.reserveFile(fixture.actor, prepared.token, SEAL_FILE_ID, input, 'seal-file'),
+    ).rejects.toMatchObject({ code: 'INCOMPLETE' });
+    // The kind is part of the item's identity: it is not a vault file.
+    await expect(
+      prepared.service.reserveFile(fixture.actor, prepared.token, SEAL_FILE_ID, input),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it.each([
+    ['bound to another Seal', { keyNoteId: 'another-seal' }],
+    ['linked outside its Seal', { noteId: SECRET_ID, noteTier: 'secret' as const }],
+  ])('refuses to begin with a Seal-keyed attachment %s', async (_, values) => {
+    const fixture = await seedFixture(db);
+    await db.update(fileAttachments).set(values).where(eq(fileAttachments.id, SEAL_FILE_ID));
+
+    await expect(begin(fixture)).rejects.toMatchObject({ code: 'SOURCE_CORRUPT' });
   });
 });

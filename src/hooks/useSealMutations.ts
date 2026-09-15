@@ -31,6 +31,7 @@ export type CachedSealNote = {
 };
 
 type CreateSealInput = {
+  id?: string;
   title: string;
   encryptedBody?: EncryptedPayload | null;
   wrappedNoteKey?: EncryptedPayload | null;
@@ -95,6 +96,8 @@ async function apiPatchSeal(
 }
 
 type CreateSealMutationInput = {
+  /** Minted in the browser, so the Seal is created in one write. */
+  id?: string;
   title: string;
   color?: string | null;
   pattern?: string | null;
@@ -106,7 +109,9 @@ type CreateSealMutationInput = {
 };
 
 /**
- * 2-step seal creation:
+ * Seal creation. With an `id` the body is encrypted against it first and the
+ * Seal is created in one write — body, key and attachment links together, which
+ * a Seal whose attachments are under its own key requires. Without one:
  * 1. POST with title only to get _id
  * 2. Caller encrypts body using _id
  * 3. PATCH with encryptedBody + wrappedNoteKey
@@ -115,6 +120,18 @@ export const useCreateSeal = (callbacks?: { onError?: () => void }) =>
   useCreateTier<CachedSealNote, CreateSealMutationInput>(
     ROOT,
     async (input) => {
+      if (input.id) {
+        const encrypted = await input.encryptBody(input.id);
+        return apiCreateSeal({
+          id: input.id,
+          title: input.title,
+          color: input.color,
+          pattern: input.pattern,
+          fileIds: input.fileIds,
+          tags: input.tags,
+          ...encrypted,
+        });
+      }
       const created = await apiCreateSeal({
         title: input.title,
         color: input.color,

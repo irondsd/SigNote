@@ -24,8 +24,13 @@ import { captureSessionEpoch } from '@/controllers/authSessions';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  // Our own page instead of NextAuth's built-in one; copy lives in lib/authErrors.ts.
-  pages: { error: '/auth/error' },
+  // Our own page instead of NextAuth's built-in ones; copy lives in lib/authErrors.ts.
+  // Both keys, because NextAuth v4 splits errors between them: `Callback`,
+  // `OAuthCallback`, `OAuthSignin`, `OAuthAccountNotLinked` and the like are
+  // bounced from its error route to the *sign-in* page (`?error=`), and only the
+  // rest reach `pages.error`. Every `signIn()` here names a provider, so the
+  // sign-in page is never shown for anything but a failure.
+  pages: { signIn: '/auth/error', error: '/auth/error' },
   session: {
     strategy: 'jwt',
     maxAge: AUTH_SESSION_MAX_AGE_SECONDS,

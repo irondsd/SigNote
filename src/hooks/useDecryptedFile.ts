@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useFileEncryption } from '@/contexts/FileEncryptionContext';
-import { decryptFileBytes } from '@/lib/crypto';
+import { useFileEncryption, type FileKeys } from '@/contexts/FileEncryptionContext';
+import { decryptFileBytes, decryptSealFileBytes } from '@/lib/crypto';
 import { generationHeaders } from '@/lib/encryptionGeneration';
 
 type DecryptedFileState = {
@@ -11,8 +11,14 @@ type DecryptedFileState = {
   error: string | null;
 };
 
-/** Fetch an attachment and, when it is encrypted, decrypt it in the browser. */
-export async function fetchFileBlob(fileId: string, mek: CryptoKey | null, signal?: AbortSignal): Promise<Blob> {
+/**
+ * Fetch an attachment and, when it is encrypted, decrypt it in the browser.
+ *
+ * The response names the key: the vault file key, or a Seal's own note key. A
+ * Seal-keyed file is only ever opened by its own Seal — anywhere else it is
+ * content copied out of that Seal, not something to try other keys on.
+ */
+export async function fetchFileBlob(fileId: string, keys: FileKeys, signal?: AbortSignal): Promise<Blob> {
   const res = await fetch(`/api/files/${fileId}`, { signal, headers: generationHeaders() });
   if (!res.ok) throw new Error('Failed to fetch file');
 
@@ -23,15 +29,25 @@ export async function fetchFileBlob(fileId: string, mek: CryptoKey | null, signa
 
   const iv = res.headers.get('X-Encryption-IV');
   if (!iv) throw new Error('Missing encryption IV');
-  if (!mek) throw new Error('Encryption key not available');
 
-  const plainBytes = await decryptFileBytes(mek, iv, await res.arrayBuffer());
+  let plainBytes: Uint8Array;
+  if (res.headers.get('X-File-Key-Scope') === 'seal') {
+    const { seal } = keys;
+    if (!seal || res.headers.get('X-File-Key-Note') !== seal.id) throw new Error('Attachment belongs to another seal');
+    if (!seal.noteKey) throw new Error('Encryption key not available');
+    plainBytes = await decryptSealFileBytes(seal.noteKey, seal.id, iv, await res.arrayBuffer());
+  } else {
+    if (!keys.mek) throw new Error('Encryption key not available');
+    plainBytes = await decryptFileBytes(keys.mek, iv, await res.arrayBuffer());
+  }
   const mimeType = res.headers.get('X-Original-MimeType') ?? 'application/octet-stream';
   return new Blob([plainBytes.buffer as ArrayBuffer], { type: mimeType });
 }
 
 export function useDecryptedFile(fileId: string | null) {
-  const { mek } = useFileEncryption();
+  const { mek, seal } = useFileEncryption();
+  const sealId = seal?.id;
+  const noteKey = seal?.noteKey ?? null;
   const [state, setState] = useState<DecryptedFileState>({ blobUrl: null, loading: false, error: null });
   const blobUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -49,7 +65,8 @@ export function useDecryptedFile(fileId: string | null) {
       setState({ blobUrl: null, loading: true, error: null });
 
       try {
-        url = URL.createObjectURL(await fetchFileBlob(fileId, mek, controller.signal));
+        const keys = { mek, seal: sealId ? { id: sealId, noteKey } : undefined };
+        url = URL.createObjectURL(await fetchFileBlob(fileId, keys, controller.signal));
 
         if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = url;
@@ -71,7 +88,7 @@ export function useDecryptedFile(fileId: string | null) {
         blobUrlRef.current = null;
       }
     };
-  }, [fileId, mek]);
+  }, [fileId, mek, sealId, noteKey]);
 
   // With no file the effect never runs, so a previous file's state must not leak through.
   return fileId ? state : IDLE;

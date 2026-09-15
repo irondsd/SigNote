@@ -5,8 +5,20 @@ import { useRouter } from 'next/navigation';
 import posthog from 'posthog-js';
 import { toast } from 'sonner';
 
-import { decryptSecretBody, encryptSealBody, encryptSealBodyWithExistingKey, encryptSecretBody } from '@/lib/crypto';
-import { encryptPromotionAttachments, type PromotionAttachment } from '@/lib/promotionFiles';
+import {
+  decryptSecretBody,
+  encryptSealBodyWithExistingKey,
+  encryptSecretBody,
+  generateSealKey,
+  importSealKey,
+  wrapSealKey,
+} from '@/lib/crypto';
+import {
+  encryptAttachmentsForSeal,
+  encryptPromotionAttachments,
+  type FileReplacement,
+  type PromotionAttachment,
+} from '@/lib/promotionFiles';
 import { filterOut, type Snapshot, type WithId } from '@/lib/queryCache';
 import { queueTierWrite } from '@/lib/tierWriteQueue';
 import { trpcClient } from '@/lib/trpcClient';
@@ -25,33 +37,39 @@ type NotePreparation = {
 type SecretPreparation = {
   secret: { _id: string; encryptedBody: EncryptedPayload | null; updatedAt: string | Date };
   versions: { _id: string; encryptedBody: EncryptedPayload | null }[];
+  attachments: PromotionAttachment[];
 };
 
+/** A new Seal note key, wrapped under the MEK straight away. */
+async function mintSealKey(mek: CryptoKey, id: string): Promise<EncryptedPayload> {
+  const nek = generateSealKey();
+  try {
+    return await wrapSealKey(mek, id, nek);
+  } finally {
+    nek.fill(0);
+  }
+}
+
+/** Every retained body under the one Seal key, so history stays readable. */
 async function encryptForSeal(
   mek: CryptoKey,
   id: string,
   bodies: string[],
-): Promise<{ encryptedBodies: (EncryptedPayload | null)[]; wrappedNoteKey: EncryptedPayload | null }> {
-  const encryptedBodies: (EncryptedPayload | null)[] = Array.from({ length: bodies.length }, () => null);
-  const first = bodies.findIndex((body) => body.trim().length > 0);
-  if (first < 0) return { encryptedBodies, wrappedNoteKey: null };
-
-  const initial = await encryptSealBody(mek, bodies[first], id);
-  encryptedBodies[first] = initial.encryptedBody;
-  for (const [index, body] of bodies.entries()) {
-    if (index === first || !body.trim()) continue;
-    encryptedBodies[index] = (
-      await encryptSealBodyWithExistingKey(mek, body, id, initial.wrappedNoteKey)
-    ).encryptedBody;
-  }
-  return { encryptedBodies, wrappedNoteKey: initial.wrappedNoteKey };
+  wrappedNoteKey: EncryptedPayload | null,
+): Promise<(EncryptedPayload | null)[]> {
+  return Promise.all(
+    bodies.map(async (body) =>
+      body.trim() && wrappedNoteKey
+        ? (await encryptSealBodyWithExistingKey(mek, body, id, wrappedNoteKey)).encryptedBody
+        : null,
+    ),
+  );
 }
 
 function usePromotionCache(source: 'notes' | 'secrets', destination: 'secrets' | 'seals') {
   const qc = useQueryClient();
   return {
-    cancelSourceVersions: (id: string) =>
-      qc.cancelQueries({ queryKey: versionsKey(source, id), exact: true }),
+    cancelSourceVersions: (id: string) => qc.cancelQueries({ queryKey: versionsKey(source, id), exact: true }),
     reconcile: async (id: string) => {
       const sourceSnapshots = qc.getQueriesData({ queryKey: [source] }) as Snapshot<WithId>[];
       filterOut(qc, sourceSnapshots, id);
@@ -138,22 +156,50 @@ export function usePromoteSecretToSeal() {
           prepared.secret.encryptedBody,
           ...prepared.versions.map((version) => version.encryptedBody),
         ];
-        onProgress?.('Re-encrypting history with a unique key…');
         const plaintext = await Promise.all(
           ciphertext.map((body) => (body ? decryptSecretBody(mek, body) : Promise.resolve(''))),
         );
-        const sealed = await encryptForSeal(mek, id, plaintext);
-        onProgress?.('Moving to Seals…');
-        return trpcClient.promotions.secretToSeal.mutate({
-          id,
-          expectedUpdatedAt: new Date(prepared.secret.updatedAt).toISOString(),
-          encryptedBody: sealed.encryptedBodies[0],
-          wrappedNoteKey: sealed.wrappedNoteKey,
-          versions: prepared.versions.map((version, index) => ({
-            id: version._id,
-            encryptedBody: sealed.encryptedBodies[index + 1],
-          })),
-        });
+        // The Seal's key exists before its attachments are moved, because they
+        // are re-encrypted under it rather than carried over on the vault key.
+        const needsKey = plaintext.some((body) => body.trim()) || prepared.attachments.length > 0;
+        const wrappedNoteKey = needsKey ? await mintSealKey(mek, id) : null;
+
+        let contents = plaintext;
+        let replacements: FileReplacement[] = [];
+        if (wrappedNoteKey && prepared.attachments.length > 0) {
+          const noteKey = await importSealKey(mek, id, wrappedNoteKey);
+          const secured = await encryptAttachmentsForSeal(
+            prepared.attachments,
+            plaintext,
+            { mek, sealId: id, noteKey },
+            onProgress,
+          );
+          contents = secured.contents;
+          replacements = secured.replacements;
+        }
+        const uploadedIds = replacements.map((replacement) => replacement.encryptedId);
+
+        try {
+          onProgress?.('Re-encrypting history with a unique key…');
+          const bodies = await encryptForSeal(mek, id, contents, wrappedNoteKey);
+          onProgress?.('Moving to Seals…');
+          return await trpcClient.promotions.secretToSeal.mutate({
+            id,
+            expectedUpdatedAt: new Date(prepared.secret.updatedAt).toISOString(),
+            encryptedBody: bodies[0],
+            wrappedNoteKey,
+            versions: prepared.versions.map((version, index) => ({
+              id: version._id,
+              encryptedBody: bodies[index + 1],
+            })),
+            fileReplacements: replacements,
+          });
+        } catch (error) {
+          // Safe even when the commit response was lost: the server only
+          // removes still-unlinked uploads, never files attached by a commit.
+          await trpcClient.promotions.cleanupUploads.mutate({ ids: uploadedIds }).catch(() => undefined);
+          throw error;
+        }
       }),
     onSuccess: async (data, { id }) => {
       await reconcile(id);

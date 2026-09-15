@@ -8,16 +8,21 @@
 import { getOtpRecordAad, getSealKeyString } from '@/config/constants';
 import {
   decryptBytesAesGcm,
+  decryptFileBytes,
   decryptSealBody,
+  decryptSealFileBytes,
   decryptSecretBody,
   deriveFileEncKey,
   deriveOtpVaultKey,
   deriveSealWrapKey,
+  encryptFileBytes,
   encryptSealBody,
   encryptSealBodyWithExistingKey,
+  encryptSealFileBytes,
   encryptSecretBody,
   fromBase64,
   importMEK,
+  importSealKey,
   toBase64,
 } from '@/lib/crypto';
 import { encryptOtpRecord, decryptOtpRecord, type OtpSecrets } from '@/lib/otp/record';
@@ -31,6 +36,10 @@ const SEAL_ID = 'seal-1';
 const AUTH_ID = 'auth-1';
 const TOMBSTONE_ID = 'auth-2';
 const FILE_ID = 'file-1';
+/** Under the Seal's own note key. */
+const SEAL_FILE_ID = 'seal-file-1';
+/** Attached to the Seal while still on the vault key — the migration case. */
+const LEGACY_SEAL_FILE_ID = 'seal-file-legacy';
 
 const secrets: OtpSecrets = {
   v: 1,
@@ -75,6 +84,17 @@ async function mixedVault(sourceMek: CryptoKey) {
   );
   objects.set('source/file-1', fileCipher);
 
+  const plainSealFile = crypto.getRandomValues(new Uint8Array(2048));
+  const sealFile = await encryptSealFileBytes(
+    await importSealKey(sourceMek, SEAL_ID, seal.wrappedNoteKey),
+    SEAL_ID,
+    plainSealFile,
+  );
+  objects.set('source/seal-file-1', sealFile.cipherBytes);
+  const plainLegacyFile = crypto.getRandomValues(new Uint8Array(1024));
+  const legacyFile = await encryptFileBytes(sourceMek, plainLegacyFile);
+  objects.set('source/seal-file-legacy', legacyFile.cipherBytes);
+
   const seed: SeedItem[] = [
     { kind: 'secret', resourceId: SECRET_ID, source: secretHead },
     { kind: 'secret-version', resourceId: 'secret-1-v1', parentId: SECRET_ID, source: secretVersion },
@@ -89,9 +109,49 @@ async function mixedVault(sourceMek: CryptoKey) {
       resourceId: FILE_ID,
       source: { key: 'source/file-1', iv: toBase64(fileIv), bytes: fileCipher.byteLength, checksum: '' },
     },
+    {
+      kind: 'seal-file',
+      resourceId: SEAL_FILE_ID,
+      parentId: SEAL_ID,
+      source: {
+        key: 'source/seal-file-1',
+        iv: sealFile.iv,
+        bytes: sealFile.cipherBytes.byteLength,
+        checksum: '',
+        scope: 'seal',
+      },
+    },
+    {
+      kind: 'seal-file',
+      resourceId: LEGACY_SEAL_FILE_ID,
+      parentId: SEAL_ID,
+      source: {
+        key: 'source/seal-file-legacy',
+        iv: legacyFile.iv,
+        bytes: legacyFile.cipherBytes.byteLength,
+        checksum: '',
+        scope: 'vault',
+      },
+    },
   ];
 
-  return { seed, objects, plainFile };
+  return { seed, objects, plainFile, plainSealFile, plainLegacyFile };
+}
+
+/** A re-keyed Seal attachment, read with the Seal's note key under `mek`. */
+async function readSealFile(
+  server: ReturnType<typeof createFakeRotationServer>,
+  mek: CryptoKey,
+  resourceId: string,
+  wrapper: never,
+) {
+  const stored = server.row('seal-file', resourceId).replacement as { key: string; iv: string };
+  return decryptSealFileBytes(
+    await importSealKey(mek, SEAL_ID, wrapper),
+    SEAL_ID,
+    stored.iv,
+    server.objects.get(stored.key)!,
+  );
 }
 
 const engineFor = (
@@ -121,7 +181,7 @@ describe('a complete run over a mixed vault', () => {
   it('replaces every ciphertext while preserving the plaintext exactly', async () => {
     const sourceMek = await freshMek();
     const targetMek = await freshMek();
-    const { seed, objects, plainFile } = await mixedVault(sourceMek);
+    const { seed, objects, plainFile, plainSealFile, plainLegacyFile } = await mixedVault(sourceMek);
     const server = createFakeRotationServer(seed, { objects });
 
     await engineFor(server, sourceMek, targetMek).process();
@@ -154,6 +214,10 @@ describe('a complete run over a mixed vault', () => {
       server.objects.get(stored.key)!,
     );
     expect(new Uint8Array(plain)).toEqual(plainFile);
+
+    // Both land on the Seal's new note key, whichever key they started under.
+    expect(await readSealFile(server, targetMek, SEAL_FILE_ID, wrapper)).toEqual(plainSealFile);
+    expect(await readSealFile(server, targetMek, LEGACY_SEAL_FILE_ID, wrapper)).toEqual(plainLegacyFile);
   });
 
   it('leaves the old keys unable to read anything it produced', async () => {
@@ -173,6 +237,14 @@ describe('a complete run over a mixed vault', () => {
         SEAL_ID,
       ),
     ).rejects.toThrow();
+
+    // Not the old Seal note key, and not the vault file key under either MEK.
+    const sourceWrapper = server.row('seal-wrapper', SEAL_ID).source as never;
+    await expect(readSealFile(server, sourceMek, SEAL_FILE_ID, sourceWrapper)).rejects.toThrow();
+    const legacy = server.row('seal-file', LEGACY_SEAL_FILE_ID).replacement as { key: string; iv: string };
+    for (const mek of [sourceMek, targetMek]) {
+      await expect(decryptFileBytes(mek, legacy.iv, server.objects.get(legacy.key)!)).rejects.toThrow();
+    }
   });
 
   it('replaces the Seal note key itself, not just its wrapping', async () => {
@@ -306,6 +378,25 @@ describe('resuming', () => {
     }
   });
 
+  it('keeps a Seal attachment on the note key its Seal was already given', async () => {
+    const sourceMek = await freshMek();
+    const targetMek = await freshMek();
+    const { seed, objects, plainSealFile } = await mixedVault(sourceMek);
+    const faults = new Map([[`reserveFile:${SEAL_FILE_ID}`, new Error('network died')]]);
+    const server = createFakeRotationServer(seed, { objects, faults });
+
+    await expect(engineFor(server, sourceMek, targetMek).process()).rejects.toBeInstanceOf(RotationItemError);
+    const wrapperAfterFault = server.row('seal-wrapper', SEAL_ID).replacementDigest;
+    expect(wrapperAfterFault).not.toBeNull();
+    expect(server.row('seal-file', SEAL_FILE_ID).replacementDigest).toBeNull();
+
+    await engineFor(server, sourceMek, targetMek).process();
+
+    expect(server.row('seal-wrapper', SEAL_ID).replacementDigest).toBe(wrapperAfterFault);
+    const wrapper = server.row('seal-wrapper', SEAL_ID).replacement as never;
+    expect(await readSealFile(server, targetMek, SEAL_FILE_ID, wrapper)).toEqual(plainSealFile);
+  });
+
   it('never re-encrypts an item the server already accepted', async () => {
     const sourceMek = await freshMek();
     const targetMek = await freshMek();
@@ -393,6 +484,41 @@ describe('damaged data', () => {
 
     await expect(engineFor(server, sourceMek, targetMek).process()).rejects.toBeInstanceOf(RotationItemError);
     await expect(engineFor(server, sourceMek, targetMek).commit()).rejects.toThrow();
+  });
+
+  it('refuses a vault file whose source claims to be under a Seal key', async () => {
+    const sourceMek = await freshMek();
+    const { seed, objects } = await mixedVault(sourceMek);
+    const mislabelled = seed.map((item) =>
+      item.kind === 'file' ? { ...item, source: { ...(item.source as object), scope: 'seal' } } : item,
+    );
+    const server = createFakeRotationServer(mislabelled as SeedItem[], { objects });
+
+    const error = await engineFor(server, sourceMek, await freshMek())
+      .process()
+      .then(() => null)
+      .catch((err: unknown) => err);
+
+    expect(error).toMatchObject({ kind: 'file', resourceId: FILE_ID, reason: 'SOURCE_CORRUPT' });
+    expect(server.row('file', FILE_ID).fileGrant).toBeNull();
+  });
+
+  it('refuses a Seal attachment whose Seal has no note key to re-key it under', async () => {
+    const sourceMek = await freshMek();
+    const { seed, objects } = await mixedVault(sourceMek);
+    const keyless = seed.map((item) =>
+      item.kind === 'seal-wrapper' || item.kind === 'seal' || item.kind === 'seal-version'
+        ? { ...item, source: null }
+        : item,
+    );
+    const server = createFakeRotationServer(keyless, { objects });
+
+    const error = await engineFor(server, sourceMek, await freshMek())
+      .process()
+      .then(() => null)
+      .catch((err: unknown) => err);
+
+    expect(error).toMatchObject({ kind: 'seal-file', reason: 'MISSING_SEAL_WRAPPER' });
   });
 
   it('stops immediately when the user cancels', async () => {

@@ -553,6 +553,13 @@ export const securityPreferences = pgTable(
 
 export type NoteTier = 'note' | 'secret' | 'seal';
 
+/**
+ * Which key an encrypted attachment is under. `vault` is the account-wide file
+ * key derived from the MEK; `seal` is the owning Seal's own note key, bound to
+ * `keyNoteId` — which is why such a file may only ever be linked to that Seal.
+ */
+export type FileKeyScope = 'vault' | 'seal';
+
 export const fileAttachments = pgTable(
   'file_attachments',
   {
@@ -566,6 +573,8 @@ export const fileAttachments = pgTable(
     mimeType: text('mime_type').notNull(),
     encrypted: boolean('encrypted').notNull().default(false),
     encryptionIv: text('encryption_iv'),
+    keyScope: text('key_scope').$type<FileKeyScope>().notNull().default('vault'),
+    keyNoteId: text('key_note_id'),
     createdAt: createdAt(),
     deletedAt: ts('deleted_at'),
     storageDeletedAt: ts('storage_deleted_at'),
@@ -647,7 +656,8 @@ export const encryptionStates = pgTable('encryption_states', {
 }).enableRLS();
 
 export type RotationPhase = 'preparing' | 'migrating' | 'ready' | 'committed' | 'aborted' | 'cleaned';
-export type RotationKind = 'secret' | 'secret-version' | 'seal' | 'seal-version' | 'seal-wrapper' | 'auth' | 'file';
+export type RotationKind =
+  'secret' | 'secret-version' | 'seal' | 'seal-file' | 'seal-version' | 'seal-wrapper' | 'auth' | 'file';
 export type PendingEncryptionMaterial = {
   version: number;
   serverShare: string;
@@ -657,9 +667,12 @@ export type PendingEncryptionMaterial = {
 };
 /** A file receipt carries `etag` only once `verify` has read its bytes back:
  * absent on a source pointer, present on a staged replacement, which is what
- * lets commit re-identify the object without hashing it again. */
+ * lets commit re-identify the object without hashing it again. `scope` is on a
+ * source pointer only: the key the current object is under. */
 export type RotationCipherValue =
-  EncryptedPayload | { key: string; iv: string; bytes: number; checksum: string; etag?: string } | null;
+  | EncryptedPayload
+  | { key: string; iv: string; bytes: number; checksum: string; etag?: string; scope?: FileKeyScope }
+  | null;
 
 export const encryptionRotations = pgTable(
   'encryption_rotations',

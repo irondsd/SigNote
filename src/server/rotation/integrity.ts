@@ -4,7 +4,7 @@
 import { createHash } from 'node:crypto';
 
 export type RotationIdentity = {
-  kind: 'secret' | 'secret-version' | 'seal' | 'seal-version' | 'seal-wrapper' | 'auth' | 'file';
+  kind: 'secret' | 'secret-version' | 'seal' | 'seal-file' | 'seal-version' | 'seal-wrapper' | 'auth' | 'file';
   id: string;
 };
 export type RotationManifestItem = RotationIdentity & { sourceDigest: string };

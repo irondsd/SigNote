@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,15 +14,19 @@ export const metadata: Metadata = {
 };
 
 /**
- * Where every failed sign-in lands: NextAuth redirects here via
- * `pages.error` in `config/auth.ts`, and so do our own refusals.
+ * Where every failed sign-in lands: NextAuth redirects here via both
+ * `pages.error` and `pages.signIn` in `config/auth.ts`, and so do our own
+ * refusals. Reached with no error at all — NextAuth's sign-in page opened
+ * directly — there is nothing to report, so it goes back to the app.
  */
 export default async function AuthErrorPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { title, description, code } = describeAuthError((await searchParams).error);
+  const { error } = await searchParams;
+  if (!error) redirect('/');
+  const { title, description, code } = describeAuthError(error);
 
   return (
     <main className={s.screen}>

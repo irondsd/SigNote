@@ -30,7 +30,22 @@ export const materialSchema = z
     keyCheck: payloadSchema.refine((value) => value.ciphertext.length <= 1024),
   })
   .strict();
-export const kindSchema = z.enum(['secret', 'secret-version', 'seal', 'seal-version', 'seal-wrapper', 'auth', 'file']);
+export const kindSchema = z.enum([
+  'secret',
+  'secret-version',
+  'seal',
+  'seal-file',
+  'seal-version',
+  'seal-wrapper',
+  'auth',
+  'file',
+]);
+/** Kinds whose ciphertext is an object in storage rather than a database value.
+ * A `seal-file` is re-keyed under its Seal's new note key, so it follows the
+ * Seal's wrapper exactly as the Seal's bodies do. */
+export const fileKindSchema = z.enum(['file', 'seal-file']);
+export type FileKind = z.infer<typeof fileKindSchema>;
+export const isFileKind = (kind: string): kind is FileKind => kind === 'file' || kind === 'seal-file';
 export const itemRefSchema = z.object({ kind: kindSchema, resourceId: z.string().min(1).max(128) });
 export const workerSchema = z.object({
   operationId: z.uuid(),

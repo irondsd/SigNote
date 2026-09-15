@@ -38,8 +38,15 @@ export const HKDF_INFO_OTP_VAULT = 'otp-vault:v1';
 export const HKDF_INFO_DRAFT = 'draft:v1';
 export const KEY_CHECK_PLAINTEXT = 'notes-key-check:v1';
 
+export const SEAL_FILE_AAD_PREFIX = 'seal-file:v1';
+
 export function getSealKeyString(sealId: string) {
   return `${HKDF_INFO_SEAL_WRAP_PREFIX}:${sealId}`;
+}
+
+/** Binds a Seal-keyed attachment to its Seal, and apart from that Seal's body. */
+export function getSealFileAad(sealId: string) {
+  return `${SEAL_FILE_AAD_PREFIX}:${sealId}`;
 }
 
 // Authenticator (TOTP)

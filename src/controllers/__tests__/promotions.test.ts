@@ -186,7 +186,7 @@ describe('tier promotions', () => {
     expect(await db.select().from(secretNotes).where(eq(secretNotes.id, 'note-1'))).toHaveLength(0);
   });
 
-  test('moves a secret and reuses one seal wrapper across its retained history', async () => {
+  test('moves a secret, reusing one seal wrapper across its history and its re-keyed attachments', async () => {
     const updatedAt = new Date('2026-03-01T00:00:00.000Z');
     await db.insert(secretNotes).values({
       id: 'secret-1',
@@ -205,21 +205,36 @@ describe('tier promotions', () => {
     });
     await db.insert(tags).values({ id: 'tag-1', userId: 'user-1', name: 'sealed', color: 'amber' });
     await db.insert(secretNoteTags).values({ noteId: 'secret-1', tagId: 'tag-1', sortOrder: 0 });
-    await db.insert(fileAttachments).values({
-      id: 'encrypted-file',
-      userId: 'user-1',
-      noteId: 'secret-1',
-      noteTier: 'secret',
-      s3Key: 'cipher',
-      filename: 'file.txt',
-      size: 21,
-      mimeType: 'text/plain',
-      encrypted: true,
-      encryptionIv: 'iv',
-    });
+    await db.insert(fileAttachments).values([
+      {
+        id: 'encrypted-file',
+        userId: 'user-1',
+        noteId: 'secret-1',
+        noteTier: 'secret',
+        s3Key: 'cipher',
+        filename: 'file.txt',
+        size: 21,
+        mimeType: 'text/plain',
+        encrypted: true,
+        encryptionIv: 'iv',
+      },
+      {
+        id: 'seal-keyed-file',
+        userId: 'user-1',
+        s3Key: 'seal-cipher',
+        filename: 'file.txt',
+        size: 21,
+        mimeType: 'text/plain',
+        encrypted: true,
+        encryptionIv: 'iv',
+        keyScope: 'seal',
+        keyNoteId: 'secret-1',
+      },
+    ]);
 
     const prepared = await prepareSecretPromotion('user-1', 'secret-1');
     expect(prepared.versions.map((version) => version._id)).toEqual(['version-1']);
+    expect(prepared.attachments).toEqual([expect.objectContaining({ _id: 'encrypted-file', encrypted: true })]);
 
     await promoteSecretToSeal('user-1', {
       id: 'secret-1',
@@ -227,6 +242,7 @@ describe('tier promotions', () => {
       encryptedBody: payload('new-head'),
       wrappedNoteKey: payload('wrapper'),
       versions: [{ id: 'version-1', encryptedBody: payload('new-version') }],
+      fileReplacements: [{ sourceId: 'encrypted-file', encryptedId: 'seal-keyed-file' }],
     });
 
     expect(await db.select().from(secretNotes).where(eq(secretNotes.id, 'secret-1'))).toHaveLength(0);
@@ -241,8 +257,105 @@ describe('tier promotions', () => {
       expect.objectContaining({ id: 'version-1', title: 'Old title', encryptedBody: payload('new-version') }),
     ]);
     expect(await db.select().from(sealNoteTags).where(eq(sealNoteTags.noteId, 'secret-1'))).toHaveLength(1);
-    expect(await db.select().from(fileAttachments).where(eq(fileAttachments.id, 'encrypted-file'))).toEqual([
-      expect.objectContaining({ noteTier: 'seal', noteId: 'secret-1', deletedAt: null }),
-    ]);
+    // The vault-keyed original is retired; the Seal carries the copy under its own key.
+    const files = await db.select().from(fileAttachments);
+    expect(files.find((file) => file.id === 'encrypted-file')?.deletedAt).toBeInstanceOf(Date);
+    expect(files.find((file) => file.id === 'seal-keyed-file')).toMatchObject({
+      noteId: 'secret-1',
+      noteTier: 'seal',
+      keyScope: 'seal',
+      keyNoteId: 'secret-1',
+      deletedAt: null,
+    });
+  });
+
+  describe('a secret attachment has to move under the seal key', () => {
+    const updatedAt = new Date('2026-03-01T00:00:00.000Z');
+
+    async function secretWithAttachment(replacement: Partial<typeof fileAttachments.$inferInsert> = {}) {
+      await db.insert(secretNotes).values({
+        id: 'secret-1',
+        userId: 'user-1',
+        title: 'Secret',
+        encryptedBody: payload('head'),
+        position: 1,
+        updatedAt,
+      });
+      await db.insert(fileAttachments).values([
+        {
+          id: 'secret-file',
+          userId: 'user-1',
+          noteId: 'secret-1',
+          noteTier: 'secret',
+          s3Key: 'cipher',
+          filename: 'f.txt',
+          size: 21,
+          mimeType: 'text/plain',
+          encrypted: true,
+          encryptionIv: 'iv',
+        },
+        {
+          id: 'replacement',
+          userId: 'user-1',
+          s3Key: 'seal-cipher',
+          filename: 'f.txt',
+          size: 21,
+          mimeType: 'text/plain',
+          encrypted: true,
+          encryptionIv: 'iv',
+          keyScope: 'seal',
+          keyNoteId: 'secret-1',
+          ...replacement,
+        },
+      ]);
+    }
+
+    const promote = (overrides: Partial<Parameters<typeof promoteSecretToSeal>[1]> = {}) =>
+      promoteSecretToSeal('user-1', {
+        id: 'secret-1',
+        expectedUpdatedAt: updatedAt.toISOString(),
+        encryptedBody: payload('new-head'),
+        wrappedNoteKey: payload('wrapper'),
+        versions: [],
+        fileReplacements: [{ sourceId: 'secret-file', encryptedId: 'replacement' }],
+        ...overrides,
+      });
+
+    const expectUntouched = async () => {
+      expect(await db.select().from(secretNotes).where(eq(secretNotes.id, 'secret-1'))).toHaveLength(1);
+      expect(await db.select().from(sealNotes)).toHaveLength(0);
+      expect(await db.select().from(fileAttachments).where(eq(fileAttachments.id, 'secret-file'))).toEqual([
+        expect.objectContaining({ noteTier: 'secret', deletedAt: null }),
+      ]);
+    };
+
+    test.each([
+      ['still on the vault key', { keyScope: 'vault' as const, keyNoteId: null }],
+      ['bound to another seal', { keyNoteId: 'another-seal' }],
+      ['already linked elsewhere', { noteId: 'another-seal', noteTier: 'seal' as const }],
+    ])('refuses a replacement %s', async (_, replacement) => {
+      await secretWithAttachment(replacement);
+
+      await expect(promote()).rejects.toEqual(expect.objectContaining({ code: 'INVALID_FILES' }));
+      await expectUntouched();
+    });
+
+    test('refuses to carry an attachment over with no replacement', async () => {
+      await secretWithAttachment();
+
+      await expect(promote({ fileReplacements: [] })).rejects.toEqual(
+        expect.objectContaining({ code: 'INVALID_FILES' }),
+      );
+      await expectUntouched();
+    });
+
+    test('refuses re-keyed attachments without the seal key that opens them', async () => {
+      await secretWithAttachment();
+
+      await expect(promote({ wrappedNoteKey: null })).rejects.toEqual(
+        expect.objectContaining({ code: 'INVALID_FILES' }),
+      );
+      await expectUntouched();
+    });
   });
 });

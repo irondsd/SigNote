@@ -8,6 +8,8 @@ export type ImageAttachmentAttrs = {
   size: number;
   mimeType: string;
   uploadStatus: 'uploading' | 'complete' | 'error';
+  /** The Seal whose note key the image is under; null for vault or plaintext images. */
+  keyNoteId: string | null;
 };
 
 export const ImageAttachmentNode = Node.create({
@@ -24,6 +26,7 @@ export const ImageAttachmentNode = Node.create({
       size: { default: 0 },
       mimeType: { default: '' },
       uploadStatus: { default: 'uploading' },
+      keyNoteId: { default: null, parseHTML: (element: HTMLElement) => element.getAttribute('data-key-note-id') },
     };
   },
 
@@ -40,6 +43,7 @@ export const ImageAttachmentNode = Node.create({
         'data-filename': HTMLAttributes.filename,
         'data-size': HTMLAttributes.size,
         'data-mime-type': HTMLAttributes.mimeType,
+        'data-key-note-id': HTMLAttributes.keyNoteId,
       }),
     ];
   },

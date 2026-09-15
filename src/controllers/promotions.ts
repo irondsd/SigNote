@@ -31,6 +31,21 @@ type FileReplacement = { sourceId: string; encryptedId: string };
 
 const sameInstant = (value: Date, expected: string) => value.getTime() === new Date(expected).getTime();
 
+/** Exactly one distinct replacement for every source file, and nothing else. */
+const assertReplacementSet = (sourceIds: string[], replacements: FileReplacement[]): string[] => {
+  const replacementBySource = new Map(replacements.map((item) => [item.sourceId, item.encryptedId]));
+  const encryptedIds = replacements.map((item) => item.encryptedId);
+  if (
+    replacementBySource.size !== replacements.length ||
+    new Set(encryptedIds).size !== encryptedIds.length ||
+    sourceIds.length !== replacements.length ||
+    sourceIds.some((id) => !replacementBySource.has(id))
+  ) {
+    throw new PromotionError('INVALID_FILES');
+  }
+  return encryptedIds;
+};
+
 const assertVersionSet = (storedIds: string[], supplied: EncryptedVersion[]): void => {
   const suppliedIds = supplied.map((version) => version.id);
   if (
@@ -101,11 +116,30 @@ export async function prepareSecretPromotion(userId: string, id: string) {
     if (!secret) throw new PromotionError('NOT_FOUND');
     if (secret.burnAfterReading && secret.expiresAt) throw new PromotionError('BURN_ARMED');
 
-    const versions = await db
-      .select()
-      .from(secretNoteVersions)
-      .where(eq(secretNoteVersions.noteId, id))
-      .orderBy(asc(secretNoteVersions.seq));
+    const [versions, attachments] = await Promise.all([
+      db
+        .select()
+        .from(secretNoteVersions)
+        .where(eq(secretNoteVersions.noteId, id))
+        .orderBy(asc(secretNoteVersions.seq)),
+      db
+        .select({
+          id: fileAttachments.id,
+          filename: fileAttachments.filename,
+          size: fileAttachments.size,
+          mimeType: fileAttachments.mimeType,
+          encrypted: fileAttachments.encrypted,
+        })
+        .from(fileAttachments)
+        .where(
+          and(
+            eq(fileAttachments.userId, userId),
+            eq(fileAttachments.noteId, id),
+            eq(fileAttachments.noteTier, 'secret'),
+            isNull(fileAttachments.deletedAt),
+          ),
+        ),
+    ]);
 
     return {
       secret: {
@@ -119,6 +153,11 @@ export async function prepareSecretPromotion(userId: string, id: string) {
         encryptedBody: version.encryptedBody,
         createdAt: version.createdAt,
         generation,
+      })),
+      // Every one is re-encrypted under the new Seal's own key before the move.
+      attachments: attachments.map(({ id: attachmentId, ...attachment }) => ({
+        _id: attachmentId,
+        ...attachment,
       })),
     };
   });
@@ -194,16 +233,7 @@ export async function promoteNoteToSecret(
         ),
       );
     const plaintextIds = sourceFiles.filter((file) => !file.encrypted).map((file) => file.id);
-    const replacementBySource = new Map(input.fileReplacements.map((item) => [item.sourceId, item.encryptedId]));
-    const encryptedIds = input.fileReplacements.map((item) => item.encryptedId);
-    if (
-      replacementBySource.size !== input.fileReplacements.length ||
-      new Set(encryptedIds).size !== encryptedIds.length ||
-      plaintextIds.length !== input.fileReplacements.length ||
-      plaintextIds.some((id) => !replacementBySource.has(id))
-    ) {
-      throw new PromotionError('INVALID_FILES');
-    }
+    const encryptedIds = assertReplacementSet(plaintextIds, input.fileReplacements);
 
     if (encryptedIds.length > 0) {
       const replacements = await db
@@ -217,6 +247,9 @@ export async function promoteNoteToSecret(
             isNull(fileAttachments.noteTier),
             isNull(fileAttachments.deletedAt),
             eq(fileAttachments.encrypted, true),
+            // A Secret decrypts with the vault file key; a Seal-keyed upload
+            // would link fine and then never open.
+            eq(fileAttachments.keyScope, 'vault'),
           ),
         );
       if (replacements.length !== encryptedIds.length) throw new PromotionError('INVALID_FILES');
@@ -294,6 +327,7 @@ export async function promoteSecretToSeal(
     encryptedBody: EncryptedPayload | null;
     wrappedNoteKey: EncryptedPayload | null;
     versions: EncryptedVersion[];
+    fileReplacements: FileReplacement[];
   },
 ) {
   return withVaultWrite(userId, async () => {
@@ -322,6 +356,43 @@ export async function promoteSecretToSeal(
       versions.map((version) => version.id),
       input.versions,
     );
+
+    // A Seal's attachments are under its own note key, not the vault's: every
+    // Secret file needs a replacement uploaded under that key, bound to this
+    // Seal, and the key itself has to be stored with the Seal.
+    const sourceIds = (
+      await db
+        .select({ id: fileAttachments.id })
+        .from(fileAttachments)
+        .where(
+          and(
+            eq(fileAttachments.userId, userId),
+            eq(fileAttachments.noteId, input.id),
+            eq(fileAttachments.noteTier, 'secret'),
+            isNull(fileAttachments.deletedAt),
+          ),
+        )
+    ).map((file) => file.id);
+    const encryptedIds = assertReplacementSet(sourceIds, input.fileReplacements);
+    if (encryptedIds.length > 0) {
+      if (!input.wrappedNoteKey) throw new PromotionError('INVALID_FILES');
+      const replacements = await db
+        .select({ id: fileAttachments.id })
+        .from(fileAttachments)
+        .where(
+          and(
+            eq(fileAttachments.userId, userId),
+            inArray(fileAttachments.id, encryptedIds),
+            isNull(fileAttachments.noteId),
+            isNull(fileAttachments.noteTier),
+            isNull(fileAttachments.deletedAt),
+            eq(fileAttachments.encrypted, true),
+            eq(fileAttachments.keyScope, 'seal'),
+            eq(fileAttachments.keyNoteId, input.id),
+          ),
+        );
+      if (replacements.length !== encryptedIds.length) throw new PromotionError('INVALID_FILES');
+    }
 
     const [top] = await db
       .select({ position: sealNotes.position })
@@ -363,17 +434,18 @@ export async function promoteSecretToSeal(
     const tags = await db.select().from(secretNoteTags).where(eq(secretNoteTags.noteId, input.id));
     if (tags.length > 0) await db.insert(sealNoteTags).values(tags);
 
-    await db
-      .update(fileAttachments)
-      .set({ noteTier: 'seal' })
-      .where(
-        and(
-          eq(fileAttachments.userId, userId),
-          eq(fileAttachments.noteId, input.id),
-          eq(fileAttachments.noteTier, 'secret'),
-          isNull(fileAttachments.deletedAt),
-        ),
-      );
+    if (encryptedIds.length > 0) {
+      await db
+        .update(fileAttachments)
+        .set({ noteId: input.id, noteTier: 'seal' })
+        .where(and(eq(fileAttachments.userId, userId), inArray(fileAttachments.id, encryptedIds)));
+    }
+    if (sourceIds.length > 0) {
+      await db
+        .update(fileAttachments)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(fileAttachments.userId, userId), inArray(fileAttachments.id, sourceIds)));
+    }
 
     await db.delete(secretNotes).where(and(eq(secretNotes.id, input.id), eq(secretNotes.userId, userId)));
     return { id: input.id, archived: secret.archived, generation: currentRequestGeneration() };

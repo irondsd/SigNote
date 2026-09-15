@@ -23,12 +23,14 @@ import { captureInventory } from './inventory';
 import {
   beginSchema,
   digest,
+  isFileKind,
   jsonBytes,
   payloadSchema,
   RotationError,
   ROTATION_LIMITS,
   type Actor,
   type BeginInput,
+  type FileKind,
   type Worker,
   type RotationLimits,
 } from './contracts';
@@ -185,7 +187,7 @@ export function createRotationService(options: {
     const [counts] = await db
       .select({
         total: sql<number>`count(*)::int`,
-        incomplete: sql<number>`count(*) filter (where ${rotationItems.replacementDigest} is null or ${rotationItems.verifiedDigest} is distinct from ${rotationItems.replacementDigest} or (${rotationItems.kind} = 'file' and not ${rotationItems.fileVerified}))::int`,
+        incomplete: sql<number>`count(*) filter (where ${rotationItems.replacementDigest} is null or ${rotationItems.verifiedDigest} is distinct from ${rotationItems.replacementDigest} or (${rotationItems.kind} in ('file', 'seal-file') and not ${rotationItems.fileVerified}))::int`,
       })
       .from(rotationItems)
       .where(eq(rotationItems.operationId, op.id));
@@ -306,11 +308,10 @@ export function createRotationService(options: {
    * object nothing tracks. Quota therefore stays charged until grant-safe
    * cleanup succeeds, exactly as it does for a cancelled reservation.
    */
-  async function retireGrant(actor: Actor, token: Worker, resourceId: string, key: string) {
+  async function retireGrant(actor: Actor, token: Worker, ref: { kind: FileKind; resourceId: string }, key: string) {
     try {
       await withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const ref = { kind: 'file' as const, resourceId };
         const item = await getItem(db, op.id, ref);
         // A concurrent attempt may already have retired or superseded this
         // grant, and a staged item's object was accepted and must be kept.
@@ -455,7 +456,7 @@ export function createRotationService(options: {
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
         const item = await getItem(db, op.id, ref);
-        if (item.kind === 'file' || (item.source === null ? value !== null : !payloadSchema.safeParse(value).success))
+        if (isFileKind(item.kind) || (item.source === null ? value !== null : !payloadSchema.safeParse(value).success))
           throw new RotationError('INVALID_INPUT');
         if ((item.kind === 'seal' || item.kind === 'seal-version') && item.source !== null) {
           const wrapper = await getItem(db, op.id, { kind: 'seal-wrapper', resourceId: item.parentId! });
@@ -472,7 +473,7 @@ export function createRotationService(options: {
         if (
           !item.replacementDigest ||
           item.replacementDigest !== replacementDigest ||
-          (item.kind === 'file' && !item.fileVerified)
+          (isFileKind(item.kind) && !item.fileVerified)
         )
           throw new RotationError('CONFLICT');
         await db.update(rotationItems).set({ verifiedDigest: replacementDigest }).where(itemWhere(op.id, ref));
@@ -530,10 +531,10 @@ export function createRotationService(options: {
         return statusValue(await abort(db, op));
       });
     },
-    async sourceFile(actor: Actor, token: Worker, resourceId: string) {
+    async sourceFile(actor: Actor, token: Worker, resourceId: string, kind: FileKind = 'file') {
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const source = fileValue((await getItem(db, op.id, { kind: 'file', resourceId })).source);
+        const source = fileValue((await getItem(db, op.id, { kind, resourceId })).source);
         return {
           url: await storage.sourceReadGrant(source.key, limits.grantSeconds),
           bytes: source.bytes,
@@ -546,12 +547,19 @@ export function createRotationService(options: {
       token: Worker,
       resourceId: string,
       input: { iv: string; bytes: number; checksum: string },
+      kind: FileKind = 'file',
     ) {
       budget(input);
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const ref = { kind: 'file' as const, resourceId };
+        const ref = { kind, resourceId };
         const item = await getItem(db, op.id, ref);
+        // Re-keyed under the Seal's new note key, which is the staged wrapper.
+        // Nothing may be uploaded against a key that does not exist yet.
+        if (item.kind === 'seal-file') {
+          const wrapper = await getItem(db, op.id, { kind: 'seal-wrapper', resourceId: item.parentId! });
+          if (!wrapper.replacementDigest || wrapper.replacement === null) throw new RotationError('INCOMPLETE');
+        }
         const source = fileValue(item.source);
         if (
           input.bytes !== source.bytes ||
@@ -581,12 +589,19 @@ export function createRotationService(options: {
         return { object: grant, grant: await storage.uploadGrant(grant, limits.grantSeconds), expiresAt: expires };
       });
     },
-    async finalizeFile(actor: Actor, token: Worker, resourceId: string, key: string, stageKey: string) {
+    async finalizeFile(
+      actor: Actor,
+      token: Worker,
+      resourceId: string,
+      key: string,
+      stageKey: string,
+      kind: FileKind = 'file',
+    ) {
       // No storage I/O in the account's activation transaction. Verification is
       // followed by a new locked generation/fence/reference check.
       const inspected = await withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const item = await getItem(db, op.id, { kind: 'file', resourceId });
+        const item = await getItem(db, op.id, { kind, resourceId });
         if (!item.fileGrant || item.fileGrant.key !== key) throw new RotationError('CONFLICT');
         return { grant: item.fileGrant, source: fileValue(item.source) };
       });
@@ -600,22 +615,22 @@ export function createRotationService(options: {
         // create means they can never be replaced — so a retry that reused this
         // reservation would fail forever on a 412. Retire the key instead, and
         // let the next `reserveFile` allocate a fresh one for the same content.
-        await retireGrant(actor, token, resourceId, key);
+        await retireGrant(actor, token, { kind, resourceId }, key);
         throw error;
       }
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const item = await getItem(db, op.id, { kind: 'file', resourceId });
+        const item = await getItem(db, op.id, { kind, resourceId });
         if (!item.fileGrant || digest(item.fileGrant) !== digest(inspected.grant)) throw new RotationError('CONFLICT');
         const staged = await stageValue(db, op, item, { ...item.fileGrant, etag: verified.etag }, stageKey);
         await db.update(rotationItems).set({ fileVerified: true }).where(itemWhere(op.id, item));
         return { ...staged, fileVerified: true };
       });
     },
-    async stagedFile(actor: Actor, token: Worker, resourceId: string) {
+    async stagedFile(actor: Actor, token: Worker, resourceId: string, kind: FileKind = 'file') {
       return withAccountLock(actor.userId, async (db, state) => {
         const op = await worker(db, actor, token, state);
-        const item = await getItem(db, op.id, { kind: 'file', resourceId });
+        const item = await getItem(db, op.id, { kind, resourceId });
         if (!item.fileVerified || !item.replacementDigest) throw new RotationError('INCOMPLETE');
         const file = fileValue(item.replacement);
         return {
@@ -634,7 +649,7 @@ export function createRotationService(options: {
         if (committed(op)) return { receipt: statusValue(op), files: [] as Item[] };
         await worker(db, actor, token, state);
         if (op.phase !== 'ready') throw new RotationError(op.recoveryDigest ? 'INCOMPLETE' : 'RECOVERY_REQUIRED');
-        return { receipt: null, files: (await allItems(db, op.id)).filter((item) => item.kind === 'file') };
+        return { receipt: null, files: (await allItems(db, op.id)).filter((item) => isFileKind(item.kind)) };
       });
       if (preparation.receipt) return preparation.receipt;
       for (const item of preparation.files) {
@@ -667,12 +682,12 @@ export function createRotationService(options: {
             !item.replacementDigest ||
             item.verifiedDigest !== item.replacementDigest ||
             digest(item.replacement) !== item.replacementDigest ||
-            (item.kind === 'file' && !item.fileVerified)
+            (isFileKind(item.kind) && !item.fileVerified)
           )
             throw new RotationError('INCOMPLETE');
         }
         for (const file of preparation.files) {
-          const current = items.find((item) => item.kind === 'file' && item.resourceId === file.resourceId);
+          const current = items.find((item) => item.kind === file.kind && item.resourceId === file.resourceId);
           if (!current || current.replacementDigest !== file.replacementDigest) throw new RotationError('CONFLICT');
         }
         const tables = [
@@ -693,12 +708,33 @@ export function createRotationService(options: {
             );
           await options.commitCheckpoint?.(kind);
         }
+        // A `seal-file` now sits under its Seal's key whatever it started on, so
+        // its scope and owner are written with the pointer, in the same step.
         const fileValues = items
-          .filter((item) => item.kind === 'file')
-          .map((item) => ({ id: item.resourceId, ...fileValue(item.replacement) }));
+          .filter((item) => isFileKind(item.kind))
+          .map((item) => ({
+            id: item.resourceId,
+            ...fileValue(item.replacement),
+            scope: item.kind === 'seal-file' ? 'seal' : 'vault',
+            note: item.kind === 'seal-file' ? item.parentId : null,
+          }));
         if (fileValues.length)
           await db.execute(
-            sql`update ${fileAttachments} as target set s3_key = replacement.key, encryption_iv = replacement.iv from jsonb_to_recordset(${JSON.stringify(fileValues)}::jsonb) as replacement(id text, key text, iv text) where target.id = replacement.id`,
+            sql`update ${fileAttachments} as target set s3_key = replacement.key, encryption_iv = replacement.iv, key_scope = replacement.scope, key_note_id = replacement.note from jsonb_to_recordset(${JSON.stringify(fileValues)}::jsonb) as replacement(id text, key text, iv text, scope text, note text) where target.id = replacement.id`,
+          );
+        // Seal-keyed uploads never saved into their Seal were left out of the
+        // inventory: their key lived only in a local draft under the old MEK.
+        // Retired, ordinary soft-delete cleanup removes the objects.
+        await db
+          .update(fileAttachments)
+          .set({ deletedAt: now() })
+          .where(
+            and(
+              eq(fileAttachments.userId, actor.userId),
+              eq(fileAttachments.keyScope, 'seal'),
+              isNull(fileAttachments.noteId),
+              isNull(fileAttachments.deletedAt),
+            ),
           );
         await options.commitCheckpoint?.('files');
         await db
@@ -710,7 +746,7 @@ export function createRotationService(options: {
           .update(encryptionStates)
           .set({ generation: op.targetGeneration, activeRotationId: null })
           .where(eq(encryptionStates.userId, actor.userId));
-        for (const item of items.filter((item) => item.kind === 'file'))
+        for (const item of items.filter((item) => isFileKind(item.kind)))
           await queue(db, op, fileValue(item.source).key, now(), fileValue(item.source).bytes);
         await options.commitCheckpoint?.('cleanup');
         const [result] = await db

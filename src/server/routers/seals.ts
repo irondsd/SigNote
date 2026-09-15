@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { withVaultWrite } from '@/db/encryptionState';
@@ -13,7 +14,7 @@ import {
   sealOps,
   updateSeal,
 } from '@/controllers/seals';
-import { getOwnedTagIds, touchTags } from '@/controllers/tags';
+import { getOwnedTagIds, isDuplicateKeyError, touchTags } from '@/controllers/tags';
 import { assertOwner } from '@/server/ownership';
 import { encryptedPayload, listParams, noteColor, notePattern, objectId, tagIdList } from '@/server/schemas/common';
 import { protectedProcedure, router } from '@/server/trpc';
@@ -30,6 +31,9 @@ export const sealsRouter = router({
   create: protectedProcedure
     .input(
       z.object({
+        // Minted in the browser so attachments can be encrypted against the
+        // Seal before it exists. Omitted, the server assigns one.
+        id: z.uuidv7().optional(),
         title: z.string().max(MAX_TITLE).optional(),
         encryptedBody: encryptedPayload.nullish(),
         wrappedNoteKey: encryptedPayload.nullish(),
@@ -51,7 +55,13 @@ export const sealsRouter = router({
           input.color,
           input.pattern,
           tagIds,
-        );
+          input.id,
+        ).catch((error) => {
+          if (input.id && isDuplicateKeyError(error)) {
+            throw new TRPCError({ code: 'CONFLICT', message: 'Seal id already exists' });
+          }
+          throw error;
+        });
         if (tagIds?.length) await touchTags(ctx.userId, tagIds);
 
         if (input.fileIds?.length) await linkFilesToNote(ctx.userId, seal._id.toString(), 'seal', input.fileIds);

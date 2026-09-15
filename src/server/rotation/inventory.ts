@@ -12,7 +12,7 @@ import {
   type RotationKind,
   type RotationCipherValue,
 } from '@/db/schema';
-import { digest, jsonBytes, payloadSchema, RotationError, type RotationLimits } from './contracts';
+import { digest, isFileKind, jsonBytes, payloadSchema, RotationError, type RotationLimits } from './contracts';
 
 export type InventoryEntry = {
   kind: RotationKind;
@@ -51,7 +51,7 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
     parentId: string | null = null,
     metadata: unknown = row,
   ) => {
-    if (kind !== 'file' && source !== null && !payloadSchema.safeParse(source).success)
+    if (!isFileKind(kind) && source !== null && !payloadSchema.safeParse(source).success)
       throw new RotationError('SOURCE_CORRUPT');
     sourceBytes += jsonBytes(source);
     if (entries.length >= limits.maxItems || sourceBytes > limits.maxSourceBytes) throw new RotationError('LIMIT');
@@ -156,6 +156,7 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
     )
     .orderBy(asc(fileAttachments.id))
     .limit(limits.maxItems + 1);
+  const sealsWithKey = new Set(seals.filter((row) => row.wrappedNoteKey !== null).map((row) => row.id));
   for (const row of files) {
     if (
       !row.encryptionIv ||
@@ -165,9 +166,22 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
       Buffer.from(row.encryptionIv, 'base64').length !== 12
     )
       throw new RotationError('SOURCE_CORRUPT');
+    // Any encrypted file in a Seal that stores a key is re-keyed under that
+    // Seal's new note key — including one still on the vault key, which is how
+    // attachments from before Seal-keyed files move over.
+    const sealId = row.noteTier === 'seal' && row.noteId !== null && sealsWithKey.has(row.noteId) ? row.noteId : null;
+    if (row.keyScope === 'seal') {
+      // Never saved into its Seal: the key exists only in a local draft sealed
+      // under the old MEK, which this rotation discards. Nothing can re-key it,
+      // so it stays out of the inventory and commit retires it.
+      if (row.noteId === null) continue;
+      if (sealId === null || row.keyNoteId !== sealId) throw new RotationError('SOURCE_CORRUPT');
+    }
     fileBytes += row.size;
     if (fileBytes > limits.maxFileBytes) throw new RotationError('LIMIT');
-    add('file', row, { key: row.s3Key, iv: row.encryptionIv, bytes: row.size, checksum: '' });
+    const source = { key: row.s3Key, iv: row.encryptionIv, bytes: row.size, checksum: '', scope: row.keyScope };
+    if (sealId !== null) add('seal-file', row, source, sealId);
+    else add('file', row, source);
   }
   entries.sort((a, b) => a.kind.localeCompare(b.kind) || a.resourceId.localeCompare(b.resourceId));
   return {

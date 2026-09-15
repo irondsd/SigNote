@@ -24,7 +24,7 @@ export function useAttachmentActions(
   deleteNode: () => void,
   mimeType?: string,
 ) {
-  const { mek } = useFileEncryption();
+  const keys = useFileEncryption();
   const [downloading, setDownloading] = useState(false);
 
   const handleDelete = useCallback(
@@ -56,7 +56,7 @@ export function useAttachmentActions(
         if (!fileId || downloading) return;
         setDownloading(true);
         try {
-          const url = URL.createObjectURL(await fetchFileBlob(fileId, mek));
+          const url = URL.createObjectURL(await fetchFileBlob(fileId, keys));
           saveUrl(url, filename);
           // Revoke on the next tick: the click has to start the save first.
           setTimeout(() => URL.revokeObjectURL(url), 0);
@@ -69,7 +69,7 @@ export function useAttachmentActions(
       }
       posthog.capture('file_downloaded', { mime_category: getMimeCategory(mimeType) });
     },
-    [blobUrl, fileId, mek, downloading, filename, mimeType],
+    [blobUrl, fileId, keys, downloading, filename, mimeType],
   );
 
   return { handleDelete, handleDownload, downloading };

@@ -3,9 +3,8 @@ import { toast } from 'sonner';
 import { UPLOAD_COUNTER_KEY } from '@/config/fileConstants';
 import { validateFile, getNodeType, makeAttrs, uploadAndUpdateNode } from './uploadCore';
 
-export type FileEncryptionContext = {
-  mek: CryptoKey;
-};
+/** How a new upload is encrypted: under the vault file key, or a Seal's own note key. */
+export type FileEncryptionContext = { mek: CryptoKey } | { sealId: string; noteKey: CryptoKey };
 
 export async function uploadFileToEditor(editor: Editor, file: File, encryptionCtx?: FileEncryptionContext) {
   const error = validateFile(file);

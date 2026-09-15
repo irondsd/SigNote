@@ -23,6 +23,7 @@ export function makeAttrs(file: File) {
     size: file.size,
     mimeType: file.type,
     uploadStatus: 'uploading',
+    keyNoteId: null as string | null,
   };
 }
 
@@ -45,14 +46,22 @@ export function findUploadingNode(state: EditorState, nodeType: string, filename
 async function buildFormData(file: File, encryptionCtx?: FileEncryptionContext): Promise<FormData> {
   const formData = new FormData();
   if (encryptionCtx) {
-    const { encryptFileBytes } = await import('@/lib/crypto');
+    const { encryptFileBytes, encryptSealFileBytes } = await import('@/lib/crypto');
     const plainBytes = new Uint8Array(await file.arrayBuffer());
-    const { iv, cipherBytes } = await encryptFileBytes(encryptionCtx.mek, plainBytes);
+    // A Seal's attachments are under the Seal's own note key, bound to its id.
+    const { iv, cipherBytes } =
+      'sealId' in encryptionCtx
+        ? await encryptSealFileBytes(encryptionCtx.noteKey, encryptionCtx.sealId, plainBytes)
+        : await encryptFileBytes(encryptionCtx.mek, plainBytes);
     formData.append('file', new Blob([cipherBytes]), file.name);
     formData.append('originalMimeType', file.type);
     formData.append('originalSize', String(file.size));
     formData.append('encrypted', 'true');
     formData.append('encryptionIv', iv);
+    if ('sealId' in encryptionCtx) {
+      formData.append('keyScope', 'seal');
+      formData.append('keyNoteId', encryptionCtx.sealId);
+    }
   } else {
     formData.append('file', file);
   }
@@ -86,6 +95,7 @@ export async function uploadAndUpdateNode(
         ...attrs,
         fileId: data.fileId,
         uploadStatus: 'complete',
+        keyNoteId: encryptionCtx && 'sealId' in encryptionCtx ? encryptionCtx.sealId : null,
       });
       view.dispatch(tr);
       posthog.capture('file_uploaded', {

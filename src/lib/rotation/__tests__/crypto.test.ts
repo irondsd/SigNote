@@ -3,11 +3,14 @@ import {
   decryptBytesAesGcm,
   decryptFileBytes,
   decryptSealBody,
+  decryptSealFileBytes,
   decryptSecretBody,
   deriveOtpVaultKey,
   deriveSealWrapKey,
   encryptAesGcm,
   encryptFileBytes,
+  encryptSealFileBytes,
+  importSealKey,
   encryptSealBody,
   encryptSealBodyWithExistingKey,
   encryptSecretBody,
@@ -27,6 +30,7 @@ import {
   validateRotationPayload,
   verifyRotatedBody,
   verifyRotatedFile,
+  type RotationFileKeys,
 } from '../crypto';
 
 const freshMek = () => importMEK(crypto.getRandomValues(new Uint8Array(32)));
@@ -151,6 +155,81 @@ it.each([0, 5 * 1024 * 1024 - 16])('rotates and verifies binary file bytes at si
   await expect(decryptFileBytes(old, staged.iv, staged.cipherBytes)).rejects.toThrow();
   const changed = await encryptFileBytes(next, new Uint8Array([42]));
   await expect(verifyRotatedFile(old, next, source, changed)).rejects.toThrow('mismatch');
+});
+
+describe('Seal attachments', () => {
+  const SEAL = 'seal-a';
+  const bytes = Uint8Array.from({ length: 1024 }, (_, i) => i % 251);
+
+  async function wrappers() {
+    const old = await freshMek();
+    const next = await freshMek();
+    const sourceWrapper = (await encryptSealBody(old, 'body', SEAL)).wrappedNoteKey;
+    const targetWrapper = await createRotationSealWrapper(next, SEAL);
+    return { old, next, sourceWrapper, targetWrapper };
+  }
+
+  it("re-keys a Seal attachment under the Seal's new note key", async () => {
+    const { old, next, sourceWrapper, targetWrapper } = await wrappers();
+    const oldNoteKey = await importSealKey(old, SEAL, sourceWrapper);
+    const source = await encryptSealFileBytes(oldNoteKey, SEAL, bytes);
+    const keys: RotationFileKeys = {
+      source: { kind: 'seal', sealId: SEAL, wrappedNoteKey: sourceWrapper },
+      target: { kind: 'seal', sealId: SEAL, wrappedNoteKey: targetWrapper },
+    };
+
+    const staged = await rotateFile(old, next, source, keys);
+
+    const newNoteKey = await importSealKey(next, SEAL, targetWrapper);
+    expect(await decryptSealFileBytes(newNoteKey, SEAL, staged.iv, staged.cipherBytes)).toEqual(bytes);
+    await expect(verifyRotatedFile(old, next, source, staged, keys)).resolves.toBeUndefined();
+    await expect(decryptSealFileBytes(oldNoteKey, SEAL, staged.iv, staged.cipherBytes)).rejects.toThrow();
+  });
+
+  it('moves a Seal attachment still on the vault key onto the Seal key', async () => {
+    const { old, next, targetWrapper } = await wrappers();
+    const source = await encryptFileBytes(old, bytes);
+    const keys: RotationFileKeys = {
+      source: { kind: 'vault' },
+      target: { kind: 'seal', sealId: SEAL, wrappedNoteKey: targetWrapper },
+    };
+
+    const staged = await rotateFile(old, next, source, keys);
+
+    const newNoteKey = await importSealKey(next, SEAL, targetWrapper);
+    expect(await decryptSealFileBytes(newNoteKey, SEAL, staged.iv, staged.cipherBytes)).toEqual(bytes);
+    await expect(verifyRotatedFile(old, next, source, staged, keys)).resolves.toBeUndefined();
+    await expect(decryptFileBytes(next, staged.iv, staged.cipherBytes)).rejects.toThrow();
+  });
+
+  it('never moves an attachment to another Seal, or off its Seal', async () => {
+    const { old, next, sourceWrapper, targetWrapper } = await wrappers();
+    const source = await encryptSealFileBytes(await importSealKey(old, SEAL, sourceWrapper), SEAL, bytes);
+    const from = { kind: 'seal', sealId: SEAL, wrappedNoteKey: sourceWrapper } as const;
+
+    await expect(
+      rotateFile(old, next, source, {
+        source: from,
+        target: { kind: 'seal', sealId: 'seal-b', wrappedNoteKey: targetWrapper },
+      }),
+    ).rejects.toThrow('identity mismatch');
+    await expect(rotateFile(old, next, source, { source: from, target: { kind: 'vault' } })).rejects.toThrow(
+      'identity mismatch',
+    );
+  });
+
+  it("refuses a staged object bound to another Seal, even under this Seal's key", async () => {
+    const { old, next, sourceWrapper, targetWrapper } = await wrappers();
+    const source = await encryptSealFileBytes(await importSealKey(old, SEAL, sourceWrapper), SEAL, bytes);
+    const foreign = await encryptSealFileBytes(await importSealKey(next, SEAL, targetWrapper), 'seal-b', bytes);
+
+    await expect(
+      verifyRotatedFile(old, next, source, foreign, {
+        source: { kind: 'seal', sealId: SEAL, wrappedNoteKey: sourceWrapper },
+        target: { kind: 'seal', sealId: SEAL, wrappedNoteKey: targetWrapper },
+      }),
+    ).rejects.toThrow();
+  });
 });
 
 it('rejects malformed encodings, unsupported algorithms and authenticated corruption', async () => {

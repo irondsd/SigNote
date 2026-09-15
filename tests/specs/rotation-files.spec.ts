@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import { RotationPage } from '../pages/RotationPage';
 import { testDb } from '../fixtures/db';
 import { getOrCreateUserId } from '../fixtures/getOrCreateUserId';
+import { seedSeals } from '../fixtures/seedSeals';
 import { seedSecrets } from '../fixtures/seedSecrets';
 import { decryptStoredFile, seedEncryptedFile, type SeededFile } from '../fixtures/seedEncryptedFile';
 import { encryptionStates, fileAttachments, rotationCleanup } from '../../src/db/schema';
@@ -98,6 +99,36 @@ test.describe('transfer', () => {
       objects: { key: string }[];
     };
     expect(objects.objects.some((object) => object.key.includes(before.s3Key))).toBe(true);
+  });
+
+  test("a Seal's attachments move onto its new note key, including one still on the vault key", async ({ page }) => {
+    const rotationPage = new RotationPage(page);
+    const { address, mekBytes } = await rotationPage.signInWithProfile({ navigate: false });
+    const userId = await getOrCreateUserId(address);
+    const [seal] = await seedSeals(address, mekBytes, [{ title: 'Deed', content: 'lot 42' }]);
+
+    await page.goto('/');
+    const own = await seedEncryptedFile(page.request, mekBytes, {
+      filename: 'own.bin',
+      seal: { id: seal.id, wrappedNoteKey: seal.wrappedNoteKey! },
+    });
+    const legacy = await seedEncryptedFile(page.request, mekBytes, { filename: 'legacy.bin' });
+    const ids = [own.fileId, legacy.fileId];
+    await testDb()
+      .update(fileAttachments)
+      .set({ noteId: seal.id, noteTier: 'seal' })
+      .where(inArray(fileAttachments.id, ids));
+
+    await rotationPage.goto();
+    await runToActivation(rotationPage);
+
+    const newMek = await mekFromPassphrase(userId, RotationPage.NEW_PASSPHRASE);
+    for (const file of [own, legacy]) {
+      const bytes = await decryptStoredFile(page.request, file.fileId, newMek, 1);
+      expect(Buffer.from(bytes)).toEqual(Buffer.from(file.plaintext));
+    }
+    const rows = await testDb().select().from(fileAttachments).where(inArray(fileAttachments.id, ids));
+    for (const row of rows) expect(row).toMatchObject({ keyScope: 'seal', keyNoteId: seal.id });
   });
 });
 

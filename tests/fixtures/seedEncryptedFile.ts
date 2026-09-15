@@ -1,8 +1,8 @@
 import type { APIRequestContext } from '@playwright/test';
 import { eq } from 'drizzle-orm';
 
-import { HKDF_INFO_FILE_ENC } from '../../src/config/constants';
-import { fileAttachments } from '../../src/db/schema';
+import { getSealFileAad, getSealKeyString, HKDF_INFO_FILE_ENC } from '../../src/config/constants';
+import { fileAttachments, sealNotes } from '../../src/db/schema';
 import { testDb } from './db';
 
 /**
@@ -34,12 +34,49 @@ export async function fileEncryptionKey(mekBytes: Uint8Array, usages: KeyUsage[]
   );
 }
 
+type WrappedKey = { iv: string; ciphertext: string };
+const fromBase64 = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+
+/** A Seal's note key, unwrapped under the MEK exactly as the browser does. */
+export async function sealNoteKey(
+  mekBytes: Uint8Array,
+  sealId: string,
+  wrapped: WrappedKey,
+  usages: KeyUsage[],
+): Promise<CryptoKey> {
+  const subtle = globalThis.crypto.subtle;
+  const aad = new TextEncoder().encode(getSealKeyString(sealId));
+  const base = await subtle.importKey('raw', new Uint8Array(mekBytes), 'HKDF', false, ['deriveKey']);
+  const wrapKey = await subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: aad },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt'],
+  );
+  const raw = await subtle.decrypt(
+    { name: 'AES-GCM', iv: fromBase64(wrapped.iv), additionalData: aad },
+    wrapKey,
+    fromBase64(wrapped.ciphertext),
+  );
+  return subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, false, usages);
+}
+
 export type SeededFile = { fileId: string; plaintext: Uint8Array; filename: string };
 
+/**
+ * `seal` uploads the file under that Seal's own note key, bound to its id —
+ * as the Seal editor does. Without it the file is on the vault file key.
+ */
 export async function seedEncryptedFile(
   request: APIRequestContext,
   mekBytes: Uint8Array,
-  options: { bytes?: number; filename?: string; mimeType?: string } = {},
+  options: {
+    bytes?: number;
+    filename?: string;
+    mimeType?: string;
+    seal?: { id: string; wrappedNoteKey: WrappedKey };
+  } = {},
 ): Promise<SeededFile> {
   // `getRandomValues` caps at 65,536 bytes per call, and the largest supported
   // attachment is far past that, so fill in chunks.
@@ -48,9 +85,14 @@ export async function seedEncryptedFile(
     globalThis.crypto.getRandomValues(plaintext.subarray(offset, Math.min(offset + 65_536, plaintext.length)));
   }
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const { seal } = options;
   const ciphertext = await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    await fileEncryptionKey(mekBytes, ['encrypt']),
+    seal
+      ? { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(getSealFileAad(seal.id)) }
+      : { name: 'AES-GCM', iv },
+    seal
+      ? await sealNoteKey(mekBytes, seal.id, seal.wrappedNoteKey, ['encrypt'])
+      : await fileEncryptionKey(mekBytes, ['encrypt']),
     plaintext,
   );
 
@@ -65,6 +107,7 @@ export async function seedEncryptedFile(
       encrypted: 'true',
       encryptionIv: toBase64(iv),
       originalMimeType: options.mimeType ?? 'application/pdf',
+      ...(seal && { keyScope: 'seal', keyNoteId: seal.id }),
     },
   });
   if (!response.ok()) throw new Error(`Encrypted upload failed: ${response.status()} ${await response.text()}`);
@@ -93,8 +136,20 @@ export async function decryptStoredFile(
   });
   if (!response.ok()) throw new Error(`File read failed: ${response.status()}`);
   const body = new Uint8Array(await response.body());
+  const iv = fromBase64(row.encryptionIv);
+  if (row.keyScope === 'seal') {
+    // Under its Seal's note key, which is read through the Seal's current wrapper.
+    const [seal] = await testDb().select().from(sealNotes).where(eq(sealNotes.id, row.keyNoteId!));
+    if (!seal?.wrappedNoteKey) throw new Error('Seal attachment has no Seal key');
+    const plain = await globalThis.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(getSealFileAad(seal.id)) },
+      await sealNoteKey(mekBytes, seal.id, seal.wrappedNoteKey, ['decrypt']),
+      body,
+    );
+    return new Uint8Array(plain);
+  }
   const plain = await globalThis.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: Uint8Array.from(atob(row.encryptionIv), (c) => c.charCodeAt(0)) },
+    { name: 'AES-GCM', iv },
     await fileEncryptionKey(mekBytes, ['decrypt']),
     body,
   );
