@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from 'drizzle-orm';
 
 import { getDb, type Db } from '@/db/client';
-import { withVaultRead, withVaultWrite } from '@/db/encryptionState';
+import { withAccountLock, withVaultRead, withVaultWrite } from '@/db/encryptionState';
 import { users } from '@/db/schema';
 import { countSignInMethods, lockSignInMethods } from './signInMethods';
 
@@ -47,7 +47,10 @@ export const claimEmailForUser = async (params: {
   email: string;
   ownerIdentityId: string | null;
 }): Promise<ClaimOutcome> => {
-  return withVaultWrite(params.userId, async () => {
+  // Account lock only, no generation fence: `users.email` is not ciphertext,
+  // and the Google sign-in callback that calls this carries no generation
+  // header — fencing it would lock every rotated account out of Google sign-in.
+  return withAccountLock(params.userId, async () => {
     const email = normalizeEmail(params.email);
     const db = getDb();
 

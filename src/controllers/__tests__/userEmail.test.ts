@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import type { Db } from '@/db/client';
-import { authIdentities, users } from '@/db/schema';
+import { authIdentities, encryptionStates, users } from '@/db/schema';
 import { insertPasskey } from '@/controllers/passkeys';
 import { resetTestDb, setupTestDb, teardownTestDb } from '@/test/db';
 import { claimEmailForUser, detachEmail, getUserEmail, releaseEmailOwnership } from '@/controllers/userEmail';
@@ -101,6 +101,16 @@ describe('userEmail controller', () => {
       // Next sign-in, now verified.
       expect(await claimEmailForUser({ userId, email: 'a@example.com', ownerIdentityId: identityId })).toBe('claimed');
       expect((await emailOf(userId)).email).toBe('a@example.com');
+    });
+
+    it('works for a rotated account from a request with no generation header', async () => {
+      // The Google OAuth callback is not a tRPC request, so it never carries a
+      // generation. A rotated account must still be able to sign in with Google.
+      await addUser(userId);
+      await db.insert(encryptionStates).values({ userId, generation: 2, sessionEpoch: 2 });
+      const identityId = await addIdentity(userId);
+
+      expect(await claimEmailForUser({ userId, email: 'a@example.com', ownerIdentityId: identityId })).toBe('claimed');
     });
   });
 
