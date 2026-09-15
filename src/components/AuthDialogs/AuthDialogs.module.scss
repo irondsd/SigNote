@@ -73,6 +73,18 @@
   }
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.secretInput {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
 .uri {
   display: block;
   padding: 10px 12px;

@@ -317,6 +317,8 @@ test.describe('authenticator', () => {
     await page.getByRole('button', { name: 'Reveal the setup link' }).click();
     await expect(page.getByTestId('auth-export-uri')).toContainText('otpauth://totp/');
     await expect(page.getByTestId('auth-export-uri')).toContainText('JBSWY3DPEHPK3PXP');
+    await expect(page.getByTestId('auth-export-secret')).toHaveValue('JBSWY3DPEHPK3PXP');
+    await expect(page.getByTestId('auth-export-secret')).toHaveAttribute('readonly', '');
   });
 
   test('export refuses an incorrect passphrase without revealing the seed', async ({ page }) => {
@@ -332,6 +334,7 @@ test.describe('authenticator', () => {
 
     await expect(page.getByText('Incorrect passphrase. Try again.')).toBeVisible();
     await expect(page.getByTestId('auth-export-uri')).toHaveCount(0);
+    await expect(page.getByTestId('auth-export-secret')).toHaveCount(0);
   });
 
   // ─── Offline ──────────────────────────────────────────────────────────────

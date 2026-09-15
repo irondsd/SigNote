@@ -33,6 +33,7 @@ export function ExportAuthDialog({ secrets, onClose }: ExportAuthDialogProps) {
   const { verifyPassphrase } = useEncryption();
   const uri = buildOtpUri(secrets);
   const { isCopied, copy } = useCopy(uri);
+  const { isCopied: isSecretCopied, copy: copySecret } = useCopy(secrets.secret);
 
   const reveal = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,16 +70,44 @@ export function ExportAuthDialog({ secrets, onClose }: ExportAuthDialogProps) {
             <div className={s.warning}>
               <TriangleAlert size={16} />
               <p>
-                This link contains the secret for <strong>{secrets.issuer || secrets.account}</strong>. Anyone who has
-                it can generate your codes. Do not paste it into chat, email or a screenshot.
+                The key and link below contain the secret for <strong>{secrets.issuer || secrets.account}</strong>.
+                Anyone who has it can generate your codes. Do not paste it into chat, email or a screenshot.
               </p>
             </div>
 
             {revealed ? (
               <>
-                <code className={s.uri} data-testid="auth-export-uri">
-                  {uri}
-                </code>
+                <div className={s.field}>
+                  <Label htmlFor="auth-export-secret">Setup key</Label>
+                  <div className={s.passphraseWrap}>
+                    <Input
+                      id="auth-export-secret"
+                      data-testid="auth-export-secret"
+                      readOnly
+                      value={secrets.secret}
+                      onFocus={(event) => event.currentTarget.select()}
+                      spellCheck={false}
+                      className={`${s.passphraseInput} ${s.secretInput}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={s.passphraseToggle}
+                      onClick={() => void copySecret()}
+                      aria-label={isSecretCopied ? 'Setup key copied' : 'Copy setup key'}
+                    >
+                      {isSecretCopied ? <Check size={16} /> : <Copy size={16} />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className={s.field}>
+                  <Label>Setup link</Label>
+                  <code className={s.uri} data-testid="auth-export-uri">
+                    {uri}
+                  </code>
+                </div>
                 <Button variant="outline" onClick={() => void copy()}>
                   {isCopied ? <Check size={15} /> : <Copy size={15} />}
                   {isCopied ? 'Copied' : 'Copy link'}
