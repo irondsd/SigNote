@@ -1,12 +1,13 @@
-/** Native PostgreSQL locking/rollback baseline using the real app migrations.
+/** Native PostgreSQL locking/rollback baseline using the real app schema.
  * This proves the selected locking primitive, not the future rotation controller.
  * Only creates/uses/drops a generated database inside local Docker PostgreSQL.
  */
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { schemaStatements } from '../../src/test/schemaSql';
 import { createLocalRotationDatabase } from './localResources';
 
 const database = await createLocalRotationDatabase();
@@ -19,7 +20,10 @@ const oldPayload = { alg: 'A256GCM', iv: 'AAAAAAAAAAAAAAAA', ciphertext: 'AAAAAA
 const replacement = { ...oldPayload, ciphertext: 'AQEBAQEBAQEBAQEBAQEBAQ==' };
 const results: Record<string, unknown> = {};
 try {
-  await migrate(drizzle(writer), { migrationsFolder: 'drizzle' });
+  // Through drizzle, not `writer.unsafe`: wrapping the client also installs the
+  // jsonb serializers the `::jsonb` inserts below rely on.
+  const schemaDb = drizzle(writer);
+  for (const statement of await schemaStatements()) await schemaDb.execute(sql.raw(statement));
   await writer`insert into encryption_profiles (id, user_id, version, server_share, salt, kdf, key_check, created_at, updated_at)
     values (${profile}, ${user}, 1, 'source-share', 'source-salt', '{}'::jsonb, ${JSON.stringify(oldPayload)}::jsonb, now(), now())`;
   let notifyLocked!: () => void;
@@ -90,7 +94,7 @@ try {
     await writer`select count(*)::int as count from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='public' and c.relkind='r' and not c.relrowsecurity`;
   assert.equal(unprotected.count, 0);
-  results.realMigrationTablesHaveRls = true;
+  results.realSchemaTablesHaveRls = true;
   process.stdout.write(
     JSON.stringify(
       {

@@ -296,7 +296,7 @@ the PostgreSQL symlinks explicitly. Nothing downloads PostgreSQL during ordinary
 `bun install` or a test run. Re-run prepare after upgrading Playwright or the
 PostgreSQL version in `tests/setup/postgresRuntime.ts`.
 
-Each run starts a fresh temporary PostgreSQL cluster, applies Drizzle migrations,
+Each run starts a fresh temporary PostgreSQL cluster, pushes the Drizzle schema,
 and starts the app and mock services. All six local Playwright workers share that
 cluster, using separate test accounts. Teardown removes the cluster and stops the
 processes, including on setup failure. No Docker, PostgreSQL service, or database

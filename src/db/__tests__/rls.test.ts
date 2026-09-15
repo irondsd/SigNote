@@ -8,7 +8,7 @@ beforeAll(async () => {
 });
 afterAll(teardownTestDb);
 
-test('every migrated app table enables default-deny RLS without forcing the owner', async () => {
+test('every app table enables default-deny RLS without forcing the owner', async () => {
   const result = await db.execute(sql`select c.relname, c.relrowsecurity, c.relforcerowsecurity
     from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relkind = 'r'`);

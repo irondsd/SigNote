@@ -1,1 +1,0 @@
-ALTER TABLE "encryption_states" ADD COLUMN "rotation_session_sid" text;

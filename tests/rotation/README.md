@@ -12,7 +12,7 @@ bun run test:rotation:integration
 PostgreSQL uses the existing Docker service on `127.0.0.1:5434`. Each database
 command creates its own randomly named `signote_rotation_*` database and drops
 that database in teardown. It never uses `DATABASE_URL` or the `signote` vault.
-The lock test applies the real Drizzle migrations, uses two independent clients
+The lock test applies the real Drizzle schema, uses two independent clients
 with prepared statements disabled, and checks row-lock contention, timeout
 rollback, metadata preservation, retained rows, and RLS. It is a baseline for
 controller integration tests, not a substitute for testing the rotation service.
@@ -50,7 +50,7 @@ byte-bounded pagination, real account-lock contention, concurrent budget checks,
 claim/commit/cancel races, stale-generation rejection, and delayed PUT cleanup.
 It creates and drops an owned database and removes only its test objects after
 issued PUT grants expire. Unit tests additionally exercise mixed tiers and every
-activation rollback checkpoint with real PGlite migrations.
+activation rollback checkpoint against the real schema in PGlite.
 
 The local results do not establish Supabase pooler timeouts or browser memory
 bounds. They also say nothing about another storage provider: MinIO honouring

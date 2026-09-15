@@ -73,9 +73,7 @@ export async function publicTables(db: LocalDb): Promise<string[]> {
  * would need a delete order that the schema is free to change underneath us,
  * and `CASCADE` alone does not make that ordering safe.
  *
- * Only rows go. The `drizzle.__drizzle_migrations` ledger lives in another
- * schema and is untouched, so a wipe never desyncs migration state — you get
- * the schema you already had, with nothing in it.
+ * Only rows go — you get the schema you already had, with nothing in it.
  */
 export async function wipeLocalDatabase(db: LocalDb): Promise<string[]> {
   const tables = await publicTables(db);

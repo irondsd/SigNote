@@ -92,7 +92,8 @@ async function setup() {
   const database = await startTestPostgres();
   (globalThis as GlobalWithServers).__POSTGRES__ = database;
   process.env.DATABASE_URL = database.url;
-  execSync('bun x --no-install drizzle-kit migrate', {
+  // The cluster is empty, so push has nothing to drop and never prompts.
+  execSync('bun x --no-install drizzle-kit push --force', {
     cwd: repoRoot,
     stdio: 'inherit',
     env: { ...process.env, DRIZZLE_DATABASE_URL: database.url },

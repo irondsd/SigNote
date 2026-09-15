@@ -22,7 +22,7 @@ async function main() {
   try {
     const tables = await publicTables(db);
     if (tables.length === 0) {
-      console.log('Nothing to wipe — no tables in `public`. Run `bun run db:migrate` first.');
+      console.log('Nothing to wipe — no tables in `public`. Run `bun run db:push` first.');
       return;
     }
 

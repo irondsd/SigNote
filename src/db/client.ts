@@ -1,6 +1,5 @@
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js';
-import path from 'node:path';
 import postgres from 'postgres';
 
 import * as schema from './schema';
@@ -10,10 +9,6 @@ import { accountTransaction } from './transactionContext';
  *  query in the app is written against this, so tests can swap in PGlite. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema, any>;
-
-/** Generated SQL lives at the repo root; `cwd` is the repo root under both
- *  `next dev`/`next start` and ts-jest. */
-export const MIGRATIONS_FOLDER = path.join(process.cwd(), 'drizzle');
 
 // The dev server re-evaluates modules on every hot reload. Without a global,
 // each reload would open a fresh connection pool and exhaust Postgres.
@@ -25,8 +20,8 @@ const globalForDb = globalThis as typeof globalThis & {
 /**
  * Opens (once) the app-wide connection pool from `DATABASE_URL`.
  *
- * Migrations are NOT applied here — a serverless invocation is the wrong place
- * to run DDL. Run `bun run db:migrate` deliberately instead.
+ * The schema is NOT synced here — a serverless invocation is the wrong place
+ * to run DDL. Run `bun run db:push` deliberately instead.
  */
 export function connectToDatabase(): Db {
   if (globalForDb._signoteDb) return globalForDb._signoteDb;

@@ -29,7 +29,6 @@ console.log(`drizzle-kit → ${new URL(url).host} (from ${explicitUrl ? 'DRIZZLE
 
 export default defineConfig({
   schema: './src/db/schema.ts',
-  out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: { url },
   casing: 'snake_case',

@@ -636,7 +636,7 @@ async function confirm(fixture: Fixture, prepared: Awaited<ReturnType<typeof beg
   });
 }
 
-describe('rotation service against real PGlite migrations', () => {
+describe('rotation service against the real schema in PGlite', () => {
   let db: Db;
 
   beforeAll(async () => {

@@ -1,17 +1,17 @@
 import { PGlite } from '@electric-sql/pglite';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/pglite';
-import { migrate } from 'drizzle-orm/pglite/migrator';
 
-import { MIGRATIONS_FOLDER, setDb, type Db } from '@/db/client';
+import { setDb, type Db } from '@/db/client';
 import * as schema from '@/db/schema';
+import { schemaStatements } from '@/test/schemaSql';
 
-/** In-process Postgres for tests: one PGlite instance per suite, real Drizzle
- *  migrations applied, injected as the app-wide db via `setDb`. */
+/** In-process Postgres for tests: one PGlite instance per suite, the real
+ *  schema applied, injected as the app-wide db via `setDb`. */
 export async function setupTestDb(): Promise<Db> {
   const pglite = new PGlite();
   const db = drizzle(pglite, { schema }) as unknown as Db;
-  await migrate(db as never, { migrationsFolder: MIGRATIONS_FOLDER });
+  for (const statement of await schemaStatements()) await pglite.exec(statement);
   setDb(db, () => pglite.close());
   return db;
 }
@@ -29,7 +29,7 @@ export async function teardownTestDb(): Promise<void> {
 export async function resetTestDb(db: Db): Promise<void> {
   const result = await db.execute(sql`
     select tablename from pg_tables
-    where schemaname = 'public' and tablename <> '__drizzle_migrations'
+    where schemaname = 'public'
   `);
   // The pglite driver returns `{ rows }`; postgres-js returns the array itself.
   const raw = result as unknown as { rows?: { tablename: string }[] } | { tablename: string }[];
