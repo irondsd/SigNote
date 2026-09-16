@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { CheckCircle, Download, KeyRound, Loader2, ShieldAlert, Upload } from 'lucide-react';
+import { CheckCircle, Download, ExternalLink, KeyRound, Loader2, ShieldAlert, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ import s from './page.module.scss';
 
 const RAIL: { step: WizardStep; label: string }[] = [
   { step: 'intro', label: 'Overview' },
+  { step: 'support', label: 'Support' },
   { step: 'sessions', label: 'Sessions' },
   { step: 'drafts', label: 'Local work' },
   { step: 'credentials', label: 'Passphrase' },
@@ -136,6 +137,34 @@ export default function RotateKeysPage() {
             </p>
             <Button onClick={advance} data-testid="rotation-start">
               Get started
+            </Button>
+          </section>
+        )}
+
+        {step === 'support' && (
+          <section className={s.section} data-testid="rotation-support">
+            <h2 className={s.heading}>A quick note before you start</h2>
+            <p className={s.body}>
+              Key rotation is the most expensive thing SigNote does. Every Secret, Seal and Authenticator entry, all of
+              their history and every encrypted attachment is downloaded, re-encrypted in this browser and uploaded
+              again — your whole vault travels through the database and file storage in one go, and that traffic is
+              paid for.
+            </p>
+            <p className={s.body}>
+              It was also one of the hardest features to build safely: resumable after a crash, cancellable until the
+              very last step, and verified before anything is replaced, because a mistake here would mean lost data.
+            </p>
+            <p className={s.warning}>
+              SigNote has no ads, no investors and no paid tiers. Donating is entirely optional and unlocks nothing —
+              rotation works exactly the same either way. But if SigNote is useful to you, any support genuinely helps
+              keep it running.{' '}
+              <a href="/support" target="_blank" rel="noopener" className={s.link} data-testid="rotation-support-link">
+                Ways to support SigNote
+                <ExternalLink size={12} aria-hidden />
+              </a>
+            </p>
+            <Button onClick={advance} data-testid="rotation-support-continue">
+              Continue
             </Button>
           </section>
         )}

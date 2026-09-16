@@ -61,6 +61,8 @@ export class RotationPage extends BasePage {
 
   async startFromIntro(): Promise<void> {
     await this.page.getByTestId('rotation-start').click();
+    await this.expectStep('support');
+    await this.page.getByTestId('rotation-support-continue').click();
     await this.expectStep('sessions');
   }
 

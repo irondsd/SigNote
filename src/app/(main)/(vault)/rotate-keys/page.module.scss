@@ -143,6 +143,16 @@
   margin: 0;
 }
 
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .error {
   font-size: 13px;
   color: var(--destructive);

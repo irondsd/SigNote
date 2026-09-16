@@ -34,6 +34,11 @@ import { createRotationEngine, type RotationApi, type RotationProgress, type Rot
 export type WizardStep =
   /** Scope, cost estimate and the honest description of residual risk. */
   | 'intro'
+  /**
+   * An optional-donation note. Nothing gates on it and it changes nothing; a
+   * resumed rotation skips it, since the user has already seen it once.
+   */
+  | 'support'
   /** Revoke every other session, then verify the server agrees. */
   | 'sessions'
   /** Resolve local drafts and acknowledge what other devices may still hold. */
@@ -252,6 +257,7 @@ export function createRotationWizard(deps: WizardDeps) {
     canAdvance(from: WizardStep = state.step): boolean {
       switch (from) {
         case 'intro':
+        case 'support':
           return true;
         case 'sessions':
           // Checked *and* confirmed by the server to be the only one left.
