@@ -1,7 +1,10 @@
 import type { EncryptedPayload } from '@/types/crypto';
 import { isDraftWritingFrozen } from '@/lib/draftFreeze';
+import { activeAccountScope } from '@/lib/accountScope';
 
 export type DraftData = {
+  /** Browser-local ownership fence; absent only on drafts from older releases. */
+  ownerUserId?: string;
   type: 'note' | 'secret' | 'seal';
   title: string;
   /** Always plaintext in memory; on disk it is ciphertext for the encrypted tiers. */
@@ -55,7 +58,10 @@ export function saveDraft(data: StoredDraft): void {
   // a key change and there is no reason to lose it.
   if (data.enc !== undefined && isDraftWritingFrozen()) return;
   try {
-    localStorage.setItem(keyFor(data.draftId), JSON.stringify(data));
+    const activeUserId = activeAccountScope().userId;
+    if (activeUserId && data.ownerUserId && data.ownerUserId !== activeUserId) return;
+    const owned = activeUserId && !data.ownerUserId ? { ...data, ownerUserId: activeUserId } : data;
+    localStorage.setItem(keyFor(data.draftId), JSON.stringify(owned));
   } catch {
     // Storage can be unavailable; never prevent the server save.
   }
@@ -68,7 +74,7 @@ const isEncryptedPayload = (value: unknown): value is EncryptedPayload =>
   typeof (value as EncryptedPayload).ciphertext === 'string';
 
 /** Every draft on disk, newest first. */
-export function loadDrafts(): StoredDraft[] {
+export function loadDrafts(ownerUserId?: string | null): StoredDraft[] {
   try {
     return Object.keys(localStorage)
       .filter((key) => key === DRAFT_KEY || key.startsWith(`${DRAFT_KEY}:`))
@@ -86,6 +92,7 @@ export function loadDrafts(): StoredDraft[] {
           return [];
         }
       })
+      .filter((draft) => ownerUserId === undefined || draft.ownerUserId === ownerUserId)
       .sort((a, b) => b.savedAt - a.savedAt);
   } catch {
     return [];
@@ -93,7 +100,8 @@ export function loadDrafts(): StoredDraft[] {
 }
 
 export function loadDraft(): StoredDraft | null {
-  return loadDrafts()[0] ?? null;
+  const owner = activeAccountScope().userId;
+  return loadDrafts(owner ?? undefined)[0] ?? null;
 }
 
 /** The plaintext of a draft that needs no key, or null when one is required. */
@@ -125,8 +133,19 @@ export function setDraftActive(id: string, editing: boolean): void {
   else active.delete(id);
 }
 
-export function recoverableDrafts(): StoredDraft[] {
-  return loadDrafts().filter((draft) => !pending.has(keyFor(draft.draftId)) && !active.has(draft.draftId ?? ''));
+export function recoverableDrafts(ownerUserId: string | null = activeAccountScope().userId): StoredDraft[] {
+  return loadDrafts(ownerUserId ?? undefined).filter(
+    (draft) => !pending.has(keyFor(draft.draftId)) && !active.has(draft.draftId ?? ''),
+  );
+}
+
+/** Assign pre-account-scope drafts once, when the first authenticated account
+ * opens this release. This preserves recovery for an upgrade while ensuring a
+ * later account switch cannot see those drafts. */
+export function claimLegacyDrafts(userId: string): void {
+  for (const draft of loadDrafts()) {
+    if (!draft.ownerUserId) saveDraft({ ...draft, ownerUserId: userId });
+  }
 }
 
 /**
@@ -147,6 +166,8 @@ export function saveWithRecovery<T>(
   checkpoint: StoredDraft | null | Promise<StoredDraft | null>,
   save: () => Promise<T>,
 ): Promise<T> {
+  const ownerUserId = draft.ownerUserId ?? activeAccountScope().userId ?? undefined;
+  const ownedDraft = ownerUserId ? { ...draft, ownerUserId } : draft;
   const key = keyFor(draft.draftId);
   pending.set(key, (pending.get(key) ?? 0) + 1);
   const settle = () => {
@@ -155,7 +176,8 @@ export function saveWithRecovery<T>(
     else pending.delete(key);
   };
   const run = (stored: StoredDraft | null): Promise<T> => {
-    if (stored) saveDraft(stored);
+    const ownedStored = stored && ownerUserId && !stored.ownerUserId ? { ...stored, ownerUserId } : stored;
+    if (ownedStored) saveDraft(ownedStored);
     let request: Promise<T>;
     try {
       request = save();
@@ -165,7 +187,7 @@ export function saveWithRecovery<T>(
     return request.then(
       (value) => {
         settle();
-        if (stored) clearDraft(stored);
+        if (ownedStored) clearDraft(ownedStored);
         window.dispatchEvent(new CustomEvent(DRAFT_RECOVERY_EVENT));
         return value;
       },
@@ -174,7 +196,7 @@ export function saveWithRecovery<T>(
         // The plaintext draft, not the envelope: this tab still holds the
         // content in memory, so the toast it raises can offer it straight back
         // without a key.
-        window.dispatchEvent(new CustomEvent(DRAFT_RECOVERY_EVENT, { detail: draft }));
+        window.dispatchEvent(new CustomEvent(DRAFT_RECOVERY_EVENT, { detail: ownedDraft }));
         throw error;
       },
     );

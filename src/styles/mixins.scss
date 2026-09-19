@@ -14,3 +14,59 @@
     background: var(--accent-foreground);
   }
 }
+
+// A rounded progress track. Native <progress> ignores border-radius until its
+// appearance is reset, which also drops the indeterminate animation — so a bar
+// with no value gets a sweeping one of its own. The ::-webkit- rules stay
+// separate: a browser that doesn't know one drops its whole selector list.
+@mixin rounded-progress($height: 8px) {
+  @keyframes progress-sweep {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+
+  width: 100%;
+  height: $height;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  appearance: none;
+  background: var(--muted);
+  color: var(--primary);
+
+  &::-webkit-progress-bar {
+    border-radius: 999px;
+    background: var(--muted);
+  }
+  &::-webkit-progress-value {
+    border-radius: 999px;
+    background: var(--primary);
+    transition: width 0.2s ease;
+  }
+  &::-moz-progress-bar {
+    border-radius: 999px;
+    background: var(--primary);
+  }
+
+  &:indeterminate {
+    background: linear-gradient(90deg, var(--muted) 30%, var(--primary) 50%, var(--muted) 70%) 0 0 / 200% 100%;
+    animation: progress-sweep 1.4s linear infinite;
+  }
+  &:indeterminate::-webkit-progress-bar {
+    background: transparent;
+  }
+  &:indeterminate::-moz-progress-bar {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:indeterminate {
+      animation: none;
+      background: color-mix(in oklch, var(--primary) 35%, var(--muted));
+    }
+  }
+}

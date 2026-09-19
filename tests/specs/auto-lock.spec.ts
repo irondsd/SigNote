@@ -73,6 +73,7 @@ test.describe('locking covers creation and history', () => {
       await testDb()
         .insert(tier === 'Secret' ? secretNoteVersions : sealNoteVersions)
         .values({
+          userId: note.userId,
           noteId: note.id,
           title: 'Historical snapshot',
           encryptedBody: note.encryptedBody,

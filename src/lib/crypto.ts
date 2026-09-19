@@ -9,6 +9,7 @@ import {
   HKDF_INFO_FILE_ENC,
   HKDF_INFO_OTP_VAULT,
   HKDF_INFO_SECRET_BODY,
+  HKDF_INFO_VAULT_KEY_ID,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
   getSealFileAad,
@@ -72,7 +73,7 @@ export async function deriveDeviceShare(
 
 /** Import raw MEK bytes as an HKDF base key */
 export async function importMEK(mekBytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', mekBytes, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.importKey('raw', mekBytes, 'HKDF', false, ['deriveKey', 'deriveBits']);
 }
 
 // ─── HKDF derivations ────────────────────────────────────────────────────────
@@ -117,6 +118,29 @@ export async function deriveSealWrapKey(mek: CryptoKey, sealId: string): Promise
  */
 export async function deriveOtpVaultKey(mek: CryptoKey): Promise<CryptoKey> {
   return hkdfDeriveAesKey(mek, HKDF_INFO_OTP_VAULT);
+}
+
+/**
+ * Stable, portable identity for a vault's MEK.
+ *
+ * This is deliberately a one-way, domain-separated HKDF output rather than a
+ * hash of an encryption payload: payload IVs are random, while an identifier
+ * must survive passphrase changes, recovery and migration to another SigNote
+ * deployment. It is not an encryption key and is safe to store beside the
+ * profile and inside an encrypted backup manifest.
+ */
+export async function deriveVaultKeyId(mek: CryptoKey): Promise<string> {
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new Uint8Array(32),
+      info: encodeUtf8(HKDF_INFO_VAULT_KEY_ID),
+    },
+    mek,
+    256,
+  );
+  return toBase64(bits).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 // ─── AES-GCM primitives ──────────────────────────────────────────────────────

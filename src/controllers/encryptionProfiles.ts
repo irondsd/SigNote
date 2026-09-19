@@ -11,12 +11,22 @@ type CreateProfileInput = {
   salt: string;
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
+  /** Optional only for a stale pre-Phase-2 client during a rolling/PWA
+   * upgrade. Current clients always send it and the next unlock backfills it. */
+  vaultKeyId?: string;
 };
 
 export class ProfileAlreadyExistsError extends Error {
   constructor() {
     super('Encryption profile already exists');
     this.name = 'ProfileAlreadyExistsError';
+  }
+}
+
+export class VaultKeyIdConflictError extends Error {
+  constructor() {
+    super('Vault key identifier does not match the encryption profile');
+    this.name = 'VaultKeyIdConflictError';
   }
 }
 
@@ -30,6 +40,7 @@ export const getProfileByUserId = async (userId: string) => {
         salt: encryptionProfiles.salt,
         kdf: encryptionProfiles.kdf,
         keyCheck: encryptionProfiles.keyCheck,
+        vaultKeyId: encryptionProfiles.vaultKeyId,
       })
       .from(encryptionProfiles)
       .where(eq(encryptionProfiles.userId, userId))
@@ -51,6 +62,7 @@ export const getMaterialByUserId = async (userId: string) => {
         salt: encryptionProfiles.salt,
         kdf: encryptionProfiles.kdf,
         keyCheck: encryptionProfiles.keyCheck,
+        vaultKeyId: encryptionProfiles.vaultKeyId,
       })
       .from(encryptionProfiles)
       .where(eq(encryptionProfiles.userId, userId))
@@ -66,19 +78,59 @@ type UpdateProfileInput = {
   serverShare: string;
   salt: string;
   keyCheck: EncryptedPayload;
+  vaultKeyId?: string;
 };
 
 export const updateProfile = async (userId: string, data: UpdateProfileInput) => {
   return withVaultWrite(userId, async () => {
-    const rows = await getDb()
+    const db = getDb();
+    const [existing] = await db
+      .select({ vaultKeyId: encryptionProfiles.vaultKeyId })
+      .from(encryptionProfiles)
+      .where(eq(encryptionProfiles.userId, userId))
+      .limit(1);
+    if (!existing) throw new Error('Profile not found');
+    if (existing.vaultKeyId && data.vaultKeyId && existing.vaultKeyId !== data.vaultKeyId) {
+      throw new VaultKeyIdConflictError();
+    }
+
+    const rows = await db
       .update(encryptionProfiles)
-      .set({ ...data, updatedAt: new Date() })
+      .set({
+        serverShare: data.serverShare,
+        salt: data.salt,
+        keyCheck: data.keyCheck,
+        ...(existing.vaultKeyId === null && data.vaultKeyId ? { vaultKeyId: data.vaultKeyId } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(encryptionProfiles.userId, userId))
       .returning();
 
     if (!rows[0]) throw new Error('Profile not found');
     const { id, ...rest } = rows[0];
     return { _id: id, ...rest, generation: currentRequestGeneration() };
+  });
+};
+
+/** Backfills a legacy profile exactly once. It can confirm an existing value,
+ * but can never change one; only full MEK rotation may do that. */
+export const backfillVaultKeyId = async (userId: string, vaultKeyId: string) => {
+  return withVaultWrite(userId, async () => {
+    const db = getDb();
+    const [existing] = await db
+      .select({ vaultKeyId: encryptionProfiles.vaultKeyId })
+      .from(encryptionProfiles)
+      .where(eq(encryptionProfiles.userId, userId))
+      .limit(1);
+    if (!existing) throw new Error('Profile not found');
+    if (existing.vaultKeyId && existing.vaultKeyId !== vaultKeyId) throw new VaultKeyIdConflictError();
+    if (existing.vaultKeyId === null) {
+      await db
+        .update(encryptionProfiles)
+        .set({ vaultKeyId, updatedAt: new Date() })
+        .where(eq(encryptionProfiles.userId, userId));
+    }
+    return { vaultKeyId };
   });
 };
 

@@ -261,6 +261,7 @@ async function seedFixture(db: Db): Promise<Fixture> {
   });
   await db.insert(secretNoteVersions).values({
     id: SECRET_VERSION_ID,
+    userId: USER_ID,
     noteId: SECRET_ID,
     title: 'Secret old title',
     encryptedBody: secretVersion,
@@ -285,6 +286,7 @@ async function seedFixture(db: Db): Promise<Fixture> {
   });
   await db.insert(sealNoteVersions).values({
     id: SEAL_VERSION_ID,
+    userId: USER_ID,
     noteId: SEAL_ID,
     title: 'Seal old title',
     encryptedBody: sealVersion.encryptedBody,
@@ -297,8 +299,8 @@ async function seedFixture(db: Db): Promise<Fixture> {
     { id: secretTag, userId: USER_ID, name: 'secret-tag', color: 'blue', createdAt, updatedAt: createdAt },
     { id: sealTag, userId: USER_ID, name: 'seal-tag', color: 'red', createdAt, updatedAt: createdAt },
   ]);
-  await db.insert(secretNoteTags).values({ noteId: SECRET_ID, tagId: secretTag, sortOrder: 4 });
-  await db.insert(sealNoteTags).values({ noteId: SEAL_ID, tagId: sealTag, sortOrder: 2 });
+  await db.insert(secretNoteTags).values({ userId: USER_ID, noteId: SECRET_ID, tagId: secretTag, sortOrder: 4 });
+  await db.insert(sealNoteTags).values({ userId: USER_ID, noteId: SEAL_ID, tagId: sealTag, sortOrder: 2 });
 
   const otpKey = await deriveOtpVaultKey(old.mek);
   const otpSecrets = toOtpSecrets({
@@ -697,6 +699,9 @@ describe('rotation service against the real schema in PGlite', () => {
     const [sealHistory] = await db.select().from(sealNoteVersions).where(eq(sealNoteVersions.id, SEAL_VERSION_ID));
     const authRows = await db.select().from(otpRecords).where(eq(otpRecords.userId, USER_ID));
     const files = await db.select().from(fileAttachments).where(eq(fileAttachments.userId, USER_ID));
+    const [profile] = await db.select().from(encryptionProfiles).where(eq(encryptionProfiles.id, PROFILE_ID));
+    expect(profile.vaultKeyId).toBe(fixture.target.material.vaultKeyId);
+    expect(profile.vaultKeyId).not.toBe(fixture.old.material.vaultKeyId);
     expect(secret).toMatchObject(fixture.metadata.secret);
     expect(seal).toMatchObject(fixture.metadata.seal);
     expect(secretHistory.seq).toBe(fixture.metadata.secretVersionSeq);
@@ -758,6 +763,13 @@ describe('rotation service against the real schema in PGlite', () => {
       .where(eq(encryptionRotations.id, fixture.operationId));
     expect(cleaned).toMatchObject({ phase: 'cleaned', reservedFileBytes: 0 });
     expect(fixture.storage.removed).toContain('source/encrypted-file');
+  });
+
+  it('rejects a rotation target that reuses the source vault identity', async () => {
+    const fixture = await seedFixture(db);
+    fixture.target.material.vaultKeyId = fixture.old.material.vaultKeyId;
+
+    await expect(begin(fixture)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 
   it('requires wrapper-first staging, exact idempotency, complete verification, and recovery acknowledgement', async () => {

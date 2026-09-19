@@ -61,7 +61,9 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
+  // 'wasm-unsafe-eval' permits compiling WebAssembly only — not JS eval. The vault
+  // backup workers need it for libsodium's Argon2id and secretstream.
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isProduction ? '' : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

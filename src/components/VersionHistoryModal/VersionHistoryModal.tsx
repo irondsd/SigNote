@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { Check, Copy, CopyPlus, History, Info, RotateCcw, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/utils/cn';
@@ -71,6 +72,7 @@ export function VersionHistoryModal({
   onDuplicate,
 }: VersionHistoryModalProps) {
   const qc = useQueryClient();
+  const { data: session } = useSession();
   const restoreVersion = useRestoreVersion(tier);
   const deleteVersion = useDeleteVersion(tier);
 
@@ -99,7 +101,7 @@ export function VersionHistoryModal({
             label: 'Undo',
             onClick: () => {
               // Restore pushed the displaced head as the newest raw history row.
-              const raw = qc.getQueryData<{ _id: string }[]>(versionsKey(tier, noteId));
+              const raw = qc.getQueryData<{ _id: string }[]>(versionsKey(tier, noteId, session?.user.id));
               const newest = raw?.[raw.length - 1];
               if (!newest) return;
               onRestored(previousHead);

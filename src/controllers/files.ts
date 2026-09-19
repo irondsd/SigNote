@@ -248,7 +248,9 @@ export async function linkFilesToNote(
                 db
                   .select({ id: sealNotes.id })
                   .from(sealNotes)
-                  .where(and(eq(sealNotes.id, noteId), isNotNull(sealNotes.wrappedNoteKey))),
+                  .where(
+                    and(eq(sealNotes.userId, userId), eq(sealNotes.id, noteId), isNotNull(sealNotes.wrappedNoteKey)),
+                  ),
               ),
             ),
           )
@@ -267,27 +269,16 @@ export async function linkFilesToNote(
   });
 }
 
-export async function softDeleteFilesByNoteId(noteId: string, userId?: string): Promise<void> {
-  const run = async (ownerId?: string) => {
+// Note ids are unique per account, so the owner is part of the key.
+export async function softDeleteFilesByNoteId(noteId: string, userId: string): Promise<void> {
+  await withVaultWrite(userId, async () => {
     await getDb()
       .update(fileAttachments)
       .set({ deletedAt: new Date() })
       .where(
-        and(
-          eq(fileAttachments.noteId, noteId),
-          ...(ownerId ? [eq(fileAttachments.userId, ownerId)] : []),
-          isNull(fileAttachments.deletedAt),
-        ),
+        and(eq(fileAttachments.noteId, noteId), eq(fileAttachments.userId, userId), isNull(fileAttachments.deletedAt)),
       );
-  };
-  if (userId) return withVaultWrite(userId, () => run(userId));
-  const rows = await getDb()
-    .select({ userId: fileAttachments.userId })
-    .from(fileAttachments)
-    .where(eq(fileAttachments.noteId, noteId));
-  for (const ownerId of [...new Set(rows.map((row) => row.userId))]) {
-    await withVaultWrite(ownerId, () => run(ownerId));
-  }
+  });
 }
 
 export async function restoreFilesByNoteId(noteId: string, userId: string): Promise<void> {
@@ -322,7 +313,12 @@ const TIER_TABLES: Record<NoteTier, any> = {
  */
 export async function cleanupOrphanedFiles(batchSize = 500) {
   const files = await getDb()
-    .select({ id: fileAttachments.id, noteId: fileAttachments.noteId, noteTier: fileAttachments.noteTier })
+    .select({
+      id: fileAttachments.id,
+      userId: fileAttachments.userId,
+      noteId: fileAttachments.noteId,
+      noteTier: fileAttachments.noteTier,
+    })
     .from(fileAttachments)
     .where(
       and(isNull(fileAttachments.deletedAt), isNotNull(fileAttachments.noteId), isNotNull(fileAttachments.noteTier)),
@@ -332,21 +328,10 @@ export async function cleanupOrphanedFiles(batchSize = 500) {
   if (files.length === 0) return { scanned: 0, orphaned: 0 };
 
   const byUser = new Map<string, typeof files>();
-  const ownerRows = await getDb()
-    .select({ id: fileAttachments.id, userId: fileAttachments.userId })
-    .from(fileAttachments)
-    .where(
-      inArray(
-        fileAttachments.id,
-        files.map((file) => file.id),
-      ),
-    );
   for (const file of files) {
-    const owner = ownerRows.find((row) => row.id === file.id)?.userId;
-    if (!owner) continue;
-    const list = byUser.get(owner) ?? [];
+    const list = byUser.get(file.userId) ?? [];
     list.push(file);
-    byUser.set(owner, list);
+    byUser.set(file.userId, list);
   }
 
   let scanned = 0;
@@ -376,9 +361,10 @@ export async function cleanupOrphanedFiles(batchSize = 500) {
         const noteIds = [...idsByTier[tier]];
         if (noteIds.length === 0) continue;
         const table = TIER_TABLES[tier];
-        const alive = (await (db as any).select({ id: table.id }).from(table).where(inArray(table.id, noteIds))) as {
-          id: string;
-        }[];
+        const alive = (await (db as any)
+          .select({ id: table.id })
+          .from(table)
+          .where(and(eq(table.userId, userId), inArray(table.id, noteIds)))) as { id: string }[];
         for (const row of alive) aliveByTier[tier].add(row.id);
       }
       const orphanIds = current
@@ -479,7 +465,7 @@ export async function cleanupDeletedFiles(batchSize = 50) {
               deleteAttempts: file.deleteAttempts + 1,
               lastDeleteError: err instanceof Error ? err.message : String(err),
             })
-            .where(eq(fileAttachments.id, file.id));
+            .where(and(eq(fileAttachments.id, file.id), eq(fileAttachments.userId, userId)));
           localFailed++;
         }
       }

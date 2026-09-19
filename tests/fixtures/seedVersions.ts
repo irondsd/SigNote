@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { getSealKeyString, HKDF_INFO_SECRET_BODY } from '../../src/config/constants';
-import { sealNotes, sealNoteVersions, secretNoteVersions } from '../../src/db/schema';
+import { sealNotes, sealNoteVersions, secretNotes, secretNoteVersions } from '../../src/db/schema';
 import { testDb } from './db';
 
 /**
@@ -55,11 +55,22 @@ export async function seedSecretVersions(
     ['encrypt'],
   );
 
+  const [head] = await testDb()
+    .select({ userId: secretNotes.userId })
+    .from(secretNotes)
+    .where(eq(secretNotes.id, noteId));
+  if (!head) throw new Error('Secret to version does not exist');
+
   const created: SeededVersion[] = [];
   for (const version of versions) {
     const [row] = await testDb()
       .insert(secretNoteVersions)
-      .values({ noteId, title: version.title, encryptedBody: await encrypt(bodyKey, version.content) })
+      .values({
+        userId: head.userId,
+        noteId,
+        title: version.title,
+        encryptedBody: await encrypt(bodyKey, version.content),
+      })
       .returning({ id: secretNoteVersions.id, seq: secretNoteVersions.seq, title: secretNoteVersions.title });
     created.push(row);
   }
@@ -105,7 +116,12 @@ export async function seedSealVersions(
   for (const version of versions) {
     const [row] = await testDb()
       .insert(sealNoteVersions)
-      .values({ noteId, title: version.title, encryptedBody: await encrypt(nekKey, version.content, aad) })
+      .values({
+        userId: head.userId,
+        noteId,
+        title: version.title,
+        encryptedBody: await encrypt(nekKey, version.content, aad),
+      })
       .returning({ id: sealNoteVersions.id, seq: sealNoteVersions.seq, title: sealNoteVersions.title });
     created.push(row);
   }

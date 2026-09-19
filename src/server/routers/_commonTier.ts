@@ -12,15 +12,16 @@ type Ownable = { userId: string };
 
 /** The slice of `commonOps` (controllers/common.ts) these procedures drive. */
 export interface CommonOps {
-  softDelete: (id: string) => Promise<unknown>;
-  restore: (id: string) => Promise<unknown>;
-  archive: (id: string) => Promise<unknown>;
-  unarchive: (id: string) => Promise<unknown>;
-  updateColor: (id: string, color: string | null) => Promise<unknown>;
-  updatePattern: (id: string, pattern: string | null) => Promise<unknown>;
-  updatePosition: (id: string, position: number) => Promise<unknown>;
-  updateTags: (id: string, tags: string[]) => Promise<unknown>;
+  softDelete: (userId: string, id: string) => Promise<unknown>;
+  restore: (userId: string, id: string) => Promise<unknown>;
+  archive: (userId: string, id: string) => Promise<unknown>;
+  unarchive: (userId: string, id: string) => Promise<unknown>;
+  updateColor: (userId: string, id: string, color: string | null) => Promise<unknown>;
+  updatePattern: (userId: string, id: string, pattern: string | null) => Promise<unknown>;
+  updatePosition: (userId: string, id: string, position: number) => Promise<unknown>;
+  updateTags: (userId: string, id: string, tags: string[]) => Promise<unknown>;
   applyPatch: (
+    userId: string,
     id: string,
     update: { pinned?: boolean; expiresAt?: Date | null; burnAfterReading?: boolean },
   ) => Promise<unknown>;
@@ -31,8 +32,11 @@ export interface CommonOps {
  * polymorphic PATCH into discrete, individually-typed procedures. Spread the
  * result into each tier router. `getById` supplies the ownership check.
  */
-export function commonTierProcedures<T extends Ownable>(getById: (id: string) => Promise<T | null>, ops: CommonOps) {
-  const own = async (id: string, userId: string) => assertOwner(await getById(id), userId);
+export function commonTierProcedures<T extends Ownable>(
+  getById: (userId: string, id: string) => Promise<T | null>,
+  ops: CommonOps,
+) {
+  const own = async (id: string, userId: string) => assertOwner(await getById(userId, id), userId);
 
   return {
     // Soft-delete (trash). Matches the old DELETE route: also soft-deletes
@@ -40,7 +44,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
     delete: protectedProcedure.input(z.object({ id: objectId })).mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
         await own(input.id, ctx.userId);
-        await ops.softDelete(input.id);
+        await ops.softDelete(ctx.userId, input.id);
         await softDeleteFilesByNoteId(input.id, ctx.userId);
         return { success: true as const };
       });
@@ -50,7 +54,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
     restore: protectedProcedure.input(z.object({ id: objectId })).mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
         await own(input.id, ctx.userId);
-        const updated = await ops.restore(input.id);
+        const updated = await ops.restore(ctx.userId, input.id);
         await restoreFilesByNoteId(input.id, ctx.userId);
         return updated;
       });
@@ -61,7 +65,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
       .mutation(async ({ ctx, input }) => {
         return withVaultWrite(ctx.userId, async () => {
           await own(input.id, ctx.userId);
-          return input.archived ? ops.archive(input.id) : ops.unarchive(input.id);
+          return input.archived ? ops.archive(ctx.userId, input.id) : ops.unarchive(ctx.userId, input.id);
         });
       }),
 
@@ -70,7 +74,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
       .mutation(async ({ ctx, input }) => {
         return withVaultWrite(ctx.userId, async () => {
           await own(input.id, ctx.userId);
-          return ops.updateColor(input.id, input.color);
+          return ops.updateColor(ctx.userId, input.id, input.color);
         });
       }),
 
@@ -79,7 +83,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
       .mutation(async ({ ctx, input }) => {
         return withVaultWrite(ctx.userId, async () => {
           await own(input.id, ctx.userId);
-          return ops.updatePattern(input.id, input.pattern);
+          return ops.updatePattern(ctx.userId, input.id, input.pattern);
         });
       }),
 
@@ -88,7 +92,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
       .mutation(async ({ ctx, input }) => {
         return withVaultWrite(ctx.userId, async () => {
           await own(input.id, ctx.userId);
-          return ops.updatePosition(input.id, input.position);
+          return ops.updatePosition(ctx.userId, input.id, input.position);
         });
       }),
 
@@ -97,7 +101,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
         await own(input.id, ctx.userId);
         // Drop ids the user doesn't own (foreign / deleted) before persisting.
         const ownedTagIds = await getOwnedTagIds(ctx.userId, input.tags);
-        const updated = await ops.updateTags(input.id, ownedTagIds);
+        const updated = await ops.updateTags(ctx.userId, input.id, ownedTagIds);
         await touchTags(ctx.userId, ownedTagIds);
         return updated;
       });
@@ -109,7 +113,7 @@ export function commonTierProcedures<T extends Ownable>(getById: (id: string) =>
     setMeta: protectedProcedure.input(metaInput).mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
         await own(input.id, ctx.userId);
-        return ops.applyPatch(input.id, resolveMetaUpdate(input));
+        return ops.applyPatch(ctx.userId, input.id, resolveMetaUpdate(input));
       });
     }),
   };

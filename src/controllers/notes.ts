@@ -33,13 +33,14 @@ export const getNotesByUserId = (
   tagMode: 'or' | 'and' = 'or',
 ) => noteTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<NoteRow[]>;
 
-export const getNoteById = (id: string) => noteTier.getByIdActive(id) as Promise<NoteRow | null>;
-export const getNoteVersions = (id: string) => noteTier.getVersionsByIdActive(id);
-export const deleteNoteVersion = (id: string, versionId: string) =>
-  noteTier.deleteVersionById(id, versionId) as Promise<NoteRow | null>;
+export const getNoteById = (userId: string, id: string) =>
+  noteTier.getByIdActive(userId, id) as Promise<NoteRow | null>;
+export const getNoteVersions = (userId: string, id: string) => noteTier.getVersionsByIdActive(userId, id);
+export const deleteNoteVersion = (userId: string, id: string, versionId: string) =>
+  noteTier.deleteVersionById(userId, id, versionId) as Promise<NoteRow | null>;
 
-export const updateNote = (id: string, title: string, content: string) =>
-  noteTier.updateWithVersion(id, (head) => ({
+export const updateNote = (userId: string, id: string, title: string, content: string) =>
+  noteTier.updateWithVersion(userId, id, (head) => ({
     // No-op edit: don't touch updatedAt or record a version.
     changed: !(head.title === title && head.content === content),
     set: { title, content },
@@ -54,8 +55,9 @@ export const updateNote = (id: string, title: string, content: string) =>
  * compression window. The restored version row is left in place — restore is
  * "edit head to match vN", not "move vN to head".
  */
-export const restoreNoteVersion = (id: string, versionId: string) =>
+export const restoreNoteVersion = (userId: string, id: string, versionId: string) =>
   noteTier.restoreVersion(
+    userId,
     id,
     versionId,
     (version) => ({ title: version.title, content: version.content }),

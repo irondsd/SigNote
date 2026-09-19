@@ -16,6 +16,7 @@ import { useProfile } from '@/hooks/useProfile';
 import {
   createKeyCheck,
   deriveDeviceShare,
+  deriveVaultKeyId,
   generateSalt,
   importMEK,
   saveDeviceShare,
@@ -30,6 +31,7 @@ type Material = {
   salt: string;
   kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number; length: number };
   keyCheck: { alg: 'A256GCM'; iv: string; ciphertext: string };
+  vaultKeyId: string | null;
 };
 
 export default function ChangePassphrasePage() {
@@ -162,12 +164,14 @@ export default function ChangePassphrasePage() {
 
       const mek = await importMEK(mekBytes);
       const newKeyCheck = await createKeyCheck(mek);
+      const vaultKeyId = await deriveVaultKeyId(mek);
 
       try {
         await trpcClient.encryption.update.mutate({
           serverShare: newServerShareB64,
           salt: newSalt,
           keyCheck: newKeyCheck,
+          vaultKeyId,
         });
       } catch (e) {
         if (e instanceof TRPCClientError) {

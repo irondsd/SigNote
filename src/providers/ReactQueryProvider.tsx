@@ -5,13 +5,16 @@ import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { useSession } from 'next-auth/react';
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect, useState, type FC, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FC, type ReactNode } from 'react';
 
 import { trpc } from '@/lib/trpc';
 import { generationLink, unauthorizedLink } from '@/lib/trpcLinks';
 import { getSessionClientHeaders } from '@/lib/sessionClient';
 import { generationHeaders } from '@/lib/encryptionGeneration';
 import { getQueryClient } from '@/utils/getQueryClient';
+import { setActiveAccountId } from '@/lib/accountScope';
+import { clearStableKeys } from '@/lib/stableKeyStore';
+import { claimLegacyDrafts } from '@/lib/draft';
 
 // ssr:false ensures QueryPersister and all its imports (idb-keyval, persist client)
 // are never included in the server bundle or evaluated during SSR / static generation.
@@ -22,11 +25,24 @@ const QueryPersister = dynamic(() => import('./QueryPersister'), { ssr: false })
 // the previous user's cached data. The persisted IDB copy is dropped separately
 // in AuthSessionProvider's SessionCleanup.
 const QueryCacheGuard: FC = () => {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const queryClient = useQueryClient();
+  const previousUserId = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (status === 'unauthenticated') queryClient.clear();
-  }, [status, queryClient]);
+    if (status === 'loading') return;
+    const userId = status === 'authenticated' ? session?.user.id ?? null : null;
+    const changed = setActiveAccountId(userId);
+    if (userId) claimLegacyDrafts(userId);
+
+    // Clear on every confirmed sign-out and on a direct authenticated A → B
+    // transition. The latter is uncommon, but portable ids make retaining A's
+    // cache while B owns the same id a privacy boundary rather than stale UI.
+    if (status === 'unauthenticated' || (previousUserId.current !== undefined && previousUserId.current !== userId)) {
+      queryClient.clear();
+    }
+    if (changed) clearStableKeys();
+    previousUserId.current = userId;
+  }, [session?.user.id, status, queryClient]);
   return null;
 };
 

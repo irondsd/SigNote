@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm';
 
 const USER = 'user-alice';
+const VAULT_KEY_ID = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const OTHER_VAULT_KEY_ID = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBA';
 
 // The procedures under test are `protectedProcedure`s; authentication itself is
 // covered by `lib/__tests__/routeAuth*`. Stubbing it here keeps these about what
@@ -44,7 +46,7 @@ const caller = async (generation: number | null) => {
   return encryptionRouter.createCaller({ req } as never);
 };
 
-async function seedProfile(generation = 0) {
+async function seedProfile(generation = 0, vaultKeyId: string | null = VAULT_KEY_ID) {
   await db.insert(encryptionProfiles).values({
     userId: USER,
     version: 1,
@@ -52,6 +54,7 @@ async function seedProfile(generation = 0) {
     salt: 'c2FsdA==',
     kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: 600_000, length: 32 },
     keyCheck: { alg: 'A256GCM', iv: 'aXY=', ciphertext: 'Y3Q=' },
+    vaultKeyId,
   });
   await db
     .insert(encryptionStates)
@@ -65,7 +68,7 @@ describe('encryption.profile', () => {
 
     const profile = await (await caller(0)).profile();
 
-    expect(profile).toMatchObject({ exists: true, generation: 0 });
+    expect(profile).toMatchObject({ exists: true, generation: 0, vaultKeyId: VAULT_KEY_ID });
     expect(typeof (profile as { profileId: string }).profileId).toBe('string');
   });
 
@@ -90,7 +93,64 @@ describe('encryption.material', () => {
   it('carries the generation alongside the server share', async () => {
     await seedProfile(2);
 
-    await expect((await caller(2)).material()).resolves.toMatchObject({ serverShare: 'c2VydmVyU2hhcmU=' });
+    await expect((await caller(2)).material()).resolves.toMatchObject({
+      serverShare: 'c2VydmVyU2hhcmU=',
+      vaultKeyId: VAULT_KEY_ID,
+    });
+  });
+});
+
+describe('encryption.backfillVaultKeyId', () => {
+  it('fills a legacy null exactly once and accepts an idempotent retry', async () => {
+    await seedProfile(0, null);
+    const api = await caller(0);
+
+    await expect(api.backfillVaultKeyId({ vaultKeyId: VAULT_KEY_ID })).resolves.toEqual({ success: true });
+    await expect(api.backfillVaultKeyId({ vaultKeyId: VAULT_KEY_ID })).resolves.toEqual({ success: true });
+    await expect(api.profile()).resolves.toMatchObject({ exists: true, vaultKeyId: VAULT_KEY_ID });
+  });
+
+  it('cannot replace an existing vault identity', async () => {
+    await seedProfile();
+
+    await expect((await caller(0)).backfillVaultKeyId({ vaultKeyId: OTHER_VAULT_KEY_ID })).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    await expect((await caller(0)).profile()).resolves.toMatchObject({ vaultKeyId: VAULT_KEY_ID });
+  });
+});
+
+describe('encryption.update vault identity fencing', () => {
+  const update = (vaultKeyId: string) => ({
+    serverShare: Buffer.alloc(32, 2).toString('base64'),
+    salt: Buffer.alloc(32, 3).toString('base64'),
+    keyCheck: {
+      alg: 'A256GCM' as const,
+      iv: Buffer.alloc(12, 4).toString('base64'),
+      ciphertext: Buffer.alloc(16, 5).toString('base64'),
+    },
+    vaultKeyId,
+  });
+
+  it('allows a passphrase/recovery update to confirm the same identity', async () => {
+    await seedProfile();
+    await expect((await caller(0)).update(update(VAULT_KEY_ID))).resolves.toEqual({ success: true });
+    await expect((await caller(0)).profile()).resolves.toMatchObject({ vaultKeyId: VAULT_KEY_ID });
+  });
+
+  it('rejects a passphrase/recovery update that tries to replace it', async () => {
+    await seedProfile();
+    await expect((await caller(0)).update(update(OTHER_VAULT_KEY_ID))).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect((await caller(0)).material()).resolves.toMatchObject({
+      serverShare: 'c2VydmVyU2hhcmU=',
+      vaultKeyId: VAULT_KEY_ID,
+    });
+  });
+
+  it('fills a legacy null during a passphrase/recovery update', async () => {
+    await seedProfile(0, null);
+    await expect((await caller(0)).update(update(VAULT_KEY_ID))).resolves.toEqual({ success: true });
+    await expect((await caller(0)).profile()).resolves.toMatchObject({ vaultKeyId: VAULT_KEY_ID });
   });
 });
 

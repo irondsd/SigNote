@@ -70,6 +70,7 @@ export const seedNotesForUser = async (userId: string, seeds: SeedNote[]): Promi
     // Insert in order so `seq` matches the order the app reads history by.
     for (const version of note.versions ?? []) {
       await db.insert(noteVersions).values({
+        userId: row.userId,
         noteId: row.id,
         title: version.title,
         content: version.content,

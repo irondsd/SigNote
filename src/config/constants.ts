@@ -36,6 +36,9 @@ export const HKDF_INFO_SEAL_WRAP_PREFIX = 'seal-wrap:v1';
 export const HKDF_INFO_FILE_ENC = 'file-enc:v1';
 export const HKDF_INFO_OTP_VAULT = 'otp-vault:v1';
 export const HKDF_INFO_DRAFT = 'draft:v1';
+/** Portable, non-secret identity for the MEK. This string is part of the
+ * public backup format and must never be changed for v1. */
+export const HKDF_INFO_VAULT_KEY_ID = 'signote:vault-key-id:v1';
 export const KEY_CHECK_PLAINTEXT = 'notes-key-check:v1';
 
 export const SEAL_FILE_AAD_PREFIX = 'seal-file:v1';

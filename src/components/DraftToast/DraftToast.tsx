@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import {
   recoverableDrafts,
@@ -17,9 +18,12 @@ export function DraftToast() {
   const router = useRouter();
   const pathname = usePathname();
   const { setDraftRestore } = useDraftRestore();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     const shown = new Set<string>();
+    const userId = session?.user.id;
+    if (status !== 'authenticated' || !userId) return;
     const show = (draft: StoredDraft) => {
       const id = `draft-${draft.draftId ?? 'legacy'}`;
       shown.add(id);
@@ -33,7 +37,7 @@ export function DraftToast() {
           onClick: () => {
             toast.dismiss(id);
             // The recovery copy stays durable until the recovered form saves.
-            const latest = loadDrafts().find((entry) => entry.draftId === draft.draftId) ?? draft;
+            const latest = loadDrafts(userId).find((entry) => entry.draftId === draft.draftId) ?? draft;
             const restored = { ...latest, draftId: draft.draftId ?? crypto.randomUUID() };
             saveDraft(restored);
             if (!draft.draftId) clearDraft(draft);
@@ -46,18 +50,18 @@ export function DraftToast() {
       });
     };
     const recover = () => {
-      const existing = new Set(loadDrafts().map((draft) => `draft-${draft.draftId ?? 'legacy'}`));
+      const existing = new Set(loadDrafts(userId).map((draft) => `draft-${draft.draftId ?? 'legacy'}`));
       shown.forEach((id) => {
         if (!existing.has(id)) {
           toast.dismiss(id);
           shown.delete(id);
         }
       });
-      recoverableDrafts().forEach(show);
+      recoverableDrafts(userId).forEach(show);
     };
     const onFailure = (event: Event) => {
       const draft = (event as CustomEvent<StoredDraft | undefined>).detail;
-      if (draft) show(draft);
+      if (draft?.ownerUserId === userId) show(draft);
       else recover();
     };
     const onVisible = () => {
@@ -73,7 +77,7 @@ export function DraftToast() {
       window.removeEventListener('pageshow', recover);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [pathname, router, setDraftRestore]);
+  }, [pathname, router, session?.user.id, setDraftRestore, status]);
 
   return null;
 }

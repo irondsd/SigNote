@@ -1,0 +1,294 @@
+@use '../../../styles/mixins';
+
+.container {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+  padding: 32px 16px 48px;
+}
+
+.content {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  padding: 4px 4px 8px;
+
+  h1 {
+    margin: 4px 0 8px;
+    font-size: clamp(26px, 5vw, 34px);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+
+  p {
+    max-width: 620px;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+}
+
+.eyebrow {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.categoryList,
+.passwordBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.categoryRow {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.categoryText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.categoryTitle {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.categoryMeta {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 13px;
+
+  strong {
+    color: var(--foreground);
+  }
+}
+
+.notice,
+.inlineError,
+.success,
+.progressPanel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 14px 16px;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+  font-size: 13px;
+  line-height: 1.55;
+
+  svg {
+    width: 17px;
+    flex: 0 0 17px;
+    color: var(--primary);
+    margin-top: 2px;
+  }
+  p {
+    margin: 0;
+  }
+  a {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+}
+
+.help {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.passwordGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.passwordInput {
+  min-height: 44px;
+  padding-right: 48px;
+}
+
+.reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.generateButton {
+  align-self: flex-start;
+}
+
+.generated {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  background: var(--muted);
+
+  code {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+}
+
+.validation,
+.inlineError {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inlineError {
+  background: color-mix(in oklch, var(--destructive) 6%, var(--card));
+}
+
+.progressPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card);
+  font-size: 12px;
+  color: var(--muted-foreground);
+
+  progress {
+    @include mixins.rounded-progress;
+  }
+}
+
+.progressTop {
+  display: flex;
+  justify-content: space-between;
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.success {
+  display: flex;
+  gap: 10px;
+  background: color-mix(in oklch, var(--success) 8%, var(--card));
+  border-color: color-mix(in oklch, var(--success) 25%, var(--border));
+
+  > svg {
+    width: 18px;
+    flex: 0 0 18px;
+    color: var(--success);
+  }
+  p {
+    margin: 3px 0 0;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@media (max-width: 560px) {
+  .container {
+    padding-top: 22px;
+  }
+  .passwordGrid {
+    grid-template-columns: 1fr;
+  }
+  .categoryRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .categoryMeta {
+    grid-column: 1;
+  }
+  .categoryRow [data-slot='switch'] {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { validateSiweCredentials } from '@/lib/siwe';
-import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
+import {
+  linkIdentity,
+  ConflictEncryptedDataError,
+  AccountMergeCollisionError,
+  AlreadyLinkedError,
+} from '@/controllers/identities';
 import { RouteAuthError, authenticateRequest } from '@/lib/routeAuth';
 
 export const runtime = 'nodejs';
@@ -39,6 +44,9 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof ConflictEncryptedDataError) {
       return NextResponse.json({ error: 'CONFLICT_ENCRYPTED_DATA' }, { status: 409 });
+    }
+    if (err instanceof AccountMergeCollisionError) {
+      return NextResponse.json({ error: 'ACCOUNT_MERGE_COLLISION' }, { status: 409 });
     }
     if (err instanceof AlreadyLinkedError) {
       return NextResponse.json({ error: 'ALREADY_LINKED' }, { status: 409 });

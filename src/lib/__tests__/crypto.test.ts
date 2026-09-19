@@ -22,6 +22,7 @@ import {
   importSealKey,
   encryptAesGcm as encryptWithKey,
   deriveDeviceShare,
+  deriveVaultKeyId,
   getDefaultKdfParams,
   generateSalt,
   generateServerShare,
@@ -156,6 +157,26 @@ describe('utility exports', () => {
 
   it('getEncVersion returns a number', () => {
     expect(getEncVersion()).toBe(1);
+  });
+});
+
+describe('vault key identity', () => {
+  it('matches the published v1 vector and uses unpadded base64url', async () => {
+    const mek = await importMEK(Uint8Array.from({ length: 32 }, (_, i) => i));
+    const id = await deriveVaultKeyId(mek);
+
+    expect(id).toBe('Tl4GAB6rMpiHflmNpNBRlGnxCKkjJZ-rAwnxy7j9NA8');
+    expect(id).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it('is stable for one MEK and separates different MEKs', async () => {
+    const bytes = new Uint8Array(32).fill(7);
+    const first = await deriveVaultKeyId(await importMEK(bytes));
+    const second = await deriveVaultKeyId(await importMEK(bytes));
+    const other = await deriveVaultKeyId(await importMEK(new Uint8Array(32).fill(8)));
+
+    expect(second).toBe(first);
+    expect(other).not.toBe(first);
   });
 });
 

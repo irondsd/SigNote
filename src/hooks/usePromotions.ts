@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { toast } from 'sonner';
 
@@ -68,12 +69,15 @@ async function encryptForSeal(
 
 function usePromotionCache(source: 'notes' | 'secrets', destination: 'secrets' | 'seals') {
   const qc = useQueryClient();
+  const { data: session } = useSession();
+  const userId = session?.user.id;
   return {
-    cancelSourceVersions: (id: string) => qc.cancelQueries({ queryKey: versionsKey(source, id), exact: true }),
+    cancelSourceVersions: (id: string) =>
+      qc.cancelQueries({ queryKey: versionsKey(source, id, userId), exact: true }),
     reconcile: async (id: string) => {
       const sourceSnapshots = qc.getQueriesData({ queryKey: [source] }) as Snapshot<WithId>[];
       filterOut(qc, sourceSnapshots, id);
-      qc.removeQueries({ queryKey: versionsKey(source, id) });
+      qc.removeQueries({ queryKey: versionsKey(source, id, userId) });
       await Promise.all([
         qc.invalidateQueries({ queryKey: [source] }),
         qc.invalidateQueries({ queryKey: [destination] }),

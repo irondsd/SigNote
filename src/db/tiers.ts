@@ -39,6 +39,7 @@ export const noteTier = makeTierRepo({
     cols: {
       id: noteVersions.id,
       seq: noteVersions.seq,
+      userId: noteVersions.userId,
       noteId: noteVersions.noteId,
       title: noteVersions.title,
       createdAt: noteVersions.createdAt,
@@ -47,7 +48,7 @@ export const noteTier = makeTierRepo({
   },
   join: {
     table: noteTags,
-    cols: { noteId: noteTags.noteId, tagId: noteTags.tagId, sortOrder: noteTags.sortOrder },
+    cols: { userId: noteTags.userId, noteId: noteTags.noteId, tagId: noteTags.tagId, sortOrder: noteTags.sortOrder },
   },
 });
 
@@ -61,6 +62,7 @@ export const secretTier = makeTierRepo({
     cols: {
       id: secretNoteVersions.id,
       seq: secretNoteVersions.seq,
+      userId: secretNoteVersions.userId,
       noteId: secretNoteVersions.noteId,
       title: secretNoteVersions.title,
       createdAt: secretNoteVersions.createdAt,
@@ -70,6 +72,7 @@ export const secretTier = makeTierRepo({
   join: {
     table: secretNoteTags,
     cols: {
+      userId: secretNoteTags.userId,
       noteId: secretNoteTags.noteId,
       tagId: secretNoteTags.tagId,
       sortOrder: secretNoteTags.sortOrder,
@@ -86,6 +89,7 @@ export const sealTier = makeTierRepo({
     cols: {
       id: sealNoteVersions.id,
       seq: sealNoteVersions.seq,
+      userId: sealNoteVersions.userId,
       noteId: sealNoteVersions.noteId,
       title: sealNoteVersions.title,
       createdAt: sealNoteVersions.createdAt,
@@ -95,6 +99,7 @@ export const sealTier = makeTierRepo({
   join: {
     table: sealNoteTags,
     cols: {
+      userId: sealNoteTags.userId,
       noteId: sealNoteTags.noteId,
       tagId: sealNoteTags.tagId,
       sortOrder: sealNoteTags.sortOrder,

@@ -128,7 +128,7 @@ export async function getTagUsageCounts(userId: string): Promise<Record<string, 
         const rows = (await (db as any)
           .select({ tagId: join.tagId, n: count() })
           .from(join)
-          .innerJoin(parent, eq(join.noteId, parent.id))
+          .innerJoin(parent, and(eq(join.userId, parent.userId), eq(join.noteId, parent.id)))
           .where(
             and(
               eq(parent.userId, userId),

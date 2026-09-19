@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cleanupExpiredRows } from '@/controllers/cleanup';
 import { cleanupDeletedFiles, cleanupOrphanedFiles } from '@/controllers/files';
 import { getRotationService } from '@/server/rotation/instance';
+import { cleanupVaultExports } from '@/server/vaultExport/service';
+import { getVaultImportService } from '@/server/vaultImport/instance';
 import { safeBearerMatch } from '../cronAuth';
 
 export const runtime = 'nodejs';
@@ -14,6 +16,8 @@ export async function GET(req: NextRequest) {
   // Resolve abandoned operations before ordinary purge catches up. Committed
   // object cleanup is retryable and never reverses activation.
   const rotation = await getRotationService().cleanup();
+  const vaultExports = await cleanupVaultExports();
+  const vaultImports = await getVaultImportService().cleanup();
 
   // Step 1: reap rows past their expiry. Must run first, because step 2
   // detects an orphan by its parent note being gone.
@@ -27,7 +31,7 @@ export async function GET(req: NextRequest) {
   const storage = await cleanupDeletedFiles();
 
   return NextResponse.json(
-    { expired, orphans, storage, rotation },
+    { expired, orphans, storage, rotation, vaultExports, vaultImports },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

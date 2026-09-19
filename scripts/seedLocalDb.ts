@@ -275,6 +275,7 @@ type JoinTable = typeof noteTags | typeof secretNoteTags | typeof sealNoteTags;
 async function applyTags(
   db: LocalDb,
   join: JoinTable,
+  userId: string,
   rows: { _id: string }[],
   tagIds: { id: string }[],
   gib: Gibberish,
@@ -287,7 +288,7 @@ async function applyTags(
     if (chosen.length === 0) continue;
     await db
       .insert(join)
-      .values(chosen.map((tag, sortOrder) => ({ noteId: row._id, tagId: tag.id, sortOrder })))
+      .values(chosen.map((tag, sortOrder) => ({ userId, noteId: row._id, tagId: tag.id, sortOrder })))
       .onConflictDoNothing();
     chosen.forEach((tag) => used.add(tag.id));
   }
@@ -390,9 +391,9 @@ async function main() {
       })),
     );
 
-    await applyTags(db, noteTags, notes, tagIds, gib);
-    await applyTags(db, secretNoteTags, secrets, tagIds, gib);
-    await applyTags(db, sealNoteTags, seals, tagIds, gib);
+    await applyTags(db, noteTags, userId, notes, tagIds, gib);
+    await applyTags(db, secretNoteTags, userId, secrets, tagIds, gib);
+    await applyTags(db, sealNoteTags, userId, seals, tagIds, gib);
 
     console.log(
       `Seeded ${notes.length} notes, ${secrets.length} secrets, ${seals.length} seals, ${auths.length} authenticators ` +

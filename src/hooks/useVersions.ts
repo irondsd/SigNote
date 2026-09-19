@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { queueTierWrite } from '@/lib/tierWriteQueue';
 import { trpcClient } from '@/lib/trpcClient';
@@ -26,7 +27,8 @@ export type EncryptedVersion = {
   createdAt: string;
 };
 
-export const versionsKey = (tier: VersionTier, id: string) => ['versions', tier, id] as const;
+export const versionsKey = (tier: VersionTier, id: string, userId?: string | null) =>
+  ['versions', userId ?? 'unscoped', tier, id] as const;
 
 /**
  * Version history of one note, newest first. The endpoint returns oldest →
@@ -38,12 +40,14 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
   id: string,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
+  const { data: session, status } = useSession();
+  const userId = session?.user.id;
   return useQuery({
-    queryKey: versionsKey(tier, id),
+    queryKey: versionsKey(tier, id, userId),
     queryFn: async ({ signal }) =>
       (await trpcClient[tier].versions.list.query({ id }, { signal })) as unknown as V[],
     select: (versions) => [...versions].reverse(),
-    enabled,
+    enabled: enabled && status === 'authenticated' && !!userId,
   });
 }
 
@@ -55,6 +59,8 @@ export function useVersions<V extends PlainVersion | EncryptedVersion>(
  */
 export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
   const qc = useQueryClient();
+  const { data: session } = useSession();
+  const userId = session?.user.id;
   return useMutation({
     networkMode: 'always',
     mutationFn: async ({ id, versionId }: { id: string; versionId: string }) =>
@@ -65,7 +71,7 @@ export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
     onMutate: async ({ id, versionId }) => {
       const snapshots = await cancelAndSnapshot<H>(qc, tier);
       const version = qc
-        .getQueryData<(PlainVersion | EncryptedVersion)[]>(versionsKey(tier, id))
+        .getQueryData<(PlainVersion | EncryptedVersion)[]>(versionsKey(tier, id, userId))
         ?.find((v) => v._id === versionId);
       const patch = version
         ? ({
@@ -87,7 +93,7 @@ export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
       const snapshots = qc.getQueriesData<InfiniteData<H[]>>({ queryKey: [tier] }) as Snapshot<H>[];
       patchInPlace(qc, snapshots, id, updated);
       posthog.capture('version_restored', { tier });
-      await qc.invalidateQueries({ queryKey: versionsKey(tier, id) });
+      await qc.invalidateQueries({ queryKey: versionsKey(tier, id, userId) });
     },
   });
 }
@@ -95,12 +101,14 @@ export function useRestoreVersion<H extends WithId>(tier: VersionTier) {
 /** Deletes one version row, optimistically removing it from the timeline. */
 export function useDeleteVersion(tier: VersionTier) {
   const qc = useQueryClient();
+  const { data: session } = useSession();
+  const userId = session?.user.id;
   return useMutation({
     networkMode: 'always',
     mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
       trpcClient[tier].versions.delete.mutate({ id, versionId }),
     onMutate: async ({ id, versionId }) => {
-      const key = versionsKey(tier, id);
+      const key = versionsKey(tier, id, userId);
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<{ _id: string }[]>(key);
       if (previous) {
@@ -112,11 +120,11 @@ export function useDeleteVersion(tier: VersionTier) {
       return { previous };
     },
     onError: (_err, { id }, context) => {
-      if (context?.previous) qc.setQueryData(versionsKey(tier, id), context.previous);
+      if (context?.previous) qc.setQueryData(versionsKey(tier, id, userId), context.previous);
     },
     onSettled: (_data, _err, { id }) => {
       posthog.capture('version_deleted', { tier });
-      return qc.invalidateQueries({ queryKey: versionsKey(tier, id) });
+      return qc.invalidateQueries({ queryKey: versionsKey(tier, id, userId) });
     },
   });
 }

@@ -231,9 +231,9 @@ describe('deleteTagAndDetach', () => {
 
     const goneRows = await db.select().from(tags).where(eq(tags.id, wid));
     expect(goneRows).toHaveLength(0);
-    expect((await getNoteById(note._id.toString()))?.tags).toEqual([kid]);
+    expect((await getNoteById(userId, note._id.toString()))?.tags).toEqual([kid]);
     const { getSecretById } = await import('../secrets');
-    expect((await getSecretById(secret._id.toString()))?.tags).toEqual([]);
+    expect((await getSecretById(userId, secret._id.toString()))?.tags).toEqual([]);
   });
 });
 

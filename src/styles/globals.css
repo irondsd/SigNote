@@ -40,8 +40,13 @@
 :root {
   /* Tailwind only emits an @theme variable when its utility is used, and the
      font-mono utility never is — the SCSS modules read var(--font-mono)
-     directly, so it has to be declared here too. */
+     directly, so it has to be declared here too. The same goes for the radius
+     scale: without these a module's var(--radius-lg) resolves to nothing. */
   --font-mono: var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo), monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --note-yellow: oklch(0.97 0.055 100);
   --note-red: oklch(0.95 0.045 12);
   --note-blue: oklch(0.95 0.05 250);

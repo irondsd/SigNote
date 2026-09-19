@@ -63,9 +63,10 @@ describe('tier promotions', () => {
       expiresAt: new Date('2027-01-01T00:00:00.000Z'),
     });
     await db.insert(noteVersions).values([
-      { id: 'version-1', noteId: 'note-1', title: 'First', content: '<p>first</p>', createdAt },
+      { id: 'version-1', userId: 'user-1', noteId: 'note-1', title: 'First', content: '<p>first</p>', createdAt },
       {
         id: 'version-2',
+        userId: 'user-1',
         noteId: 'note-1',
         title: 'Second',
         content: '<p data-file-id="plain-file">second</p>',
@@ -73,7 +74,7 @@ describe('tier promotions', () => {
       },
     ]);
     await db.insert(tags).values({ id: 'tag-1', userId: 'user-1', name: 'private', color: 'amber' });
-    await db.insert(noteTags).values({ noteId: 'note-1', tagId: 'tag-1', sortOrder: 0 });
+    await db.insert(noteTags).values({ userId: 'user-1', noteId: 'note-1', tagId: 'tag-1', sortOrder: 0 });
     await db.insert(fileAttachments).values([
       {
         id: 'plain-file',
@@ -149,11 +150,13 @@ describe('tier promotions', () => {
     const files = await db.select().from(fileAttachments);
     expect(files.find((file) => file.id === 'plain-file')?.deletedAt).toBeInstanceOf(Date);
     expect(files.find((file) => file.id === 'replacement-file')).toMatchObject({
+      userId: 'user-1',
       noteId: 'note-1',
       noteTier: 'secret',
       encrypted: true,
     });
     expect(files.find((file) => file.id === 'already-encrypted')).toMatchObject({
+      userId: 'user-1',
       noteId: 'note-1',
       noteTier: 'secret',
       encrypted: true,
@@ -170,7 +173,9 @@ describe('tier promotions', () => {
       position: 1,
       updatedAt,
     });
-    await db.insert(noteVersions).values({ id: 'version-1', noteId: 'note-1', title: 'Old', content: 'old' });
+    await db
+      .insert(noteVersions)
+      .values({ id: 'version-1', userId: 'user-1', noteId: 'note-1', title: 'Old', content: 'old' });
 
     await expect(
       promoteNoteToSecret('user-1', {
@@ -199,12 +204,13 @@ describe('tier promotions', () => {
     });
     await db.insert(secretNoteVersions).values({
       id: 'version-1',
+      userId: 'user-1',
       noteId: 'secret-1',
       title: 'Old title',
       encryptedBody: payload('old-version'),
     });
     await db.insert(tags).values({ id: 'tag-1', userId: 'user-1', name: 'sealed', color: 'amber' });
-    await db.insert(secretNoteTags).values({ noteId: 'secret-1', tagId: 'tag-1', sortOrder: 0 });
+    await db.insert(secretNoteTags).values({ userId: 'user-1', noteId: 'secret-1', tagId: 'tag-1', sortOrder: 0 });
     await db.insert(fileAttachments).values([
       {
         id: 'encrypted-file',
@@ -261,6 +267,7 @@ describe('tier promotions', () => {
     const files = await db.select().from(fileAttachments);
     expect(files.find((file) => file.id === 'encrypted-file')?.deletedAt).toBeInstanceOf(Date);
     expect(files.find((file) => file.id === 'seal-keyed-file')).toMatchObject({
+      userId: 'user-1',
       noteId: 'secret-1',
       noteTier: 'seal',
       keyScope: 'seal',

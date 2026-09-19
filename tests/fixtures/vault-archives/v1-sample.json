@@ -1,0 +1,46 @@
+{
+  "vaultPassphrase": "correct-horse-battery-staple-42",
+  "archivePassword": "signote-sample-archive-v1",
+  "note": {
+    "id": "01a0b6dd-1fb8-73e5-9e22-7cf0e8248312",
+    "title": "Golden note",
+    "content": "<p>A plaintext note with <strong>history</strong>.</p>",
+    "historyTitles": [
+      "Golden note draft"
+    ],
+    "tags": [
+      "golden"
+    ]
+  },
+  "secret": {
+    "id": "01a0b6dd-1fc2-776b-90dc-cba8412e19e5",
+    "title": "Golden secret",
+    "content": "Secret plaintext from the golden archive",
+    "historyTitles": [
+      "Golden secret draft"
+    ]
+  },
+  "seal": {
+    "id": "01a0b6dd-1fc6-748d-8787-82294dae7d54",
+    "title": "Golden seal",
+    "content": "Sealed plaintext from the golden archive"
+  },
+  "authenticator": {
+    "id": "01a0b6dd-1fc9-7559-8114-1c2572fedbd2",
+    "issuer": "Golden Issuer"
+  },
+  "files": [
+    {
+      "id": "01a0b6dd-1ff4-77c7-af9e-94e08d8cbf73",
+      "owner": "secrets",
+      "filename": "secret.pdf",
+      "sha256": "f95ec4c9008efe653894476a5563d723f7313cc56f2e138858e2c91c23354fe1"
+    },
+    {
+      "id": "01a0b6dd-200e-761e-8723-39a50be5ee42",
+      "owner": "seals",
+      "filename": "sealed.pdf",
+      "sha256": "9e4e01a4adb0d322d40385778d3d04f28e9d21474c35705feaf9c042c5821071"
+    }
+  ]
+}

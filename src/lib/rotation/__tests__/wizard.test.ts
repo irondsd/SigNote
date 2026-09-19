@@ -8,6 +8,7 @@ import {
   createKeyCheck,
   decryptSecretBody,
   deriveDeviceShare,
+  deriveVaultKeyId,
   encryptSecretBody,
   generateSalt,
   getDefaultKdfParams,
@@ -50,6 +51,7 @@ async function realMaterial(passphrase: string) {
       kdf,
       serverShare: toBase64(xor32(rawMek, deviceShare)),
       keyCheck: await createKeyCheck(mek),
+      vaultKeyId: await deriveVaultKeyId(mek),
     },
   };
 }

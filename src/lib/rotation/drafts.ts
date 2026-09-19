@@ -15,6 +15,7 @@
  */
 
 import { DRAFT_RECOVERY_EVENT, type StoredDraft } from '@/lib/draft';
+import { activeAccountScope } from '@/lib/accountScope';
 
 const DRAFT_KEY = 'sn_draft';
 
@@ -52,7 +53,7 @@ const looksLikeDraft = (value: unknown): value is StoredDraft => {
 };
 
 /** Read every draft key, separating "none" from "could not tell". */
-export function scanDrafts(): DraftScan {
+export function scanDrafts(ownerUserId: string | null = activeAccountScope().userId): DraftScan {
   let keys: string[];
   try {
     keys = Object.keys(localStorage).filter(isDraftKey);
@@ -65,7 +66,8 @@ export function scanDrafts(): DraftScan {
   for (const key of keys) {
     try {
       const value: unknown = JSON.parse(localStorage.getItem(key) ?? '');
-      if (looksLikeDraft(value)) drafts.push(value);
+      if (looksLikeDraft(value) && (!ownerUserId || !value.ownerUserId || value.ownerUserId === ownerUserId))
+        drafts.push(value);
       else unreadableKeys.push(key);
     } catch {
       // Present but unparseable. Never silently deleted: the user is shown the

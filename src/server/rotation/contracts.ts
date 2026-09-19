@@ -28,6 +28,13 @@ export const materialSchema = z
       })
       .strict(),
     keyCheck: payloadSchema.refine((value) => value.ciphertext.length <= 1024),
+    vaultKeyId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{43}$/)
+      .refine((value) => {
+        const bytes = Buffer.from(value, 'base64url');
+        return bytes.length === 32 && bytes.toString('base64url') === value;
+      }),
   })
   .strict();
 export const kindSchema = z.enum([

@@ -384,7 +384,8 @@ export function createRotationService(options: {
         if (
           profile.salt === input.material.salt ||
           profile.serverShare === input.material.serverShare ||
-          digest(profile.keyCheck) === digest(input.material.keyCheck)
+          digest(profile.keyCheck) === digest(input.material.keyCheck) ||
+          (profile.vaultKeyId !== null && profile.vaultKeyId === input.material.vaultKeyId)
         )
           throw new RotationError('INVALID_INPUT');
         const inventory = await captureInventory(db, actor.userId, limits);
@@ -667,7 +668,8 @@ export function createRotationService(options: {
         const before = await owned(db, actor, token.operationId);
         if (committed(before)) return statusValue(before);
         const op = await worker(db, actor, token, state);
-        if (op.phase !== 'ready' || !op.recoveryDigest || !op.pendingMaterial) throw new RotationError('INCOMPLETE');
+        if (op.phase !== 'ready' || !op.recoveryDigest || !op.pendingMaterial?.vaultKeyId)
+          throw new RotationError('INCOMPLETE');
         const [profile] = await db.select().from(encryptionProfiles).where(eq(encryptionProfiles.userId, actor.userId));
         if (!profile || digest(profile) !== op.profileDigest) throw new RotationError('SOURCE_CHANGED');
         const source = await captureInventory(db, actor.userId, limits);
@@ -704,7 +706,7 @@ export function createRotationService(options: {
             .map((item) => ({ id: item.resourceId, value: item.replacement }));
           if (values.length)
             await db.execute(
-              sql`update ${table} as target set ${sql.identifier(column)} = replacement.value ${kind === 'auth' ? sql`, revision = target.revision + 1` : sql``} from jsonb_to_recordset(${JSON.stringify(values)}::jsonb) as replacement(id text, value jsonb) where target.id = replacement.id`,
+              sql`update ${table} as target set ${sql.identifier(column)} = replacement.value ${kind === 'auth' ? sql`, revision = target.revision + 1` : sql``} from jsonb_to_recordset(${JSON.stringify(values)}::jsonb) as replacement(id text, value jsonb) where target.user_id = ${actor.userId} and target.id = replacement.id`,
             );
           await options.commitCheckpoint?.(kind);
         }
@@ -720,7 +722,7 @@ export function createRotationService(options: {
           }));
         if (fileValues.length)
           await db.execute(
-            sql`update ${fileAttachments} as target set s3_key = replacement.key, encryption_iv = replacement.iv, key_scope = replacement.scope, key_note_id = replacement.note from jsonb_to_recordset(${JSON.stringify(fileValues)}::jsonb) as replacement(id text, key text, iv text, scope text, note text) where target.id = replacement.id`,
+            sql`update ${fileAttachments} as target set s3_key = replacement.key, encryption_iv = replacement.iv, key_scope = replacement.scope, key_note_id = replacement.note from jsonb_to_recordset(${JSON.stringify(fileValues)}::jsonb) as replacement(id text, key text, iv text, scope text, note text) where target.user_id = ${actor.userId} and target.id = replacement.id`,
           );
         // Seal-keyed uploads never saved into their Seal were left out of the
         // inventory: their key lived only in a local draft under the old MEK.

@@ -23,6 +23,9 @@ export type StoredMaterial = {
   salt: string;
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
+  /** Null only for a legacy profile that has not been unlocked since vault
+   * identity shipped. Older device caches may omit it and are treated alike. */
+  vaultKeyId?: string | null;
 };
 
 // Its own database, not a second store inside `signote-offline`: idb-keyval

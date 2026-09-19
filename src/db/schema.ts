@@ -1,9 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   customType,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -31,6 +33,20 @@ import type { EncryptedPayload, KdfParams } from '@/types/crypto';
 const id = () =>
   text('id')
     .primaryKey()
+    .$defaultFn(() => uuidv7());
+
+/**
+ * The id of a record that travels in a portable vault archive: unique per
+ * account, not globally. The table's primary key is `(user_id, id)`.
+ *
+ * Seals and authenticators bind their ciphertext to this id (the Seal wrap key
+ * and AAD, the OTP AAD), and Secret/Note bodies embed attachment ids. None of
+ * that binds the account, so a restored archive keeps its ids verbatim — which
+ * only works if a second account on the same deployment may hold the same ids.
+ */
+const ownedId = () =>
+  text('id')
+    .notNull()
     .$defaultFn(() => uuidv7());
 
 const createdAt = () =>
@@ -68,7 +84,7 @@ const versionSeq = () => bigint('seq', { mode: 'number' }).generatedAlwaysAsIden
 
 // Shared metadata columns of the three note tiers.
 const tierColumns = () => ({
-  id: id(),
+  id: ownedId(),
   userId: text('user_id').notNull(),
   title: text('title').notNull().default(''),
   position: doublePrecision('position').notNull(),
@@ -99,6 +115,29 @@ const searchTsv = (columns: string[]): SQL =>
       .join(' || '),
   );
 
+/**
+ * A history or tag row's reference to its note: `(note_id, user_id)` →
+ * `(id, user_id)`, the parent's per-account key (see `ownedId`).
+ *
+ * The column order is deliberate, as is declaring `user_id` after `note_id` in
+ * the child tables: drizzle-kit reads a foreign key's columns back in physical
+ * column order, so any other order makes every `db:push` drop and re-add the
+ * constraint. Postgres matches a referenced key as a set, so the parent's
+ * `(user_id, id)` primary key still backs it.
+ *
+ * ON UPDATE CASCADE keeps children attached when an explicitly validated
+ * account move rewrites the parent owner. The cascade is not, by itself, an
+ * account-merge policy: collisions, tags and attachments are handled first.
+ */
+const parentKey = (
+  name: string,
+  child: { noteId: AnyPgColumn; userId: AnyPgColumn },
+  parent: { id: AnyPgColumn; userId: AnyPgColumn },
+) =>
+  foreignKey({ name, columns: [child.noteId, child.userId], foreignColumns: [parent.id, parent.userId] })
+    .onDelete('cascade')
+    .onUpdate('cascade');
+
 // ---------------------------------------------------------------------------
 // Tier 1 — Notes (plaintext)
 
@@ -110,6 +149,7 @@ export const notes = pgTable(
     searchTsv: tsvector('search_tsv').generatedAlwaysAs(() => searchTsv(['title', 'content'])),
   },
   (t) => [
+    primaryKey({ name: 'notes_pkey', columns: [t.userId, t.id] }),
     index('notes_user_deleted_idx').on(t.userId, t.deletedAt),
     index('notes_list_idx').on(t.userId, t.archived, t.pinned, t.position),
     index('notes_search_sort_idx').on(t.userId, t.archived, t.pinned, t.updatedAt),
@@ -124,14 +164,17 @@ export const noteVersions = pgTable(
   {
     id: id(),
     seq: versionSeq(),
-    noteId: text('note_id')
-      .notNull()
-      .references(() => notes.id, { onDelete: 'cascade' }),
+    noteId: text('note_id').notNull(),
+    // After note_id on purpose: see `parentKey`.
+    userId: text('user_id').notNull(),
     title: text('title').notNull().default(''),
     content: text('content').notNull().default(''),
     createdAt: createdAt(),
   },
-  (t) => [index('note_versions_note_idx').on(t.noteId, t.createdAt)],
+  (t) => [
+    parentKey('note_versions_parent_fk', t, notes),
+    index('note_versions_owner_note_seq_idx').on(t.userId, t.noteId, t.seq),
+  ],
 ).enableRLS();
 
 // ---------------------------------------------------------------------------
@@ -146,6 +189,7 @@ export const secretNotes = pgTable(
     searchTsv: tsvector('search_tsv').generatedAlwaysAs(() => searchTsv(['title'])),
   },
   (t) => [
+    primaryKey({ name: 'secret_notes_pkey', columns: [t.userId, t.id] }),
     index('secret_notes_user_deleted_idx').on(t.userId, t.deletedAt),
     index('secret_notes_list_idx').on(t.userId, t.archived, t.pinned, t.position),
     index('secret_notes_search_sort_idx').on(t.userId, t.archived, t.pinned, t.updatedAt),
@@ -160,14 +204,17 @@ export const secretNoteVersions = pgTable(
   {
     id: id(),
     seq: versionSeq(),
-    noteId: text('note_id')
-      .notNull()
-      .references(() => secretNotes.id, { onDelete: 'cascade' }),
+    noteId: text('note_id').notNull(),
+    // After note_id on purpose: see `parentKey`.
+    userId: text('user_id').notNull(),
     title: text('title').notNull().default(''),
     encryptedBody: jsonb('encrypted_body').$type<EncryptedPayload | null>(),
     createdAt: createdAt(),
   },
-  (t) => [index('secret_note_versions_note_idx').on(t.noteId, t.createdAt)],
+  (t) => [
+    parentKey('secret_note_versions_parent_fk', t, secretNotes),
+    index('secret_note_versions_owner_note_seq_idx').on(t.userId, t.noteId, t.seq),
+  ],
 ).enableRLS();
 
 // ---------------------------------------------------------------------------
@@ -182,6 +229,7 @@ export const sealNotes = pgTable(
     searchTsv: tsvector('search_tsv').generatedAlwaysAs(() => searchTsv(['title'])),
   },
   (t) => [
+    primaryKey({ name: 'seal_notes_pkey', columns: [t.userId, t.id] }),
     index('seal_notes_user_deleted_idx').on(t.userId, t.deletedAt),
     index('seal_notes_list_idx').on(t.userId, t.archived, t.pinned, t.position),
     index('seal_notes_search_sort_idx').on(t.userId, t.archived, t.pinned, t.updatedAt),
@@ -196,14 +244,17 @@ export const sealNoteVersions = pgTable(
   {
     id: id(),
     seq: versionSeq(),
-    noteId: text('note_id')
-      .notNull()
-      .references(() => sealNotes.id, { onDelete: 'cascade' }),
+    noteId: text('note_id').notNull(),
+    // After note_id on purpose: see `parentKey`.
+    userId: text('user_id').notNull(),
     title: text('title').notNull().default(''),
     encryptedBody: jsonb('encrypted_body').$type<EncryptedPayload | null>(),
     createdAt: createdAt(),
   },
-  (t) => [index('seal_note_versions_note_idx').on(t.noteId, t.createdAt)],
+  (t) => [
+    parentKey('seal_note_versions_parent_fk', t, sealNotes),
+    index('seal_note_versions_owner_note_seq_idx').on(t.userId, t.noteId, t.seq),
+  ],
 ).enableRLS();
 
 // ---------------------------------------------------------------------------
@@ -226,10 +277,10 @@ export const tags = pgTable(
   (t) => [uniqueIndex('tags_user_name_unique').on(t.userId, t.name)],
 ).enableRLS();
 
-const joinColumns = (parent: typeof notes | typeof secretNotes | typeof sealNotes) => ({
-  noteId: text('note_id')
-    .notNull()
-    .references(() => parent.id, { onDelete: 'cascade' }),
+// The parent is referenced through `parentKey`; `user_id` stays after `note_id`.
+const joinColumns = () => ({
+  noteId: text('note_id').notNull(),
+  userId: text('user_id').notNull(),
   tagId: text('tag_id')
     .notNull()
     .references(() => tags.id, { onDelete: 'cascade' }),
@@ -237,18 +288,27 @@ const joinColumns = (parent: typeof notes | typeof secretNotes | typeof sealNote
   sortOrder: integer('sort_order').notNull().default(0),
 });
 
-export const noteTags = pgTable('note_tags', joinColumns(notes), (t) => [
+export const noteTags = pgTable('note_tags', joinColumns(), (t) => [
+  // A tag id belongs to one account, so (note_id, tag_id) stays unique.
   primaryKey({ columns: [t.noteId, t.tagId] }),
+  parentKey('note_tags_parent_fk', t, notes),
+  index('note_tags_owner_note_order_idx').on(t.userId, t.noteId, t.sortOrder),
   index('note_tags_tag_idx').on(t.tagId),
 ]).enableRLS();
 
-export const secretNoteTags = pgTable('secret_note_tags', joinColumns(secretNotes), (t) => [
+export const secretNoteTags = pgTable('secret_note_tags', joinColumns(), (t) => [
+  // A tag id belongs to one account, so (note_id, tag_id) stays unique.
   primaryKey({ columns: [t.noteId, t.tagId] }),
+  parentKey('secret_note_tags_parent_fk', t, secretNotes),
+  index('secret_note_tags_owner_note_order_idx').on(t.userId, t.noteId, t.sortOrder),
   index('secret_note_tags_tag_idx').on(t.tagId),
 ]).enableRLS();
 
-export const sealNoteTags = pgTable('seal_note_tags', joinColumns(sealNotes), (t) => [
+export const sealNoteTags = pgTable('seal_note_tags', joinColumns(), (t) => [
+  // A tag id belongs to one account, so (note_id, tag_id) stays unique.
   primaryKey({ columns: [t.noteId, t.tagId] }),
+  parentKey('seal_note_tags_parent_fk', t, sealNotes),
+  index('seal_note_tags_owner_note_order_idx').on(t.userId, t.noteId, t.sortOrder),
   index('seal_note_tags_tag_idx').on(t.tagId),
 ]).enableRLS();
 
@@ -489,6 +549,9 @@ export const encryptionProfiles = pgTable(
     salt: text('salt').notNull(), // base64
     kdf: jsonb('kdf').$type<KdfParams>().notNull(),
     keyCheck: jsonb('key_check').$type<EncryptedPayload>().notNull(),
+    // Nullable only for profiles created before portable vault identity was
+    // introduced. The client fills it after the next successful unlock.
+    vaultKeyId: text('vault_key_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -563,7 +626,8 @@ export type FileKeyScope = 'vault' | 'seal';
 export const fileAttachments = pgTable(
   'file_attachments',
   {
-    id: id(),
+    // Per account: note bodies embed attachment ids (`data-file-id`).
+    id: ownedId(),
     userId: text('user_id').notNull(),
     noteId: text('note_id'),
     noteTier: text('note_tier').$type<NoteTier>(),
@@ -582,8 +646,9 @@ export const fileAttachments = pgTable(
     lastDeleteError: text('last_delete_error'),
   },
   (t) => [
+    primaryKey({ name: 'file_attachments_pkey', columns: [t.userId, t.id] }),
     index('file_attachments_user_idx').on(t.userId),
-    index('file_attachments_note_idx').on(t.noteId),
+    index('file_attachments_owner_note_idx').on(t.userId, t.noteId),
     index('file_attachments_storage_deleted_idx').on(t.storageDeletedAt),
   ],
 ).enableRLS();
@@ -615,7 +680,8 @@ export const otpRecords = pgTable(
   {
     // Generated on the client (uuidv7) so the payload can be sealed with the id
     // as AAD before it is ever sent, and a create can be retried idempotently.
-    id: text('id').primaryKey(),
+    // Unique per account: the primary key is (user_id, id).
+    id: text('id').notNull(),
     userId: text('user_id').notNull(),
     /** AES-GCM envelope; NULL once the row is a tombstone. */
     payload: jsonb('payload').$type<EncryptedPayload>(),
@@ -639,6 +705,7 @@ export const otpRecords = pgTable(
     deletedAt: ts('deleted_at'),
   },
   (t) => [
+    primaryKey({ name: 'otp_records_pkey', columns: [t.userId, t.id] }),
     index('otp_records_user_idx').on(t.userId),
     // Drives the tombstone sweep in controllers/cleanup.ts.
     index('otp_records_deleted_idx').on(t.deletedAt),
@@ -664,6 +731,7 @@ export type PendingEncryptionMaterial = {
   salt: string;
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
+  vaultKeyId: string;
 };
 /** A file receipt carries `etag` only once `verify` has read its bytes back:
  * absent on a source pointer, present on a staged replacement, which is what
@@ -707,6 +775,150 @@ export const encryptionRotations = pgTable(
       .on(t.userId)
       .where(sql`${t.phase} in ('preparing', 'migrating', 'ready')`),
     index('encryption_rotations_expiry_idx').on(t.expiresAt),
+  ],
+).enableRLS();
+
+// ---------------------------------------------------------------------------
+// Portable vault exports
+
+export type VaultExportCategory = 'notes' | 'secrets' | 'seals' | 'authenticators';
+export type VaultExportSelection = Record<VaultExportCategory, boolean>;
+export type VaultExportStatus = 'active' | 'completed' | 'cancelled';
+export type VaultExportCounts = Record<VaultExportCategory, number> & { attachments: number };
+
+/** A short-lived snapshot fence. It stores no archive password and no archive
+ * bytes; the browser produces the encrypted file directly. */
+export const vaultExports = pgTable(
+  'vault_exports',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    generation: integer('generation').notNull(),
+    profileId: text('profile_id'),
+    profileDigest: text('profile_digest'),
+    vaultKeyId: text('vault_key_id'),
+    selection: jsonb('selection').$type<VaultExportSelection>().notNull(),
+    counts: jsonb('counts').$type<VaultExportCounts>().notNull(),
+    entrySizes: jsonb('entry_sizes').$type<Record<string, number>>().notNull(),
+    status: text('status').$type<VaultExportStatus>().notNull().default('active'),
+    manifestDigest: text('manifest_digest'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    expiresAt: ts('expires_at').notNull(),
+    completedAt: ts('completed_at'),
+  },
+  (t) => [
+    index('vault_exports_user_created_idx').on(t.userId, t.createdAt),
+    index('vault_exports_expiry_idx').on(t.expiresAt),
+  ],
+).enableRLS();
+
+export type VaultExportItemKind = 'note' | 'secret' | 'seal' | 'authenticator' | 'tag' | 'attachment';
+
+/** One digest per portable aggregate (plus tags and attachments). The live row
+ * is re-rendered and compared immediately before its bytes enter the archive. */
+export const vaultExportItems = pgTable(
+  'vault_export_items',
+  {
+    exportId: text('export_id')
+      .notNull()
+      .references(() => vaultExports.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<VaultExportItemKind>().notNull(),
+    resourceId: text('resource_id').notNull(),
+    sourceDigest: text('source_digest').notNull(),
+    bytes: bigint('bytes', { mode: 'number' }).notNull(),
+    ordinal: integer('ordinal').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.exportId, t.kind, t.resourceId] }),
+    index('vault_export_items_page_idx').on(t.exportId, t.kind, t.ordinal),
+  ],
+).enableRLS();
+
+// ---------------------------------------------------------------------------
+// Portable vault imports
+
+export type VaultImportPhase = 'review' | 'staging' | 'ready' | 'committed' | 'aborted';
+export type VaultImportTagPolicy = 'drop' | 'reuse' | 'create';
+/** `fresh`: the destination held no vault data at analysis. `merge`: it did. */
+export type VaultImportMode = 'fresh' | 'merge';
+/** What commit does with one staged record. Identical and keep-existing
+ * records are never staged. `copy` (keep both) exists for Notes and Secrets
+ * only: Seal and Authenticator ciphertext is bound to the record id. */
+export type VaultImportAction = 'insert' | 'replace' | 'copy';
+export type VaultImportCounts = VaultExportCounts;
+export type VaultImportItemKind = VaultExportItemKind;
+
+/**
+ * A restore is deliberately two-phase. Parsed archive metadata and staged
+ * objects may exist while this row is active, but user-visible vault rows are
+ * inserted only by the final account-locked transaction.
+ */
+export const vaultImports = pgTable(
+  'vault_imports',
+  {
+    id: id(),
+    userId: text('user_id').notNull(),
+    ownerSid: text('owner_sid').notNull(),
+    generation: integer('generation').notNull(),
+    phase: text('phase').$type<VaultImportPhase>().notNull().default('review'),
+    manifestDigest: text('manifest_digest').notNull(),
+    manifest: jsonb('manifest').$type<Record<string, unknown>>().notNull(),
+    profile: jsonb('profile').$type<PendingEncryptionMaterial>(),
+    tagPolicy: text('tag_policy').$type<VaultImportTagPolicy>(),
+    mode: text('mode').$type<VaultImportMode>().notNull().default('fresh'),
+    // The destination's vault identity at analysis, rechecked at commit: a
+    // profile installed, reset or rotated in between invalidates the plan.
+    destinationProfileId: text('destination_profile_id'),
+    destinationVaultKeyId: text('destination_vault_key_id'),
+    counts: jsonb('counts').$type<VaultImportCounts>().notNull(),
+    // What the chosen plan stages, fixed by `begin`. Null until then.
+    expectedCounts: jsonb('expected_counts').$type<VaultImportCounts>(),
+    expectedAttachmentBytes: bigint('expected_attachment_bytes', { mode: 'number' }),
+    stagedCounts: jsonb('staged_counts').$type<VaultImportCounts>().notNull(),
+    attachmentBytes: bigint('attachment_bytes', { mode: 'number' }).notNull(),
+    verifiedAttachmentBytes: bigint('verified_attachment_bytes', { mode: 'number' }).notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    expiresAt: ts('expires_at').notNull(),
+    committedAt: ts('committed_at'),
+  },
+  (t) => [
+    index('vault_imports_user_created_idx').on(t.userId, t.createdAt),
+    uniqueIndex('vault_imports_one_active')
+      .on(t.userId)
+      .where(sql`${t.phase} in ('review', 'staging', 'ready')`),
+    index('vault_imports_expiry_idx').on(t.expiresAt),
+  ],
+).enableRLS();
+
+/** Records and tag descriptors keep their validated logical payload here.
+ * Attachment rows additionally hold the immutable staging receipt. */
+export const vaultImportItems = pgTable(
+  'vault_import_items',
+  {
+    importId: text('import_id')
+      .notNull()
+      .references(() => vaultImports.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<VaultImportItemKind>().notNull(),
+    resourceId: text('resource_id').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>(),
+    sourceDigest: text('source_digest').notNull(),
+    bytes: bigint('bytes', { mode: 'number' }).notNull(),
+    ordinal: integer('ordinal').notNull(),
+    // Staged records only: the planned action, and for `replace` the digest of
+    // the destination aggregate the user reviewed (see lib/vaultBackup/aggregate).
+    action: text('action').$type<VaultImportAction>(),
+    expectedDigest: text('expected_digest'),
+    checksum: text('checksum'),
+    stageKey: text('stage_key'),
+    etag: text('etag'),
+    fileVerified: boolean('file_verified').notNull().default(false),
+    grantExpiresAt: ts('grant_expires_at'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.importId, t.kind, t.resourceId] }),
+    index('vault_import_items_page_idx').on(t.importId, t.kind, t.ordinal),
   ],
 ).enableRLS();
 

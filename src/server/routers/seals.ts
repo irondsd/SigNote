@@ -82,8 +82,8 @@ export const sealsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
-        const seal = assertOwner(await getSealById(input.id), ctx.userId);
-        const updated = await updateSeal(input.id, {
+        const seal = assertOwner(await getSealById(ctx.userId, input.id), ctx.userId);
+        const updated = await updateSeal(ctx.userId, input.id, {
           title: input.title !== undefined ? input.title : seal.title,
           encryptedBody: input.encryptedBody !== undefined ? input.encryptedBody : seal.encryptedBody,
           wrappedNoteKey: input.wrappedNoteKey !== undefined ? input.wrappedNoteKey : seal.wrappedNoteKey,

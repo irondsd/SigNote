@@ -76,8 +76,9 @@ export const secretsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
-        const secret = assertOwner(await getSecretById(input.id), ctx.userId);
+        const secret = assertOwner(await getSecretById(ctx.userId, input.id), ctx.userId);
         const updated = await updateSecret(
+          ctx.userId,
           input.id,
           input.title ?? secret.title,
           input.encryptedBody !== undefined ? input.encryptedBody : secret.encryptedBody,

@@ -155,14 +155,14 @@ export const createOtpRecord = async (userId: string, input: CreateInput): Promi
         createdAt: now,
         updatedAt: now,
       })
-      .onConflictDoNothing({ target: otpRecords.id })
+      .onConflictDoNothing({ target: [otpRecords.userId, otpRecords.id] })
       .returning(columns);
 
     const row = rows[0];
     if (row) return { ...row, generation: currentRequestGeneration() };
 
-    // The id exists. It may belong to another user, in which case the caller
-    // learns only that the id is taken — never whose it is.
+    // Ids are unique per account, so the existing row is always the caller's
+    // own — typically a retried create.
     throw new OtpConflictError('A record with this id already exists', await getRecord(userId, input.id));
   });
 };

@@ -68,8 +68,8 @@ export const notesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       return withVaultWrite(ctx.userId, async () => {
-        const note = assertOwner(await getNoteById(input.id), ctx.userId);
-        const updated = await updateNote(input.id, input.title ?? note.title, input.content ?? note.content);
+        const note = assertOwner(await getNoteById(ctx.userId, input.id), ctx.userId);
+        const updated = await updateNote(ctx.userId, input.id, input.title ?? note.title, input.content ?? note.content);
         if (input.content !== undefined) {
           const fileIds = extractFileIds(input.content);
           if (fileIds.length) await linkFilesToNote(ctx.userId, input.id, 'note', fileIds);

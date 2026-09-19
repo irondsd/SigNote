@@ -69,7 +69,11 @@ export async function prepareNotePromotion(userId: string, id: string) {
     if (note.burnAfterReading && note.expiresAt) throw new PromotionError('BURN_ARMED');
 
     const [versions, attachments] = await Promise.all([
-      db.select().from(noteVersions).where(eq(noteVersions.noteId, id)).orderBy(asc(noteVersions.seq)),
+      db
+        .select()
+        .from(noteVersions)
+        .where(and(eq(noteVersions.userId, userId), eq(noteVersions.noteId, id)))
+        .orderBy(asc(noteVersions.seq)),
       db
         .select({
           id: fileAttachments.id,
@@ -120,7 +124,7 @@ export async function prepareSecretPromotion(userId: string, id: string) {
       db
         .select()
         .from(secretNoteVersions)
-        .where(eq(secretNoteVersions.noteId, id))
+        .where(and(eq(secretNoteVersions.userId, userId), eq(secretNoteVersions.noteId, id)))
         .orderBy(asc(secretNoteVersions.seq)),
       db
         .select({
@@ -208,13 +212,13 @@ export async function promoteNoteToSecret(
     const [existingDestination] = await db
       .select({ id: secretNotes.id })
       .from(secretNotes)
-      .where(eq(secretNotes.id, input.id));
+      .where(and(eq(secretNotes.userId, userId), eq(secretNotes.id, input.id)));
     if (existingDestination) throw new PromotionError('CONFLICT');
 
     const versions = await db
       .select()
       .from(noteVersions)
-      .where(eq(noteVersions.noteId, input.id))
+      .where(and(eq(noteVersions.userId, userId), eq(noteVersions.noteId, input.id)))
       .orderBy(asc(noteVersions.seq));
     assertVersionSet(
       versions.map((version) => version.id),
@@ -283,6 +287,7 @@ export async function promoteNoteToSecret(
       await db.insert(secretNoteVersions).values(
         versions.map((version) => ({
           id: version.id,
+          userId,
           noteId: input.id,
           title: version.title,
           encryptedBody: encryptedById.get(version.id) ?? null,
@@ -291,7 +296,10 @@ export async function promoteNoteToSecret(
       );
     }
 
-    const tags = await db.select().from(noteTags).where(eq(noteTags.noteId, input.id));
+    const tags = await db
+      .select()
+      .from(noteTags)
+      .where(and(eq(noteTags.userId, userId), eq(noteTags.noteId, input.id)));
     if (tags.length > 0) await db.insert(secretNoteTags).values(tags);
 
     if (encryptedIds.length > 0) {
@@ -344,13 +352,13 @@ export async function promoteSecretToSeal(
     const [existingDestination] = await db
       .select({ id: sealNotes.id })
       .from(sealNotes)
-      .where(eq(sealNotes.id, input.id));
+      .where(and(eq(sealNotes.userId, userId), eq(sealNotes.id, input.id)));
     if (existingDestination) throw new PromotionError('CONFLICT');
 
     const versions = await db
       .select()
       .from(secretNoteVersions)
-      .where(eq(secretNoteVersions.noteId, input.id))
+      .where(and(eq(secretNoteVersions.userId, userId), eq(secretNoteVersions.noteId, input.id)))
       .orderBy(asc(secretNoteVersions.seq));
     assertVersionSet(
       versions.map((version) => version.id),
@@ -423,6 +431,7 @@ export async function promoteSecretToSeal(
       await db.insert(sealNoteVersions).values(
         versions.map((version) => ({
           id: version.id,
+          userId,
           noteId: input.id,
           title: version.title,
           encryptedBody: encryptedById.get(version.id) ?? null,
@@ -431,7 +440,10 @@ export async function promoteSecretToSeal(
       );
     }
 
-    const tags = await db.select().from(secretNoteTags).where(eq(secretNoteTags.noteId, input.id));
+    const tags = await db
+      .select()
+      .from(secretNoteTags)
+      .where(and(eq(secretNoteTags.userId, userId), eq(secretNoteTags.noteId, input.id)));
     if (tags.length > 0) await db.insert(sealNoteTags).values(tags);
 
     if (encryptedIds.length > 0) {

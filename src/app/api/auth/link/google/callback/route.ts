@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-import { linkIdentity, ConflictEncryptedDataError, AlreadyLinkedError } from '@/controllers/identities';
+import {
+  linkIdentity,
+  ConflictEncryptedDataError,
+  AccountMergeCollisionError,
+  AlreadyLinkedError,
+} from '@/controllers/identities';
 import { RouteAuthError, authenticateRequest } from '@/lib/routeAuth';
 import { LINK_STATE_COOKIE, LINK_STATE_PURPOSE, getRedirectUri, linkNonceMatches } from '../utils';
 
@@ -112,6 +117,9 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     if (err instanceof ConflictEncryptedDataError) {
       return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=encrypted_data')));
+    }
+    if (err instanceof AccountMergeCollisionError) {
+      return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=merge_collision')));
     }
     if (err instanceof AlreadyLinkedError) {
       return clearLinkCookie(NextResponse.redirect(buildProfileUrl('link_error=already_linked')));

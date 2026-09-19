@@ -1,15 +1,24 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import {
   ENC_PBKDF2_ITERATIONS,
   ENC_PBKDF2_LENGTH,
+  getOtpRecordAad,
   getSealKeyString,
+  HKDF_INFO_OTP_VAULT,
   HKDF_INFO_SECRET_BODY,
   HKDF_INFO_VERIFY_KEY,
   KEY_CHECK_PLAINTEXT,
 } from '../../src/config/constants';
 import type { EncryptedPayload } from '../../src/types/crypto';
-import { encryptionProfiles, sealNotes, sealNoteVersions, secretNotes, secretNoteVersions } from '../../src/db/schema';
+import {
+  encryptionProfiles,
+  otpRecords,
+  sealNotes,
+  sealNoteVersions,
+  secretNotes,
+  secretNoteVersions,
+} from '../../src/db/schema';
 import { testDb } from '../fixtures/db';
 
 /**
@@ -87,8 +96,12 @@ export async function mekFromPassphrase(userId: string, passphrase: string): Pro
   return mekBytes;
 }
 
-export async function decryptSecretHead(noteId: string, mekBytes: Uint8Array): Promise<string> {
-  const [row] = await testDb().select().from(secretNotes).where(eq(secretNotes.id, noteId));
+/** Ids are unique per account; pass `userId` when two accounts may hold one. */
+export async function decryptSecretHead(noteId: string, mekBytes: Uint8Array, userId?: string): Promise<string> {
+  const [row] = await testDb()
+    .select()
+    .from(secretNotes)
+    .where(and(eq(secretNotes.id, noteId), userId ? eq(secretNotes.userId, userId) : undefined));
   if (!row?.encryptedBody) throw new Error('Secret has no body');
   return decrypt(await hkdf(mekBytes, HKDF_INFO_SECRET_BODY, ['decrypt']), row.encryptedBody);
 }
@@ -100,8 +113,11 @@ export async function decryptSecretVersion(versionId: string, mekBytes: Uint8Arr
 }
 
 /** Unwraps the Seal's note key from the *current* head wrapper, then decrypts. */
-async function sealNoteKey(sealId: string, mekBytes: Uint8Array): Promise<CryptoKey> {
-  const [head] = await testDb().select().from(sealNotes).where(eq(sealNotes.id, sealId));
+async function sealNoteKey(sealId: string, mekBytes: Uint8Array, userId?: string): Promise<CryptoKey> {
+  const [head] = await testDb()
+    .select()
+    .from(sealNotes)
+    .where(and(eq(sealNotes.id, sealId), userId ? eq(sealNotes.userId, userId) : undefined));
   if (!head?.wrappedNoteKey) throw new Error('Seal has no wrapped note key');
   const aad = getSealKeyString(sealId);
   const wrapKey = await hkdf(mekBytes, aad, ['decrypt']);
@@ -117,10 +133,23 @@ async function sealNoteKey(sealId: string, mekBytes: Uint8Array): Promise<Crypto
   return globalThis.crypto.subtle.importKey('raw', nekBytes, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
 }
 
-export async function decryptSealHead(sealId: string, mekBytes: Uint8Array): Promise<string> {
-  const [row] = await testDb().select().from(sealNotes).where(eq(sealNotes.id, sealId));
+export async function decryptSealHead(sealId: string, mekBytes: Uint8Array, userId?: string): Promise<string> {
+  const [row] = await testDb()
+    .select()
+    .from(sealNotes)
+    .where(and(eq(sealNotes.id, sealId), userId ? eq(sealNotes.userId, userId) : undefined));
   if (!row?.encryptedBody) throw new Error('Seal has no body');
-  return decrypt(await sealNoteKey(sealId, mekBytes), row.encryptedBody, getSealKeyString(sealId));
+  return decrypt(await sealNoteKey(sealId, mekBytes, userId), row.encryptedBody, getSealKeyString(sealId));
+}
+
+/** An authenticator payload, opened with the OTP vault key and its id as AAD. */
+export async function decryptOtpRecord(userId: string, id: string, mekBytes: Uint8Array): Promise<string> {
+  const [row] = await testDb()
+    .select()
+    .from(otpRecords)
+    .where(and(eq(otpRecords.userId, userId), eq(otpRecords.id, id)));
+  if (!row?.payload) throw new Error('Authenticator record has no payload');
+  return decrypt(await hkdf(mekBytes, HKDF_INFO_OTP_VAULT, ['decrypt']), row.payload, getOtpRecordAad(id));
 }
 
 /**

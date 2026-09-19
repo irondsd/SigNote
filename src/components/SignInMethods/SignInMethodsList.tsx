@@ -86,6 +86,11 @@ export function SignInMethodsList() {
           'This wallet has encrypted data (secrets or seals). Sign in to that account, erase its encryption profile under Danger Zone, then try again.',
           { duration: 8000 },
         );
+      } else if (errorCode === 'ACCOUNT_MERGE_COLLISION') {
+        toast.error(
+          'These accounts contain restored items with matching internal IDs, so they cannot be combined safely. Keep them separate or remove the duplicate data from one account first.',
+          { duration: 8000 },
+        );
       } else if (errorCode === 'ALREADY_LINKED') {
         toast.error('This wallet is already connected to a different account.');
       } else {

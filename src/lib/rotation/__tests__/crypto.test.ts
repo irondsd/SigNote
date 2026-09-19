@@ -40,6 +40,7 @@ it('restarts with the same passphrase and production KDF, with independently rep
   const next = await createRotationMaterial('same passphrase');
   expect(next.material.salt).not.toBe(old.material.salt);
   expect(next.material.serverShare).not.toBe(old.material.serverShare);
+  expect(next.material.vaultKeyId).not.toBe(old.material.vaultKeyId);
   expect(next.deviceShare).not.toEqual(old.deviceShare);
   expect(next.mek.extractable).toBe(false);
   const resumed = await unlockRotationMaterial('same passphrase', JSON.parse(JSON.stringify(next.material)));
@@ -52,6 +53,12 @@ it('restarts with the same passphrase and production KDF, with independently rep
   );
   await expect(
     unlockRotationMaterial('same passphrase', { ...next.material, keyCheck: old.material.keyCheck }),
+  ).rejects.toThrow('Invalid rotation credentials');
+  await expect(
+    unlockRotationMaterial('same passphrase', { ...next.material, vaultKeyId: old.material.vaultKeyId }),
+  ).rejects.toThrow('Invalid rotation credentials');
+  await expect(
+    unlockRotationMaterial('same passphrase', { ...next.material, vaultKeyId: undefined } as never),
   ).rejects.toThrow('Invalid rotation credentials');
 });
 

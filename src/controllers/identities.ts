@@ -1,4 +1,5 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import { getDb } from '@/db/client';
 import {
@@ -14,10 +15,14 @@ import {
   encryptionProfiles,
   otpRecords,
   fileAttachments,
+  noteTags,
   notes,
   passkeyCredentials,
   sealNotes,
+  sealNoteTags,
   secretNotes,
+  secretNoteTags,
+  tags,
   users,
   type IdentityProvider,
 } from '@/db/schema';
@@ -29,6 +34,13 @@ export class ConflictEncryptedDataError extends Error {
   constructor() {
     super('CONFLICT_ENCRYPTED_DATA');
     this.name = 'ConflictEncryptedDataError';
+  }
+}
+
+export class AccountMergeCollisionError extends Error {
+  constructor(readonly resource: 'note' | 'attachment') {
+    super('ACCOUNT_MERGE_COLLISION');
+    this.name = 'AccountMergeCollisionError';
   }
 }
 
@@ -164,6 +176,35 @@ export const linkIdentity = async (
           throw new ConflictEncryptedDataError();
         }
 
+        // Portable ids are unique per account. Moving a secondary account into
+        // the primary one therefore needs an explicit collision fence: letting
+        // the UPDATE discover it through the PK would be safe but would surface
+        // as an opaque server error, and attachment ids are embedded in Note
+        // HTML so they cannot be silently reassigned here.
+        const destinationNotes = alias(notes, 'destination_notes');
+        const [noteCollision] = await db
+          .select({ id: notes.id })
+          .from(notes)
+          .innerJoin(
+            destinationNotes,
+            and(eq(destinationNotes.userId, primaryUserId), eq(destinationNotes.id, notes.id)),
+          )
+          .where(eq(notes.userId, secondaryUserId))
+          .limit(1);
+        if (noteCollision) throw new AccountMergeCollisionError('note');
+
+        const destinationFiles = alias(fileAttachments, 'destination_files');
+        const [fileCollision] = await db
+          .select({ id: fileAttachments.id })
+          .from(fileAttachments)
+          .innerJoin(
+            destinationFiles,
+            and(eq(destinationFiles.userId, primaryUserId), eq(destinationFiles.id, fileAttachments.id)),
+          )
+          .where(eq(fileAttachments.userId, secondaryUserId))
+          .limit(1);
+        if (fileCollision) throw new AccountMergeCollisionError('attachment');
+
         // The merged-away account may hold the only address between the two. It
         // was proven once and shouldn't evaporate with the row — but it can only
         // move to an account that doesn't already have one, and only after the old
@@ -178,8 +219,45 @@ export const linkIdentity = async (
         ]);
         const inheritedEmail = !primaryRow[0]?.email && secondaryRow[0]?.email ? secondaryRow[0] : null;
 
-        // Migrate notes
+        // A destination tag with the same normalized name wins. Repoint every
+        // secondary relation before deleting the duplicate; otherwise move the
+        // tag itself. This happens before the note owner update, whose FK
+        // cascade then carries the surviving relations to the primary owner.
+        const [primaryTags, secondaryTags] = await Promise.all([
+          db.select().from(tags).where(eq(tags.userId, primaryUserId)),
+          db.select().from(tags).where(eq(tags.userId, secondaryUserId)),
+        ]);
+        const destinationTagByName = new Map(primaryTags.map((tag) => [tag.name, tag]));
+        for (const tag of secondaryTags) {
+          const destination = destinationTagByName.get(tag.name);
+          if (destination) {
+            await db
+              .update(noteTags)
+              .set({ tagId: destination.id })
+              .where(and(eq(noteTags.userId, secondaryUserId), eq(noteTags.tagId, tag.id)));
+            await db
+              .update(secretNoteTags)
+              .set({ tagId: destination.id })
+              .where(and(eq(secretNoteTags.userId, secondaryUserId), eq(secretNoteTags.tagId, tag.id)));
+            await db
+              .update(sealNoteTags)
+              .set({ tagId: destination.id })
+              .where(and(eq(sealNoteTags.userId, secondaryUserId), eq(sealNoteTags.tagId, tag.id)));
+            await db.delete(tags).where(eq(tags.id, tag.id));
+          } else {
+            await db.update(tags).set({ userId: primaryUserId }).where(eq(tags.id, tag.id));
+            destinationTagByName.set(tag.name, { ...tag, userId: primaryUserId });
+          }
+        }
+
+        // Move Notes and their unencrypted or already-retired attachments. A
+        // storage key may retain the old user-id prefix: access is authorized
+        // through this row, and cleanup follows the row's new owner.
         await db.update(notes).set({ userId: primaryUserId }).where(eq(notes.userId, secondaryUserId));
+        await db
+          .update(fileAttachments)
+          .set({ userId: primaryUserId })
+          .where(eq(fileAttachments.userId, secondaryUserId));
 
         // Remove secondary encryption profile (if any, but no secrets/seals)
         await db.delete(encryptionProfiles).where(eq(encryptionProfiles.userId, secondaryUserId));

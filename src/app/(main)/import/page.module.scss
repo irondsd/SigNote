@@ -1,0 +1,401 @@
+@use '../../../styles/mixins';
+
+.container {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+  padding: 32px 16px 48px;
+}
+.content {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.header {
+  padding: 4px 4px 8px;
+  h1 {
+    margin: 4px 0 8px;
+    font-size: clamp(26px, 5vw, 34px);
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+  }
+  p {
+    max-width: 620px;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  code {
+    font-size: 0.92em;
+  }
+}
+.eyebrow {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.formBody,
+.reviewBody,
+.tagChoices {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fileField,
+.passwordField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.fileField input,
+.passwordField input {
+  min-height: 44px;
+}
+/* The Input's padding centres a text line in 36px; the file button is 28px
+   tall, so centre that in the taller field instead. */
+.fileField input {
+  padding-block: 7px;
+  line-height: 28px;
+}
+.help {
+  margin: -6px 0 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.inputWrap {
+  position: relative;
+  display: block;
+}
+.inputWrap input {
+  padding-right: 48px;
+}
+.reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.progressPanel,
+.notice,
+.error,
+.success {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 14px 16px;
+}
+.progressPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  p {
+    margin: 0;
+    line-height: 1.5;
+  }
+  progress {
+    @include mixins.rounded-progress;
+  }
+  button {
+    align-self: flex-start;
+  }
+}
+.progressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--foreground);
+  strong {
+    font-variant-numeric: tabular-nums;
+  }
+}
+.verified {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--success) 8%, var(--card));
+  font-size: 13px;
+  line-height: 1.5;
+  svg {
+    flex: 0 0 18px;
+    width: 18px;
+    color: var(--success);
+  }
+}
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+  margin: 0;
+  div {
+    min-width: 0;
+  }
+  dt {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  dd {
+    margin: 3px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+}
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  span {
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  strong {
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+}
+.choice {
+  min-height: 54px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--primary);
+  }
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  strong {
+    font-size: 14px;
+  }
+  small {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+.notice {
+  background: color-mix(in oklch, var(--primary) 7%, var(--card));
+  border-color: color-mix(in oklch, var(--primary) 25%, var(--border));
+  font-size: 13px;
+  line-height: 1.5;
+}
+.errorAction {
+  display: flex;
+  margin-top: 10px;
+}
+.error {
+  color: var(--destructive);
+  background: color-mix(in oklch, var(--destructive) 6%, var(--card));
+  font-size: 13px;
+  line-height: 1.5;
+}
+.success {
+  display: flex;
+  gap: 10px;
+  background: color-mix(in oklch, var(--success) 8%, var(--card));
+  border-color: color-mix(in oklch, var(--success) 25%, var(--border));
+  > svg {
+    flex: 0 0 18px;
+    width: 18px;
+    color: var(--success);
+  }
+  p {
+    margin: 4px 0 12px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.55;
+  }
+}
+.outcomeTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  th,
+  td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  th:first-child {
+    text-align: left;
+    font-weight: 600;
+  }
+  thead th {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  tbody tr:last-child th,
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}
+.conflictGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.conflictGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.conflictGroupHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  strong {
+    font-size: 14px;
+  }
+}
+.applyAll {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  > span {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+}
+.conflictList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.conflictRow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.conflictSides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  small {
+    color: var(--muted-foreground);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  strong {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  span {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  a {
+    align-self: flex-start;
+    color: var(--primary);
+    font-size: 12px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13px;
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    cursor: pointer;
+  }
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+  }
+}
+.disabledChoice {
+  color: var(--muted-foreground);
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@media (max-width: 560px) {
+  .container {
+    padding-top: 22px;
+  }
+  .summaryGrid,
+  .conflictSides {
+    grid-template-columns: 1fr;
+  }
+  .decision label {
+    min-height: 44px;
+  }
+  .actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .actions a,
+  .actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+  .progressPanel button {
+    align-self: stretch;
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

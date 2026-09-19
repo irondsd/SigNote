@@ -11,6 +11,7 @@ import {
   type DraftData,
   type StoredDraft,
 } from '@/lib/draft';
+import { setActiveAccountId } from '@/lib/accountScope';
 
 const DRAFT_KEY = 'sn_draft';
 
@@ -28,9 +29,12 @@ const editSample: DraftData = {
 };
 
 beforeEach(() => {
+  setActiveAccountId(null);
   localStorage.clear();
   jest.restoreAllMocks();
 });
+
+afterEach(() => setActiveAccountId(null));
 
 describe('saveDraft / loadDraft', () => {
   it('round-trips the data', () => {
@@ -50,6 +54,17 @@ describe('saveDraft / loadDraft', () => {
   it('loadDraft returns null when stored value is malformed JSON', () => {
     localStorage.setItem(DRAFT_KEY, 'not json');
     expect(loadDraft()).toBeNull();
+  });
+
+  it('does not expose one account draft after switching to another account', () => {
+    setActiveAccountId('alice');
+    saveDraft({ ...sample, draftId: 'alice-draft' });
+    expect(loadDraft()).toMatchObject({ ownerUserId: 'alice', title: 'My title' });
+
+    setActiveAccountId('bob');
+    expect(loadDraft()).toBeNull();
+    expect(loadDrafts('alice')).toHaveLength(1);
+    expect(loadDrafts('bob')).toHaveLength(0);
   });
 });
 

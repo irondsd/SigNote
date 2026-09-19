@@ -2,11 +2,13 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import {
+  backfillVaultKeyId,
   createProfile,
   getMaterialByUserId,
   getProfileByUserId,
   ProfileAlreadyExistsError,
   updateProfile,
+  VaultKeyIdConflictError,
 } from '@/controllers/encryptionProfiles';
 import { getEncryptionState } from '@/db/encryptionState';
 import { rotationStartEnabled } from '@/server/rotation/enablement';
@@ -15,8 +17,16 @@ import { protectedProcedure, router } from '@/server/trpc';
 const BASE64_32 = /^[A-Za-z0-9+/]{43}=$/; // 32 bytes → 44-char base64
 const BASE64_12 = /^[A-Za-z0-9+/]{16}$/; // 12 bytes → 16-char base64, no padding
 const BASE64 = /^[A-Za-z0-9+/]+=*$/; // any non-empty base64
+const BASE64URL_32 = /^[A-Za-z0-9_-]{43}$/; // 32 bytes, unpadded base64url
 
 const base64_32 = z.string().regex(BASE64_32);
+const vaultKeyId = z
+  .string()
+  .regex(BASE64URL_32)
+  .refine((value) => {
+    const bytes = Buffer.from(value, 'base64url');
+    return bytes.length === 32 && bytes.toString('base64url') === value;
+  }, 'vaultKeyId must be canonical unpadded base64url');
 const keyCheck = z.object({
   alg: z.literal('A256GCM'),
   iv: z.string().regex(BASE64_12),
@@ -68,6 +78,7 @@ export const encryptionRouter = router({
       salt: material.salt,
       kdf: material.kdf,
       keyCheck: material.keyCheck,
+      vaultKeyId: material.vaultKeyId,
     };
   }),
 
@@ -93,11 +104,23 @@ export const encryptionRouter = router({
       salt: profile.salt,
       kdf: profile.kdf,
       keyCheck: profile.keyCheck,
+      vaultKeyId: profile.vaultKeyId,
     };
   }),
 
   create: protectedProcedure
-    .input(z.object({ version: z.number(), serverShare: base64_32, salt: base64_32, kdf, keyCheck }))
+    .input(
+      z.object({
+        version: z.number(),
+        serverShare: base64_32,
+        salt: base64_32,
+        kdf,
+        keyCheck,
+        // A stale PWA bundle may omit this during a rolling upgrade. The
+        // current client always supplies it; a later unlock fills legacy nulls.
+        vaultKeyId: vaultKeyId.optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       try {
         const profile = await createProfile(ctx.userId, input);
@@ -111,9 +134,25 @@ export const encryptionRouter = router({
     }),
 
   update: protectedProcedure
-    .input(z.object({ serverShare: base64_32, salt: base64_32, keyCheck }))
+    .input(z.object({ serverShare: base64_32, salt: base64_32, keyCheck, vaultKeyId: vaultKeyId.optional() }))
     .mutation(async ({ ctx, input }) => {
-      await updateProfile(ctx.userId, input);
-      return { success: true as const };
+      try {
+        await updateProfile(ctx.userId, input);
+        return { success: true as const };
+      } catch (err) {
+        if (err instanceof VaultKeyIdConflictError) throw new TRPCError({ code: 'CONFLICT', message: err.message });
+        throw err;
+      }
     }),
+
+  /** One-way compatibility path for profiles created before vaultKeyId. */
+  backfillVaultKeyId: protectedProcedure.input(z.object({ vaultKeyId })).mutation(async ({ ctx, input }) => {
+    try {
+      await backfillVaultKeyId(ctx.userId, input.vaultKeyId);
+      return { success: true as const };
+    } catch (err) {
+      if (err instanceof VaultKeyIdConflictError) throw new TRPCError({ code: 'CONFLICT', message: err.message });
+      throw err;
+    }
+  }),
 });

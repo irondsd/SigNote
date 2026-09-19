@@ -91,7 +91,7 @@ describe('tier search', () => {
   it('keeps pinned notes on top regardless of relevance', async () => {
     const shopping = await createNote(userId, 'Shopping', '<p>out of milk</p>');
     await createNote(userId, 'Milk', '<p>unrelated</p>');
-    await import('@/controllers/notes').then((m) => m.noteOps.applyPatch(shopping._id, { pinned: true }));
+    await import('@/controllers/notes').then((m) => m.noteOps.applyPatch(userId, shopping._id, { pinned: true }));
 
     expect(titles(await getNotesByUserId(userId, undefined, 30, 0, 'milk'))).toEqual(['Shopping', 'Milk']);
   });

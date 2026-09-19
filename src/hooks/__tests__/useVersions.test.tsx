@@ -7,6 +7,9 @@ jest.mock('@/lib/trpcClient', () => {
   const tier = () => ({ versions: { list: { query: jest.fn() } } });
   return { trpcClient: { notes: tier(), secrets: tier(), seals: tier() } };
 });
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ status: 'authenticated', data: { user: { id: 'user' } } }),
+}));
 
 import { trpcClient } from '@/lib/trpcClient';
 import { useVersions } from '@/hooks/useVersions';

@@ -1,4 +1,12 @@
-import { registerStableKey, getStableKey } from '@/lib/stableKeyStore';
+import { registerStableKey, getStableKey, clearStableKeys } from '@/lib/stableKeyStore';
+import { setActiveAccountId } from '@/lib/accountScope';
+
+beforeEach(() => {
+  setActiveAccountId(null);
+  clearStableKeys();
+});
+
+afterEach(() => setActiveAccountId(null));
 
 describe('stableKeyStore', () => {
   it('getStableKey returns the input id when nothing is registered', () => {
@@ -22,5 +30,14 @@ describe('stableKeyStore', () => {
     expect(getStableKey('real-id-4a')).toBe('AA');
     expect(getStableKey('real-id-4b')).toBe('BB');
     expect(getStableKey('unregistered-id-4c')).toBe('unregistered-id-4c');
+  });
+
+  it('does not reuse a key for the same portable id in another account', () => {
+    setActiveAccountId('alice');
+    registerStableKey('same-id', 'alice-card');
+    expect(getStableKey('same-id')).toBe('alice-card');
+
+    setActiveAccountId('bob');
+    expect(getStableKey('same-id')).toBe('same-id');
   });
 });

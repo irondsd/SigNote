@@ -23,7 +23,7 @@
 
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import type { KdfParams, EncryptedPayload } from '@/types/crypto';
-import { createKeyCheck, deriveDeviceShare, importMEK, verifyKeyCheck, xor32 } from '@/lib/crypto';
+import { createKeyCheck, deriveDeviceShare, deriveVaultKeyId, importMEK, verifyKeyCheck, xor32 } from '@/lib/crypto';
 import { buildRotationBackup, backupFilename, type RecoveryBackupV2 } from '@/lib/recoveryBackup';
 import { createRotationMaterial, reopenRotationMaterial, type RotationMaterial } from './crypto';
 import { parseAndValidatePendingRecovery, RecoveryValidationError } from './recovery';
@@ -61,6 +61,7 @@ export type WizardMaterial = {
   salt: string;
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
+  vaultKeyId: string | null;
 };
 
 export type WizardDeps = {
@@ -358,6 +359,8 @@ export function createRotationWizard(deps: WizardDeps) {
           rawMek.fill(0);
         }
         if (!(await verifyKeyCheck(mek, material.keyCheck))) throw new RotationWizardError('Incorrect passphrase.');
+        if (material.vaultKeyId && (await deriveVaultKeyId(mek)) !== material.vaultKeyId)
+          throw new RotationWizardError('The vault identity does not match its encryption key.');
 
         currentMaterial = material;
         sourceMek = mek;
@@ -369,6 +372,11 @@ export function createRotationWizard(deps: WizardDeps) {
         const pending = state.operation?.pendingMaterial ?? null;
         let nextTarget: typeof target;
         if (pending) {
+          if (!pending.vaultKeyId) {
+            throw new RotationWizardError(
+              'This key change was started by an older SigNote version. Cancel it and start again; your current data is untouched.',
+            );
+          }
           try {
             nextTarget = { material: pending as RotationMaterial, ...(await reopenRotationMaterial(next, pending)) };
           } catch {

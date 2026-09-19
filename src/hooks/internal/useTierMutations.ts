@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import posthog from 'posthog-js';
 import {
@@ -165,6 +166,7 @@ export function useUndeleteTier<T extends WithId>(root: string, apiFn: UndeleteF
 
 export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, contentField: string) {
   const qc = useQueryClient();
+  const { data: session } = useSession();
   const tierName = singular(root);
   return useMutation({
     networkMode: 'always',
@@ -205,7 +207,7 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
       // A title/content edit may have pushed a version snapshot server-side —
       // drop the cached timeline so an open/reopened history panel refetches.
       if (vars.title !== undefined || vars[contentField] !== undefined) {
-        void qc.invalidateQueries({ queryKey: versionsKey(root as VersionTier, vars.id) });
+        void qc.invalidateQueries({ queryKey: versionsKey(root as VersionTier, vars.id, session?.user.id) });
       }
       return settledHandler<T>(qc, root)(data, err, vars, context);
     },

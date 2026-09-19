@@ -65,16 +65,17 @@ describe('createOtpRecord', () => {
     expect(row.payload).toEqual(payload('original'));
   });
 
-  it('rejects an id taken by another user without revealing the row', async () => {
+  it('keeps the same id in two accounts apart — a restored vault copies ids verbatim', async () => {
     const id = uuidv7();
     await add(BOB, 'bob', 1000, id);
 
-    await expect(add(ALICE, 'alice', 1000, id)).rejects.toMatchObject({
-      name: 'OtpConflictError',
-      // Alice's conflict carries no row: the id is scoped out of her view.
-      current: null,
-    });
-    expect(await listOtpRecords(ALICE)).toHaveLength(0);
+    await expect(add(ALICE, 'alice', 1000, id)).resolves.toMatchObject({ id });
+    expect(await listOtpRecords(ALICE)).toEqual([expect.objectContaining({ id, position: 1000 })]);
+    expect(await listOtpRecords(BOB)).toEqual([expect.objectContaining({ id, position: 1000 })]);
+
+    // Bob's writes never reach Alice's row with the same id.
+    await deleteOtpRecord(BOB, id, 1);
+    expect((await listOtpRecords(ALICE))[0]).toMatchObject({ deletedAt: null });
   });
 
   it('rejects an id belonging to a tombstone — a deleted credential stays deleted', async () => {

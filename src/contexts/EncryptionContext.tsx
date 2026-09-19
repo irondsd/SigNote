@@ -5,12 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import posthog from 'posthog-js';
 import { trpcClient } from '@/lib/trpcClient';
-import { clearDeviceShare, loadDeviceShare, saveDeviceShare } from '@/lib/crypto';
+import { clearDeviceShare, deriveVaultKeyId, loadDeviceShare, saveDeviceShare } from '@/lib/crypto';
 import { clearStoredMaterial, type MaterialCachePolicy } from '@/lib/encryptionMaterialStore';
 import { createEncryptionMaterialPreloader, fetchEncryptionMaterial } from '@/lib/encryptionMaterial';
 import {
   acquireVaultKeyFromMaterial,
   acquireVaultKeyWithPassphrase,
+  backfillVaultKeyIdAfterUnlock,
   createVaultProfile,
   IncorrectPassphraseError,
   reconstructMek,
@@ -26,6 +27,7 @@ type ProfileData = {
   salt: string;
   kdf: KdfParams;
   keyCheck: EncryptedPayload;
+  vaultKeyId: string | null;
 };
 
 type ProfileResponse = { exists: false } | ({ exists: true } & ProfileData);
@@ -76,8 +78,12 @@ function useMekRehydration(
       try {
         const material = await fetchEncryptionMaterial(policyRef.current);
         const key = await reconstructMek(deviceShare, material);
-        if (key) setMek(key);
-        else clearDeviceShare();
+        if (key) {
+          setMek(key);
+          if (!material.vaultKeyId) {
+            void backfillVaultKeyIdAfterUnlock(await deriveVaultKeyId(key)).catch(() => undefined);
+          }
+        } else clearDeviceShare();
       } catch {
         // Silently fail; user will need to unlock manually
       }
@@ -169,12 +175,23 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   const unlock = useCallback(
     async (passphrase: string): Promise<CryptoKey> => {
       const material = await unlockMaterialPreloader.load(policyRef.current);
-      const { mek: key, deviceShare } = await acquireVaultKeyFromMaterial(passphrase, material).catch((error) => {
+      const {
+        mek: key,
+        deviceShare,
+        vaultKeyId,
+      } = await acquireVaultKeyFromMaterial(passphrase, material).catch((error) => {
         // Wrong-password retries can safely reuse the same material. Any other
         // crypto/material failure gets a fresh request on the next attempt.
         if (!(error instanceof IncorrectPassphraseError)) unlockMaterialPreloader.clear();
         throw error;
       });
+      if (!material.vaultKeyId) {
+        const saved = await backfillVaultKeyIdAfterUnlock(vaultKeyId).then(
+          () => true,
+          () => false,
+        );
+        if (saved) void qc.invalidateQueries({ queryKey: ['encryption-profile'] });
+      }
       saveDeviceShare(deviceShare);
       setMek(key);
       setLockType('none');
@@ -182,7 +199,7 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       unlockMaterialPreloader.clear();
       return key;
     },
-    [setMek, unlockMaterialPreloader],
+    [qc, setMek, unlockMaterialPreloader],
   );
 
   const verifyPassphrase = useCallback(async (passphrase: string): Promise<void> => {
@@ -225,11 +242,18 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       clearDeviceShare();
       throw new Error('Failed to rehydrate');
     }
+    if (!material.vaultKeyId) {
+      const saved = await backfillVaultKeyIdAfterUnlock(await deriveVaultKeyId(key)).then(
+        () => true,
+        () => false,
+      );
+      if (saved) void qc.invalidateQueries({ queryKey: ['encryption-profile'] });
+    }
     setMek(key);
     setLockType('none');
     sessionStorage.removeItem(SOFT_LOCK_TS_KEY);
     return key;
-  }, [setMek]);
+  }, [qc, setMek]);
 
   const setupProfile = useCallback(
     async (passphrase: string): Promise<void> => {

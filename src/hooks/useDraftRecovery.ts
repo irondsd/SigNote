@@ -12,6 +12,7 @@ import {
   type StoredDraft,
 } from '@/lib/draft';
 import type { EncryptedPayload } from '@/types/crypto';
+import { activeAccountScope } from '@/lib/accountScope';
 
 /** One durable slot per editor, with synchronous flushes before saves/backgrounding. */
 export function useDraftRecovery(
@@ -75,6 +76,7 @@ export function useDraftRecovery(
   const snapshot = useCallback(
     (): DraftData => ({
       ...latest.current.content,
+      ownerUserId: activeAccountScope().userId ?? undefined,
       type: latest.current.type,
       draftId,
       savedAt: Date.now(),

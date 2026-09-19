@@ -51,10 +51,11 @@ export const getSealsByUserId = (
   tagMode: 'or' | 'and' = 'or',
 ) => sealTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<SealRow[]>;
 
-export const getSealById = (id: string) => sealTier.getByIdActive(id) as Promise<SealRow | null>;
-export const getSealVersions = (id: string) => sealTier.getVersionsByIdActive(id);
-export const deleteSealVersion = (id: string, versionId: string) =>
-  sealTier.deleteVersionById(id, versionId) as Promise<SealRow | null>;
+export const getSealById = (userId: string, id: string) =>
+  sealTier.getByIdActive(userId, id) as Promise<SealRow | null>;
+export const getSealVersions = (userId: string, id: string) => sealTier.getVersionsByIdActive(userId, id);
+export const deleteSealVersion = (userId: string, id: string, versionId: string) =>
+  sealTier.deleteVersionById(userId, id, versionId) as Promise<SealRow | null>;
 
 type UpdateSealInput = {
   title?: string;
@@ -62,8 +63,8 @@ type UpdateSealInput = {
   wrappedNoteKey?: EncryptedPayload | null;
 };
 
-export const updateSeal = (id: string, data: UpdateSealInput) =>
-  sealTier.updateWithVersion(id, (head) => {
+export const updateSeal = (userId: string, id: string, data: UpdateSealInput) =>
+  sealTier.updateWithVersion(userId, id, (head) => {
     const headBody = head.encryptedBody as EncryptedPayload | null;
     const nextTitle = data.title !== undefined ? data.title : (head.title as string);
     const nextBody = data.encryptedBody !== undefined ? data.encryptedBody : headBody;
@@ -86,8 +87,9 @@ export const updateSeal = (id: string, data: UpdateSealInput) =>
  * See `restoreNoteVersion`. The head's wrappedNoteKey is intentionally left
  * untouched — the per-note NEK never rotates and decrypts every version body.
  */
-export const restoreSealVersion = (id: string, versionId: string) =>
+export const restoreSealVersion = (userId: string, id: string, versionId: string) =>
   sealTier.restoreVersion(
+    userId,
     id,
     versionId,
     (version) => ({ title: version.title, encryptedBody: version.encryptedBody }),

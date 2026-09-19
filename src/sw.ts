@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist } from 'serwist';
+import { ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist, type RouteHandlerCallback } from 'serwist';
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -22,12 +22,85 @@ declare const self: ServiceWorkerGlobalScope;
  */
 const ROTATION_SENSITIVE_PROCEDURES = ['rotation.', 'encryption.', 'secrets.', 'seals.', 'otp.'];
 
+type VaultDownload = {
+  stream: ReadableStream<Uint8Array>;
+  filename: string;
+  port: MessagePort;
+  expires: ReturnType<typeof setTimeout>;
+  claimed: boolean;
+  cancel?: (reason: unknown) => Promise<void>;
+};
+const vaultDownloads = new Map<string, VaultDownload>();
+const VAULT_DOWNLOAD_PATH = '/__signote/vault-download/';
+const VAULT_DOWNLOAD_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const safeDownloadName = (value: unknown) =>
+  typeof value === 'string' && /^signote-vault-[0-9]{4}-[0-9]{2}-[0-9]{2}\.snvault$/.test(value)
+    ? value
+    : 'signote-vault.snvault';
+
+const vaultDownloadHandler: RouteHandlerCallback = async ({ url }) => {
+  const token = url.pathname.slice(VAULT_DOWNLOAD_PATH.length);
+  const download = vaultDownloads.get(token);
+  if (!download || download.claimed) return new Response('Download unavailable', { status: 404 });
+  download.claimed = true;
+  clearTimeout(download.expires);
+  let bytesWritten = 0;
+  const reader = download.stream.getReader();
+  let settled = false;
+  const notify = (message: { type: string; bytesWritten?: number }) => {
+    if (settled) return;
+    settled = true;
+    vaultDownloads.delete(token);
+    download.port.postMessage(message);
+    download.port.close();
+  };
+  download.cancel = async (reason) => {
+    await reader.cancel(reason).catch(() => undefined);
+    notify({ type: 'error' });
+  };
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          notify({ type: 'complete', bytesWritten });
+        } else {
+          bytesWritten += value.byteLength;
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        controller.error(error);
+        notify({ type: 'error' });
+      }
+    },
+    async cancel(reason) {
+      await download.cancel?.(reason);
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/vnd.signote.vault',
+      'Content-Disposition': `attachment; filename="${download.filename}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    {
+      matcher: ({ url, sameOrigin }) =>
+        sameOrigin &&
+        url.pathname.startsWith(VAULT_DOWNLOAD_PATH) &&
+        VAULT_DOWNLOAD_TOKEN.test(url.pathname.slice(VAULT_DOWNLOAD_PATH.length)),
+      handler: vaultDownloadHandler,
+    },
     // Cache page navigations so offline refresh works on all routes (/secrets, /seals, etc.).
     // Without this, only statically precached pages (e.g. /) survive an offline refresh.
     {
@@ -101,6 +174,10 @@ const serwist = new Serwist({
       matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/api/files'),
       handler: new NetworkOnly(),
     },
+    {
+      matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/api/vault-export'),
+      handler: new NetworkOnly(),
+    },
     // Signed storage transfers are cross-origin, so they must be claimed before
     // the generic cross-origin and image rules in `defaultCache`. A presigned
     // URL is single-use by design and its response carries `no-store`; caching
@@ -150,6 +227,7 @@ workerScope.addEventListener('activate', (event) => {
             new URL(request.url).searchParams.has('X-Amz-Signature') ||
             pathname.includes('/rotation/') ||
             pathname.startsWith('/api/files') ||
+            pathname.startsWith('/api/vault-export') ||
             (pathname.startsWith('/api/trpc') &&
               ROTATION_SENSITIVE_PROCEDURES.some((procedure) => pathname.includes(procedure)));
           if (stale) await cache.delete(request);
@@ -168,5 +246,54 @@ workerScope.addEventListener('activate', (event) => {
     ): void;
   }
 ).addEventListener('message', (event) => {
-  if (event.data?.type === 'SIGNOTE_ROTATION_PROTOCOL') event.ports[0]?.postMessage({ rotationProtocol: 1 });
+  if (event.data?.type === 'SIGNOTE_ROTATION_PROTOCOL') {
+    event.ports[0]?.postMessage({ rotationProtocol: 1 });
+    return;
+  }
+  if (event.data?.type === 'SIGNOTE_VAULT_DOWNLOAD_PROTOCOL') {
+    event.ports[0]?.postMessage({ vaultDownloadProtocol: 1 });
+    return;
+  }
+  if (event.data?.type !== 'SIGNOTE_VAULT_DOWNLOAD_REGISTER') return;
+  const { token, stream } = event.data as { token?: unknown; stream?: unknown };
+  const port = event.ports[0];
+  if (
+    typeof token !== 'string' ||
+    !VAULT_DOWNLOAD_TOKEN.test(token) ||
+    !(stream instanceof ReadableStream) ||
+    !port ||
+    vaultDownloads.has(token) ||
+    vaultDownloads.size >= 4
+  ) {
+    port?.postMessage({ type: 'error' });
+    port?.close();
+    return;
+  }
+  const expires = setTimeout(() => {
+    const pending = vaultDownloads.get(token);
+    if (!pending) return;
+    vaultDownloads.delete(token);
+    void pending.stream.cancel('expired').catch(() => undefined);
+    pending.port.postMessage({ type: 'expired' });
+    pending.port.close();
+  }, 120_000);
+  vaultDownloads.set(token, {
+    stream: stream as ReadableStream<Uint8Array>,
+    filename: safeDownloadName((event.data as { filename?: unknown }).filename),
+    port,
+    expires,
+    claimed: false,
+  });
+  port.postMessage({ type: 'registered' });
+  port.addEventListener('message', (message) => {
+    if (message.data?.type !== 'cancel') return;
+    const pending = vaultDownloads.get(token);
+    if (!pending) return;
+    vaultDownloads.delete(token);
+    clearTimeout(pending.expires);
+    if (pending.cancel) void pending.cancel('cancelled');
+    else void pending.stream.cancel('cancelled').catch(() => undefined);
+    pending.port.close();
+  });
+  port.start();
 });

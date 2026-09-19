@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { getSealFileAad, getSealKeyString, HKDF_INFO_FILE_ENC } from '../../src/config/constants';
 import { fileAttachments, sealNotes } from '../../src/db/schema';
@@ -128,8 +128,13 @@ export async function decryptStoredFile(
   fileId: string,
   mekBytes: Uint8Array,
   generation = 0,
+  /** Ids are unique per account: name the owner when two accounts may share one. */
+  userId?: string,
 ): Promise<Uint8Array> {
-  const [row] = await testDb().select().from(fileAttachments).where(eq(fileAttachments.id, fileId));
+  const [row] = await testDb()
+    .select()
+    .from(fileAttachments)
+    .where(and(eq(fileAttachments.id, fileId), userId ? eq(fileAttachments.userId, userId) : undefined));
   if (!row?.encryptionIv) throw new Error('File attachment has no IV');
   const response = await request.get(`/api/files/${fileId}`, {
     headers: { 'x-signote-encryption-generation': String(generation) },
@@ -139,7 +144,10 @@ export async function decryptStoredFile(
   const iv = fromBase64(row.encryptionIv);
   if (row.keyScope === 'seal') {
     // Under its Seal's note key, which is read through the Seal's current wrapper.
-    const [seal] = await testDb().select().from(sealNotes).where(eq(sealNotes.id, row.keyNoteId!));
+    const [seal] = await testDb()
+      .select()
+      .from(sealNotes)
+      .where(and(eq(sealNotes.id, row.keyNoteId!), eq(sealNotes.userId, row.userId)));
     if (!seal?.wrappedNoteKey) throw new Error('Seal attachment has no Seal key');
     const plain = await globalThis.crypto.subtle.decrypt(
       { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(getSealFileAad(seal.id)) },

@@ -125,6 +125,7 @@ async function addProfile(userId = USER): Promise<void> {
     salt: 'salt-value',
     kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: 1_000, length: 32 },
     keyCheck: payload('key-check'),
+    vaultKeyId: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   });
 }
 
@@ -165,16 +166,16 @@ describe('ordinary encrypted tier writes are fenced', () => {
     const seal = await createSeal(USER, 'seal', payload('seal-1'), payload('wrapped'));
     await activate();
 
-    await expectConflict(updateSecretColor(secret._id, 'red'));
-    await expectConflict(updateSealColor(seal._id, 'blue'));
-    await expectConflict(updateSecret(secret._id, 'secret-2', payload('secret-2')));
-    await expectConflict(updateSeal(seal._id, { title: 'seal-2', encryptedBody: payload('seal-2') }));
-    await expectConflict(secretOps.applyPatch(secret._id, { burnAfterReading: true }));
-    await expectConflict(sealOps.applyPatch(seal._id, { burnAfterReading: true }));
-    expect(await getSecretById(secret._id)).toMatchObject({ _id: secret._id, generation: 0 });
-    expect(await getSealById(seal._id)).toMatchObject({ _id: seal._id, generation: 0 });
-    expect(await getSecretVersions(secret._id)).toMatchObject({ userId: USER, versions: [] });
-    expect(await getSealVersions(seal._id)).toMatchObject({ userId: USER, versions: [] });
+    await expectConflict(updateSecretColor(USER, secret._id, 'red'));
+    await expectConflict(updateSealColor(USER, seal._id, 'blue'));
+    await expectConflict(updateSecret(USER, secret._id, 'secret-2', payload('secret-2')));
+    await expectConflict(updateSeal(USER, seal._id, { title: 'seal-2', encryptedBody: payload('seal-2') }));
+    await expectConflict(secretOps.applyPatch(USER, secret._id, { burnAfterReading: true }));
+    await expectConflict(sealOps.applyPatch(USER, seal._id, { burnAfterReading: true }));
+    expect(await getSecretById(USER, secret._id)).toMatchObject({ _id: secret._id, generation: 0 });
+    expect(await getSealById(USER, seal._id)).toMatchObject({ _id: seal._id, generation: 0 });
+    expect(await getSecretVersions(USER, secret._id)).toMatchObject({ userId: USER, versions: [] });
+    expect(await getSealVersions(USER, seal._id)).toMatchObject({ userId: USER, versions: [] });
 
     const [storedSecret] = await db.select().from(secretNotes).where(eq(secretNotes.id, secret._id));
     const [storedSeal] = await db.select().from(sealNotes).where(eq(sealNotes.id, seal._id));
@@ -323,7 +324,7 @@ describe('generation fencing and response labels', () => {
     await setState(USER, { generation: 1, activeRotationId: null });
 
     await expectConflict(getProfileByUserId(USER), 'GENERATION_MISMATCH');
-    await expectConflict(getSecretById(secret._id), 'GENERATION_MISMATCH');
+    await expectConflict(getSecretById(USER, secret._id), 'GENERATION_MISMATCH');
     await expectConflict(listOtpRecords(USER), 'GENERATION_MISMATCH');
     await expectConflict(getFileAttachment(file.id, USER), 'GENERATION_MISMATCH');
     await expectConflict(createTag(USER, 'stale-write'), 'GENERATION_MISMATCH');
@@ -343,10 +344,10 @@ describe('generation fencing and response labels', () => {
 
     await withRequestGeneration('3', async () => {
       expect((await getProfileByUserId(USER))?.generation).toBe(3);
-      expect((await getSecretById(secret._id))?.generation).toBe(3);
+      expect((await getSecretById(USER, secret._id))?.generation).toBe(3);
       expect((await listOtpRecords(USER)).find((row) => row.id === otp.id)?.generation).toBe(3);
       expect((await getFileAttachment(file.id, USER))?.generation).toBe(3);
-      expect((await updateSecretColor(secret._id, 'red'))?.generation).toBe(3);
+      expect((await updateSecretColor(USER, secret._id, 'red'))?.generation).toBe(3);
     });
   });
 });

@@ -39,13 +39,14 @@ export const getSecretsByUserId = (
   tagMode: 'or' | 'and' = 'or',
 ) => secretTier.list(userId, { archived, limit, offset, search, tagIds, tagMode }) as Promise<SecretRow[]>;
 
-export const getSecretById = (id: string) => secretTier.getByIdActive(id) as Promise<SecretRow | null>;
-export const getSecretVersions = (id: string) => secretTier.getVersionsByIdActive(id);
-export const deleteSecretVersion = (id: string, versionId: string) =>
-  secretTier.deleteVersionById(id, versionId) as Promise<SecretRow | null>;
+export const getSecretById = (userId: string, id: string) =>
+  secretTier.getByIdActive(userId, id) as Promise<SecretRow | null>;
+export const getSecretVersions = (userId: string, id: string) => secretTier.getVersionsByIdActive(userId, id);
+export const deleteSecretVersion = (userId: string, id: string, versionId: string) =>
+  secretTier.deleteVersionById(userId, id, versionId) as Promise<SecretRow | null>;
 
-export const updateSecret = (id: string, title: string, encryptedBody: EncryptedPayload | null) =>
-  secretTier.updateWithVersion(id, (head) => {
+export const updateSecret = (userId: string, id: string, title: string, encryptedBody: EncryptedPayload | null) =>
+  secretTier.updateWithVersion(userId, id, (head) => {
     const headBody = head.encryptedBody as EncryptedPayload | null;
     return {
       // No-op edit: identical title and ciphertext. (Re-encryption changes the
@@ -58,8 +59,9 @@ export const updateSecret = (id: string, title: string, encryptedBody: Encrypted
   }) as Promise<SecretRow | null>;
 
 /** See `restoreNoteVersion` — same semantics for the secret tier. */
-export const restoreSecretVersion = (id: string, versionId: string) =>
+export const restoreSecretVersion = (userId: string, id: string, versionId: string) =>
   secretTier.restoreVersion(
+    userId,
     id,
     versionId,
     (version) => ({ title: version.title, encryptedBody: version.encryptedBody }),

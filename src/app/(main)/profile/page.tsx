@@ -21,6 +21,8 @@ import {
   Info,
   ShieldAlert,
   RefreshCw,
+  PackageOpen,
+  ArchiveRestore,
 } from 'lucide-react';
 import { InlineSvg } from '@irondsd/inline-svg';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +45,7 @@ import { useTags } from '@/hooks/useTags';
 import { SignInMethods } from '@/components/SignInMethods/SignInMethods';
 import { useSecurityPreferences, useUpdateSecurityPreferences } from '@/hooks/useSecurityPreferences';
 import { useRotationAvailability } from '@/hooks/useRotationAvailability';
+import { useVaultExportAvailability } from '@/hooks/useVaultExportAvailability';
 import s from './page.module.scss';
 import Link from 'next/link';
 import { announceVaultRemoval, loadVault, removeVault } from '@/lib/otpStore';
@@ -149,6 +152,7 @@ function ProfilePageContent() {
   const { mutate: updateDisplayName, isPending: isSaving } = useUpdateDisplayName();
   const { data: security, isLoading: securityLoading } = useSecurityPreferences();
   const { data: rotation } = useRotationAvailability();
+  const { data: vaultExport } = useVaultExportAvailability();
   const { mutate: updateSecurity } = useUpdateSecurityPreferences();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -207,6 +211,11 @@ function ProfilePageContent() {
     } else if (linkError === 'encrypted_data') {
       toast.error(
         'This account has encrypted data (secrets or seals). Sign in to that account, erase its encryption profile under Danger Zone, then try again.',
+        { duration: 8000 },
+      );
+    } else if (linkError === 'merge_collision') {
+      toast.error(
+        'These accounts contain restored items with matching internal IDs, so they cannot be combined safely. Keep them separate or remove the duplicate data from one account first.',
         { duration: 8000 },
       );
     } else if (linkError === 'already_linked') {
@@ -539,6 +548,49 @@ function ProfilePageContent() {
                   No email address on this account
                 </TooltipOrPopover>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data portability. VAULT_EXPORT_DISABLED hides Export only: a
+            deployment that stops exports must still let people import in. */}
+        <Card data-testid="data-portability-section">
+          <CardHeader>
+            <CardTitle>Data portability</CardTitle>
+          </CardHeader>
+          <CardContent className={s.securityBody}>
+            {vaultExport?.available && (
+              <>
+                <div className={s.actionRow}>
+                  <div className={s.actionInfo}>
+                    <span className={s.actionLabel}>Export vault</span>
+                    <span className={s.actionDesc}>
+                      Download a portable, password-encrypted copy for backup or migration to another SigNote.
+                    </span>
+                  </div>
+                  <Link href="/export">
+                    <Button variant="outline" size="sm" data-testid="export-vault-btn">
+                      <PackageOpen size={14} aria-hidden="true" />
+                      Export
+                    </Button>
+                  </Link>
+                </div>
+                <div className={s.divider} />
+              </>
+            )}
+            <div className={s.actionRow}>
+              <div className={s.actionInfo}>
+                <span className={s.actionLabel}>Import vault</span>
+                <span className={s.actionDesc}>
+                  Restore a portable archive, or merge one into this vault. Its password never leaves this browser.
+                </span>
+              </div>
+              <Link href="/import">
+                <Button variant="outline" size="sm" data-testid="import-vault-btn">
+                  <ArchiveRestore size={14} aria-hidden="true" />
+                  Import
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

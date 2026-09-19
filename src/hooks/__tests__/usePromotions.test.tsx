@@ -6,6 +6,9 @@ import type { ReactNode } from 'react';
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
 jest.mock('sonner', () => ({ toast: { success: jest.fn() } }));
 jest.mock('next/navigation', () => ({ useRouter: jest.fn() }));
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ status: 'authenticated', data: { user: { id: 'user' } } }),
+}));
 jest.mock('@/lib/trpcClient', () => ({
   trpcClient: {
     promotions: {
@@ -60,7 +63,7 @@ it('waits for the source version query to be cancelled before promotion starts',
 
   await waitFor(() =>
     expect(cancelQueries).toHaveBeenCalledWith({
-      queryKey: ['versions', 'secrets', 'secret-id'],
+      queryKey: ['versions', 'user', 'secrets', 'secret-id'],
       exact: true,
     }),
   );

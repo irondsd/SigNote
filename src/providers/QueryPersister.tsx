@@ -5,6 +5,7 @@
 
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { persistQueryClient } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { confirmedQueryState } from '@/lib/confirmedQueryState';
@@ -14,8 +15,10 @@ const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days — matches session maxAge
 
 export default function QueryPersister() {
   const queryClient = useQueryClient();
+  const { data: session, status } = useSession();
 
   useEffect(() => {
+    if (status === 'loading') return;
     const persister = createAsyncStoragePersister({
       storage: queryCacheStorage,
       key: 'signote-query-cache',
@@ -33,7 +36,9 @@ export default function QueryPersister() {
           }),
       },
       maxAge: MAX_AGE,
-      buster: process.env.NEXT_PUBLIC_APP_VERSION ?? '',
+      // A single browser can sign into accounts that legitimately own the same
+      // portable ids. Never hydrate one account's snapshot into another.
+      buster: `${process.env.NEXT_PUBLIC_APP_VERSION ?? ''}:${session?.user.id ?? 'signed-out'}`,
       dehydrateOptions: { shouldDehydrateMutation: () => false },
       // NOTE Phase 3: if a TanStack Query key for encryption material is added,
       // add a shouldDehydrateQuery filter here to exclude it from IDB.
@@ -43,7 +48,7 @@ export default function QueryPersister() {
     restoredPromise.catch(() => {});
 
     return unsubscribe;
-  }, [queryClient]);
+  }, [queryClient, session?.user.id, status]);
 
   return null;
 }

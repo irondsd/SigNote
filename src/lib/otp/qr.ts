@@ -8,9 +8,10 @@
  *  - `BarcodeDetector`, native and fast, present in Chromium and Android;
  *  - jsQR, pure JavaScript, everywhere else.
  *
- * jsQR rather than a WASM decoder on purpose: the production CSP is
- * `script-src 'self' 'unsafe-inline'` with no `'wasm-unsafe-eval'` and no
- * `worker-src`, so zxing-wasm and blob-URL workers fail silently there.
+ * jsQR rather than a WASM decoder: it was chosen when the production CSP had
+ * no `'wasm-unsafe-eval'`. The CSP now allows WASM (the vault backup workers
+ * need libsodium), but still has no `worker-src`, so blob-URL workers fail
+ * silently there.
  */
 
 import jsQR from 'jsqr';

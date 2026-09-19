@@ -6,6 +6,9 @@ import { useCreateTier, useDeleteTier, useUndeleteTier, useUpdateTier } from '..
 
 jest.mock('posthog-js', () => ({ capture: jest.fn() }));
 jest.mock('sonner', () => ({ toast: { error: jest.fn() } }));
+jest.mock('next-auth/react', () => ({
+  useSession: () => ({ status: 'authenticated', data: { user: { id: 'user' } } }),
+}));
 jest.mock('@/hooks/useVersions', () => ({ versionsKey: (tier: string, id: string) => ['versions', tier, id] }));
 
 type Item = { _id: string; archived: boolean; title: string; content: string; updatedAt: string; color?: string };

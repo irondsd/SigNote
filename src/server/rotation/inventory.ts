@@ -30,8 +30,8 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
       select coalesce(octet_length(encrypted_body->>'ciphertext'), 0) as bytes from secret_notes where user_id = ${userId}
       union all select coalesce(octet_length(encrypted_body->>'ciphertext'), 0) from seal_notes where user_id = ${userId}
       union all select coalesce(octet_length(wrapped_note_key->>'ciphertext'), 0) from seal_notes where user_id = ${userId}
-      union all select coalesce(octet_length(v.encrypted_body->>'ciphertext'), 0) from secret_note_versions v join secret_notes n on n.id = v.note_id where n.user_id = ${userId}
-      union all select coalesce(octet_length(v.encrypted_body->>'ciphertext'), 0) from seal_note_versions v join seal_notes n on n.id = v.note_id where n.user_id = ${userId}
+      union all select coalesce(octet_length(v.encrypted_body->>'ciphertext'), 0) from secret_note_versions v join secret_notes n on n.user_id = v.user_id and n.id = v.note_id where n.user_id = ${userId}
+      union all select coalesce(octet_length(v.encrypted_body->>'ciphertext'), 0) from seal_note_versions v join seal_notes n on n.user_id = v.user_id and n.id = v.note_id where n.user_id = ${userId}
       union all select coalesce(octet_length(payload->>'ciphertext'), 0) from otp_records where user_id = ${userId}
       union all select 0 from file_attachments where user_id = ${userId} and encrypted and storage_deleted_at is null
     ) resources
@@ -75,9 +75,12 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
         .select()
         .from(secretNoteTags)
         .where(
-          inArray(
-            secretNoteTags.noteId,
-            secrets.map((row) => row.id),
+          and(
+            eq(secretNoteTags.userId, userId),
+            inArray(
+              secretNoteTags.noteId,
+              secrets.map((row) => row.id),
+            ),
           ),
         )
         .orderBy(asc(secretNoteTags.noteId), asc(secretNoteTags.sortOrder), asc(secretNoteTags.tagId))
@@ -87,9 +90,12 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
         .select()
         .from(sealNoteTags)
         .where(
-          inArray(
-            sealNoteTags.noteId,
-            seals.map((row) => row.id),
+          and(
+            eq(sealNoteTags.userId, userId),
+            inArray(
+              sealNoteTags.noteId,
+              seals.map((row) => row.id),
+            ),
           ),
         )
         .orderBy(asc(sealNoteTags.noteId), asc(sealNoteTags.sortOrder), asc(sealNoteTags.tagId))
@@ -106,9 +112,12 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
       .select()
       .from(secretNoteVersions)
       .where(
-        inArray(
-          secretNoteVersions.noteId,
-          secrets.map((row) => row.id),
+        and(
+          eq(secretNoteVersions.userId, userId),
+          inArray(
+            secretNoteVersions.noteId,
+            secrets.map((row) => row.id),
+          ),
         ),
       )
       .orderBy(asc(secretNoteVersions.seq))
@@ -120,9 +129,12 @@ export async function captureInventory(db: Db, userId: string, limits: RotationL
       .select()
       .from(sealNoteVersions)
       .where(
-        inArray(
-          sealNoteVersions.noteId,
-          seals.map((row) => row.id),
+        and(
+          eq(sealNoteVersions.userId, userId),
+          inArray(
+            sealNoteVersions.noteId,
+            seals.map((row) => row.id),
+          ),
         ),
       )
       .orderBy(asc(sealNoteVersions.seq))

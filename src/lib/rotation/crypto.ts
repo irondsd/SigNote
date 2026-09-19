@@ -4,6 +4,7 @@ import {
   createKeyCheck,
   decryptBytesAesGcm,
   deriveDeviceShare,
+  deriveVaultKeyId,
   deriveFileEncKey,
   encodeUtf8,
   deriveOtpVaultKey,
@@ -28,6 +29,7 @@ export type RotationMaterial = {
   kdf: KdfParams;
   serverShare: string;
   keyCheck: EncryptedPayload;
+  vaultKeyId: string;
 };
 
 function decodeCanonical(value: string, size?: number): Uint8Array<ArrayBuffer> {
@@ -58,6 +60,7 @@ export async function createRotationMaterial(passphrase: string) {
       kdf,
       serverShare: toBase64(xor32(rawMek, deviceShare)),
       keyCheck: await createKeyCheck(mek),
+      vaultKeyId: await deriveVaultKeyId(mek),
     };
     // Only material is safe to stage. deviceShare belongs in the recovery file.
     return { material, mek, deviceShare };
@@ -95,7 +98,11 @@ export async function reopenRotationMaterial(
   const rawMek = xor32(deviceShare, serverShare);
   try {
     const mek = await importMEK(rawMek);
-    if (!(await verifyKeyCheck(mek, material.keyCheck))) {
+    if (
+      !(await verifyKeyCheck(mek, material.keyCheck)) ||
+      !material.vaultKeyId ||
+      (await deriveVaultKeyId(mek)) !== material.vaultKeyId
+    ) {
       deviceShare.fill(0);
       throw new Error('Invalid rotation credentials');
     }

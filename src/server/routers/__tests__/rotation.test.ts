@@ -28,6 +28,7 @@ const input = {
       iv: Buffer.alloc(12, 3).toString('base64'),
       ciphertext: Buffer.alloc(32, 4).toString('base64'),
     },
+    vaultKeyId: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
   },
   protocolVersion: 1,
   acknowledgements: { localDraftsResolved: true, otherDeviceDraftLoss: true },

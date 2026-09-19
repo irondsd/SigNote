@@ -55,14 +55,16 @@ function dropLocalKeyMaterial(): boolean {
  * be opened again — this is exactly the loss the wizard made the user
  * acknowledge. Plaintext Note drafts are untouched: nothing about them changed.
  */
-function dropEncryptedDrafts(): boolean {
+function dropEncryptedDrafts(userId: string): boolean {
   try {
     // Check access explicitly; loadDrafts tolerates unavailable storage.
     void localStorage.length;
-    for (const draft of loadDrafts()) {
+    const belongsToGeneration = (draft: ReturnType<typeof loadDrafts>[number]) =>
+      !draft.ownerUserId || draft.ownerUserId === userId;
+    for (const draft of loadDrafts().filter(belongsToGeneration)) {
       if (draft.enc !== undefined) clearDraft(draft);
     }
-    return !loadDrafts().some((draft) => draft.enc !== undefined);
+    return !loadDrafts().filter(belongsToGeneration).some((draft) => draft.enc !== undefined);
   } catch {
     // A malformed draft store is diagnosed in the wizard, not silently wiped.
     return false;
@@ -108,7 +110,7 @@ export async function reconcileToGeneration({
   };
 
   if (!dropLocalKeyMaterial()) ok = false;
-  if (!dropEncryptedDrafts()) ok = false;
+  if (!dropEncryptedDrafts(userId)) ok = false;
 
   // Removing only the IndexedDB snapshot leaves cached ciphertext available
   // during the next mount's background refetch. Cancel first so a pending query
