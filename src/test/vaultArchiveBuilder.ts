@@ -6,9 +6,7 @@ import { collectChunks } from '../lib/vaultBackup/stream';
 
 /**
  * Builds real, correctly encrypted v1 archives whose *contents* can be bent in
- * every way the format forbids. Used by the importer's adversarial tests and by
- * scripts/verifyVaultFormat.ts, which checks that SigNote and the independent
- * reference reader (tools/snvault) accept and reject exactly the same archives.
+ * every way the format forbids. Used by the importer's adversarial tests.
  */
 
 export const PASSWORD = 'correct horse battery staple';
