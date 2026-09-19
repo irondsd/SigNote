@@ -171,5 +171,8 @@
     "prosemirror-model": "1.25.4",
     "prosemirror-transform": "1.11.0",
     "prosemirror-view": "1.41.6"
+  },
+  "patchedDependencies": {
+    "drizzle-kit@0.31.10": "patches/drizzle-kit@0.31.10.patch"
   }
 }

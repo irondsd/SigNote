@@ -102,6 +102,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "drizzle-kit@0.31.10": "patches/drizzle-kit@0.31.10.patch",
+  },
   "overrides": {
     "@tiptap/core": "3.22.3",
     "@tiptap/extension-blockquote": "3.20.1",

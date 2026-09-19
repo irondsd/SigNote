@@ -1,0 +1,18 @@
+diff --git a/bin.cjs b/bin.cjs
+index 07274ea6f53fd54a129b3d338892feda6e995cff..0184cbe5c9909e54a3474a1d5cc47022c67074a1 100755
+--- a/bin.cjs
++++ b/bin.cjs
+@@ -17737,7 +17737,12 @@ WHERE
+       JOIN information_schema.constraint_column_usage AS ccu USING (constraint_schema, constraint_name)
+       JOIN information_schema.columns AS c ON c.table_schema = tc.constraint_schema
+         AND tc.table_name = c.table_name AND ccu.column_name = c.column_name
+-      WHERE tc.table_name = '${tableName}' and constraint_schema = '${tableSchema}';`
++      WHERE tc.table_name = '${tableName}' and constraint_schema = '${tableSchema}'
++      ORDER BY constraint_name, (
++        SELECT kcu.ordinal_position FROM information_schema.key_column_usage kcu
++        WHERE kcu.constraint_schema = tc.constraint_schema AND kcu.constraint_name = tc.constraint_name
++          AND kcu.table_name = tc.table_name AND kcu.column_name = c.column_name
++      );`
+             );
+             const tableChecks = await db.query(`SELECT 
+ 						tc.constraint_name,
