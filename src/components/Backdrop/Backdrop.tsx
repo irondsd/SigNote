@@ -11,6 +11,27 @@ type BackdropProps = {
   animate?: boolean;
 };
 
+// Backdrops nest (a confirm dialog over a modal) and unmount parent-first, so
+// each one restoring its own snapshot would leave the app inert. Instead, one
+// stack owns the state: everything but the topmost backdrop is inert, and the
+// original values come back once the last one closes.
+const openBackdrops: HTMLElement[] = [];
+const originalInert = new Map<HTMLElement, boolean>();
+
+function syncInert() {
+  for (const [element, wasInert] of originalInert) element.inert = wasInert;
+  originalInert.clear();
+
+  const top = openBackdrops.at(-1);
+  if (!top) return;
+  for (const child of document.body.children) {
+    // Toasts (e.g. "Undo") must stay clickable over a modal.
+    if (!(child instanceof HTMLElement) || child === top || child.hasAttribute('data-backdrop-exempt')) continue;
+    originalInert.set(child, child.inert);
+    child.inert = true;
+  }
+}
+
 export function Backdrop({ onClose, className, children, disableClose, animate = true }: BackdropProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -18,22 +39,16 @@ export function Backdrop({ onClose, className, children, disableClose, animate =
 
   useEffect(() => {
     const backdrop = backdropRef.current;
-    const inertState = new Map<HTMLElement, boolean>();
-    if (backdrop) {
-      for (const child of document.body.children) {
-        if (!(child instanceof HTMLElement) || child === backdrop) continue;
-        inertState.set(child, child.inert);
-        child.inert = true;
-      }
-    }
+    if (backdrop) openBackdrops.push(backdrop);
+    syncInert();
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = previousOverflow;
-      for (const [element, wasInert] of inertState) {
-        element.inert = wasInert;
-      }
+      const index = backdrop ? openBackdrops.lastIndexOf(backdrop) : -1;
+      if (index !== -1) openBackdrops.splice(index, 1);
+      syncInert();
     };
   }, []);
 

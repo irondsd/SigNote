@@ -69,3 +69,48 @@ it('makes the background inert and restores its previous state on unmount', () =
   expect(document.body).toHaveStyle({ overflow: 'scroll' });
   background.remove();
 });
+
+it('leaves nothing inert when nested backdrops unmount parent-first', () => {
+  const background = document.createElement('main');
+  background.inert = false;
+  document.body.appendChild(background);
+
+  const tree = (confirming: boolean) => (
+    <Backdrop onClose={jest.fn()}>
+      <div>Outer</div>
+      {confirming && (
+        <Backdrop onClose={jest.fn()}>
+          <div>Inner</div>
+        </Backdrop>
+      )}
+    </Backdrop>
+  );
+  // The confirm dialog opens after the modal, as it does in the app.
+  const view = render(tree(false));
+  view.rerender(tree(true));
+
+  const outer = screen.getByText('Outer').parentElement!;
+  expect(background.inert).toBe(true);
+  expect(outer.inert).toBe(true);
+
+  view.unmount();
+
+  expect(background.inert).toBe(false);
+  background.remove();
+});
+
+it('never makes an exempt element inert', () => {
+  const toaster = document.createElement('div');
+  toaster.setAttribute('data-backdrop-exempt', '');
+  document.body.appendChild(toaster);
+
+  const view = render(
+    <Backdrop onClose={jest.fn()}>
+      <div>Modal content</div>
+    </Backdrop>,
+  );
+
+  expect(toaster.inert).toBeFalsy();
+  view.unmount();
+  toaster.remove();
+});

@@ -29,7 +29,10 @@ export default async function RootLayout({
               </ReactQueryProvider>
             </EncryptionGenerationProvider>
           </AuthSessionProvider>
-          <Toaster />
+          {/* Clickable over a modal, but never part of a select-all: the draft toast names note titles. */}
+          <div data-backdrop-exempt className="select-none">
+            <Toaster />
+          </div>
           <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>
