@@ -100,6 +100,9 @@ export type VaultImportReview = {
   attachmentBytes: number;
   installsEncryptionProfile: boolean;
   mode: VaultImportMode;
+  /** Attachment bytes this account holds now, and what it may hold. */
+  storageUsedBytes: number;
+  storageLimitBytes: number;
 };
 
 /** What the destination holds under one archived id — never content, only the
@@ -135,6 +138,8 @@ export type VaultImportStagedRecord = {
   /** `replace`: the destination digest the user reviewed. Otherwise null. */
   expected: string | null;
   record: PortableTierRecord | PortableAuthenticator;
+  /** Only when the record is split across requests: its full history length. */
+  historyTotal?: number;
 };
 
 export type VaultImportPlan = {

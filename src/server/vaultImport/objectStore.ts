@@ -39,10 +39,13 @@ export function createVaultImportObjectStore(client: S3Client, bucket: string) {
       validate(value);
       return value;
     },
-    async uploadGrant(object: ImportObject, expiresIn: number) {
+    /** `contentType` is what the object is later served as: the attachment's
+     * own type for a plaintext file, opaque bytes for ciphertext. */
+    async uploadGrant(object: ImportObject & { contentType?: string }, expiresIn: number) {
       validate(object);
       if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > 300)
         throw new VaultImportStorageError('INVALID_OBJECT');
+      const contentType = object.contentType ?? 'application/octet-stream';
       const url = await getSignedUrl(
         client,
         new PutObjectCommand({
@@ -50,11 +53,11 @@ export function createVaultImportObjectStore(client: S3Client, bucket: string) {
           Key: object.key,
           ContentLength: object.bytes,
           IfNoneMatch: '*',
-          ContentType: 'application/octet-stream',
+          ContentType: contentType,
         }),
         { expiresIn, signableHeaders: new Set(['content-length', 'if-none-match']) },
       );
-      return { url, headers: { 'if-none-match': '*', 'content-type': 'application/octet-stream' } };
+      return { url, headers: { 'if-none-match': '*', 'content-type': contentType } };
     },
     async verify(object: ImportObject) {
       validate(object);

@@ -915,6 +915,10 @@ export const vaultImportItems = pgTable(
     etag: text('etag'),
     fileVerified: boolean('file_verified').notNull().default(false),
     grantExpiresAt: ts('grant_expires_at'),
+    // Staged records only: history versions still to come. A record too large
+    // for one request arrives as its head plus appended history; it counts as
+    // staged only once this reaches 0 (null for one sent whole).
+    pendingHistory: integer('pending_history'),
   },
   (t) => [
     primaryKey({ columns: [t.importId, t.kind, t.resourceId] }),

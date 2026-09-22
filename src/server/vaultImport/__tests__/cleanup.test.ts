@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
+import { MAX_USER_STORAGE } from '@/config/fileConstants';
 import type { Db } from '@/db/client';
 import { fileAttachments, users, vaultImportItems, vaultImports } from '@/db/schema';
 import type { VaultImportAnalysis } from '@/lib/vaultBackup/importTypes';
@@ -176,6 +177,47 @@ describe('vault import cleanup', () => {
     expect(storage.remove).not.toHaveBeenCalled();
     // The committed import's bookkeeping goes; the attachment stays.
     expect(await db.select().from(vaultImports)).toHaveLength(0);
+    expect(await db.select().from(fileAttachments)).toHaveLength(1);
+  });
+});
+
+describe('vault import attachments', () => {
+  const liveFile = (id: string, size: number) =>
+    db.insert(fileAttachments).values({
+      id,
+      userId: USER,
+      s3Key: `uploads/${USER}/${id}`,
+      filename: `${id}.bin`,
+      size,
+      mimeType: 'application/zip',
+    });
+
+  it('uploads a plaintext attachment under its own type, so it is served as one', async () => {
+    await staged();
+    expect(storage.uploadGrant).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'text/plain' }), 120);
+  });
+
+  it('reports the space in use, and refuses a plan the account has no room for', async () => {
+    await liveFile('existing', MAX_USER_STORAGE - 2);
+    const review = await service.analyze(ACTOR, analysis());
+    expect(review).toMatchObject({ storageUsedBytes: MAX_USER_STORAGE - 2, storageLimitBytes: MAX_USER_STORAGE });
+
+    await expect(
+      service.begin(ACTOR, review.operationId, {
+        tagPolicy: 'drop',
+        expected: { notes: 1, secrets: 0, seals: 0, authenticators: 0, attachments: 1 },
+        expectedAttachmentBytes: 3,
+      }),
+    ).rejects.toMatchObject({ code: 'STORAGE_QUOTA' });
+  });
+
+  it('rechecks the space at commit, against uploads made since the review', async () => {
+    const operationId = await staged();
+    await service.verifyAttachment(ACTOR, operationId, attachment.id);
+    await service.stageRecords(ACTOR, operationId, 'notes', [{ action: 'insert', expected: null, record: note }]);
+    await liveFile('uploaded-meanwhile', MAX_USER_STORAGE - 1);
+
+    await expect(service.commit(ACTOR, operationId)).rejects.toMatchObject({ code: 'STORAGE_QUOTA' });
     expect(await db.select().from(fileAttachments)).toHaveLength(1);
   });
 });

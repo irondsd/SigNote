@@ -434,3 +434,42 @@ describe('same-key merge', () => {
     await expect(service.commit(ACTOR, review.operationId)).rejects.toMatchObject({ code: 'DESTINATION_CHANGED' });
   });
 });
+
+describe('a record split across requests', () => {
+  const versions = [1, 2, 3].map((n) => ({ title: `v${n}`, content: `<p>${n}</p>`, createdAt: NOW }));
+  const long = { ...note, history: versions, tagRefs: [] };
+
+  it('counts the record only once its history is complete, then restores it whole and in order', async () => {
+    const review = await service.analyze(ACTOR, analysis({ notes: 1 }));
+    await service.begin(ACTOR, review.operationId, plan({ notes: 1 }, 'drop'));
+    await service.stageRecords(ACTOR, review.operationId, 'notes', [
+      { action: 'insert', expected: null, record: { ...long, history: versions.slice(0, 1) }, historyTotal: 3 },
+    ]);
+    expect((await service.status(ACTOR, review.operationId)).phase).toBe('staging');
+    await expect(service.commit(ACTOR, review.operationId)).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    await service.appendHistory(ACTOR, review.operationId, 'notes', { id: long.id, versions: versions.slice(1, 2) });
+    expect((await service.status(ACTOR, review.operationId)).phase).toBe('staging');
+    await service.appendHistory(ACTOR, review.operationId, 'notes', { id: long.id, versions: versions.slice(2) });
+    expect((await service.status(ACTOR, review.operationId)).phase).toBe('ready');
+
+    await service.commit(ACTOR, review.operationId);
+    const history = await db
+      .select({ title: noteVersions.title })
+      .from(noteVersions)
+      .where(eq(noteVersions.noteId, long.id))
+      .orderBy(noteVersions.seq);
+    expect(history.map((row) => row.title)).toEqual(['v1', 'v2', 'v3']);
+  });
+
+  it('refuses more history than the record declared', async () => {
+    const review = await service.analyze(ACTOR, analysis({ notes: 1 }));
+    await service.begin(ACTOR, review.operationId, plan({ notes: 1 }, 'drop'));
+    await service.stageRecords(ACTOR, review.operationId, 'notes', [
+      { action: 'insert', expected: null, record: { ...long, history: [] }, historyTotal: 1 },
+    ]);
+    await expect(
+      service.appendHistory(ACTOR, review.operationId, 'notes', { id: long.id, versions }),
+    ).rejects.toMatchObject({ code: 'INVALID_ARCHIVE' });
+  });
+});

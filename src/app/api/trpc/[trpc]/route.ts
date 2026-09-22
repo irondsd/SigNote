@@ -5,6 +5,11 @@ import { createContext } from '@/server/context';
 import { appRouter } from '@/server/routers/_app';
 
 export const runtime = 'nodejs';
+// The longest procedure is `vaultImport.commit`: one transaction inserting up
+// to VAULT_IMPORT_LIMITS.maxRecords with their history. Vercel's Fluid default
+// is already 300s; stating it keeps a large import from inheriting a shorter
+// platform default. On Pro this may go up to 800.
+export const maxDuration = 300;
 
 const ROTATION_BODY_LIMIT = 3_000_000;
 

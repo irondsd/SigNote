@@ -25,6 +25,9 @@ export const BOUND_TO_ID =
 const ATTACHMENT_IN_USE =
   'An attachment of this item already exists here as a different file, and the item refers to its attachments by ID.';
 
+export const RECENTLY_DELETED =
+  'An attachment of this item was deleted here recently, and its ID is released by the daily storage cleanup. Try this import again tomorrow.';
+
 function when(value: string) {
   return new Date(value).toLocaleString();
 }
@@ -57,9 +60,10 @@ function allowed(conflict: ImportConflict, decision: ImportDecision) {
 }
 
 function reason(conflict: ImportConflict, decision: ImportDecision): string | undefined {
-  if (decision === 'replace' && conflict.replaceBlocked) return ATTACHMENT_IN_USE;
-  if (decision === 'copy' && conflict.copyBlocked === 'bound-to-id') return BOUND_TO_ID;
-  if (decision === 'copy' && conflict.copyBlocked) return ATTACHMENT_IN_USE;
+  const blocked = decision === 'replace' ? conflict.replaceBlocked : decision === 'copy' ? conflict.copyBlocked : null;
+  if (blocked === 'bound-to-id') return BOUND_TO_ID;
+  if (blocked === 'attachment-recently-deleted') return RECENTLY_DELETED;
+  if (blocked) return ATTACHMENT_IN_USE;
   return undefined;
 }
 

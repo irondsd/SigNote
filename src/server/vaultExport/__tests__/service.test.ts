@@ -22,6 +22,7 @@ import {
   cleanupVaultExports,
   finishVaultExport,
   getVaultExportEntry,
+  getVaultExportSummary,
 } from '../service';
 
 const USER = 'vault-export-user';
@@ -215,4 +216,18 @@ describe('portable vault export at scale', () => {
     expect(lines).toHaveLength(total);
     expect(lines.every((record) => record.history.length === 1 && record.tagRefs[0] === 'bulk-tag')).toBe(true);
   }, 120_000);
+});
+
+describe('export summary', () => {
+  it('counts each category and estimates its size without rendering records', async () => {
+    await seedRecords();
+    const summary = await getVaultExportSummary(USER, true);
+    expect(summary.categories.notes).toMatchObject({ count: 1, attachmentCount: 0 });
+    expect(summary.categories.secrets).toMatchObject({ count: 1, attachmentCount: 0 });
+    expect(summary.categories.seals).toEqual({ count: 0, attachmentCount: 0, estimatedBytes: 0 });
+    // Title, body and the one history version all count.
+    expect(summary.categories.notes.estimatedBytes).toBeGreaterThan(
+      'Portable note<p>Body</p>Earlier title<p>Earlier</p>'.length,
+    );
+  });
 });

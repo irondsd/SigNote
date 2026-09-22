@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { and, asc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, lt, ne, or, sql, sum } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 
 import { autoTagColor } from '@/config/noteStyles';
-import { MAX_USER_STORAGE } from '@/config/fileConstants';
+import { ALLOWED_MIME_TYPES, MAX_USER_STORAGE } from '@/config/fileConstants';
 import { normalizeTagName } from '@/controllers/tags';
 import { getDb, type Db } from '@/db/client';
 import { withAccountLock } from '@/db/encryptionState';
@@ -33,6 +33,7 @@ import {
   portableAttachmentSchema,
   portableTagSchema,
   vaultImportAnalysisSchema,
+  vaultImportHistorySchemas,
   vaultImportLookupSchema,
   vaultImportPlanSchema,
   vaultImportRecordSchemas,
@@ -85,6 +86,7 @@ export class VaultImportError extends Error {
       | 'DESTINATION_CHANGED'
       | 'INCOMPLETE'
       | 'LIMIT'
+      | 'STORAGE_QUOTA'
       | 'STORAGE_MISMATCH',
   ) {
     super(code);
@@ -179,7 +181,17 @@ async function destinationTagNames(db: Db, userId: string): Promise<Map<string, 
   return new Map(rows.map((row) => [normalizeTagName(row.name), row.id]));
 }
 
-function review(row: ImportOperation, tagCount: number, tagMatches: number): VaultImportReview {
+/** Attachment bytes the account holds, counted as `createFileAttachment`
+ * counts them against MAX_USER_STORAGE. */
+async function storageUsed(db: Db, userId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: sum(fileAttachments.size) })
+    .from(fileAttachments)
+    .where(and(eq(fileAttachments.userId, userId), isNull(fileAttachments.deletedAt)));
+  return Number(row?.total ?? 0);
+}
+
+function review(row: ImportOperation, tagCount: number, tagMatches: number, used: number): VaultImportReview {
   const manifest = row.manifest as any;
   return {
     operationId: row.id,
@@ -194,6 +206,8 @@ function review(row: ImportOperation, tagCount: number, tagMatches: number): Vau
     attachmentBytes: row.attachmentBytes,
     installsEncryptionProfile: row.profile !== null,
     mode: row.mode,
+    storageUsedBytes: used,
+    storageLimitBytes: MAX_USER_STORAGE,
   };
 }
 
@@ -419,7 +433,7 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
       for (let offset = 0; offset < attachmentRows.length; offset += 500)
         await db.insert(vaultImportItems).values(attachmentRows.slice(offset, offset + 500));
       const [row] = await db.select().from(vaultImports).where(eq(vaultImports.id, operationId));
-      return review(row, input.tags.length, tagMatches);
+      return review(row, input.tags.length, tagMatches, await storageUsed(db, actor.userId));
     });
   };
 
@@ -489,6 +503,10 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
         plan.expectedAttachmentBytes > operation.attachmentBytes
       )
         throw new VaultImportError('INVALID_ARCHIVE');
+      // An estimate: it ignores what a replace retires, which only the staged
+      // records reveal. The commit repeats the check exactly.
+      if ((await storageUsed(db, actor.userId)) + plan.expectedAttachmentBytes > MAX_USER_STORAGE)
+        throw new VaultImportError('STORAGE_QUOTA');
       const noWork = Object.values(plan.expected).every((count) => count === 0);
       await db
         .update(vaultImports)
@@ -515,6 +533,8 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
       return result.data as StagedRecord<PortableTierRecord | PortableAuthenticator>;
     });
     if (new Set(staged.map((item) => item.record.id)).size !== staged.length)
+      throw new VaultImportError('INVALID_ARCHIVE');
+    if (category === 'authenticators' && staged.some((item) => item.historyTotal !== undefined))
       throw new VaultImportError('INVALID_ARCHIVE');
 
     return withAccountLock(actor.userId, async (db, state) => {
@@ -553,15 +573,47 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
           ordinal: (current?.count ?? 0) + offset,
           action: item.action,
           expectedDigest: item.expected,
+          pendingHistory:
+            item.historyTotal === undefined
+              ? null
+              : item.historyTotal - ((item.record as PortableTierRecord).history?.length ?? 0),
         })),
       );
-      const stagedCounts = { ...operation.stagedCounts, [category]: (current?.count ?? 0) + staged.length };
-      await db
-        .update(vaultImports)
-        .set({ stagedCounts, updatedAt: new Date() })
-        .where(eq(vaultImports.id, operationId));
-      await markReadyIfComplete(db, operationId);
+      await recountStaged(db, operation, category);
       return { accepted: staged.length };
+    });
+  };
+
+  /** The rest of a split record's history, in order, after its head. */
+  const appendHistory = async (actor: Actor, operationId: string, category: TierCategory, raw: unknown) => {
+    if (jsonBytes(raw) > VAULT_IMPORT_LIMITS.requestBytes) throw new VaultImportError('LIMIT');
+    const parsed = vaultImportHistorySchemas[category].safeParse(raw);
+    if (!parsed.success) throw new VaultImportError('INVALID_ARCHIVE');
+    const { id: recordId, versions } = parsed.data;
+    return withAccountLock(actor.userId, async (db, state) => {
+      const operation = await owned(db, actor, operationId, ['staging']);
+      if (state.generation !== operation.generation) throw new VaultImportError('DESTINATION_CHANGED');
+      const where = and(
+        eq(vaultImportItems.importId, operationId),
+        eq(vaultImportItems.kind, categoryKind[category]),
+        eq(vaultImportItems.resourceId, recordId),
+      );
+      const [item] = await db.select().from(vaultImportItems).where(where).limit(1);
+      if (!item?.pendingHistory || versions.length > item.pendingHistory) throw new VaultImportError('INVALID_ARCHIVE');
+      const record = item.payload as unknown as PortableTierRecord;
+      const next = { ...record, history: [...record.history, ...versions] };
+      if (!vaultImportRecordSchemas[category].safeParse(next).success) throw new VaultImportError('INVALID_ARCHIVE');
+      await db
+        .update(vaultImportItems)
+        .set({
+          payload: next as unknown as Record<string, unknown>,
+          sourceDigest: digest(next),
+          bytes: jsonBytes(next),
+          pendingHistory: item.pendingHistory - versions.length,
+        })
+        .where(where);
+      await recountStaged(db, operation, category);
+      return { accepted: versions.length };
     });
   };
 
@@ -597,7 +649,11 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
             eq(vaultImportItems.resourceId, attachmentId),
           ),
         );
-      return allocated;
+      // Plaintext files are served with their stored Content-Type, so the
+      // object gets the recorded one — when it is a type an upload could have.
+      const { encrypted, mimeType } = portableAttachmentSchema.parse(item.payload);
+      const contentType = !encrypted && ALLOWED_MIME_TYPES.has(mimeType) ? mimeType : 'application/octet-stream';
+      return { ...allocated, contentType };
     });
     return {
       ...(await storage.uploadGrant(object, VAULT_IMPORT_LIMITS.grantSeconds)),
@@ -751,6 +807,8 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
         .orderBy(asc(vaultImportItems.ordinal));
       const plan = validatePlan(active, items);
       await applyPlan(tx, actor.userId, active, plan);
+      // Exact now: retired attachments are already soft-deleted.
+      if ((await storageUsed(tx, actor.userId)) > MAX_USER_STORAGE) throw new VaultImportError('STORAGE_QUOTA');
       const now = new Date();
       await tx
         .update(vaultImports)
@@ -861,6 +919,7 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
     lookup,
     begin,
     stageRecords,
+    appendHistory,
     attachmentGrant,
     verifyAttachment,
     status,
@@ -869,6 +928,31 @@ export function createVaultImportService({ storage }: { storage: VaultImportObje
     commit,
     cleanup,
   };
+}
+
+/** A category's staged count covers whole records only: a split record's
+ * head does not count until the last of its history arrives. */
+async function recountStaged(db: Db, operation: ImportOperation, category: RecordCategory) {
+  const [complete] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(vaultImportItems)
+    .where(
+      and(
+        eq(vaultImportItems.importId, operation.id),
+        eq(vaultImportItems.kind, categoryKind[category]),
+        or(isNull(vaultImportItems.pendingHistory), eq(vaultImportItems.pendingHistory, 0)),
+      ),
+    );
+  // Re-read: stagedCounts is one JSON column shared by every category.
+  const [fresh] = await db
+    .select({ stagedCounts: vaultImports.stagedCounts })
+    .from(vaultImports)
+    .where(eq(vaultImports.id, operation.id));
+  await db
+    .update(vaultImports)
+    .set({ stagedCounts: { ...fresh.stagedCounts, [category]: complete?.count ?? 0 }, updatedAt: new Date() })
+    .where(eq(vaultImports.id, operation.id));
+  await markReadyIfComplete(db, operation.id);
 }
 
 async function markReadyIfComplete(db: Db, operationId: string) {
@@ -885,7 +969,7 @@ async function markReadyIfComplete(db: Db, operationId: string) {
       .where(eq(vaultImports.id, operationId));
 }
 
-type StagedRecord<T> = { action: VaultImportAction; expected: string | null; record: T };
+type StagedRecord<T> = { action: VaultImportAction; expected: string | null; record: T; historyTotal?: number };
 type Plan = {
   tags: PortableTag[];
   tiers: Record<TierCategory, StagedRecord<PortableTierRecord>[]>;
@@ -937,6 +1021,7 @@ function validatePlan(operation: ImportOperation, items: ImportItem[]): Plan {
       const record = vaultImportRecordSchemas[category].parse(item.payload) as PortableTierRecord &
         PortableAuthenticator;
       if (digest(record) !== item.sourceDigest || !item.action) throw new VaultImportError('INVALID_ARCHIVE');
+      if (item.pendingHistory) throw new VaultImportError('INCOMPLETE');
       if ((item.action === 'replace') !== (item.expectedDigest !== null)) throw new VaultImportError('INVALID_ARCHIVE');
       if (item.action === 'copy' && (category === 'seals' || category === 'authenticators'))
         throw new VaultImportError('INVALID_ARCHIVE');

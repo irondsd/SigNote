@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { and, asc, eq, inArray, isNull, lt } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
 import { getDb, type Db } from '@/db/client';
@@ -35,6 +35,7 @@ import {
   type VaultExportEntryPlan,
   type VaultExportSummary,
 } from '@/lib/vaultBackup/exportTypes';
+import { VAULT_IMPORT_LIMITS } from '@/lib/vaultBackup/importSchemas';
 import { readableStreamFromChunks } from '@/lib/vaultBackup/stream';
 import { streamFromS3 } from '@/lib/s3';
 import { digest } from '@/server/rotation/contracts';
@@ -286,33 +287,96 @@ async function cleanupExpired(db: Db, now: Date) {
   await db.delete(vaultExports).where(lt(vaultExports.expiresAt, now));
 }
 
+// Rough JSON overhead per record and per history version on top of the
+// measured text: keys, timestamps, flags, refs. The summary is an estimate.
+const RECORD_OVERHEAD = 400;
+const VERSION_OVERHEAD = 80;
+
+/**
+ * Counts and estimated sizes, from aggregates. Rendering every record (as
+ * `beginVaultExport` must) would read the whole vault, history included, on
+ * every visit to the export page just to print a few numbers.
+ */
+async function summarizeTier(db: Db, userId: string, kind: TierKind) {
+  const { table, versions } = tierConfig[kind];
+  const t = table as any;
+  const v = versions as any;
+  const body = (columns: any) =>
+    kind === 'note'
+      ? sql`octet_length(${columns.content})`
+      : sql`coalesce(octet_length(${columns.encryptedBody}::text), 0)`;
+  const sealKey = kind === 'seal' ? sql` + coalesce(octet_length(${t.wrappedNoteKey}::text), 0)` : sql``;
+  const [heads] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(octet_length(${t.title}) + ${body(t)}${sealKey}), 0)::bigint`,
+    })
+    .from(t)
+    .where(eq(t.userId, userId));
+  const [history] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(octet_length(${v.title}) + ${body(v)}), 0)::bigint`,
+    })
+    .from(v)
+    .where(eq(v.userId, userId));
+  const [files] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(${fileAttachments.size}), 0)::bigint`,
+    })
+    .from(fileAttachments)
+    .where(
+      and(
+        eq(fileAttachments.userId, userId),
+        eq(fileAttachments.noteTier, kind),
+        isNull(fileAttachments.deletedAt),
+        isNull(fileAttachments.storageDeletedAt),
+      ),
+    );
+  return {
+    count: heads.count,
+    attachmentCount: files.count,
+    estimatedBytes:
+      Number(heads.bytes) +
+      heads.count * RECORD_OVERHEAD +
+      Number(history.bytes) +
+      history.count * VERSION_OVERHEAD +
+      Number(files.bytes),
+  };
+}
+
+async function summarizeAuthenticators(db: Db, userId: string) {
+  const [row] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      bytes: sql<number>`coalesce(sum(coalesce(octet_length(${otpRecords.payload}::text), 0)), 0)::bigint`,
+    })
+    .from(otpRecords)
+    .where(eq(otpRecords.userId, userId));
+  return { count: row.count, attachmentCount: 0, estimatedBytes: Number(row.bytes) + row.count * RECORD_OVERHEAD };
+}
+
 export async function getVaultExportSummary(userId: string, available: boolean): Promise<VaultExportSummary> {
   return withVaultRead(userId, async (state) => {
     const db = getDb();
     const [profile] = await db.select().from(encryptionProfiles).where(eq(encryptionProfiles.userId, userId)).limit(1);
-    const [noteData, secretData, sealData, authData] = await Promise.all([
-      captureTier(db, userId, 'note'),
-      captureTier(db, userId, 'secret'),
-      captureTier(db, userId, 'seal'),
-      captureAuthenticators(db, userId),
+    const [notesSummary, secretsSummary, sealsSummary, authenticatorsSummary] = await Promise.all([
+      summarizeTier(db, userId, 'note'),
+      summarizeTier(db, userId, 'secret'),
+      summarizeTier(db, userId, 'seal'),
+      summarizeAuthenticators(db, userId),
     ]);
-    const summaryCategory = (records: unknown[], attachments: CapturedAttachment[] = []) => ({
-      count: records.length,
-      attachmentCount: attachments.length,
-      estimatedBytes:
-        attachments.reduce((total, attachment) => total + attachment.portable.size, 0) +
-        records.reduce<number>((total, record) => total + line(record).byteLength, 0),
-    });
     return {
       available,
       profileExists: !!profile,
       vaultKeyId: profile?.vaultKeyId ?? null,
       rotationInProgress: state.activeRotationId !== null,
       categories: {
-        notes: summaryCategory(noteData.records, noteData.attachments),
-        secrets: summaryCategory(secretData.records, secretData.attachments),
-        seals: summaryCategory(sealData.records, sealData.attachments),
-        authenticators: summaryCategory(authData),
+        notes: notesSummary,
+        secrets: secretsSummary,
+        seals: sealsSummary,
+        authenticators: authenticatorsSummary,
       },
     };
   });
@@ -431,7 +495,9 @@ export async function beginVaultExport(
       });
       entrySizes[`attachments/${attachment.portable.id}`] = attachment.portable.size;
     }
-    if (itemRows.length > MAX_EXPORT_ITEMS) throw new VaultExportError('LIMIT');
+    // An archive the importer would refuse is not a backup.
+    if (itemRows.length > MAX_EXPORT_ITEMS || attachmentRecords.length > VAULT_IMPORT_LIMITS.maxAttachments)
+      throw new VaultExportError('LIMIT');
 
     if (encrypted && profile) entrySizes['profile.json'] = bytes(json(profileDocument(profile))).byteLength;
     const expiresAt = new Date(now.getTime() + EXPORT_LIFETIME_MS);

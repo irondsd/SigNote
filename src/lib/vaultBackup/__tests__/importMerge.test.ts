@@ -140,7 +140,29 @@ describe('compareArchive', () => {
 
     const { comparison } = compareArchive(analysis, all, existing, files, sha);
     expect(comparison.conflicts[0]).toMatchObject({ id: 'conflicted', replaceBlocked: 'attachment-in-use' });
-    expect(comparison.blocked).toEqual([expect.objectContaining({ id: 'fresh' })]);
+    // Only a deleted row holds `also-taken`: the cleanup will release it.
+    expect(comparison.blocked).toEqual([
+      expect.objectContaining({ id: 'fresh', reason: 'attachment-recently-deleted' }),
+    ]);
+  });
+
+  it('says a replace waits for the cleanup when only a deleted file holds the id', () => {
+    const conflicted = record('conflicted', 'notes', ['deleted']);
+    const inUse = record('in-use', 'notes', ['live']);
+    const { analysis, all } = setup({ notes: [conflicted, inUse] }, [
+      attachment('deleted', 'conflicted'),
+      attachment('live', 'in-use'),
+    ]);
+    const existing = noExisting();
+    const files = new Map<string, VaultImportLookupAttachment>([
+      ['deleted', { id: 'deleted', digest: null, owner: null }],
+      ['live', { id: 'live', digest: 'f'.repeat(64), owner: { category: 'notes', recordId: 'elsewhere' } }],
+    ]);
+    existing.notes.set('conflicted', existingOf('0'.repeat(64), 'conflicted'));
+
+    const { comparison } = compareArchive(analysis, all, existing, files, sha);
+    expect(comparison.conflicts[0]).toMatchObject({ replaceBlocked: 'attachment-recently-deleted' });
+    expect(comparison.blocked).toEqual([expect.objectContaining({ id: 'in-use', reason: 'attachment-in-use' })]);
   });
 });
 

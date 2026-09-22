@@ -12,19 +12,32 @@ import {
   MAX_VERSIONS,
   OTP_PAYLOAD_VERSION,
 } from '@/config/constants';
-import { MAX_ENCRYPTED_FILE_SIZE, MAX_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
+import { MAX_ENCRYPTED_FILE_SIZE, MAX_USER_STORAGE } from '@/config/fileConstants';
 import { NOTE_COLORS, NOTE_PATTERNS } from '@/config/noteStyles';
 import { VAULT_EXPORT_CATEGORIES, VAULT_EXPORT_FORMAT_VERSION, VAULT_EXPORT_MIN_READER_VERSION } from './exportTypes';
+
+/**
+ * Attachments are bounded by bytes (MAX_USER_STORAGE), not by count — an
+ * account may hold any number of small files. The count cap only exists
+ * because the whole attachment index travels in the single `analyze` request:
+ * at worst ~900 bytes per attachment (index line, checksum, manifest entry,
+ * a 255-character filename), 4,000 of them stay well inside the 4.5 MB request
+ * body a serverless function accepts.
+ */
+const MAX_ATTACHMENTS = 4_000;
 
 export const VAULT_IMPORT_LIMITS = {
   maxRecords: 100_000,
   maxTags: 5_000,
-  maxAttachments: Math.ceil(MAX_USER_STORAGE / MAX_FILE_SIZE),
+  maxAttachments: MAX_ATTACHMENTS,
   maxMetadataBytes: 64 * 1024 * 1024,
   maxExpandedBytes: MAX_USER_STORAGE + 64 * 1024 * 1024,
-  maxEntries: 32 + Math.ceil(MAX_USER_STORAGE / MAX_FILE_SIZE),
+  maxEntries: 32 + MAX_ATTACHMENTS,
   operationLifetimeMs: 60 * 60 * 1000,
   requestRecords: 50,
+  /** Per staging request. A record larger than this — a long note with its
+   * full history can reach ~5.5 MB, a Secret ~8 MB — is sent as its head plus
+   * history appended in further requests. */
   requestBytes: 3_000_000,
   lookupIds: 200,
   grantSeconds: 120,
@@ -95,21 +108,25 @@ const commonTier = {
   tagRefs: z.array(id).max(MAX_TAGS_PER_NOTE),
   attachmentRefs: z.array(id).max(VAULT_IMPORT_LIMITS.maxAttachments),
 };
-const plainHistory = z
+export const plainHistorySchema = z
   .object({ title: z.string().max(MAX_TITLE), content: z.string().max(MAX_CONTENT), createdAt: date })
   .strict();
-const encryptedHistory = z
+export const encryptedHistorySchema = z
   .object({ title: z.string().max(MAX_TITLE), encryptedBody: portablePayloadSchema.nullable(), createdAt: date })
   .strict();
 
 export const portableNoteSchema = z
-  .object({ ...commonTier, content: z.string().max(MAX_CONTENT), history: z.array(plainHistory).max(MAX_VERSIONS) })
+  .object({
+    ...commonTier,
+    content: z.string().max(MAX_CONTENT),
+    history: z.array(plainHistorySchema).max(MAX_VERSIONS),
+  })
   .strict();
 export const portableSecretSchema = z
   .object({
     ...commonTier,
     encryptedBody: portablePayloadSchema.nullable(),
-    history: z.array(encryptedHistory).max(MAX_VERSIONS),
+    history: z.array(encryptedHistorySchema).max(MAX_VERSIONS),
   })
   .strict();
 export const portableSealSchema = z
@@ -117,7 +134,7 @@ export const portableSealSchema = z
     ...commonTier,
     encryptedBody: portablePayloadSchema.nullable(),
     wrappedNoteKey: portablePayloadSchema.nullable(),
-    history: z.array(encryptedHistory).max(MAX_VERSIONS),
+    history: z.array(encryptedHistorySchema).max(MAX_VERSIONS),
   })
   .strict();
 export const portableAuthenticatorSchema = z
@@ -263,9 +280,19 @@ export const vaultImportPlanSchema = z
 const stagedAction = z.enum(['insert', 'replace', 'copy']);
 const stagedRecord = <T extends z.ZodType>(record: T, copyAllowed: boolean) =>
   z
-    .object({ action: stagedAction, expected: sha256.nullable(), record })
+    .object({
+      action: stagedAction,
+      expected: sha256.nullable(),
+      record,
+      // Set when the record's history does not all fit in this request: the
+      // full history length, the rest following through `appendHistory`.
+      historyTotal: z.number().int().nonnegative().max(MAX_VERSIONS).optional(),
+    })
     .strict()
     .superRefine((value, ctx) => {
+      const sent = ((value as { record?: { history?: unknown[] } }).record?.history ?? []).length;
+      if (value.historyTotal !== undefined && value.historyTotal < sent)
+        ctx.addIssue({ code: 'custom', message: 'History total is shorter than the history sent' });
       if ((value.action === 'replace') !== (value.expected !== null))
         ctx.addIssue({ code: 'custom', message: 'Only a replace carries the reviewed destination digest' });
       // Seal and Authenticator ciphertext is bound to its id: no second copy.
@@ -278,4 +305,10 @@ export const vaultImportStagedRecordSchemas = {
   secrets: stagedRecord(portableSecretSchema, true),
   seals: stagedRecord(portableSealSchema, false),
   authenticators: stagedRecord(portableAuthenticatorSchema, false),
+} as const;
+
+export const vaultImportHistorySchemas = {
+  notes: z.object({ id, versions: z.array(plainHistorySchema).min(1).max(MAX_VERSIONS) }).strict(),
+  secrets: z.object({ id, versions: z.array(encryptedHistorySchema).min(1).max(MAX_VERSIONS) }).strict(),
+  seals: z.object({ id, versions: z.array(encryptedHistorySchema).min(1).max(MAX_VERSIONS) }).strict(),
 } as const;

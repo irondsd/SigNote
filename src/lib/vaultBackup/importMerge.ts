@@ -21,6 +21,15 @@ import type {
 
 export type ImportDecision = 'keep' | 'replace' | 'copy';
 
+/**
+ * Why an attachment id stands in the way:
+ * - `attachment-in-use`: a different, live file holds it here.
+ * - `attachment-recently-deleted`: only a deleted row holds it — the file was
+ *   removed here recently, and the daily storage cleanup releases the id. The
+ *   same item imports once that has run.
+ */
+export type AttachmentBlock = 'attachment-in-use' | 'attachment-recently-deleted';
+
 type TierCategory = Exclude<VaultExportCategory, 'authenticators'>;
 type ArchiveRecord = PortableTierRecord | PortableAuthenticator;
 type ArchiveAttachment = VaultImportAnalysis['attachments'][number];
@@ -44,13 +53,18 @@ export type ImportConflict = {
   archive: ImportRecordSummary;
   existing: ImportRecordSummary;
   /** Null when allowed; otherwise why not. */
-  replaceBlocked: 'attachment-in-use' | null;
-  copyBlocked: 'bound-to-id' | 'attachment-in-use' | null;
+  replaceBlocked: AttachmentBlock | null;
+  copyBlocked: 'bound-to-id' | AttachmentBlock | null;
 };
 
 /** A new record that cannot be inserted: one of its attachment ids is taken
  * here by a different file, and bodies name attachments by id. */
-export type ImportBlocked = { category: VaultExportCategory; id: string; archive: ImportRecordSummary };
+export type ImportBlocked = {
+  category: VaultExportCategory;
+  id: string;
+  archive: ImportRecordSummary;
+  reason: AttachmentBlock;
+};
 
 export type ImportComparison = {
   counts: Record<VaultExportCategory, { new: number; identical: number; conflict: number; blocked: number }>;
@@ -144,13 +158,20 @@ export function compareArchive(
       // here is the very same file under the same owner.
       const same = new Set<string>();
       const taken = new Set<string>();
+      let live = false;
       for (const id of refs) {
         const found = existingFiles.get(id);
         if (!found) continue;
         const archived = attachments.get(id);
         if (archived && found.digest !== null && found.digest === attachmentDigest(archived, hash)) same.add(id);
-        else taken.add(id);
+        else {
+          taken.add(id);
+          if (found.digest !== null) live = true;
+        }
       }
+      // Only deleted rows in the way (or, for a record that is gone, its own
+      // files not yet swept): the cleanup releases them.
+      const block: AttachmentBlock = live ? 'attachment-in-use' : 'attachment-recently-deleted';
 
       const current = existing[category].get(record.id);
       let status: Status;
@@ -166,7 +187,9 @@ export function compareArchive(
             : // A Secret's ciphertext body names its attachments by id, so a copy
               // must keep them — impossible while those ids are in use here.
               category === 'secrets' && (taken.size || same.size)
-              ? ('attachment-in-use' as const)
+              ? taken.size
+                ? block
+                : ('attachment-in-use' as const)
               : null;
         comparison.conflicts.push({
           category,
@@ -174,11 +197,12 @@ export function compareArchive(
           expected: current.digest,
           archive: summarize(record),
           existing: summarizeExisting(current),
-          replaceBlocked: taken.size ? 'attachment-in-use' : null,
+          replaceBlocked: taken.size ? block : null,
           copyBlocked,
         });
       }
-      if (status.kind === 'blocked') comparison.blocked.push({ category, id: record.id, archive: summarize(record) });
+      if (status.kind === 'blocked')
+        comparison.blocked.push({ category, id: record.id, archive: summarize(record), reason: block });
       statuses.set(key(category, record.id), status);
       comparison.counts[category][status.kind === 'blocked' ? 'blocked' : status.kind]++;
     }

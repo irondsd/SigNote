@@ -17,6 +17,7 @@ import {
   type ImportDecision,
   type ImportPlanResult,
 } from '@/lib/vaultBackup/importMerge';
+import { planStagingRequests, StagingRecordTooLargeError } from '@/lib/vaultBackup/importStaging';
 import type {
   VaultImportAnalysis,
   VaultImportLookupAttachment,
@@ -43,7 +44,6 @@ type Output =
 
 const CATEGORIES: VaultExportCategory[] = ['notes', 'secrets', 'seals', 'authenticators'];
 const LOOKUP_BATCH = 200;
-const RECORD_BATCH = 50;
 
 const scope = self as DedicatedWorkerGlobalScope;
 let parsed: ParsedVaultImport | null = null;
@@ -58,6 +58,7 @@ function post(message: Output) {
 
 function code(error: unknown) {
   if (error instanceof VaultImportArchiveError) return error.code;
+  if (error instanceof StagingRecordTooLargeError) return 'LIMIT';
   if (error instanceof DOMException && error.name === 'AbortError') return 'CANCELLED';
   const server = error instanceof Error ? /^IMPORT_HTTP_\d+:([A-Z_]+)$/.exec(error.message) : null;
   if (server && server[1] !== 'UNKNOWN') return server[1];
@@ -164,15 +165,16 @@ async function stage(operationId: string, generation: number) {
   );
   const byteCount = recordBytes + expected.expectedAttachmentBytes;
   for (const category of CATEGORIES) {
-    const items = staged[category];
-    for (let offset = 0; offset < items.length; offset += RECORD_BATCH) {
-      const body = JSON.stringify(items.slice(offset, offset + RECORD_BATCH));
+    for (const request of planStagingRequests(staged[category])) {
+      const body = JSON.stringify(
+        request.kind === 'records' ? request.records : { id: request.id, versions: request.versions },
+      );
       await checkedFetch(
-        `/api/vault-import/${operationId}/records/${category}`,
+        `/api/vault-import/${operationId}/records/${category}${request.kind === 'history' ? '/history' : ''}`,
         { method: 'POST', headers: { 'content-type': 'application/json' }, body },
         generation,
       );
-      itemsProcessed += Math.min(RECORD_BATCH, items.length - offset);
+      if (request.kind === 'records') itemsProcessed += request.records.length;
       bytesProcessed += encoder.encode(body).byteLength;
       post({
         type: 'progress',

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArchiveRestore, Check, Eye, EyeOff, FileArchive, Loader2, RefreshCw, ShieldCheck, X } from 'lucide-react';
 
@@ -52,6 +53,8 @@ function errorMessage(error: unknown) {
     return 'This account uses a different encryption key. The archive’s encrypted items cannot be imported here.';
   if (message.includes('VAULT_ID_REQUIRED'))
     return 'Unlock Secrets in this account once so SigNote can confirm the archive uses the same encryption key, then try again.';
+  if (message.includes('STORAGE_QUOTA'))
+    return 'This import’s attachments don’t fit in this account’s storage. Free some space, or import fewer items.';
   if (message.includes('LIMIT') || message.includes('PAYLOAD_TOO_LARGE'))
     return 'The archive exceeds this SigNote deployment’s restore limits.';
   if (message.includes('INVALID_ARCHIVE'))
@@ -90,6 +93,7 @@ type Outcome = { inserted: number; replaced: number; copied: number };
 
 export function ImportVaultClient() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { status } = useSession();
   const [phase, setPhase] = useState<Phase>('choose');
   const [file, setFile] = useState<File | null>(null);
@@ -231,6 +235,16 @@ export function ImportVaultClient() {
     client.onProgress = setProgress;
     try {
       const plan = await client.plan(decisions, tagPolicy);
+      // The server refuses the same plan; checking here names the numbers
+      // and keeps the review, so the user can import fewer items instead.
+      const after = review.storageUsedBytes + plan.expectedAttachmentBytes;
+      if (after > review.storageLimitBytes) {
+        setError(
+          `This import adds ${formatBytes(plan.expectedAttachmentBytes)} of attachments, but this account already uses ${formatBytes(review.storageUsedBytes)} of its ${formatBytes(review.storageLimitBytes)}. Free some space, or keep more conflicts as they are.`,
+        );
+        setPhase('review');
+        return;
+      }
       await trpcClient.vaultImport.begin.mutate({ operationId: review.operationId, plan });
       if (run.current !== current) return;
       await client.stage(review.operationId, review.generation);
@@ -242,6 +256,9 @@ export function ImportVaultClient() {
       );
       const result = await trpcClient.vaultImport.commit.mutate({ operationId: review.operationId });
       operationId.current = null;
+      // Everything cached may predate the import: lists, tags, authenticators,
+      // and the encryption profile a restore may just have installed.
+      void queryClient.invalidateQueries();
       client.dispose();
       worker.current = null;
       lastAnalysis.current = null;
@@ -286,6 +303,12 @@ export function ImportVaultClient() {
       CATEGORIES.reduce((sum, { key }) => sum + comparison.counts[key][field], 0);
     return { new: total('new'), identical: total('identical'), replacing, copying };
   }, [comparison, decisions]);
+
+  const blockedCounts = useMemo(() => {
+    const blocked = comparison?.blocked ?? [];
+    const recentlyDeleted = blocked.filter((item) => item.reason === 'attachment-recently-deleted').length;
+    return { recentlyDeleted, inUse: blocked.length - recentlyDeleted };
+  }, [comparison]);
 
   if (status !== 'authenticated') return null;
 
@@ -465,10 +488,17 @@ export function ImportVaultClient() {
               </Card>
             )}
 
-            {comparison.blocked.length > 0 && (
+            {blockedCounts.inUse > 0 && (
               <div className={s.notice}>
-                {comparison.blocked.length} item{comparison.blocked.length === 1 ? '' : 's'} can’t be imported: an
-                attachment ID they use already belongs to a different file in this account. They are skipped.
+                {blockedCounts.inUse} item{blockedCounts.inUse === 1 ? '' : 's'} can’t be imported: an attachment ID
+                they use already belongs to a different file in this account. They are skipped.
+              </div>
+            )}
+            {blockedCounts.recentlyDeleted > 0 && (
+              <div className={s.notice}>
+                {blockedCounts.recentlyDeleted} item{blockedCounts.recentlyDeleted === 1 ? '' : 's'} can’t be imported
+                yet: they use an attachment that was deleted here recently, and the daily storage cleanup hasn’t
+                released its ID. They are skipped — import this archive again tomorrow to bring them back.
               </div>
             )}
 

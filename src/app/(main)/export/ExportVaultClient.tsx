@@ -70,6 +70,8 @@ function exportErrorMessage(error: unknown): string {
   if (message.includes('ROTATION_IN_PROGRESS'))
     return 'Encrypted data cannot be exported while key rotation is in progress.';
   if (message.includes('DISABLED') || message.includes('FORBIDDEN')) return 'Vault export is currently unavailable.';
+  if (message.includes('LIMIT'))
+    return 'This vault holds more items or attachments than a single archive can restore. Export the categories separately.';
   return 'The export could not be completed. No usable partial backup was kept.';
 }
 
