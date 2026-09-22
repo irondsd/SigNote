@@ -3,6 +3,8 @@
   line-height: 1.65;
   color: var(--card-foreground);
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
 
   // ProseMirror root element
   :global(.ProseMirror) {

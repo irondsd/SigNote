@@ -436,3 +436,109 @@ test.describe('modal max height', () => {
     expect(modalBox!.height).toBeLessThanOrEqual(windowHeight * 0.9 + 2);
   });
 });
+
+// ─── Group 8: Modal Text Selection ──────────────────────────────────────────
+
+test.describe('modal text selection', () => {
+  test.use({ viewport: { width: 400, height: 812 }, isMobile: true, hasTouch: true });
+
+  test('select all from the note body cannot include modal chrome or background cards', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Selection Title ${Date.now()}`;
+    const firstLine = 'FIRST NOTE LINE';
+    const lastLine = 'LAST NOTE LINE';
+    const backgroundTitle = 'BACKGROUND CARD MUST NOT COPY';
+    const content = [firstLine, ...Array.from({ length: 80 }, (_, i) => `Middle line ${i + 1}`), lastLine]
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await seedNotes(account.address, [
+      { title, content },
+      { title: backgroundTitle, content: '<p>Background preview text</p>' },
+    ]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.noteCard(title).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    await page.getByTestId('tiptap-editor').evaluate((container) => {
+      const firstText = container.querySelector('.ProseMirror p')?.firstChild;
+      if (!firstText) throw new Error('Expected note text');
+      const range = document.createRange();
+      range.setStart(firstText, 0);
+      range.setEnd(firstText, Math.min(5, firstText.textContent?.length ?? 0));
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+    await page.keyboard.press('ControlOrMeta+A');
+
+    const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(selected).toContain(firstLine);
+    expect(selected).toContain(lastLine);
+    expect(selected).not.toContain(title);
+    expect(selected).not.toContain(backgroundTitle);
+
+    const backgroundRootIsInert = await notesPage.noteCard(backgroundTitle).evaluate((card) => {
+      let root = card as HTMLElement;
+      while (root.parentElement && root.parentElement !== document.body) root = root.parentElement;
+      return root.inert;
+    });
+    expect(backgroundRootIsInert).toBe(true);
+  });
+
+  test('scrolling a long note preserves a selection spanning the full body', async ({ page }) => {
+    const { account } = makeAccount();
+    const title = `Scroll Selection ${Date.now()}`;
+    const firstLine = 'SELECTION START';
+    const lastLine = 'SELECTION END';
+    const content = [firstLine, ...Array.from({ length: 100 }, (_, i) => `Selection line ${i + 1}`), lastLine]
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+    await seedNotes(account.address, [{ title, content }]);
+
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(account.address);
+    await notesPage.noteCard(title).click();
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+
+    await page.getByTestId('tiptap-editor').evaluate((container) => {
+      const paragraphs = container.querySelectorAll('.ProseMirror p');
+      const firstText = paragraphs[0]?.firstChild;
+      const lastText = paragraphs[paragraphs.length - 1]?.firstChild;
+      if (!firstText || !lastText) throw new Error('Expected long note text');
+
+      const range = document.createRange();
+      range.setStart(firstText, 0);
+      range.setEnd(lastText, lastText.textContent?.length ?? 0);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+
+    const body = page.getByTestId('note-modal-body');
+    await body.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await body.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+
+    const selectionState = await page.getByTestId('tiptap-editor').evaluate((editor) => {
+      const selection = window.getSelection();
+      return {
+        text: selection?.toString() ?? '',
+        anchorInsideEditor: selection?.anchorNode ? editor.contains(selection.anchorNode) : false,
+        focusInsideEditor: selection?.focusNode ? editor.contains(selection.focusNode) : false,
+      };
+    });
+
+    expect(selectionState.text).toContain(firstLine);
+    expect(selectionState.text).toContain(lastLine);
+    expect(selectionState.text).not.toContain(title);
+    expect(selectionState.anchorInsideEditor).toBe(true);
+    expect(selectionState.focusInsideEditor).toBe(true);
+  });
+});

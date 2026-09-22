@@ -126,7 +126,9 @@ export function SharedNoteModal({
           {(expiresAt || burnAfterReading) && (
             <SelfDestructBanner expiresAt={expiresAt} burnAfterReading={burnAfterReading} />
           )}
-          <div className={s.body}>{children}</div>
+          <div className={s.body} data-testid="note-modal-body">
+            {children}
+          </div>
           {!editing && (
             <RelativeDate
               data-testid="note-date"
