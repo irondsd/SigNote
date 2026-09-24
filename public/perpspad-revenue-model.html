@@ -1,0 +1,405 @@
+<title>PerpsPad Revenue Model</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    color-scheme: light;
+    --bg:        #F5F4F1;
+    --surface:   #FFFFFF;
+    --surface-2: #EDEBE6;
+    --line:      #DCD8D0;
+    --line-soft: #E8E5DF;
+    --ink:       #16161A;
+    --muted:     #5C5A55;
+    --dim:       #8B8880;
+    --accent:    #A9691A;
+    --accent-sf: #F2E4CE;
+    --lp:        #1E7A70;
+    --pad:       #AE4B36;
+    --partner:   #6B5E8C;
+    --sans: "IBM Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#111012; --surface:#1A181B; --surface-2:#221F23; --line:#332F34; --line-soft:#272328;
+      --ink:#EDEAE4; --muted:#A09B93; --dim:#736E67; --accent:#E2A44C; --accent-sf:#3B2D17;
+      --lp:#4FB3A6; --pad:#D07A63; --partner:#A394C4;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#111012; --surface:#1A181B; --surface-2:#221F23; --line:#332F34; --line-soft:#272328;
+    --ink:#EDEAE4; --muted:#A09B93; --dim:#736E67; --accent:#E2A44C; --accent-sf:#3B2D17;
+    --lp:#4FB3A6; --pad:#D07A63; --partner:#A394C4;
+  }
+
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; margin: 0 0 4px; text-wrap: balance; }
+  .lede { color: var(--muted); font-size: 14.5px; margin: 0 0 24px; max-width: 62ch; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+
+  .cols { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 16px 18px; }
+  .panel + .panel { margin-top: 14px; }
+  .panel h2 { font-size: 13px; font-weight: 600; margin: 0 0 12px; letter-spacing: -.01em; }
+  .grp { display: flex; flex-direction: column; gap: 14px; }
+
+  .ctl { display: grid; gap: 5px; }
+  .ctl-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ctl-top label { font-size: 13px; color: var(--muted); }
+  .ctl-val { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); height: 20px; }
+  input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  .seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+  .seg button {
+    flex: 1; font: inherit; font-size: 12px; line-height: 1.25; padding: 7px 6px; cursor: pointer; text-wrap: balance;
+    background: var(--surface); color: var(--muted); border: none; border-right: 1px solid var(--line);
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button[aria-pressed="true"] { background: var(--accent-sf); color: var(--accent); font-weight: 600; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .hint { font-size: 11.5px; line-height: 1.4; color: var(--dim); margin: 2px 0 0; }
+
+  .fixed { font-size: 12.5px; line-height: 1.45; color: var(--muted); margin: 0; padding: 9px 11px; background: var(--surface-2); border-radius: 5px; }
+  .fixed strong { color: var(--ink); font-weight: 600; }
+
+  .hero { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px 20px; }
+  .hero-row { display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: flex-end; }
+  .big { font-family: var(--mono); font-size: clamp(34px, 6vw, 46px); font-weight: 600; letter-spacing: -.035em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .mid { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hero-note { font-size: 12.5px; color: var(--muted); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+
+  .bar { display: flex; height: 30px; border-radius: 4px; overflow: hidden; margin-top: 6px; background: var(--surface-2); }
+  .bar span { display: block; height: 100%; }
+  .bar .s-lp { background: var(--lp); }
+  .bar .s-pad { background: var(--pad); }
+  .bar .s-pt { background: var(--partner); }
+  .bar .s-us { background: var(--accent); }
+  .key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; }
+  .key div { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { padding: 8px 10px 8px 0; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); font-weight: 500; border-bottom: 1px solid var(--ink); }
+  td.n, th.n { text-align: right; padding-right: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  tr.tot td { font-weight: 600; border-top: 1px solid var(--ink); border-bottom: none; padding-top: 10px; }
+
+  .scroll { overflow-x: auto; }
+  .grid-t td.cell { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; padding-inline: 10px; }
+  .grid-t td.cell:last-child { padding-right: 0; }
+  .grid-t td.live { background: var(--accent-sf); color: var(--accent); font-weight: 600; border-radius: 3px; }
+  .grid-t td.rh { font-weight: 600; }
+
+  .flag { border: 1px solid var(--accent); background: var(--accent-sf); border-radius: 6px; padding: 14px 16px; margin-top: 14px; }
+  .flag h3 { margin: 0 0 6px; font-size: 13.5px; font-weight: 600; color: var(--accent); }
+  .flag p { margin: 0; font-size: 13px; color: var(--ink); }
+  .flag .num { font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .bar span, .grid-t td { transition: all 140ms ease; }
+</style>
+
+<div class="wrap">
+  <h1>PerpsPad revenue model</h1>
+  <p class="lede">Move anything on the left. Every figure is a 30-day total. Defaults are the central case: $100M of daily volume at 30&nbsp;bps with 30% of it arriving through your own app, and 200 pools a day deployed inside the app. Liquidity providers always take their share of gross.</p>
+
+  <div class="cols">
+
+    <div>
+      <div class="panel">
+        <h2>Trading</h2>
+        <div class="grp">
+          <div class="ctl">
+            <div class="ctl-top"><label for="vol">Daily volume</label><span class="ctl-val" id="vol-v">$100M</span></div>
+            <input type="range" id="vol" min="5" max="300" step="5" value="100">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="bps">Average pool fee</label><span class="ctl-val" id="bps-v">30 bps</span></div>
+            <input type="range" id="bps" min="10" max="60" step="1" value="30">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="trApp">Volume via the PerpsPad app</label><span class="ctl-val" id="trApp-v">30%</span></div>
+            <input type="range" id="trApp" min="0" max="100" step="5" value="30">
+            <p class="hint" id="trApp-h"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Deploys</h2>
+        <div class="grp">
+          <div class="ctl">
+            <div class="ctl-top"><label for="pools">Pools per day</label><span class="ctl-val" id="pools-v">200</span></div>
+            <input type="range" id="pools" min="0" max="800" step="10" value="200">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="fee">Fee per deploy</label><span class="ctl-val" id="fee-v">$250</span></div>
+            <input type="range" id="fee" min="0" max="1000" step="50" value="250">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="dpApp">Deploys via the PerpsPad app</label><span class="ctl-val" id="dpApp-v">100%</span></div>
+            <input type="range" id="dpApp" min="0" max="100" step="5" value="100">
+            <p class="hint" id="dpApp-h"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Splits</h2>
+        <div class="grp">
+          <div class="ctl">
+            <div class="ctl-top"><label for="lp">To liquidity providers</label><span class="ctl-val" id="lp-v">50%</span></div>
+            <input type="range" id="lp" min="0" max="80" step="5" value="50">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="pad">Launchpad fee</label><span class="ctl-val" id="pad-v">50%</span></div>
+            <input type="range" id="pad" min="0" max="80" step="5" value="50">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label>Charged on</label></div>
+            <div class="seg" role="group" aria-label="Launchpad fee basis">
+              <button type="button" id="lb-gross" aria-pressed="true">% of gross</button>
+              <button type="button" id="lb-net" aria-pressed="false">% of net profit</button>
+            </div>
+            <p class="hint" id="lb-h"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>GMX and GMTrade</h2>
+        <div class="grp">
+          <div class="ctl">
+            <div class="ctl-top"><label for="pt">Their revenue share</label><span class="ctl-val" id="pt-v">35%</span></div>
+            <input type="range" id="pt" min="0" max="50" step="5" value="35">
+          </div>
+          <p class="fixed" id="fixed-note"></p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="hero">
+        <div class="hero-row">
+          <div>
+            <div class="lbl">PerpsPad keeps, 30 days</div>
+            <div class="big num" id="out-net">$0</div>
+          </div>
+          <div>
+            <div class="lbl">Before the partner share</div>
+            <div class="mid num" id="out-pre">$0</div>
+          </div>
+          <div>
+            <div class="lbl">Gross fee pool</div>
+            <div class="mid num" id="out-gross">$0</div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <div class="lbl">Where every dollar of trading fees goes</div>
+          <div class="bar" id="bar">
+            <span class="s-lp" id="sg-lp"></span><span class="s-pad" id="sg-pad"></span><span class="s-pt" id="sg-pt"></span><span class="s-us" id="sg-us"></span>
+          </div>
+          <div class="key">
+            <div><span class="dot" style="background:var(--lp)"></span>Liquidity providers <span class="num" id="k-lp"></span></div>
+            <div><span class="dot" style="background:var(--pad)"></span>Launchpads <span class="num" id="k-pad"></span></div>
+            <div><span class="dot" style="background:var(--partner)"></span>GMX and GMTrade <span class="num" id="k-pt"></span></div>
+            <div><span class="dot" style="background:var(--accent)"></span>PerpsPad <span class="num" id="k-us"></span></div>
+          </div>
+        </div>
+
+        <p class="hero-note" id="note"></p>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2>Breakdown, 30 days</h2>
+        <table>
+          <thead><tr><th>Line</th><th class="n">Gross</th><th class="n">PerpsPad keeps</th></tr></thead>
+          <tbody>
+            <tr><td>Trading fees</td><td class="n" id="r-tg">–</td><td class="n" id="r-tn">–</td></tr>
+            <tr><td>Deploy fees</td><td class="n" id="r-dg">–</td><td class="n" id="r-dn">–</td></tr>
+            <tr class="tot"><td>Total</td><td class="n" id="r-ag">–</td><td class="n" id="r-an">–</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2>Total revenue by volume and fee, at the current settings</h2>
+        <div class="scroll">
+          <table class="grid-t" id="grid"></table>
+        </div>
+      </div>
+
+      <div class="flag">
+        <h3>What the launchpad fee basis is worth</h3>
+        <p id="flag-body"></p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var S = { vol:100, bps:30, trApp:30, pools:200, fee:250, dpApp:100, lp:50, pad:50, padGross:true, pt:35 };
+  var DAYS = 30, PARTNER_ON_DEPLOYS = true;
+
+  function money(x) {
+    var sg = x < 0 ? "-" : "", a = Math.abs(x);
+    if (a >= 1e6) return sg + "$" + (a / 1e6).toFixed(2) + "M";
+    if (a >= 1e3) return sg + "$" + Math.round(a / 1e3) + "k";
+    return sg + "$" + Math.round(a);
+  }
+  function pct(x) { return (x * 100).toFixed(0) + "%"; }
+
+  // padGross = true  : launchpad fee is a share of gross protocol revenue, the pool shared with
+  //                    GMX and GMTrade after liquidity providers. It comes off before their share,
+  //                    so they carry part of the launchpad cost and are effectively paid on net profit.
+  // padGross = false : launchpad fee is a share of PerpsPad's own profit, after liquidity providers
+  //                    and after the GMX share, so PerpsPad carries the launchpad cost alone and
+  //                    GMX and GMTrade are paid on gross protocol revenue.
+  function calc(vol, bps) {
+    var gross = vol * 1e6 * (bps / 10000) * DAYS;
+    var viaPad = 1 - S.trApp / 100;
+    var lp = gross * (S.lp / 100);
+    var padCut, partners, net;
+
+    if (S.padGross) {
+      var protoG = gross - lp;
+      padCut = protoG * viaPad * (S.pad / 100);
+      var rest = protoG - padCut;
+      partners = rest * (S.pt / 100);
+      net = rest - partners;
+    } else {
+      var protocol = gross - lp;
+      partners = protocol * (S.pt / 100);
+      var ours = protocol - partners;
+      padCut = ours * viaPad * (S.pad / 100);
+      net = ours - padCut;
+    }
+
+    var dGross = S.pools * S.fee * DAYS;
+    var dPadCut = dGross * (1 - S.dpApp / 100) * 0.5;
+    var dAfter = dGross - dPadCut;
+    var dPartners = PARTNER_ON_DEPLOYS ? dAfter * (S.pt / 100) : 0;
+    var dNet = dAfter - dPartners;
+
+    return {
+      gross: gross, lp: lp, padCut: padCut, partners: partners, net: net,
+      dGross: dGross, dPadCut: dPadCut, dPartners: dPartners, dNet: dNet,
+      total: net + dNet, pre: net + partners + dNet + dPartners
+    };
+  }
+
+  var VOLS = [10, 30, 50, 100, 200], BPSS = [25, 30, 35, 40];
+  function nearest(arr, v) {
+    var best = arr[0];
+    for (var i = 0; i < arr.length; i++) if (Math.abs(arr[i] - v) < Math.abs(best - v)) best = arr[i];
+    return best;
+  }
+  function $(id) { return document.getElementById(id); }
+
+  function render() {
+    var r = calc(S.vol, S.bps);
+
+    $("vol-v").textContent = "$" + S.vol + "M";
+    $("bps-v").textContent = S.bps + " bps";
+    $("trApp-v").textContent = S.trApp + "%";
+    $("pools-v").textContent = S.pools;
+    $("fee-v").textContent = "$" + S.fee;
+    $("dpApp-v").textContent = S.dpApp + "%";
+    $("lp-v").textContent = S.lp + "%";
+    $("pad-v").textContent = S.pad + "%";
+    $("pt-v").textContent = S.pt + "%";
+
+    $("trApp-h").textContent = (100 - S.trApp) + "% arrives through launchpad apps and pays the launchpad fee.";
+    $("dpApp-h").textContent = S.dpApp === 100
+      ? "Every deploy happens in your app, so no deploy fee is shared."
+      : (100 - S.dpApp) + "% of deploys come through launchpad apps and share half the fee.";
+    $("lb-h").textContent = S.padGross
+      ? "Of gross protocol revenue, the pool you share with GMX after liquidity providers. Taken before their share, so they carry part of it."
+      : "Of your own profit, after liquidity providers and after the GMX share, so you carry all of it.";
+
+    $("fixed-note").innerHTML = "Their " + S.pt + "% is charged " +
+      (S.padGross ? "<strong>on net profit</strong>, after the launchpad fee" : "<strong>on gross</strong>, before the launchpad fee") +
+      ", and applies to <strong>deploy fees</strong> as well.";
+
+    $("out-net").textContent = money(r.total);
+    $("out-pre").textContent = money(r.pre);
+    $("out-gross").textContent = money(r.gross + r.dGross);
+
+    var g = r.gross || 1;
+    $("sg-lp").style.width = (r.lp / g * 100) + "%";
+    $("sg-pad").style.width = (Math.max(0, r.padCut) / g * 100) + "%";
+    $("sg-pt").style.width = (Math.max(0, r.partners) / g * 100) + "%";
+    $("sg-us").style.width = (Math.max(0, r.net) / g * 100) + "%";
+    $("k-lp").textContent = money(r.lp);
+    $("k-pad").textContent = money(r.padCut);
+    $("k-pt").textContent = money(r.partners);
+    $("k-us").textContent = money(r.net);
+
+    $("r-tg").textContent = money(r.gross);
+    $("r-tn").textContent = money(r.net);
+    $("r-dg").textContent = money(r.dGross);
+    $("r-dn").textContent = money(r.dNet);
+    $("r-ag").textContent = money(r.gross + r.dGross);
+    $("r-an").textContent = money(r.total);
+
+    $("note").textContent = "Of every dollar of trading fees, PerpsPad ends up with " + pct(r.gross ? r.net / r.gross : 0) +
+      ". Launchpads take " + money(r.padCut) + " of trading fees and " + money(r.dPadCut) + " of deploy fees; " +
+      "GMX and GMTrade take " + money(r.partners + r.dPartners) + " across both.";
+
+    var t = $("grid"), html = "<thead><tr><th>Daily volume</th>";
+    for (var j = 0; j < BPSS.length; j++) html += '<th class="n">' + BPSS[j] + " bps</th>";
+    html += "</tr></thead><tbody>";
+    var lv = nearest(VOLS, S.vol), lb = nearest(BPSS, S.bps);
+    for (var i = 0; i < VOLS.length; i++) {
+      html += '<tr><td class="rh">$' + VOLS[i] + "M</td>";
+      for (var k = 0; k < BPSS.length; k++) {
+        var live = (VOLS[i] === lv && BPSS[k] === lb) ? " live" : "";
+        html += '<td class="cell' + live + '">' + money(calc(VOLS[i], BPSS[k]).total) + "</td>";
+      }
+      html += "</tr>";
+    }
+    t.innerHTML = html + "</tbody>";
+
+    var was = S.padGross;
+    S.padGross = true;  var a = calc(S.vol, S.bps).total;
+    S.padGross = false; var b = calc(S.vol, S.bps).total;
+    S.padGross = was;
+    $("flag-body").innerHTML =
+      "Charge the launchpad fee on gross and it comes out before the GMX and GMTrade share, so they carry part of it: you keep <span class='num'>" +
+      money(a) + "</span> a month. Charge it on your net profit and you carry it alone: <span class='num'>" + money(b) +
+      "</span>. The difference is <span class='num'>" + money(a - b) + "</span> a month, or <span class='num'>" +
+      money((a - b) * 12) + "</span> a year.";
+  }
+
+  ["vol", "bps", "trApp", "pools", "fee", "dpApp", "lp", "pad", "pt"].forEach(function (id) {
+    var el = $(id);
+    el.value = S[id];
+    el.addEventListener("input", function () { S[id] = +el.value; render(); });
+  });
+
+  var lbG = $("lb-gross"), lbN = $("lb-net");
+  function setBasis(v) {
+    S.padGross = v;
+    lbG.setAttribute("aria-pressed", String(v));
+    lbN.setAttribute("aria-pressed", String(!v));
+    render();
+  }
+  lbG.addEventListener("click", function () { setBasis(true); });
+  lbN.addEventListener("click", function () { setBasis(false); });
+
+  setBasis(S.padGross);
+})();
+</script>
