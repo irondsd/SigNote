@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteCard';
 import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { useDecryptedPreviews } from '@/hooks/useDecryptedPreviews';
 import { decryptSecretBody } from '@/lib/crypto';
 import { StripShell } from './StripShell';
@@ -42,26 +43,7 @@ export function SecretsStrip({
   const decryptedPreviews = useDecryptedPreviews(visible, mek);
   const guard = useEncryptionGuard();
 
-  const openDecryptedNote = useCallback(
-    async (note: CachedSecretNote) => {
-      if (!mek || !note.encryptedBody) {
-        setSelected(note);
-        setSelectedDecrypted('');
-        return;
-      }
-      try {
-        const content = await decryptSecretBody(mek, note.encryptedBody);
-        setSelected(note);
-        setSelectedDecrypted(content);
-      } catch {
-        setSelected(note);
-        setSelectedDecrypted('');
-      }
-    },
-    [mek],
-  );
-
-  const decryptAndOpen = useCallback(async (cryptoKey: CryptoKey) => {
+  const decryptPendingAndOpen = useCallback(async (cryptoKey: CryptoKey) => {
     const noteToOpen = pendingNoteRef.current;
     pendingNoteRef.current = null;
     if (noteToOpen && cryptoKey && noteToOpen.encryptedBody) {
@@ -79,33 +61,23 @@ export function SecretsStrip({
     }
   }, []);
 
+  const actions = useMemo(() => ({ open: decryptPendingAndOpen }), [decryptPendingAndOpen]);
+  const runProtectedAction = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate: ctxRehydrate,
+    execute: guard.execute,
+    actions,
+  });
+
   const handleClick = useCallback(
     async (note: CachedSecretNote) => {
       onItemClick?.();
-      if (!isUnlocked) {
-        pendingNoteRef.current = note;
-        if (lockType === 'soft') {
-          try {
-            await ctxRehydrate();
-          } catch {
-            await guard.execute(decryptAndOpen);
-          }
-        } else {
-          await guard.execute(decryptAndOpen);
-        }
-        return;
-      }
-      await openDecryptedNote(note);
+      pendingNoteRef.current = note;
+      await runProtectedAction('open');
     },
-    [isUnlocked, lockType, guard, ctxRehydrate, openDecryptedNote, decryptAndOpen, onItemClick],
+    [runProtectedAction, onItemClick],
   );
-
-  useEffect(() => {
-    const note = pendingNoteRef.current;
-    if (!mek || !note) return;
-    pendingNoteRef.current = null;
-    openDecryptedNote(note);
-  }, [mek, openDecryptedNote]);
 
   return (
     <>

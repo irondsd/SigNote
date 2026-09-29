@@ -14,32 +14,19 @@ import { SecurityPageCard } from '@/components/SecurityPageCard/SecurityPageCard
 import s from './page.module.scss';
 import { TRPCClientError } from '@trpc/client';
 import { trpcClient } from '@/lib/trpcClient';
+import type { StoredMaterial } from '@/lib/encryptionMaterialStore';
+import { updateEncryptionPassphrase } from '@/lib/updateEncryptionPassphrase';
 import { useProfile } from '@/hooks/useProfile';
-import {
-  createKeyCheck,
-  deriveDeviceShare,
-  deriveVaultKeyId,
-  generateSalt,
-  importMEK,
-  saveDeviceShare,
-  verifyKeyCheck,
-  xor32,
-} from '@/lib/crypto';
+import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
+import { deriveDeviceShare, importMEK, verifyKeyCheck, xor32 } from '@/lib/crypto';
 
 type VerifyState = 'idle' | 'verifying' | 'valid' | 'invalid';
-
-type Material = {
-  serverShare: string;
-  salt: string;
-  kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number; length: number };
-  keyCheck: { alg: 'A256GCM'; iv: string; ciphertext: string };
-  vaultKeyId: string | null;
-};
 
 export default function ChangePassphrasePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: security } = useSecurityPreferences();
   const oldPassphraseInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -55,7 +42,7 @@ export default function ChangePassphrasePage() {
   const [oldPassphrase, setOldPassphrase] = useState('');
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const mekBytesRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
-  const materialRef = useRef<Material | null>(null);
+  const materialRef = useRef<StoredMaterial | null>(null);
 
   const [newPassphrase, setNewPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -80,9 +67,9 @@ export default function ChangePassphrasePage() {
     mekBytesRef.current = null;
     materialRef.current = null;
     try {
-      let material: Material;
+      let material: StoredMaterial;
       try {
-        material = (await trpcClient.encryption.material.query()) as unknown as Material;
+        material = (await trpcClient.encryption.material.query()) as unknown as StoredMaterial;
       } catch (e) {
         if (e instanceof TRPCClientError && e.data?.code === 'NOT_FOUND') {
           router.replace('/secrets');
@@ -153,37 +140,14 @@ export default function ChangePassphrasePage() {
     setSubmitError('');
     setSubmitting(true);
     try {
-      const mekBytes = mekBytesRef.current;
-      const { kdf } = materialRef.current;
-
-      const newSalt = generateSalt();
-      const newDeviceShare = await deriveDeviceShare(newPassphrase, newSalt, kdf);
-      const newServerShareBytes = xor32(mekBytes, newDeviceShare);
-      const newServerShareB64 = btoa(String.fromCharCode(...newServerShareBytes));
-
-      const mek = await importMEK(mekBytes);
-      const newKeyCheck = await createKeyCheck(mek);
-      const vaultKeyId = await deriveVaultKeyId(mek);
-
-      try {
-        await trpcClient.encryption.update.mutate({
-          serverShare: newServerShareB64,
-          salt: newSalt,
-          keyCheck: newKeyCheck,
-          vaultKeyId,
-        });
-      } catch (e) {
-        if (e instanceof TRPCClientError) {
-          throw new Error(e.message || 'Failed to update passphrase.');
-        }
-        throw e;
-      }
-
-      saveDeviceShare(newDeviceShare);
+      await updateEncryptionPassphrase(mekBytesRef.current, newPassphrase, materialRef.current, {
+        userId: session?.user?.id,
+        allowed: security?.cacheServerShare,
+      });
       posthog.capture('passphrase_changed');
       setScreen('success');
     } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to update passphrase.');
+      setSubmitError(e instanceof Error && e.message ? e.message : 'Failed to update passphrase.');
       setSubmitting(false);
     }
   };

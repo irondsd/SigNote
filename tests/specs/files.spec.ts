@@ -307,6 +307,36 @@ test.describe('encrypted file uploads', () => {
     await expect(page.locator('img[src^="blob:"]')).toBeVisible({ timeout: 10000 });
   });
 
+  test('seal: saving after a soft lock keeps the wrapped key used by its attachment', async ({ page }) => {
+    await openNewSeal(page);
+    const title = await page.getByTestId('note-title-input').inputValue();
+    const fileId = await uploadViaDropZone(page, pngPath);
+    const uploaded = await assertFileEncrypted(fileId);
+    expect(uploaded).toMatchObject({ keyScope: 'seal' });
+
+    const sealsPage = new SealsPage(page);
+    await sealsPage.simulateTabHidden();
+
+    const savePromise = page.waitForResponse(trpcMutationOf('seals.'));
+    await page.getByTestId('save-seal-btn').click();
+    await savePromise;
+
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect
+      .poll(async () => {
+        const [seal] = await testDb().select().from(sealNotes).where(eq(sealNotes.title, title));
+        return seal?.wrappedNoteKey ? seal.id : null;
+      })
+      .toBe(uploaded.keyNoteId);
+    await expect
+      .poll(async () => (await testDb().select().from(fileAttachments).where(eq(fileAttachments.id, fileId)))[0])
+      .toMatchObject({ noteId: uploaded.keyNoteId, noteTier: 'seal', keyScope: 'seal' });
+
+    await sealsPage.sealCard(title).click();
+    await page.getByTestId('decrypt-btn').click();
+    await expect(page.locator('img[src^="blob:"]')).toBeVisible({ timeout: 10000 });
+  });
+
   test('seal: file uploaded via direct drop is encrypted', async ({ page }) => {
     await openNewSeal(page);
     const fileId = await uploadViaDrop(page, pngPath);

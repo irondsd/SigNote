@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { v7 as uuidv7 } from 'uuid';
 import { useCreateSeal } from '@/hooks/useSealMutations';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
 import { useSealKeys } from '@/hooks/useSealKeys';
 import { useEncryption } from '@/contexts/EncryptionContext';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { encryptSealBody, encryptSealBodyWithExistingKey } from '@/lib/crypto';
 import { extractFileIds } from '@/lib/fileIds';
@@ -23,7 +24,7 @@ type NewSealModalProps = {
 
 export function NewSealModal({ onClose, initialContent }: NewSealModalProps) {
   const guard = useSimpleEncryptionGuard();
-  const { mek, phase } = useEncryption();
+  const { mek, phase, lockType, rehydrate } = useEncryption();
   const [saving, setSaving] = useState(false);
   // The Seal's id and key exist before the Seal does, so attachments can be
   // encrypted under the key it will be saved with. A recovered draft keeps both.
@@ -31,42 +32,66 @@ export function NewSealModal({ onClose, initialContent }: NewSealModalProps) {
   const sealKeys = useSealKeys(sealId, initialContent?.sealKey?.wrappedNoteKey ?? null, mek);
   const sealKey = sealKeys.wrappedNoteKey ? { id: sealId, wrappedNoteKey: sealKeys.wrappedNoteKey } : undefined;
   const form = useNewNoteForm('seal', onClose, initialContent, mek, sealKey);
+  const preparedRef = useRef<NonNullable<ReturnType<typeof form.prepare>> | null>(null);
+  const { color, pattern, save, tags } = form;
 
   const createSeal = useCreateSeal();
+
+  const savePrepared = useCallback(
+    async (currentMek: CryptoKey) => {
+      const prepared = preparedRef.current;
+      if (!prepared) return;
+      preparedRef.current = null;
+
+      try {
+        const fileIds = extractFileIds(prepared.content);
+        const wrappedNoteKey = sealKeys.wrappedNoteKey;
+        // Always shown: encrypting and saving a seal is never instant.
+        save(
+          () =>
+            createSeal.mutateAsync({
+              // With a minted key the Seal is created under that id, so the
+              // attachments already under that key link to it.
+              ...(wrappedNoteKey && { id: sealId }),
+              title: prepared.title,
+              color,
+              pattern,
+              fileIds,
+              tags,
+              encryptBody: async (id: string) => {
+                if (!prepared.content) return null;
+                return wrappedNoteKey
+                  ? encryptSealBodyWithExistingKey(currentMek, prepared.content, id, wrappedNoteKey)
+                  : encryptSealBody(currentMek, prepared.content, id);
+              },
+            }),
+          { showProgress: true },
+        );
+        onClose();
+      } catch {
+        toast.error('Failed to prepare seal for saving', { description: 'Your draft is safe.' });
+      }
+    },
+    [color, createSeal, onClose, pattern, save, sealId, sealKeys.wrappedNoteKey, tags],
+  );
+  const actions = useMemo(() => ({ save: savePrepared }), [savePrepared]);
+  const runProtectedAction = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate,
+    execute: guard.execute,
+    actions,
+  });
 
   const handleSave = async () => {
     const prepared = form.prepare();
     if (!prepared) return;
     form.recovery.flush();
 
+    preparedRef.current = prepared;
     try {
       setSaving(true);
-      await guard.execute(async (mek) => {
-        const fileIds = extractFileIds(prepared.content);
-        const wrappedNoteKey = sealKeys.wrappedNoteKey;
-        // Always shown: encrypting and saving a seal is never instant.
-        form.save(
-          () =>
-            createSeal.mutateAsync({
-              // With a minted key the Seal is created under that id, so the
-              // attachments already under its key link to it.
-              ...(wrappedNoteKey && { id: sealId }),
-              title: prepared.title,
-              color: form.color,
-              pattern: form.pattern,
-              fileIds,
-              tags: form.tags,
-              encryptBody: async (id: string) => {
-                if (!prepared.content) return null;
-                return wrappedNoteKey
-                  ? encryptSealBodyWithExistingKey(mek, prepared.content, id, wrappedNoteKey)
-                  : encryptSealBody(mek, prepared.content, id);
-              },
-            }),
-          { showProgress: true },
-        );
-        onClose();
-      });
+      await runProtectedAction('save');
     } catch {
       toast.error('Failed to prepare seal for saving', { description: 'Your draft is safe.' });
     } finally {

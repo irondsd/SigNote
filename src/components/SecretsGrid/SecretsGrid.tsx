@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type CachedSecretNote } from '@/hooks/useSecretMutations';
 import { SortableEncryptedCard } from '@/components/EncryptedNoteCard/SortableEncryptedCard';
@@ -8,6 +8,7 @@ import { EncryptedNoteCard } from '@/components/EncryptedNoteCard/EncryptedNoteC
 import { SecretNoteModal } from '@/components/SecretNoteModal/SecretNoteModal';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { decryptSecretBody } from '@/lib/crypto';
 import { BaseGrid } from '@/components/BaseGrid/BaseGrid';
 import { getStableKey } from '@/lib/stableKeyStore';
@@ -41,27 +42,7 @@ export function SecretsGrid({
 
   const guard = useEncryptionGuard();
 
-  const openDecryptedNote = useCallback(
-    async (note: CachedSecretNote) => {
-      if (!mek || !note.encryptedBody) {
-        setSelected(note);
-        setSelectedDecrypted('');
-        return;
-      }
-
-      try {
-        const content = await decryptSecretBody(mek, note.encryptedBody);
-        setSelected(note);
-        setSelectedDecrypted(content);
-      } catch {
-        clearNoteIdParam();
-        toast.error('Could not decrypt this Secret. Lock and unlock your vault, then try again.');
-      }
-    },
-    [mek],
-  );
-
-  const decryptAndOpen = useCallback(async (cryptoKey: CryptoKey) => {
+  const decryptPendingAndOpen = useCallback(async (cryptoKey: CryptoKey) => {
     const noteToOpen = pendingNoteRef.current;
     pendingNoteRef.current = null;
     if (noteToOpen && cryptoKey && noteToOpen.encryptedBody) {
@@ -79,32 +60,22 @@ export function SecretsGrid({
     }
   }, []);
 
+  const actions = useMemo(() => ({ open: decryptPendingAndOpen }), [decryptPendingAndOpen]);
+  const runProtectedAction = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate: ctxRehydrate,
+    execute: guard.execute,
+    actions,
+  });
+
   const handleNoteClick = useCallback(
     async (note: CachedSecretNote) => {
-      if (!isUnlocked) {
-        pendingNoteRef.current = note;
-        if (lockType === 'soft') {
-          try {
-            await ctxRehydrate();
-          } catch {
-            await guard.execute(decryptAndOpen);
-          }
-        } else {
-          await guard.execute(decryptAndOpen);
-        }
-        return;
-      }
-      await openDecryptedNote(note);
+      pendingNoteRef.current = note;
+      await runProtectedAction('open');
     },
-    [isUnlocked, lockType, guard, ctxRehydrate, openDecryptedNote, decryptAndOpen],
+    [runProtectedAction],
   );
-
-  useEffect(() => {
-    const note = pendingNoteRef.current;
-    if (!mek || !note) return;
-    pendingNoteRef.current = null;
-    openDecryptedNote(note);
-  }, [mek, openDecryptedNote]);
 
   useInitialNoteId(notes, (n) => n._id, handleNoteClick, phase !== 'loading');
 

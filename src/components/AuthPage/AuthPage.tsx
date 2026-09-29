@@ -15,6 +15,7 @@ import { NewAuthModal } from '@/components/NewAuthModal/NewAuthModal';
 import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { PageLoading, PageShell } from '@/components/PageShell/PageShell';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { Button } from '@/components/ui/button';
@@ -96,11 +97,7 @@ export function AuthPage({ archived }: AuthPageProps) {
     // is in hand but the first sync is still in flight, and an empty `records`
     // there means "not fetched", not "no credentials".
     if (vault.phase === 'loading' || status === 'loading' || (vault.phase === 'ready' && !vault.hydrated)) {
-      return (
-        <div className={s.loading}>
-          <span className={s.spinner} />
-        </div>
-      );
+      return <PageLoading />;
     }
 
     if (status === 'unauthenticated' || vault.phase === 'signed-out') return <UnauthenticatedState />;
@@ -149,7 +146,7 @@ export function AuthPage({ archived }: AuthPageProps) {
   };
 
   return (
-    <div className={`${s.page} ph-no-capture`}>
+    <PageShell className="ph-no-capture">
       {archived ? (
         <ArchivePageHeader title="Archived Auth" backHref="/auth" backLabel="Auth" BackIcon="auth" />
       ) : (
@@ -230,6 +227,6 @@ export function AuthPage({ archived }: AuthPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }

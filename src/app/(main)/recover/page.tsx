@@ -5,25 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { CheckCircle, KeyRound, ShieldCheck, Upload } from 'lucide-react';
-import { TRPCClientError } from '@trpc/client';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { PassphrasePairFields } from '@/components/PassphrasePairFields/PassphrasePairFields';
 import { SecurityPageCard } from '@/components/SecurityPageCard/SecurityPageCard';
 import { trpcClient } from '@/lib/trpcClient';
+import type { StoredMaterial } from '@/lib/encryptionMaterialStore';
+import { updateEncryptionPassphrase } from '@/lib/updateEncryptionPassphrase';
 import { useProfile } from '@/hooks/useProfile';
-import {
-  createKeyCheck,
-  deriveDeviceShare,
-  deriveVaultKeyId,
-  fromBase64,
-  generateSalt,
-  importMEK,
-  loadDeviceShare,
-  saveDeviceShare,
-  verifyKeyCheck,
-  xor32,
-} from '@/lib/crypto';
+import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
+import { fromBase64, importMEK, loadDeviceShare, verifyKeyCheck, xor32 } from '@/lib/crypto';
 import {
   decodeDeviceShare,
   parseBackupText,
@@ -34,20 +25,13 @@ import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants
 import { cn } from '@/utils/cn';
 import s from './page.module.scss';
 
-type Material = {
-  serverShare: string;
-  salt: string;
-  kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number; length: number };
-  keyCheck: { alg: 'A256GCM'; iv: string; ciphertext: string };
-  vaultKeyId: string | null;
-};
-
 type Screen = 'upload' | 'passphrase' | 'success';
 
 export default function RecoverPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: security } = useSecurityPreferences();
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/');
@@ -69,7 +53,7 @@ export default function RecoverPage() {
   const [dragActive, setDragActive] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const mekBytesRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
-  const materialRef = useRef<Material | null>(null);
+  const materialRef = useRef<StoredMaterial | null>(null);
 
   const [newPassphrase, setNewPassphrase] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -108,9 +92,9 @@ export default function RecoverPage() {
         return;
       }
 
-      let material: Material;
+      let material: StoredMaterial;
       try {
-        material = (await trpcClient.encryption.material.query()) as unknown as Material;
+        material = (await trpcClient.encryption.material.query()) as unknown as StoredMaterial;
       } catch {
         setUploadError('Failed to load encryption profile. Please try again.');
         return;
@@ -180,36 +164,14 @@ export default function RecoverPage() {
     setSubmitError('');
     setSubmitting(true);
     try {
-      const mekBytes = mekBytesRef.current;
-      const { kdf } = materialRef.current;
-      const newSalt = generateSalt();
-      const newDeviceShare = await deriveDeviceShare(newPassphrase, newSalt, kdf);
-      const newServerShareBytes = xor32(mekBytes, newDeviceShare);
-      const newServerShareB64 = btoa(String.fromCharCode(...newServerShareBytes));
-
-      const mek = await importMEK(mekBytes);
-      const newKeyCheck = await createKeyCheck(mek);
-      const vaultKeyId = await deriveVaultKeyId(mek);
-
-      try {
-        await trpcClient.encryption.update.mutate({
-          serverShare: newServerShareB64,
-          salt: newSalt,
-          keyCheck: newKeyCheck,
-          vaultKeyId,
-        });
-      } catch (e) {
-        if (e instanceof TRPCClientError) {
-          throw new Error(e.message || 'Failed to update encryption profile.');
-        }
-        throw e;
-      }
-
-      saveDeviceShare(newDeviceShare);
+      await updateEncryptionPassphrase(mekBytesRef.current, newPassphrase, materialRef.current, {
+        userId,
+        allowed: security?.cacheServerShare,
+      });
       posthog.capture('recovery_completed');
       setScreen('success');
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to update encryption profile.');
+      setSubmitError(err instanceof Error && err.message ? err.message : 'Failed to update encryption profile.');
       setSubmitting(false);
     }
   };

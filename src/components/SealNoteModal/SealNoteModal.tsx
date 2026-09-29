@@ -23,6 +23,7 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { NoteContentVeil } from '@/components/NoteContentVeil/NoteContentVeil';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { decryptSealBody, encryptSealBody, encryptSealBodyWithExistingKey } from '@/lib/crypto';
 import type { EncryptedPayload } from '@/types/crypto';
 import { extractFileIds, stripSealKeyedAttachments } from '@/lib/fileIds';
@@ -59,7 +60,6 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const totalTimeRef = useRef(DECRYPT_FOR_SECONDS);
   const originalDecryptedRef = useRef<string | null>(null);
-  const pendingActionRef = useRef<'decrypt' | 'save' | null>(null);
   const mountLockSerialRef = useRef(lockSerial);
 
   const guard = useEncryptionGuard();
@@ -166,25 +166,7 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const handleDecrypt = async () => {
     setDecrypting(true);
     try {
-      if (lockType === 'soft') {
-        // Soft lock: try rehydrate directly, then decrypt
-        pendingActionRef.current = 'decrypt';
-        try {
-          await ctxRehydrate();
-          // On success, mek is restored; useEffect below will perform decrypt
-        } catch {
-          // On failure, fall back to passphrase modal
-          pendingActionRef.current = null;
-          await guard.execute(async (mek) => {
-            await performDecrypt(mek);
-          });
-        }
-      } else {
-        // Hard lock or unlocked: just decrypt
-        await guard.execute(async (mek) => {
-          await performDecrypt(mek);
-        });
-      }
+      await runProtectedAction('decrypt');
     } finally {
       setDecrypting(false);
     }
@@ -331,48 +313,23 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     ],
   );
 
+  const runProtectedAction = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate: ctxRehydrate,
+    execute: guard.execute,
+    actions: { decrypt: performDecrypt, save: performSave },
+  });
+
   const handleSave = async () => {
     recovery.flush();
     setSaving(true);
     try {
-      if (lockType === 'soft') {
-        // Soft lock: try rehydrate directly, then save
-        pendingActionRef.current = 'save';
-        try {
-          await ctxRehydrate();
-          // On success, mek is restored; useEffect below will perform save
-        } catch {
-          // On failure, fall back to passphrase modal
-          pendingActionRef.current = null;
-          await guard.execute(async (mek) => {
-            await performSave(mek);
-          });
-        }
-      } else {
-        // Hard lock or unlocked: just save
-        await guard.execute(async (mek) => {
-          await performSave(mek);
-        });
-      }
+      await runProtectedAction('save');
     } finally {
       setSaving(false);
     }
   };
-
-  // Execute pending action after mek becomes available (rehydrate or passphrase unlock)
-  useEffect(() => {
-    const action = pendingActionRef.current;
-    if (!action || !mek) return;
-
-    (async () => {
-      if (action === 'decrypt') {
-        await performDecrypt(mek);
-      } else if (action === 'save') {
-        await performSave(mek);
-      }
-      pendingActionRef.current = null;
-    })();
-  }, [mek, performDecrypt, performSave]);
 
   const handleDelete = () => {
     deleteNoteWithUndo(

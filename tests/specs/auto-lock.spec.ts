@@ -12,6 +12,7 @@ import { seedSeals } from '../fixtures/seedSeals';
 import { SecretsPage } from '../pages/SecretsPage';
 import { SealsPage } from '../pages/SealsPage';
 import { settleModal } from '../utils/settleModal';
+import { trpcMutationOf } from '../utils/trpc';
 import { testDb } from '../fixtures/db';
 import { sealNoteVersions, secretNoteVersions } from '../../src/db/schema';
 
@@ -181,6 +182,41 @@ test.describe('soft lock', () => {
     await expect(page.getByRole('button', { name: 'Lock', exact: true })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('soft unlock test')).toBeVisible({ timeout: 10000 });
   });
+
+  for (const tier of ['Secret', 'Seal'] as const) {
+    test(`opening a new ${tier} after soft lock does not require a passphrase`, async ({ page }) => {
+      const model = tier === 'Secret' ? new SecretsPage(page) : new SealsPage(page);
+      await model.signInDirectly();
+      await model.unlock();
+      await model.simulateTabHidden();
+
+      await page.getByRole('button', { name: `New ${tier}`, exact: true }).click();
+
+      await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+      await expect(page.getByTestId('note-title-input')).toBeVisible();
+      await expect(page.getByTestId('unlock-button')).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 });
+    });
+
+    test(`saving a new ${tier} after soft lock does not require a passphrase`, async ({ page }) => {
+      const model = tier === 'Secret' ? new SecretsPage(page) : new SealsPage(page);
+      await model.signInDirectly();
+      await model.unlock();
+
+      const title = `Soft lock new ${tier} ${Date.now()}`;
+      await page.getByRole('button', { name: `New ${tier}`, exact: true }).click();
+      await page.getByTestId('note-title-input').fill(title);
+      await page.locator('.ProseMirror').fill(`Body saved after a soft lock: ${tier}`);
+      await model.simulateTabHidden();
+
+      const mutation = page.waitForResponse(trpcMutationOf(tier === 'Secret' ? 'secrets.' : 'seals.'));
+      await page.getByTestId(tier === 'Secret' ? 'save-secret-btn' : 'save-seal-btn').click();
+      await mutation;
+
+      await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+      await expect(page.getByTestId('note-title-input')).not.toBeVisible();
+      await expect(page.getByTestId('secret-card').filter({ hasText: title })).toBeVisible();
+    });
+  }
 
   test('save secret after soft lock does not require passphrase', async ({ page }) => {
     const { account } = makeAccount();

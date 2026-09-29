@@ -7,7 +7,7 @@ import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
 import { useEncryption } from '@/contexts/EncryptionContext';
-import s from './VaultPage.module.scss';
+import { PageLoading, PageShell } from '@/components/PageShell/PageShell';
 
 type ListQuery<T> = {
   data?: { pages: T[][] };
@@ -52,13 +52,11 @@ export function VaultArchivePage<T>({
   const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
   return (
-    <div className={s.page}>
+    <PageShell>
       <ArchivePageHeader title={title} backHref={backHref} backLabel={backLabel} BackIcon={backIcon} />
 
       {showLoadingState ? (
-        <div className={s.loading}>
-          <span className={s.spinner} />
-        </div>
+        <PageLoading />
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
@@ -74,6 +72,6 @@ export function VaultArchivePage<T>({
           isDragDisabled
         />
       )}
-    </div>
+    </PageShell>
   );
 }

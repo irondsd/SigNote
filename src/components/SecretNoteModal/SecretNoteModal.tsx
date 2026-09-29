@@ -20,6 +20,7 @@ import { useEncryption } from '@/contexts/EncryptionContext';
 import { NoteContentVeil } from '@/components/NoteContentVeil/NoteContentVeil';
 import { FileEncryptionProvider } from '@/contexts/FileEncryptionContext';
 import { useEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { decryptSecretBody, encryptSecretBody } from '@/lib/crypto';
 import type { EncryptedPayload } from '@/types/crypto';
 import { extractFileIds } from '@/lib/fileIds';
@@ -105,7 +106,6 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
 
   // Tracks the last saved content baseline so checkbox auto-saves don't make isDirty true
   const savedContentRef = useRef(decryptedContent);
-  const pendingActionRef = useRef<'save' | null>(null);
   const mountLockSerialRef = useRef(lockSerial);
 
   const isDirty = editing && (title !== savedTitle || content !== savedContentRef.current);
@@ -202,29 +202,19 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     [setSavedTitle, recovery, noteId, title, content, updateSecret, setEditing, setShowFormatBar, setUpdatedAt],
   );
 
+  const runProtectedAction = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate: ctxRehydrate,
+    execute: guard.execute,
+    actions: { save: performSave },
+  });
+
   const handleSave = async () => {
     recovery.flush();
     setSaving(true);
     try {
-      if (lockType === 'soft') {
-        // Soft lock: try rehydrate directly, then save
-        pendingActionRef.current = 'save';
-        try {
-          await ctxRehydrate();
-          // On success, mek is restored; useEffect below will perform save
-        } catch {
-          // On failure, fall back to passphrase modal
-          pendingActionRef.current = null;
-          await guard.execute(async (mek) => {
-            await performSave(mek);
-          });
-        }
-      } else {
-        // Hard lock or unlocked: just save
-        await guard.execute(async (mek) => {
-          await performSave(mek);
-        });
-      }
+      await runProtectedAction('save');
     } finally {
       setSaving(false);
     }
@@ -236,19 +226,6 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     setContent(savedContentRef.current);
     setEditing(false);
   };
-
-  // Execute pending save action after mek becomes available (rehydrate or passphrase unlock)
-  useEffect(() => {
-    const action = pendingActionRef.current;
-    if (!action || !mek) return;
-
-    (async () => {
-      if (action === 'save') {
-        await performSave(mek);
-      }
-      pendingActionRef.current = null;
-    })();
-  }, [mek, performSave]);
 
   if (historyOpen && phase === 'unlocked') {
     return (

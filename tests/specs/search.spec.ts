@@ -170,6 +170,30 @@ test.describe('search overlay - encrypted tiers', () => {
     await expect(secretCardIn(dialog, `${tag} secret 2`).getByTestId('archived-badge')).toBeVisible();
   });
 
+  test('opening a secret search result after soft lock rehydrates without a passphrase', async ({ page }) => {
+    const { account } = makeAccount();
+    const { mekBytes } = await seedEncryptionProfile(account.address, SecretsPage.PASSPHRASE);
+    const tag = `softlock${Date.now()}`;
+    await seedSecrets(account.address, mekBytes, [{ title: `${tag} secret`, content: 'search result body' }]);
+
+    const secretsPage = new SecretsPage(page);
+    await secretsPage.signInDirectly(account.address);
+    await secretsPage.unlock();
+
+    await page.locator('button[title="Search"]').click();
+    const dialog = dialogOf(page);
+    await expect(dialog).toBeVisible();
+    await searchInput(dialog).fill(tag);
+    const card = secretCardIn(dialog, `${tag} secret`);
+    await expect(card).toBeVisible();
+    await secretsPage.simulateTabHidden();
+
+    await card.click();
+
+    await expect(page.getByPlaceholder('Your passphrase')).not.toBeVisible();
+    await expect(page.getByTestId('tiptap-editor')).toContainText('search result body', { timeout: 10000 });
+  });
+
   test('finds seals by title', async ({ page }) => {
     const { account } = makeAccount();
     const { mekBytes } = await seedEncryptionProfile(account.address, SealsPage.PASSPHRASE);

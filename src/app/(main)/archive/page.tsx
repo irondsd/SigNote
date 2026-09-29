@@ -6,7 +6,7 @@ import { NotesGrid } from '@/components/NotesGrid/NotesGrid';
 import { UnauthenticatedState } from '@/components/UnauthenticatedState/UnauthenticatedState';
 import { EmptyStateArchive } from '@/components/EmptyStateArchive/EmptyStateArchive';
 import { ArchivePageHeader } from '@/components/ArchivePageHeader/ArchivePageHeader';
-import s from './page.module.scss';
+import { PageLoading, PageShell } from '@/components/PageShell/PageShell';
 
 export default function Page() {
   const { data: session, status } = useSession();
@@ -19,13 +19,11 @@ export default function Page() {
   const showLoadingState = isLoading || status === 'loading';
 
   return (
-    <div className={s.page}>
+    <PageShell>
       <ArchivePageHeader title="Archived Notes" backHref="/" backLabel="Notes" BackIcon="notes" />
 
       {showLoadingState ? (
-        <div className={s.loading}>
-          <span className={s.spinner} />
-        </div>
+        <PageLoading />
       ) : isAuthenticated ? (
         notes.length === 0 ? (
           <EmptyStateArchive />
@@ -40,6 +38,6 @@ export default function Page() {
       ) : (
         <UnauthenticatedState />
       )}
-    </div>
+    </PageShell>
   );
 }

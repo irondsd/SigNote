@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { useSession } from 'next-auth/react';
 import { Archive, SquarePlus } from 'lucide-react';
 import Link from 'next/link';
@@ -9,13 +9,14 @@ import { UnauthenticatedState } from '@/components/UnauthenticatedState/Unauthen
 import { EncryptionSetup } from '@/components/EncryptionSetup/EncryptionSetup';
 import { EmptyState, type EmptyStateNoun } from '@/components/EmptyState/EmptyState';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { PageLoading, PageShell } from '@/components/PageShell/PageShell';
 import { Button } from '@/components/ui/button';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useSimpleEncryptionGuard } from '@/hooks/useEncryptionGuard';
+import { useRehydratingEncryptionAction } from '@/hooks/useRehydratingEncryptionAction';
 import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 import { decryptDraftContent } from '@/lib/crypto';
 import { clearDraft, plaintextOf, type DraftContent } from '@/lib/draft';
-import s from './VaultPage.module.scss';
 
 type InitialContent = DraftContent;
 
@@ -68,6 +69,14 @@ function VaultListPageContent<T>({
   const [showNew, setShowNew] = useState(false);
   const { draftRestore, setDraftRestore } = useDraftRestore();
   const { execute, PassphraseGuard } = useSimpleEncryptionGuard();
+  const newActions = useMemo(() => ({ open: async () => setShowNew(true) }), []);
+  const openNew = useRehydratingEncryptionAction({
+    mek,
+    lockType,
+    rehydrate: ctxRehydrate,
+    execute,
+    actions: newActions,
+  });
 
   // A restored draft is ciphertext, so opening its editor needs the MEK. This
   // path used to open the modal whether or not the vault was unlocked; it now
@@ -134,10 +143,10 @@ function VaultListPageContent<T>({
   const notes = data?.pages.flatMap((page) => page) ?? [];
   const showLoadingState = isLoading || status === 'loading' || (status === 'authenticated' && phase === 'loading');
 
-  const handleNew = () => execute(async () => setShowNew(true));
+  const handleNew = () => openNew('open');
 
   return (
-    <div className={s.page}>
+    <PageShell>
       <PageHeader
         title={title}
         showSearch={isAuthenticated && unlockedOrLocked}
@@ -159,9 +168,7 @@ function VaultListPageContent<T>({
       />
 
       {showLoadingState ? (
-        <div className={s.loading}>
-          <span className={s.spinner} />
-        </div>
+        <PageLoading />
       ) : !isAuthenticated ? (
         <UnauthenticatedState />
       ) : phase === 'setup' ? (
@@ -189,7 +196,7 @@ function VaultListPageContent<T>({
           initialContent={initialContent}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 

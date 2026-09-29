@@ -10,10 +10,10 @@ import { UnauthenticatedState } from '@/components/UnauthenticatedState/Unauthen
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { useDraftRestore } from '@/contexts/DraftRestoreContext';
 import { plaintextOf } from '@/lib/draft';
-import s from './page.module.scss';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PageHeader } from '@/components/PageHeader/PageHeader';
+import { PageLoading, PageShell } from '@/components/PageShell/PageShell';
 
 function NotesPage() {
   const { data: session, status } = useSession();
@@ -34,7 +34,7 @@ function NotesPage() {
   const showLoadingState = isLoading || status === 'loading';
 
   return (
-    <div className={s.page}>
+    <PageShell>
       <PageHeader
         title="Notes"
         showSearch={isAuthenticated}
@@ -56,9 +56,7 @@ function NotesPage() {
       />
 
       {showLoadingState ? (
-        <div className={s.loading}>
-          <span className={s.spinner} />
-        </div>
+        <PageLoading />
       ) : isAuthenticated ? (
         notes.length === 0 ? (
           <EmptyState onNewNote={() => setShowNewNote(true)} />
@@ -84,7 +82,7 @@ function NotesPage() {
           initialContent={initialContent}
         />
       )}
-    </div>
+    </PageShell>
   );
 }
 
