@@ -8,7 +8,8 @@ import { CheckCircle, KeyRound, ShieldCheck, Upload } from 'lucide-react';
 import { TRPCClientError } from '@trpc/client';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
-import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
+import { PassphrasePairFields } from '@/components/PassphrasePairFields/PassphrasePairFields';
+import { SecurityPageCard } from '@/components/SecurityPageCard/SecurityPageCard';
 import { trpcClient } from '@/lib/trpcClient';
 import { useProfile } from '@/hooks/useProfile';
 import {
@@ -215,132 +216,91 @@ export default function RecoverPage() {
 
   if (screen === 'success') {
     return (
-      <div className={s.container}>
-        <div className={s.card}>
-          <div className={s.successIcon}>
-            <CheckCircle size={48} strokeWidth={1.3} />
-          </div>
-          <h2 className={s.heading}>Success</h2>
-          <p className={s.successText}>
-            Your encryption profile has been recovered. You can now access your <Link href="/secrets">Secrets</Link> or{' '}
-            <Link href="/seals">Seals</Link>.
-          </p>
-        </div>
-      </div>
+      <SecurityPageCard icon={<CheckCircle size={48} strokeWidth={1.3} />} title="Success" size="wide" tone="success">
+        <p className={s.successText}>
+          Your encryption profile has been recovered. You can now access your <Link href="/secrets">Secrets</Link> or{' '}
+          <Link href="/seals">Seals</Link>.
+        </p>
+      </SecurityPageCard>
     );
   }
 
   if (screen === 'passphrase') {
     return (
-      <div className={s.container}>
-        <div className={s.card}>
-          <div className={s.iconWrap}>
-            <KeyRound size={40} strokeWidth={1.3} />
-          </div>
-          <h2 className={s.heading}>Set a new passphrase</h2>
-          <p className={s.intro}>
-            Recovery file verified. Choose a new passphrase to protect your encryption profile from now on.
-          </p>
+      <SecurityPageCard icon={<KeyRound size={40} strokeWidth={1.3} />} title="Set a new passphrase" size="wide">
+        <p className={s.intro}>
+          Recovery file verified. Choose a new passphrase to protect your encryption profile from now on.
+        </p>
 
-          <form className={s.form} onSubmit={handleSubmit}>
-            <input
-              type="text"
-              autoComplete="username"
-              value={session?.user?.name ?? ''}
-              readOnly
-              aria-hidden="true"
-              style={{ display: 'none' }}
-            />
+        <form className={s.form} onSubmit={handleSubmit}>
+          <input
+            type="text"
+            autoComplete="username"
+            value={session?.user?.name ?? ''}
+            readOnly
+            aria-hidden="true"
+            style={{ display: 'none' }}
+          />
 
-            <div className={s.field}>
-              <label className={s.label} htmlFor="rec-new">
-                New passphrase
-              </label>
-              <PasswordInput
-                id="rec-new"
-                autoComplete="new-password"
-                placeholder={`At least ${MIN_PASSPHRASE_LENGTH} characters`}
-                value={newPassphrase}
-                onChange={(e) => setNewPassphrase(e.target.value)}
-                disabled={submitting}
-                toggleTabIndex={-1}
-                autoFocus
-              />
-              {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
-                <p className={s.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
-              )}
-            </div>
+          <PassphrasePairFields
+            mode="replace"
+            newId="rec-new"
+            confirmationId="rec-confirm"
+            value={newPassphrase}
+            confirmation={confirm}
+            onValueChange={setNewPassphrase}
+            onConfirmationChange={setConfirm}
+            disabled={submitting}
+            autoFocus
+          />
 
-            <div className={s.field}>
-              <label className={s.label} htmlFor="rec-confirm">
-                Confirm new passphrase
-              </label>
-              <PasswordInput
-                id="rec-confirm"
-                autoComplete="new-password"
-                placeholder="Repeat your new passphrase"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                disabled={submitting}
-                toggleTabIndex={-1}
-              />
-              {confirm && newPassphrase !== confirm && <p className={s.error}>Passphrases do not match.</p>}
-            </div>
+          {submitError && <p className={s.error}>{submitError}</p>}
 
-            {submitError && <p className={s.error}>{submitError}</p>}
-
-            <Button type="submit" disabled={!canSubmit} className={s.submitBtn}>
-              {submitting ? 'Recovering…' : 'Recover access'}
-            </Button>
-          </form>
-        </div>
-      </div>
+          <Button type="submit" disabled={!canSubmit} className={s.submitBtn}>
+            {submitting ? 'Recovering…' : 'Recover access'}
+          </Button>
+        </form>
+      </SecurityPageCard>
     );
   }
 
   return (
-    <div className={s.container}>
-      <div className={s.card}>
-        <div className={s.iconWrap}>
-          <ShieldCheck size={40} strokeWidth={1.3} />
-        </div>
-        <h2 className={s.heading}>Recover access</h2>
-        <p className={s.intro}>Upload your recovery file to set a new passphrase and regain access to your data.</p>
+    <SecurityPageCard icon={<ShieldCheck size={40} strokeWidth={1.3} />} title="Recover access" size="wide">
+      <p className={s.intro}>Upload your recovery file to set a new passphrase and regain access to your data.</p>
 
-        <label
-          className={cn(s.dropzone, dragActive && s.dropzoneActive)}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={onDrop}
-        >
-          <Upload size={28} strokeWidth={1.4} />
-          {fileName ? (
-            <span className={s.fileName}>{fileName}</span>
-          ) : (
-            <span className={s.dropzoneText}>Drop your recovery file here or click to choose</span>
-          )}
-          <span className={s.dropzoneHint}>{verifying ? 'Verifying…' : 'JSON file from a previous backup'}</span>
-          <input type="file" accept="application/json,.json" onChange={onChange} style={{ display: 'none' }} />
-        </label>
+      <label
+        className={cn(s.dropzone, dragActive && s.dropzoneActive)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={onDrop}
+      >
+        <Upload size={28} strokeWidth={1.4} />
+        {fileName ? (
+          <span className={s.fileName}>{fileName}</span>
+        ) : (
+          <span className={s.dropzoneText}>Drop your recovery file here or click to choose</span>
+        )}
+        <span className={s.dropzoneHint}>{verifying ? 'Verifying…' : 'JSON file from a previous backup'}</span>
+        <input type="file" accept="application/json,.json" onChange={onChange} style={{ display: 'none' }} />
+      </label>
 
-        {uploadError && <p className={s.error}>{uploadError}</p>}
+      {uploadError && <p className={s.error}>{uploadError}</p>}
 
-        <div className={s.divider} />
+      <div className={s.divider} />
 
-        <div className={s.crosslinks}>
-          <p>
-            Don&apos;t have a backup? Unfortunately, end-to-end encryption means we cannot recover your data without it.
-            You can <Link href="/erase-encryption">erase your encryption profile</Link> to start over (this deletes all
-            secrets and seals).
-          </p>
-          <p>
-            <Link href="/profile">← Back to profile</Link>
-          </p>
-        </div>
+      <div className={s.crosslinks}>
+        <p>
+          Don&apos;t have a backup? Unfortunately, end-to-end encryption means we cannot recover your data without it.
+          You can <Link href="/erase-encryption">erase your encryption profile</Link> to start over (this deletes all
+          secrets and seals).
+        </p>
+        <p>
+          <Link href="/profile">← Back to profile</Link>
+        </p>
       </div>
-    </div>
+    </SecurityPageCard>
   );
 }

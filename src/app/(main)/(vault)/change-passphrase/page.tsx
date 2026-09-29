@@ -9,7 +9,8 @@ import posthog from 'posthog-js';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
+import { PassphrasePairFields } from '@/components/PassphrasePairFields/PassphrasePairFields';
+import { SecurityPageCard } from '@/components/SecurityPageCard/SecurityPageCard';
 import s from './page.module.scss';
 import { TRPCClientError } from '@trpc/client';
 import { trpcClient } from '@/lib/trpcClient';
@@ -189,120 +190,84 @@ export default function ChangePassphrasePage() {
 
   if (screen === 'success') {
     return (
-      <div className={s.container}>
-        <div className={s.card}>
-          <div className={s.successIcon}>
-            <CheckCircle size={48} strokeWidth={1.3} />
-          </div>
-          <h2 className={s.heading}>Passphrase changed</h2>
-          <p className={s.successText}>
-            Your encryption keys have been updated. Your old passphrase will no longer work.
-          </p>
-          <p className={s.successText}>Your previous recovery backup is no longer valid.{' \n'}</p>
-          <Link href="/backup-recovery" className={s.successLink}>
-            Back up again →
-          </Link>
-          <Button asChild variant="outline" className={s.submitBtn}>
-            <Link href="/secrets">Back to Secrets</Link>
-          </Button>
-        </div>
-      </div>
+      <SecurityPageCard icon={<CheckCircle size={48} strokeWidth={1.3} />} title="Passphrase changed" tone="success">
+        <p className={s.successText}>
+          Your encryption keys have been updated. Your old passphrase will no longer work.
+        </p>
+        <p className={s.successText}>Your previous recovery backup is no longer valid.{' \n'}</p>
+        <Link href="/backup-recovery" className={s.successLink}>
+          Back up again →
+        </Link>
+        <Button asChild variant="outline" className={s.submitBtn}>
+          <Link href="/secrets">Back to Secrets</Link>
+        </Button>
+      </SecurityPageCard>
     );
   }
 
   return (
-    <div className={s.container}>
-      <div className={s.card}>
-        <div className={s.iconWrap}>
-          <KeyRound size={40} strokeWidth={1.3} />
+    <SecurityPageCard icon={<KeyRound size={40} strokeWidth={1.3} />} title="Change passphrase">
+      <form className={s.form} onSubmit={handleSubmit}>
+        <input
+          type="text"
+          autoComplete="username"
+          value={session?.user?.name ?? ''}
+          readOnly
+          aria-hidden="true"
+          style={{ display: 'none' }}
+        />
+
+        <div className={s.field}>
+          <label className={s.label} htmlFor="cp-old">
+            Current passphrase
+          </label>
+          <div className={s.inputWrapper}>
+            <Input
+              id="cp-old"
+              ref={oldPassphraseInputRef}
+              name="current-password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter your current passphrase"
+              value={oldPassphrase}
+              onChange={(e) => {
+                setOldPassphrase(e.target.value);
+                setVerifyState('idle');
+                mekBytesRef.current = null;
+                materialRef.current = null;
+              }}
+              onInput={syncOldPassphraseFromDom}
+              onBlur={handleOldBlur}
+              disabled={submitting}
+              className={s.inputWithIcon}
+            />
+            <span className={s.inputIcon}>
+              {verifyState === 'idle' && <HelpCircle size={16} className={s.iconIdle} />}
+              {verifyState === 'verifying' && <Loader2 size={16} className={s.spinning} />}
+              {verifyState === 'valid' && <CheckCircle size={16} className={s.iconValid} />}
+              {verifyState === 'invalid' && <XCircle size={16} className={s.iconInvalid} />}
+            </span>
+          </div>
+          {verifyState === 'invalid' && <p className={s.error}>Incorrect passphrase.</p>}
         </div>
-        <h2 className={s.heading}>Change passphrase</h2>
 
-        <form className={s.form} onSubmit={handleSubmit}>
-          <input
-            type="text"
-            autoComplete="username"
-            value={session?.user?.name ?? ''}
-            readOnly
-            aria-hidden="true"
-            style={{ display: 'none' }}
-          />
+        <PassphrasePairFields
+          mode="replace"
+          newId="cp-new"
+          confirmationId="cp-confirm"
+          value={newPassphrase}
+          confirmation={confirm}
+          onValueChange={setNewPassphrase}
+          onConfirmationChange={setConfirm}
+          disabled={submitting}
+        />
 
-          <div className={s.field}>
-            <label className={s.label} htmlFor="cp-old">
-              Current passphrase
-            </label>
-            <div className={s.inputWrapper}>
-              <Input
-                id="cp-old"
-                ref={oldPassphraseInputRef}
-                name="current-password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="Enter your current passphrase"
-                value={oldPassphrase}
-                onChange={(e) => {
-                  setOldPassphrase(e.target.value);
-                  setVerifyState('idle');
-                  mekBytesRef.current = null;
-                  materialRef.current = null;
-                }}
-                onInput={syncOldPassphraseFromDom}
-                onBlur={handleOldBlur}
-                disabled={submitting}
-                className={s.inputWithIcon}
-              />
-              <span className={s.inputIcon}>
-                {verifyState === 'idle' && <HelpCircle size={16} className={s.iconIdle} />}
-                {verifyState === 'verifying' && <Loader2 size={16} className={s.spinning} />}
-                {verifyState === 'valid' && <CheckCircle size={16} className={s.iconValid} />}
-                {verifyState === 'invalid' && <XCircle size={16} className={s.iconInvalid} />}
-              </span>
-            </div>
-            {verifyState === 'invalid' && <p className={s.error}>Incorrect passphrase.</p>}
-          </div>
+        {submitError && <p className={s.error}>{submitError}</p>}
 
-          <div className={s.field}>
-            <label className={s.label} htmlFor="cp-new">
-              New passphrase
-            </label>
-            <PasswordInput
-              id="cp-new"
-              autoComplete="new-password"
-              placeholder="At least 16 characters"
-              value={newPassphrase}
-              onChange={(e) => setNewPassphrase(e.target.value)}
-              disabled={submitting}
-              toggleTabIndex={-1}
-            />
-            {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
-              <p className={s.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
-            )}
-          </div>
-
-          <div className={s.field}>
-            <label className={s.label} htmlFor="cp-confirm">
-              Confirm new passphrase
-            </label>
-            <PasswordInput
-              id="cp-confirm"
-              autoComplete="new-password"
-              placeholder="Repeat your new passphrase"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              disabled={submitting}
-              toggleTabIndex={-1}
-            />
-            {confirm && newPassphrase !== confirm && <p className={s.error}>Passphrases do not match.</p>}
-          </div>
-
-          {submitError && <p className={s.error}>{submitError}</p>}
-
-          <Button type="submit" disabled={!canSubmit} className={s.submitBtn}>
-            {submitting ? 'Updating…' : 'Change passphrase'}
-          </Button>
-        </form>
-      </div>
-    </div>
+        <Button type="submit" disabled={!canSubmit} className={s.submitBtn}>
+          {submitting ? 'Updating…' : 'Change passphrase'}
+        </Button>
+      </form>
+    </SecurityPageCard>
   );
 }

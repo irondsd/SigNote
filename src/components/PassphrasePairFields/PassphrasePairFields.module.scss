@@ -1,0 +1,23 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--destructive);
+  margin: 0;
+}

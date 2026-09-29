@@ -8,6 +8,7 @@ import { CheckCircle, Download, ShieldAlert } from 'lucide-react';
 import posthog from 'posthog-js';
 import { Button } from '@/components/ui/button';
 import { PassphraseModal } from '@/components/PassphraseModal/PassphraseModal';
+import { SecurityPageCard } from '@/components/SecurityPageCard/SecurityPageCard';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useProfile } from '@/hooks/useProfile';
 import { loadDeviceShare } from '@/lib/crypto';
@@ -65,36 +66,35 @@ export default function BackupRecoveryPage() {
 
   if (downloaded) {
     return (
-      <div className={s.container}>
-        <div className={s.card}>
-          <div className={s.successIcon}>
-            <CheckCircle size={48} strokeWidth={1.3} />
-          </div>
-          <h2 className={s.heading}>Backup saved</h2>
-          <p className={s.intro}>
-            Store this file somewhere safe — a password manager, an encrypted drive, or another secure location. Anyone
-            with this file <strong>and</strong> access to your account can decrypt your secrets and seals.
+      <SecurityPageCard
+        icon={<CheckCircle size={48} strokeWidth={1.3} />}
+        title="Backup saved"
+        size="wide"
+        tone="success"
+      >
+        <p className={s.intro}>
+          Store this file somewhere safe — a password manager, an encrypted drive, or another secure location. Anyone
+          with this file <strong>and</strong> access to your account can decrypt your secrets and seals.
+        </p>
+        <Button variant="outline" className={s.actionBtn} onClick={() => setDownloaded(false)}>
+          Download again
+        </Button>
+        <div className={s.crosslinks}>
+          <p>
+            <Link href="/profile">← Back to profile</Link>
           </p>
-          <Button variant="outline" className={s.actionBtn} onClick={() => setDownloaded(false)}>
-            Download again
-          </Button>
-          <div className={s.crosslinks}>
-            <p>
-              <Link href="/profile">← Back to profile</Link>
-            </p>
-          </div>
         </div>
-      </div>
+      </SecurityPageCard>
     );
   }
 
   return (
-    <div className={s.container}>
-      <div className={s.card}>
-        <div className={s.iconWrap}>
-          <Download size={40} strokeWidth={1.3} />
-        </div>
-        <h2 className={s.heading}>Back up your encryption profile</h2>
+    <>
+      <SecurityPageCard
+        icon={<Download size={40} strokeWidth={1.3} />}
+        title="Back up your encryption profile"
+        size="wide"
+      >
         <p className={s.intro}>
           A recovery file lets you regain access to your secrets and seals if you forget your passphrase. Without it,
           forgetting your passphrase means losing your encrypted data permanently.
@@ -123,7 +123,7 @@ export default function BackupRecoveryPage() {
             Already have a backup and forgot your passphrase? <Link href="/recover">Go to recovery →</Link>
           </p>
         </div>
-      </div>
+      </SecurityPageCard>
 
       {showPassphrase && (
         <PassphraseModal
@@ -135,6 +135,6 @@ export default function BackupRecoveryPage() {
           displayName={session?.user?.name ?? undefined}
         />
       )}
-    </div>
+    </>
   );
 }
