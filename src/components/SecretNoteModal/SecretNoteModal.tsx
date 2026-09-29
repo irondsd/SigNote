@@ -28,7 +28,8 @@ import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { getNoteSaveError } from '@/lib/noteSaveValidation';
+import { deleteNoteWithUndo } from '@/lib/deleteNoteWithUndo';
 import { usePromoteSecretToSeal } from '@/hooks/usePromotions';
 
 const VersionHistoryModal = dynamic(
@@ -162,29 +163,19 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
   };
 
   const handleDelete = () => {
-    deleteSecret.mutate(noteId);
-    onClose();
-    toast.success('Secret deleted', {
-      description: 'You can undo this action.',
-      duration: 7000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          undeleteSecret.mutate({ id: noteId, note });
-          toast.success('Secret restored');
-        },
-      },
-    });
+    deleteNoteWithUndo(
+      'Secret',
+      () => deleteSecret.mutate(noteId),
+      onClose,
+      () => undeleteSecret.mutate({ id: noteId, note }),
+    );
   };
 
   const performSave = useCallback(
     async (currentMek: CryptoKey) => {
-      if (title.length > MAX_TITLE) {
-        toast.error('Title is too long');
-        return;
-      }
-      if (content.length > MAX_CONTENT) {
-        toast.error('Content is too large to save');
+      const error = getNoteSaveError(title, content);
+      if (error) {
+        toast.error(error);
         return;
       }
       setSaving(true);

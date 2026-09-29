@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle, Eye, EyeOff, HelpCircle, KeyRound, Loader2, XCircle } from 'lucide-react';
+import { CheckCircle, HelpCircle, KeyRound, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -9,6 +9,7 @@ import posthog from 'posthog-js';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
 import s from './page.module.scss';
 import { TRPCClientError } from '@trpc/client';
 import { trpcClient } from '@/lib/trpcClient';
@@ -59,9 +60,6 @@ export default function ChangePassphrasePage() {
   const [confirm, setConfirm] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const syncOldPassphraseFromDom = () => {
     const domValue = oldPassphraseInputRef.current?.value ?? '';
@@ -268,29 +266,15 @@ export default function ChangePassphrasePage() {
             <label className={s.label} htmlFor="cp-new">
               New passphrase
             </label>
-            <div className={s.inputWrapper}>
-              <Input
-                id="cp-new"
-                type={showNew ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="At least 16 characters"
-                value={newPassphrase}
-                onChange={(e) => setNewPassphrase(e.target.value)}
-                disabled={submitting}
-                className={s.inputWithIcon}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                onClick={() => setShowNew((v) => !v)}
-                tabIndex={-1}
-                aria-label={showNew ? 'Hide passphrase' : 'Show passphrase'}
-              >
-                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
+            <PasswordInput
+              id="cp-new"
+              autoComplete="new-password"
+              placeholder="At least 16 characters"
+              value={newPassphrase}
+              onChange={(e) => setNewPassphrase(e.target.value)}
+              disabled={submitting}
+              toggleTabIndex={-1}
+            />
             {newPassphrase && newPassphrase.length < MIN_PASSPHRASE_LENGTH && (
               <p className={s.hint}>At least {MIN_PASSPHRASE_LENGTH} characters required.</p>
             )}
@@ -300,33 +284,15 @@ export default function ChangePassphrasePage() {
             <label className={s.label} htmlFor="cp-confirm">
               Confirm new passphrase
             </label>
-            <div className={s.inputWrapper}>
-              <Input
-                id="cp-confirm"
-                type={showConfirm ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Repeat your new passphrase"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                disabled={submitting}
-                className={s.inputWithIcon}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground absolute inset-y-0 right-0"
-                onClick={() => setShowConfirm((v) => !v)}
-                tabIndex={-1}
-                aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
-              >
-                {showConfirm ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
+            <PasswordInput
+              id="cp-confirm"
+              autoComplete="new-password"
+              placeholder="Repeat your new passphrase"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={submitting}
+              toggleTabIndex={-1}
+            />
             {confirm && newPassphrase !== confirm && <p className={s.error}>Passphrases do not match.</p>}
           </div>
 

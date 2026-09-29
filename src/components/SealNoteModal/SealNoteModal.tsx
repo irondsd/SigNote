@@ -33,7 +33,8 @@ import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { getNoteSaveError } from '@/lib/noteSaveValidation';
+import { deleteNoteWithUndo } from '@/lib/deleteNoteWithUndo';
 import { DecryptTimer } from './DecryptTimer';
 import s from './SealNoteModal.module.scss';
 
@@ -267,12 +268,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   const performSave = useCallback(
     async (currentMek: CryptoKey) => {
       if (decryptedContent === null) return;
-      if (title.length > MAX_TITLE) {
-        toast.error('Title is too long');
-        return;
-      }
-      if (decryptedContent.length > MAX_CONTENT) {
-        toast.error('Content is too large to save');
+      const error = getNoteSaveError(title, decryptedContent);
+      if (error) {
+        toast.error(error);
         return;
       }
       setSaving(true);
@@ -377,19 +375,12 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
   }, [mek, performDecrypt, performSave]);
 
   const handleDelete = () => {
-    deleteSeal.mutate(note._id);
-    onClose();
-    toast.success('Seal deleted', {
-      description: 'You can undo this action.',
-      duration: 7000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          undeleteSeal.mutate({ id: note._id, note });
-          toast.success('Seal restored');
-        },
-      },
-    });
+    deleteNoteWithUndo(
+      'Seal',
+      () => deleteSeal.mutate(note._id),
+      onClose,
+      () => undeleteSeal.mutate({ id: note._id, note }),
+    );
   };
 
   const handleCancel = () => {

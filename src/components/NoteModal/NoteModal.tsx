@@ -19,7 +19,8 @@ import { SharedNoteModal } from '@/components/SharedNoteModal/SharedNoteModal';
 import { NoteActionsMenu } from '@/components/NoteActionsMenu/NoteActionsMenu';
 import { ConfirmDiscardDialog } from '@/components/ConfirmDiscardDialog/ConfirmDiscardDialog';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
-import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { getNoteSaveError } from '@/lib/noteSaveValidation';
+import { deleteNoteWithUndo } from '@/lib/deleteNoteWithUndo';
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
 import { usePromoteNoteToSecret } from '@/hooks/usePromotions';
 
@@ -117,19 +118,12 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   };
 
   const handleDelete = () => {
-    deleteNote.mutate(noteId);
-    onClose();
-    toast.success('Note deleted', {
-      description: 'You can undo this action.',
-      duration: 7000,
-      action: {
-        label: 'Undo',
-        onClick: () => {
-          undeleteNote.mutate({ id: noteId, note: note as unknown as CachedNote });
-          toast.success('Note restored');
-        },
-      },
-    });
+    deleteNoteWithUndo(
+      'Note',
+      () => deleteNote.mutate(noteId),
+      onClose,
+      () => undeleteNote.mutate({ id: noteId, note: note as unknown as CachedNote }),
+    );
   };
 
   const handleCancel = () => {
@@ -140,12 +134,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
   };
 
   const handleSave = () => {
-    if (title.length > MAX_TITLE) {
-      toast.error('Title is too long');
-      return;
-    }
-    if (content.length > MAX_CONTENT) {
-      toast.error('Content is too large to save');
+    const error = getNoteSaveError(title, content);
+    if (error) {
+      toast.error(error);
       return;
     }
     recovery.save(

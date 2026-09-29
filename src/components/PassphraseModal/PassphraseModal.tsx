@@ -2,13 +2,13 @@
 
 import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { X } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { EncryptionMaterialUnavailableError } from '@/lib/encryptionMaterial';
 import { IncorrectPassphraseError } from '@/lib/vaultKey';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
 import { Backdrop } from '@/components/Backdrop/Backdrop';
 import { Modal } from '@/components/Modal/Modal';
 import s from './PassphraseModal.module.scss';
@@ -25,7 +25,6 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
   const hintId = useId();
   const errorId = useId();
   const [passphrase, setPassphrase] = useState('');
-  const [showPassphrase, setShowPassphrase] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
@@ -91,35 +90,21 @@ export function PassphraseModal({ onSuccess, onClose, displayName }: PassphraseM
             style={{ display: 'none' }}
           />
 
-          <div className={s.inputWrapper}>
-            <label htmlFor={passphraseId} className="sr-only">
-              Encryption passphrase
-            </label>
-            <Input
-              id={passphraseId}
-              type={showPassphrase ? 'text' : 'password'}
-              autoComplete="current-password"
-              placeholder="Your passphrase"
-              value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
-              disabled={loading}
-              autoFocus
-              aria-invalid={!!error}
-              aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-              className={s.inputWithIcon}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-              onClick={() => setShowPassphrase((v) => !v)}
-              tabIndex={-1}
-              aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
-            >
-              {showPassphrase ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-          </div>
+          <label htmlFor={passphraseId} className="sr-only">
+            Encryption passphrase
+          </label>
+          <PasswordInput
+            id={passphraseId}
+            autoComplete="current-password"
+            placeholder="Your passphrase"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            disabled={loading}
+            autoFocus
+            aria-invalid={!!error}
+            aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+            toggleTabIndex={-1}
+          />
 
           {error && (
             <p id={errorId} className={s.error} role="alert">

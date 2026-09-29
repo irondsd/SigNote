@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 import posthog from 'posthog-js';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
 import s from './EncryptionSetup.module.scss';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 
@@ -19,9 +19,6 @@ export function EncryptionSetup({ displayName }: EncryptionSetupProps) {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const [showPassphrase, setShowPassphrase] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   function validate(): string {
     if (!passphrase) return 'Passphrase is required.';
@@ -83,66 +80,30 @@ export function EncryptionSetup({ displayName }: EncryptionSetupProps) {
             <label className={s.label} htmlFor="enc-passphrase">
               Passphrase
             </label>
-            <div className={s.inputWrapper}>
-              <Input
-                id="enc-passphrase"
-                type={showPassphrase ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Enter a strong passphrase"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                disabled={loading}
-                className={s.inputWithIcon}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground absolute inset-y-0 right-0 hover:bg-transparent"
-                onClick={() => setShowPassphrase((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
-              >
-                {showPassphrase ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
+            <PasswordInput
+              id="enc-passphrase"
+              autoComplete="new-password"
+              placeholder="Enter a strong passphrase"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+              disabled={loading}
+              toggleTabIndex={-1}
+            />
           </div>
 
           <div className={s.field}>
             <label className={s.label} htmlFor="enc-confirm">
               Confirm passphrase
             </label>
-            <div className={s.inputWrapper}>
-              <Input
-                id="enc-confirm"
-                type={showConfirm ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Repeat your passphrase"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                disabled={loading}
-                className={s.inputWithIcon}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground absolute inset-y-0 right-0"
-                onClick={() => setShowConfirm((v) => !v)}
-                tabIndex={-1}
-                aria-label={showConfirm ? 'Hide passphrase' : 'Show passphrase'}
-              >
-                {showConfirm ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
+            <PasswordInput
+              id="enc-confirm"
+              autoComplete="new-password"
+              placeholder="Repeat your passphrase"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={loading}
+              toggleTabIndex={-1}
+            />
           </div>
 
           {error && <p className={s.error}>{error}</p>}

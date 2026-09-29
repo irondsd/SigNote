@@ -6,7 +6,7 @@ import { useNewNoteState } from '@/hooks/useNewNoteState';
 import { useTagCountBump } from '@/hooks/useTagMutations';
 import type { DraftContent } from '@/lib/draft';
 import { useDraftRecovery } from '@/hooks/useDraftRecovery';
-import { MAX_TITLE, MAX_CONTENT } from '@/config/constants';
+import { getNoteSaveError } from '@/lib/noteSaveValidation';
 
 type Tier = 'note' | 'secret' | 'seal';
 type InitialContent = DraftContent;
@@ -25,12 +25,9 @@ export function useNewNoteForm(
   const bumpTagCounts = useTagCountBump();
 
   const prepare = (): InitialContent | null => {
-    if (state.title.length > MAX_TITLE) {
-      toast.error('Title is too long');
-      return null;
-    }
-    if (state.content.length > MAX_CONTENT) {
-      toast.error('Content is too large to save');
+    const error = getNoteSaveError(state.title, state.content);
+    if (error) {
+      toast.error(error);
       return null;
     }
     if (state.isTitleEmpty && state.isContentEmpty) return null;

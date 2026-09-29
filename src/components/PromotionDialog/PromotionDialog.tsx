@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { AlertTriangle, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, LockKeyhole, ShieldCheck } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/PasswordInput/PasswordInput';
 import { MAX_PASSPHRASE_LENGTH, MIN_PASSPHRASE_LENGTH } from '@/config/constants';
 import { useEncryption } from '@/contexts/EncryptionContext';
 import { useSecurityPreferences } from '@/hooks/useSecurityPreferences';
@@ -44,35 +44,20 @@ function PassphraseField({
   disabled: boolean;
   autoFocus?: boolean;
 }) {
-  const [visible, setVisible] = useState(false);
   return (
     <div className="grid gap-1.5 text-left">
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      <div className="relative">
-        <Input
-          id={id}
-          type={visible ? 'text' : 'password'}
-          autoComplete={autoComplete}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          disabled={disabled}
-          autoFocus={autoFocus}
-          className="pr-10"
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-0.5 right-0.5 text-muted-foreground hover:bg-transparent"
-          onClick={() => setVisible((current) => !current)}
-          disabled={disabled}
-          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-        >
-          {visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-        </Button>
-      </div>
+      <PasswordInput
+        id={id}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        visibilityLabel={label.toLowerCase()}
+      />
     </div>
   );
 }
