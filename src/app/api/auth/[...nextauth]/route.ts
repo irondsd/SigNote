@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { authOptions } from '@/config/auth';
 import { isSessionUnusable, readSessionEpochClaim } from '@/lib/routeAuth';
+import { describeAuthError } from '@/lib/authErrors';
 
 export const runtime = 'nodejs';
 
@@ -58,6 +59,14 @@ async function revokedSessionResponse(request: NextRequest): Promise<NextRespons
 
 async function handleAuth(request: NextRequest, context: { params: Promise<{ nextauth: string[] }> }) {
   const { nextauth } = await context.params;
+  if (nextauth?.[0] === 'error') {
+    const raw = request.nextUrl.searchParams.get('error') ?? undefined;
+    if (!describeAuthError(raw).code) {
+      // Other NextAuth callbacks can also supply an exception message here.
+      // Keep arbitrary text out of both the redirect header and the error URL.
+      return NextResponse.redirect(new URL('/auth/error?error=Callback', request.url));
+    }
+  }
   if (nextauth?.[0] === 'session') {
     const revoked = await revokedSessionResponse(request);
     if (revoked) return revoked;

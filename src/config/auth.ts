@@ -21,6 +21,7 @@ import { validateSiweCredentials } from '@/lib/siwe';
 import { resolveSignInClient } from '@/lib/authClient';
 import { AUTH_SESSION_MAX_AGE_SECONDS, AUTH_SESSION_UPDATE_AGE_SECONDS } from '@/config/authConstants';
 import { captureSessionEpoch } from '@/controllers/authSessions';
+import { VaultConflictError } from '@/db/encryptionState';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -187,7 +188,17 @@ export const authOptions: NextAuthOptions = {
         // — but an unverified claim is not proof of anything, and the whole
         // one-address-one-account rule rests on this flag.
         const emailVerified = (profile as { email_verified?: boolean }).email_verified === true;
-        const result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture, emailVerified);
+        let result: Awaited<ReturnType<typeof upsertGoogleUser>>;
+        try {
+          result = await upsertGoogleUser(profile.sub, displayName, profile.email, picture, emailVerified);
+        } catch (error) {
+          // NextAuth v4 puts a thrown signIn callback's message in ?error=.
+          // Drizzle errors contain a newline, which makes the subsequent
+          // Location header invalid and hides the original database failure.
+          console.error('[auth] Google sign-in failed:', error);
+          const code = error instanceof VaultConflictError ? error.code : 'Callback';
+          return `/auth/error?error=${code}`;
+        }
         if (!result) return false;
         if ('error' in result) {
           // A string return is a redirect. The address belongs to someone, and

@@ -2,11 +2,14 @@ jest.mock('@/controllers/authSessions', () => ({
   captureSessionEpoch: jest.fn(),
   revokeSessionBySid: jest.fn(),
 }));
+jest.mock('@/controllers/users', () => ({ upsertGoogleUser: jest.fn() }));
 
 import { captureSessionEpoch } from '@/controllers/authSessions';
+import { upsertGoogleUser } from '@/controllers/users';
 import { authOptions } from '@/config/auth';
 
 const mockCaptureSessionEpoch = captureSessionEpoch as jest.MockedFunction<typeof captureSessionEpoch>;
+const mockUpsertGoogleUser = upsertGoogleUser as jest.MockedFunction<typeof upsertGoogleUser>;
 
 // The NextAuth callback type is intentionally broad because it accepts the
 // provider-specific account/user shapes. Keep the test inputs small and model
@@ -21,6 +24,23 @@ const invokeJwt = async (input: Record<string, unknown>) => {
 beforeEach(() => {
   mockCaptureSessionEpoch.mockReset();
   mockCaptureSessionEpoch.mockResolvedValue(7);
+  mockUpsertGoogleUser.mockReset();
+});
+
+it('redirects a failed Google database lookup to a safe error code', async () => {
+  const callback = authOptions.callbacks?.signIn;
+  if (!callback) throw new Error('signIn callback missing');
+  const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  mockUpsertGoogleUser.mockRejectedValueOnce(new Error('Failed query:\nparams: google,subject,1'));
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await callback({ account: { provider: 'google' }, profile: { sub: 'subject' } } as any);
+    expect(result).toBe('/auth/error?error=Callback');
+    expect(log).toHaveBeenCalledWith('[auth] Google sign-in failed:', expect.any(Error));
+  } finally {
+    log.mockRestore();
+  }
 });
 
 describe('NextAuth session epoch claims', () => {

@@ -64,6 +64,7 @@ function sessionReq(): NextRequest {
 }
 
 const call = (req: NextRequest) => GET(req, { params: Promise.resolve({ nextauth: ['session'] }) });
+const callError = (req: NextRequest) => GET(req, { params: Promise.resolve({ nextauth: ['error'] }) });
 
 const cleared = (res: NextResponse) =>
   res.cookies
@@ -71,6 +72,19 @@ const cleared = (res: NextResponse) =>
     .filter((c) => c.value === '' && c.maxAge === 0)
     .map((c) => c.name)
     .sort();
+
+it('keeps a callback exception out of the error redirect header', async () => {
+  const req = new NextRequest('http://localhost/api/auth/error?error=Failed%20query%3A%0Aparams%3A%20google');
+  const res = await callError(req);
+  expect(res.status).toBe(307);
+  expect(res.headers.get('location')).toBe('http://localhost/auth/error?error=Callback');
+  expect(nextAuthHandler).not.toHaveBeenCalled();
+});
+
+it('lets NextAuth handle a normal error code', async () => {
+  await callError(new NextRequest('http://localhost/api/auth/error?error=OAuthCallback'));
+  expect(nextAuthHandler).toHaveBeenCalled();
+});
 
 const liveRow = (over: Partial<{ expiresAt: Date; revokedAt: Date | null }> = {}) => ({
   _id: 'sid1',
