@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronRight, History, MoreVertical, Pin, PinOff, Timer, SquareArrowUp } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dropdown } from '@/components/Dropdown/Dropdown';
 import { Button } from '@/components/ui/button';
 import { MenuItem } from './MenuItem';
 import { SelfDestructPicker } from './SelfDestructPicker';
@@ -61,15 +61,14 @@ export function NoteActionsMenu({
   };
 
   return (
-    <Popover
+    <Dropdown
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
         onOpenChange?.(v);
         if (!v) setPane('main');
       }}
-    >
-      <PopoverTrigger asChild>
+      trigger={
         <Button
           variant="ghost"
           size="icon-sm"
@@ -79,62 +78,60 @@ export function NoteActionsMenu({
         >
           <MoreVertical size={16} />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="end"
-        sideOffset={8}
-        className={s.popover}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-      >
-        {pane === 'main' ? (
-          <div className={s.menu}>
-            <MenuItem
-              icon={pinned ? <PinOff size={16} /> : <Pin size={16} />}
-              label={pinned ? 'Unpin from top' : 'Pin to top'}
-              onClick={handleTogglePin}
-            />
-            <MenuItem
-              icon={<Timer size={16} />}
-              label="Self-destruct timer"
-              trailing={<ChevronRight size={14} />}
-              onClick={() => setPane('expiry')}
-            />
-            {onVersionHistory && (
-              <MenuItem
-                data-testid="version-history-item"
-                icon={<History size={16} />}
-                label="Version history"
-                onClick={() => {
-                  onVersionHistory();
-                  close();
-                }}
-              />
-            )}
-            {promotion && (
-              <MenuItem
-                data-testid="promote-tier-item"
-                icon={<SquareArrowUp size={16} className="" />}
-                label={promotion.label}
-                disabled={promotion.disabled}
-                onClick={() => {
-                  close();
-                  promotion.onSelect();
-                }}
-              />
-            )}
-          </div>
-        ) : (
-          <SelfDestructPicker
-            expiresAt={expiryDate}
-            burnAfterReading={burnAfterReading}
-            onBack={() => setPane('main')}
-            onCommit={handleCommitExpiry}
-            onRemove={handleRemoveTimer}
-            onCancel={close}
+      }
+      side="top"
+      align="end"
+      sideOffset={8}
+      className={s.popover}
+      onCloseAutoFocus={(e) => e.preventDefault()}
+    >
+      {pane === 'main' ? (
+        <div className={s.menu}>
+          <MenuItem
+            icon={pinned ? <PinOff size={16} /> : <Pin size={16} />}
+            label={pinned ? 'Unpin from top' : 'Pin to top'}
+            onClick={handleTogglePin}
           />
-        )}
-      </PopoverContent>
-    </Popover>
+          <MenuItem
+            icon={<Timer size={16} />}
+            label="Self-destruct timer"
+            trailing={<ChevronRight size={14} />}
+            onClick={() => setPane('expiry')}
+          />
+          {onVersionHistory && (
+            <MenuItem
+              data-testid="version-history-item"
+              icon={<History size={16} />}
+              label="Version history"
+              onClick={() => {
+                onVersionHistory();
+                close();
+              }}
+            />
+          )}
+          {promotion && (
+            <MenuItem
+              data-testid="promote-tier-item"
+              icon={<SquareArrowUp size={16} className="" />}
+              label={promotion.label}
+              disabled={promotion.disabled}
+              onClick={() => {
+                close();
+                promotion.onSelect();
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <SelfDestructPicker
+          expiresAt={expiryDate}
+          burnAfterReading={burnAfterReading}
+          onBack={() => setPane('main')}
+          onCommit={handleCommitExpiry}
+          onRemove={handleRemoveTimer}
+          onCancel={close}
+        />
+      )}
+    </Dropdown>
   );
 }
