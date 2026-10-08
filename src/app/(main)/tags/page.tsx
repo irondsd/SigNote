@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dropdown } from '@/components/Dropdown/Dropdown';
 import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/Tag/Tag';
 import { ColorSwatches } from '@/components/ColorSwatches/ColorSwatches';
@@ -18,30 +18,34 @@ import s from './page.module.scss';
 const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
 
 function ColorButton({ value, onChange }: { value: TagColor; onChange: (c: TagColor) => void }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dropdown
+      trigger={
         <button type="button" className={s.colorBtn}>
           <span data-color={value} className={s.colorDot} />
           {cap(value)}
         </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className={s.colorPopover}>
-        <div className={s.colorPopoverLabel}>Color</div>
-        <ColorSwatches
-          value={value}
-          shape="circle"
-          layout="grid"
-          onChange={(c) => {
-            if (c) {
-              onChange(c);
-              setOpen(false);
-            }
-          }}
-        />
-      </PopoverContent>
-    </Popover>
+      }
+      align="start"
+      className={s.colorPopover}
+    >
+      {(close) => (
+        <>
+          <div className={s.colorPopoverLabel}>Color</div>
+          <ColorSwatches
+            value={value}
+            shape="circle"
+            layout="grid"
+            onChange={(c) => {
+              if (c) {
+                onChange(c);
+                close();
+              }
+            }}
+          />
+        </>
+      )}
+    </Dropdown>
   );
 }
 

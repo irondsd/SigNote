@@ -57,6 +57,35 @@ test.describe('tags', () => {
     await expect(card.getByTestId('card-tags')).toContainText(tagName);
   });
 
+  test('the tag palette and actions menu close on a click elsewhere in the modal', async ({ page }) => {
+    const notesPage = new NotesPage(page);
+    await notesPage.signInDirectly(undefined, { navigate: false });
+
+    const title = `Outside click ${Date.now()}`;
+    await trpcPost(page.request, 'notes.create', { title, content: '<p>body</p>' });
+    await page.goto('/');
+    await notesPage.noteCard(title).click();
+    await settleModal(page);
+    await page.getByTestId('tag-toggle-btn').click();
+
+    // The modal stops click propagation, which used to keep these open until
+    // their trigger was clicked again.
+    const outside = page.getByTestId('tag-strip').getByText('Tags', { exact: true });
+
+    await page.getByTestId('add-tag-btn').click();
+    await expect(page.getByTestId('tag-palette')).toBeVisible();
+    await outside.click();
+    await expect(page.getByTestId('tag-palette')).toBeHidden();
+
+    await page.getByTestId('more-actions-btn').click();
+    const pinItem = page.getByRole('button', { name: /pin to top/i });
+    await expect(pinItem).toBeVisible();
+    await outside.click();
+    await expect(pinItem).toBeHidden();
+
+    await expect(page.getByTestId('note-modal')).toBeVisible();
+  });
+
   test('tag manager creates a tag and exposes rename', async ({ page }) => {
     const notesPage = new NotesPage(page);
     await notesPage.signInDirectly();

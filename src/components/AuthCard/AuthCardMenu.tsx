@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Archive, ArchiveRestore, Palette, Pencil, QrCode, Trash2 } from 'lucide-react';
 import { InlineSvg } from '@irondsd/inline-svg';
 
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dropdown } from '@/components/Dropdown/Dropdown';
 import { ColorSwatches } from '@/components/ColorSwatches/ColorSwatches';
 import { MenuItem } from '@/components/NoteActionsMenu/MenuItem';
 import { NOTE_PATTERNS, type NoteColor, type NotePattern } from '@/config/noteStyles';
@@ -54,14 +54,13 @@ export function AuthCardMenu({
   };
 
   return (
-    <Popover
+    <Dropdown
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
         if (!v) setPane('main');
       }}
-    >
-      <PopoverTrigger asChild>
+      trigger={
         <button
           type="button"
           className={s.trigger}
@@ -78,94 +77,91 @@ export function AuthCardMenu({
             <circle cx="12" cy="19" r="1.6" />
           </svg>
         </button>
-      </PopoverTrigger>
+      }
+      side="bottom"
+      align="end"
+      sideOffset={6}
+      className={menu.popover}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {pane === 'main' ? (
+        <div className={menu.menu}>
+          <MenuItem
+            icon={<Pencil size={16} />}
+            label="Edit issuer & account"
+            disabled={readOnly}
+            hint={readOnly ? readOnlyReason : undefined}
+            onClick={run(onEdit)}
+          />
+          <MenuItem
+            icon={<Palette size={16} />}
+            tone="accent"
+            label="Card style"
+            hint="Background colour and pattern"
+            disabled={readOnly}
+            trailing={<ChevronRight size={14} className={s.chevron} />}
+            onClick={() => !readOnly && setPane('style')}
+          />
+          <MenuItem
+            icon={<QrCode size={16} />}
+            label="Export"
+            hint={readOnly ? 'Sign in and reconnect to export' : 'Reveals the seed — passphrase required'}
+            disabled={readOnly}
+            onClick={run(onExport)}
+          />
 
-      <PopoverContent
-        side="bottom"
-        align="end"
-        sideOffset={6}
-        className={menu.popover}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {pane === 'main' ? (
-          <div className={menu.menu}>
-            <MenuItem
-              icon={<Pencil size={16} />}
-              label="Edit issuer & account"
-              disabled={readOnly}
-              hint={readOnly ? readOnlyReason : undefined}
-              onClick={run(onEdit)}
-            />
-            <MenuItem
-              icon={<Palette size={16} />}
-              tone="accent"
-              label="Card style"
-              hint="Background colour and pattern"
-              disabled={readOnly}
-              trailing={<ChevronRight size={14} className={s.chevron} />}
-              onClick={() => !readOnly && setPane('style')}
-            />
-            <MenuItem
-              icon={<QrCode size={16} />}
-              label="Export"
-              hint={readOnly ? 'Sign in and reconnect to export' : 'Reveals the seed — passphrase required'}
-              disabled={readOnly}
-              onClick={run(onExport)}
-            />
+          <div className={s.divider} />
 
-            <div className={s.divider} />
-
-            <MenuItem
-              icon={archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-              label={archived ? 'Restore' : 'Archive'}
-              hint={archived ? 'Move back to the main list' : 'Moves it to the archive, keeps the seed'}
-              disabled={readOnly}
-              onClick={run(() => onArchivedChange(!archived))}
-            />
-            <MenuItem
-              icon={<Trash2 size={16} />}
-              tone="danger"
-              label="Delete"
-              hint="The seed is unrecoverable"
-              disabled={readOnly}
-              onClick={run(onDelete)}
-            />
+          <MenuItem
+            icon={archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+            label={archived ? 'Restore' : 'Archive'}
+            hint={archived ? 'Move back to the main list' : 'Moves it to the archive, keeps the seed'}
+            disabled={readOnly}
+            onClick={run(() => onArchivedChange(!archived))}
+          />
+          <MenuItem
+            icon={<Trash2 size={16} />}
+            tone="danger"
+            label="Delete"
+            hint="The seed is unrecoverable"
+            disabled={readOnly}
+            onClick={run(onDelete)}
+          />
+        </div>
+      ) : (
+        <div className={s.stylePane}>
+          <div className={s.paneHeader}>
+            <button type="button" className={s.back} onClick={() => setPane('main')} aria-label="Back">
+              <ChevronLeft size={14} />
+            </button>
+            <span className={s.paneTitle}>Card style</span>
           </div>
-        ) : (
-          <div className={s.stylePane}>
-            <div className={s.paneHeader}>
-              <button type="button" className={s.back} onClick={() => setPane('main')} aria-label="Back">
-                <ChevronLeft size={14} />
-              </button>
-              <span className={s.paneTitle}>Card style</span>
-            </div>
 
-            <div className={s.paneBody}>
-              <div className={s.label}>Background</div>
-              <ColorSwatches value={color} onChange={(c) => onStyleChange({ color: c })} includeDefault />
+          <div className={s.paneBody}>
+            <div className={s.label}>Background</div>
+            <ColorSwatches value={color} onChange={(c) => onStyleChange({ color: c })} includeDefault />
 
-              <div className={cn(s.label, s.labelSpaced)}>Pattern</div>
-              <div className={s.patterns}>
-                {NOTE_PATTERNS.map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    className={cn(s.patternTile, (pattern ?? 'plain') === p && s.selected)}
-                    data-color={color || undefined}
-                    data-pattern={p === 'plain' ? undefined : p}
-                    onClick={() => onStyleChange({ pattern: p === 'plain' ? null : (p as NotePattern) })}
-                    title={cap(p)}
-                    aria-label={cap(p)}
-                    aria-pressed={(pattern ?? 'plain') === p}
-                  >
-                    <InlineSvg src={`/icons/patterns/${p}.svg`} className={s.patternGlyph} />
-                  </button>
-                ))}
-              </div>
+            <div className={cn(s.label, s.labelSpaced)}>Pattern</div>
+            <div className={s.patterns}>
+              {NOTE_PATTERNS.map((p) => (
+                <button
+                  type="button"
+                  key={p}
+                  className={cn(s.patternTile, (pattern ?? 'plain') === p && s.selected)}
+                  data-color={color || undefined}
+                  data-pattern={p === 'plain' ? undefined : p}
+                  onClick={() => onStyleChange({ pattern: p === 'plain' ? null : (p as NotePattern) })}
+                  title={cap(p)}
+                  aria-label={cap(p)}
+                  aria-pressed={(pattern ?? 'plain') === p}
+                >
+                  <InlineSvg src={`/icons/patterns/${p}.svg`} className={s.patternGlyph} />
+                </button>
+              ))}
             </div>
           </div>
-        )}
-      </PopoverContent>
-    </Popover>
+        </div>
+      )}
+    </Dropdown>
   );
 }
