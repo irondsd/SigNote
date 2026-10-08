@@ -119,6 +119,7 @@ The JSON API is **tRPC** (`@trpc/server` v11). Only auth (NextAuth/SIWE/OAuth re
 - SCSS Modules for component-level styles (co-located `.module.scss` files)
 - CSS variables for color tokens defined in `globals.css`
 - shadcn/ui components in `src/components/ui/`
+- Every dropdown (menus, pickers, the tag palette) is `src/components/Dropdown` — a trigger plus swappable content. Don't reach for `ui/popover` directly: Radix skips its outside-press dismissal when a click's propagation is stopped (the note modal does this), and `Dropdown` closes on any outside press regardless.
 
 ### Auth
 
