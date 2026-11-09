@@ -14,6 +14,7 @@ type SortableEncryptedCardProps = {
   ciphertext?: string;
   showArchivedBadge?: boolean;
   archived?: boolean;
+  snoozedUntil?: string | Date | null;
   isDragDisabled?: boolean;
   pinned?: boolean;
   hasExpiry?: boolean;
@@ -32,6 +33,7 @@ export function SortableEncryptedCard({
   ciphertext,
   showArchivedBadge,
   archived,
+  snoozedUntil,
   isDragDisabled = false,
   pinned,
   hasExpiry,
@@ -50,6 +52,7 @@ export function SortableEncryptedCard({
         ciphertext={ciphertext}
         showArchivedBadge={showArchivedBadge}
         archived={archived}
+        snoozedUntil={snoozedUntil}
         pinned={pinned}
         hasExpiry={hasExpiry}
         saving={id.startsWith('temp-')}

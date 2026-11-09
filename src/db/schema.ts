@@ -97,6 +97,12 @@ const tierColumns = () => ({
   pinned: boolean('pinned').notNull().default(false),
   expiresAt: ts('expires_at'),
   burnAfterReading: boolean('burn_after_reading').notNull().default(false),
+  // Snooze: set together with `archived = true`. While it is in the future the
+  // note sits in the archive; once it has passed the list queries show the note
+  // among the active ones again — nothing is written at that moment, so no cron
+  // or timer is involved. Opening the note then clears both. Never non-null on
+  // a row that is not archived.
+  snoozedUntil: ts('snoozed_until'),
 });
 
 /**

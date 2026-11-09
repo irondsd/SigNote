@@ -195,6 +195,13 @@
   color: var(--primary-400);
 }
 
+.snoozeIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-400);
+}
+
 .expiryIndicator {
   display: inline-flex;
   align-items: center;

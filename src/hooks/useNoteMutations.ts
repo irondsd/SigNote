@@ -25,6 +25,7 @@ export type CachedNote = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  snoozedUntil?: string | null;
   tags: string[];
 };
 
@@ -46,6 +47,7 @@ type UpdateNoteInput = {
   pinned?: boolean;
   expiresAt?: string | null;
   burnAfterReading?: boolean;
+  snoozedUntil?: string | null;
   tags?: string[];
 };
 

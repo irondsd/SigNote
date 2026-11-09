@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { withVaultWrite } from '@/db/encryptionState';
@@ -16,6 +17,8 @@ export interface CommonOps {
   restore: (userId: string, id: string) => Promise<unknown>;
   archive: (userId: string, id: string) => Promise<unknown>;
   unarchive: (userId: string, id: string) => Promise<unknown>;
+  snooze: (userId: string, id: string, until: Date) => Promise<unknown>;
+  wake: (userId: string, id: string) => Promise<unknown>;
   updateColor: (userId: string, id: string, color: string | null) => Promise<unknown>;
   updatePattern: (userId: string, id: string, pattern: string | null) => Promise<unknown>;
   updatePosition: (userId: string, id: string, position: number) => Promise<unknown>;
@@ -66,6 +69,23 @@ export function commonTierProcedures<T extends Ownable>(
         return withVaultWrite(ctx.userId, async () => {
           await own(input.id, ctx.userId);
           return input.archived ? ops.archive(ctx.userId, input.id) : ops.unarchive(ctx.userId, input.id);
+        });
+      }),
+
+    // Snooze: archive the note until a date, after which it lists as active
+    // again on its own (see `snoozedUntil` in schema.ts). `null` ends a snooze —
+    // sent when a returned note is first opened, or to wake one early.
+    setSnooze: protectedProcedure
+      // `z.null()` first, for the reason given on `expiresAt` in `_meta.ts`.
+      .input(z.object({ id: objectId, until: z.union([z.null(), z.coerce.date()]) }))
+      .mutation(async ({ ctx, input }) => {
+        const { until } = input;
+        if (until && until.getTime() <= Date.now()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Snooze date must be in the future' });
+        }
+        return withVaultWrite(ctx.userId, async () => {
+          await own(input.id, ctx.userId);
+          return until ? ops.snooze(ctx.userId, input.id, until) : ops.wake(ctx.userId, input.id);
         });
       }),
 

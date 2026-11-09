@@ -105,6 +105,8 @@ const commonTier = {
   pinned: z.boolean(),
   expiresAt: nullableDate,
   burnAfterReading: z.boolean(),
+  // Absent from archives written before snoozing existed, and from records that are not snoozed.
+  snoozedUntil: nullableDate.optional(),
   tagRefs: z.array(id).max(MAX_TAGS_PER_NOTE),
   attachmentRefs: z.array(id).max(VAULT_IMPORT_LIMITS.maxAttachments),
 };

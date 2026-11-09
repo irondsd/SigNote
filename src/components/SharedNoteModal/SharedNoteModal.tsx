@@ -12,6 +12,7 @@ import { Modal } from '@/components/Modal/Modal';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import { PinFlag } from '@/components/NoteActionsMenu/PinFlag';
 import { SelfDestructBanner } from '@/components/NoteActionsMenu/SelfDestructBanner';
+import { SnoozeBanner } from '@/components/NoteActionsMenu/SnoozeBanner';
 import s from './SharedNoteModal.module.scss';
 
 type SharedNoteModalProps = {
@@ -46,6 +47,8 @@ type SharedNoteModalProps = {
   onUnpin?: () => void;
   expiresAt?: Date | string | null;
   burnAfterReading?: boolean;
+  snoozedUntil?: Date | string | null;
+  returnedFromSnooze?: Date | string | null;
   moreActions?: ReactNode;
   tags?: string[];
   onTagsChange?: (ids: string[]) => void;
@@ -86,6 +89,8 @@ export function SharedNoteModal({
   onUnpin,
   expiresAt = null,
   burnAfterReading = false,
+  snoozedUntil = null,
+  returnedFromSnooze = null,
   moreActions,
   tags,
   onTagsChange,
@@ -123,6 +128,7 @@ export function SharedNoteModal({
         </div>
 
         <div className={s.bodyWrap} data-pattern={pattern || undefined}>
+          <SnoozeBanner snoozedUntil={snoozedUntil} returnedFromSnooze={returnedFromSnooze} />
           {(expiresAt || burnAfterReading) && (
             <SelfDestructBanner expiresAt={expiresAt} burnAfterReading={burnAfterReading} />
           )}

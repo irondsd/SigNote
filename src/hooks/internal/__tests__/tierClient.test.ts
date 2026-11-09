@@ -2,7 +2,17 @@
 // that replaced the old REST PATCH. Mirrors the server's old `handleCommonPatch`
 // branch order: deleted > archived > color > pattern > tags > position > meta.
 
-const procedures = ['delete', 'restore', 'setArchived', 'setColor', 'setPattern', 'setTags', 'setPosition', 'setMeta'];
+const procedures = [
+  'delete',
+  'restore',
+  'setArchived',
+  'setSnooze',
+  'setColor',
+  'setPattern',
+  'setTags',
+  'setPosition',
+  'setMeta',
+];
 
 function makeTier() {
   return Object.fromEntries(
@@ -90,6 +100,19 @@ describe('dispatchCommonUpdate — precedence (one branch wins per call)', () =>
   it('deleted outranks every other field', () => {
     dispatchCommonUpdate('notes', ID, { deleted: true, archived: true, color: 'red', tags: [], pinned: true });
     expect(called('notes')).toEqual(['delete']);
+  });
+
+  it('a snooze change outranks the archived flag it travels with', () => {
+    const until = '2026-12-25T00:00:00.000Z';
+    dispatchCommonUpdate('notes', ID, { archived: true, snoozedUntil: until });
+    expect(called('notes')).toEqual(['setSnooze']);
+    expect(tier('notes').setSnooze.mutate).toHaveBeenCalledWith({ id: ID, until });
+  });
+
+  it('ending a snooze sends a null date', () => {
+    dispatchCommonUpdate('seals', ID, { archived: false, snoozedUntil: null });
+    expect(called('seals')).toEqual(['setSnooze']);
+    expect(tier('seals').setSnooze.mutate).toHaveBeenCalledWith({ id: ID, until: null });
   });
 
   it('color outranks tags/position/meta', () => {

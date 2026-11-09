@@ -58,6 +58,7 @@ export function commonTempNote(input: CreateInput, tempId: string) {
     pinned: false,
     expiresAt: null,
     burnAfterReading: false,
+    snoozedUntil: null,
     tags: input.tags ?? [],
   };
 }
@@ -180,16 +181,30 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
           ? { updatedAt: new Date().toISOString() }
           : {}),
       } as unknown as Partial<T>;
+      const snoozeChange = 'snoozedUntil' in rest;
       if (archived !== undefined) {
+        const meta = patch as { snoozedUntil?: string | null; position?: number };
+        // Archiving or unarchiving by hand ends a snooze, as it does on the server.
+        if (!snoozeChange) meta.snoozedUntil = null;
+        // Ending a snooze moves the note to the top, as `wake` does on the server.
+        if (snoozeChange && rest.snoozedUntil === null) {
+          const positions = snapshots.flatMap(
+            ([, data]) =>
+              data?.pages.flat().map((note) => Number((note as T & { position?: number }).position ?? 0)) ?? [],
+          );
+          meta.position = Math.max(0, ...positions) + 1000;
+        }
         toggleArchive(qc, snapshots, id, archived, patch);
       } else {
         patchInPlace(qc, snapshots, id, patch);
       }
-      if (rest.pinned !== undefined) sortTierLists(qc, snapshots);
+      if (rest.pinned !== undefined || snoozeChange) sortTierLists(qc, snapshots);
       return { snapshots, patch: { ...patch, ...(archived !== undefined ? { archived } : {}) } };
     },
     onSuccess: (_data: unknown, vars: UpdateInput) => {
-      if (vars.archived !== undefined) {
+      if ('snoozedUntil' in vars) {
+        posthog.capture(`${tierName}_snoozed`, { snoozed: vars.snoozedUntil !== null });
+      } else if (vars.archived !== undefined) {
         posthog.capture(`${tierName}_archived`, { archived: vars.archived });
       } else if (vars.title !== undefined || vars[contentField] !== undefined) {
         posthog.capture(`${tierName}_updated`);
@@ -198,7 +213,7 @@ export function useUpdateTier<T extends WithId>(root: string, apiFn: UpdateFn, c
     onError: (_err: unknown, _vars: UpdateInput, context?: { snapshots: Snapshot<T>[]; patch?: Partial<T> }) => {
       if (context) {
         rollbackItem(qc, context.snapshots, _vars.id, context.patch);
-        if (_vars.pinned !== undefined) sortTierLists(qc, context.snapshots);
+        if (_vars.pinned !== undefined || 'snoozedUntil' in _vars) sortTierLists(qc, context.snapshots);
       }
       posthog.capture('mutation_failed', { tier: tierName, operation: 'update' });
       toast.error(`Failed to save ${tierName}`);

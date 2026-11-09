@@ -40,6 +40,7 @@ export type PortableTierRecord = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  snoozedUntil?: string | null;
   history: PortableHistory[];
   tagRefs: string[];
   attachmentRefs: string[];

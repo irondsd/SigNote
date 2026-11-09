@@ -26,6 +26,7 @@ const tierCols = (t: typeof notes | typeof secretNotes | typeof sealNotes) => ({
   pinned: t.pinned,
   expiresAt: t.expiresAt,
   burnAfterReading: t.burnAfterReading,
+  snoozedUntil: t.snoozedUntil,
   searchTsv: t.searchTsv,
 });
 

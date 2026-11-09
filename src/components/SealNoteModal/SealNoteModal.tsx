@@ -112,6 +112,9 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
+    snoozedUntil,
+    returnedFromSnooze,
+    handleSnooze,
   } = useNoteModalMeta(
     note,
     (patch, onError) => {
@@ -464,6 +467,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
         onUnpin={() => handleTogglePinned(false)}
         expiresAt={expiresAt}
         burnAfterReading={wasInitiallyBurning && burnAfterReading}
+        snoozedUntil={snoozedUntil}
+        returnedFromSnooze={returnedFromSnooze}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}
@@ -471,6 +476,8 @@ export function SealNoteModal({ note, onClose }: SealNoteModalProps) {
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            snoozedUntil={snoozedUntil}
+            onSnooze={noteId.startsWith('temp-') ? undefined : handleSnooze}
             onVersionHistory={openHistory}
             onOpenChange={(open) => open && setMenuOpened(true)}
           />

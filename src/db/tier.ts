@@ -1,5 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { and, asc, desc, eq, exists, gt, inArray, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { AnyPgColumn, AnyPgTable } from 'drizzle-orm/pg-core';
 
 import { MAX_SEARCH, MAX_VERSIONS, POSITION_STEP, VERSION_COMPRESSION_WINDOW_MS } from '@/config/constants';
@@ -31,6 +46,8 @@ export type TierHeadRow = {
   pinned: boolean;
   expiresAt: Date | null;
   burnAfterReading: boolean;
+  /** See `snoozedUntil` in schema.ts. */
+  snoozedUntil: Date | null;
   tags: string[];
   /** Encryption generation used for this consistent snapshot. */
   generation: number;
@@ -71,6 +88,7 @@ export type TierConfig = {
     pinned: AnyPgColumn;
     expiresAt: AnyPgColumn;
     burnAfterReading: AnyPgColumn;
+    snoozedUntil: AnyPgColumn;
     /** Generated, weighted tsvector over the tier's searchable columns. */
     searchTsv: AnyPgColumn;
   };
@@ -179,6 +197,7 @@ export function makeTierRepo(cfg: TierConfig) {
       pinned: raw.pinned,
       expiresAt: raw.expiresAt,
       burnAfterReading: raw.burnAfterReading,
+      snoozedUntil: raw.snoozedUntil,
       tags,
       generation,
     };
@@ -331,7 +350,19 @@ export function makeTierRepo(cfg: TierConfig) {
           isNull(cols.deletedAt) as SQL,
           or(isNull(cols.expiresAt), gt(cols.expiresAt, new Date())) as SQL,
         ];
-        if (archived !== undefined) conditions.push(eq(cols.archived, archived) as SQL);
+        // A snoozed note is archived until its date passes, then lists as
+        // active again while still `archived = true` in storage (see
+        // `snoozedUntil` in schema.ts). Compared against the clock here, at
+        // read time — which is the whole wake-up mechanism.
+        const now = new Date();
+        const due = and(isNotNull(cols.snoozedUntil), lte(cols.snoozedUntil, now)) as SQL;
+        if (archived === true) {
+          conditions.push(
+            and(eq(cols.archived, true), or(isNull(cols.snoozedUntil), gt(cols.snoozedUntil, now))) as SQL,
+          );
+        } else if (archived === false) {
+          conditions.push(or(eq(cols.archived, false), due) as SQL);
+        }
 
         if (tagIds && tagIds.length > 0) {
           if (tagMode === 'and') {
@@ -379,7 +410,8 @@ export function makeTierRepo(cfg: TierConfig) {
             desc(cols.updatedAt) as SQL,
           ];
         } else {
-          orderBy = [desc(cols.pinned) as SQL, desc(cols.position) as SQL];
+          // A note back from a snooze leads the unpinned ones until it is opened.
+          orderBy = [desc(cols.pinned) as SQL, sql`(${due}) desc`, desc(cols.position) as SQL];
         }
 
         const rows = (await (db as any)
@@ -524,10 +556,31 @@ export function makeTierRepo(cfg: TierConfig) {
         writeById(userId, () => updateHead(getDb(), userId, id, { deletedAt: new Date() })),
       restore: (userId: string, id: string) =>
         writeById(userId, () => updateHead(getDb(), userId, id, { deletedAt: null })),
+      // Archiving or unarchiving by hand ends any snooze: a date left behind
+      // would pull a deliberately archived note back out, or sit on an active one.
       archive: (userId: string, id: string) =>
-        writeById(userId, () => updateHead(getDb(), userId, id, { archived: true })),
+        writeById(userId, () => updateHead(getDb(), userId, id, { archived: true, snoozedUntil: null })),
       unarchive: (userId: string, id: string) =>
-        writeById(userId, () => updateHead(getDb(), userId, id, { archived: false })),
+        writeById(userId, () => updateHead(getDb(), userId, id, { archived: false, snoozedUntil: null })),
+      snooze: (userId: string, id: string, until: Date) =>
+        writeById(userId, () => updateHead(getDb(), userId, id, { archived: true, snoozedUntil: until })),
+      /**
+       * End a snooze — on first open of a note whose date has passed, or early
+       * ("wake now"). The note becomes an ordinary active one at the top of
+       * the list, where it already appeared while due. A note that is not
+       * snoozed is returned untouched, so a stale or repeated call cannot
+       * unarchive or reorder anything.
+       */
+      wake: (userId: string, id: string): Promise<TierHeadRow | null> =>
+        writeById(userId, async () =>
+          getDb().transaction(async (tx: any) => {
+            const head = await findRawById(tx, userId, id);
+            if (!head) return null;
+            if (head.snoozedUntil == null) return withTags(tx, head);
+            const position = await getNextPosition(tx, userId);
+            return updateHead(tx, userId, id, { archived: false, snoozedUntil: null, position });
+          }),
+        ),
       updateColor: (userId: string, id: string, color: string | null) =>
         writeById(userId, () => updateHead(getDb(), userId, id, { color })),
       updatePattern: (userId: string, id: string, pattern: string | null) =>

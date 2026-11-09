@@ -17,6 +17,7 @@ type EncryptedNoteCardProps = {
   ciphertext?: string;
   showArchivedBadge?: boolean;
   archived?: boolean;
+  snoozedUntil?: string | Date | null;
   pinned?: boolean;
   hasExpiry?: boolean;
   saving?: boolean;
@@ -34,6 +35,7 @@ export function EncryptedNoteCard({
   ciphertext,
   showArchivedBadge = false,
   archived = false,
+  snoozedUntil,
   pinned = false,
   hasExpiry = false,
   saving = false,
@@ -65,6 +67,7 @@ export function EncryptedNoteCard({
       onClick={onClick}
       showArchivedBadge={showArchivedBadge}
       archived={archived}
+      snoozedUntil={snoozedUntil}
       pinned={pinned}
       hasExpiry={hasExpiry}
       saving={saving}

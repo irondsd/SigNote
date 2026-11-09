@@ -58,6 +58,7 @@ export function SealsStrip({
             ciphertext={note.encryptedBody?.ciphertext}
             showArchivedBadge={note.archived}
             archived={note.archived}
+            snoozedUntil={note.snoozedUntil}
             pinned={note.pinned}
             hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
           />

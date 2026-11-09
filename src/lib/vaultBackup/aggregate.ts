@@ -60,11 +60,15 @@ export function attachmentAggregate(attachment: AttachmentLike) {
   };
 }
 
-type TierLike = Omit<PortableTierRecord, 'createdAt' | 'updatedAt' | 'deletedAt' | 'expiresAt' | 'history'> & {
+type TierLike = Omit<
+  PortableTierRecord,
+  'createdAt' | 'updatedAt' | 'deletedAt' | 'expiresAt' | 'snoozedUntil' | 'history'
+> & {
   createdAt: Datelike;
   updatedAt: Datelike;
   deletedAt: Datelike | null;
   expiresAt: Datelike | null;
+  snoozedUntil?: Datelike | null;
   history: Array<{ title: string; createdAt: Datelike; content?: string; encryptedBody?: unknown }>;
 };
 
@@ -95,6 +99,9 @@ export function tierAggregate(
     pinned: record.pinned,
     expiresAt: iso(record.expiresAt),
     burnAfterReading: record.burnAfterReading,
+    // Left out entirely when unset, so a record from an archive that predates
+    // snoozing still aggregates identically to the same record read back today.
+    snoozedUntil: record.snoozedUntil ? iso(record.snoozedUntil) : undefined,
     history: record.history.map((version) => ({
       title: version.title,
       content: category === 'notes' ? (version.content ?? '') : undefined,

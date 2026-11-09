@@ -5,6 +5,7 @@ import {
   patchInPlace,
   toggleArchive,
   restoreSnapshots,
+  sortTierLists,
   type Snapshot,
   type WithId,
 } from '@/lib/queryCache';
@@ -148,6 +149,53 @@ describe('queryCache helpers', () => {
 
       const data = qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0]);
       expect(data!.pages[0]).toHaveLength(1);
+    });
+  });
+
+  describe('snoozed notes', () => {
+    const past = new Date(Date.now() - 86_400_000).toISOString();
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+
+    it('snoozing moves a note from the active view into the archive', () => {
+      const note: TestNote = { _id: '1', archived: false, title: 'later' };
+      const snapshots: Snapshot<TestNote>[] = [makeSnapshot('active', [[note]]), makeSnapshot('archived', [[]])];
+      snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+
+      toggleArchive(qc, snapshots, '1', true, { snoozedUntil: future });
+
+      expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0])!.pages[0]).toEqual([]);
+      expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[1][0])!.pages[0][0]).toMatchObject({
+        _id: '1',
+        archived: true,
+        snoozedUntil: future,
+      });
+    });
+
+    it('a note back from a snooze is placed in the active view despite being archived', () => {
+      const back: TestNote = { _id: '1', archived: true, snoozedUntil: past, title: 'back' };
+      const snapshots: Snapshot<TestNote>[] = [makeSnapshot('active', [[]]), makeSnapshot('archived', [[]])];
+      snapshots.forEach(([key, data]) => qc.setQueryData(key, data));
+
+      insertAtTop(qc, snapshots, back);
+
+      expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0])!.pages[0]).toEqual([back]);
+      expect(qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[1][0])!.pages[0]).toEqual([]);
+    });
+
+    it('sorts a returned note below pinned notes and above the rest', () => {
+      type Sortable = TestNote & { pinned?: boolean; position: number };
+      const items: Sortable[] = [
+        { _id: 'new', archived: false, title: 'new', position: 3000 },
+        { _id: 'pin', archived: false, title: 'pin', position: 2000, pinned: true },
+        { _id: 'back', archived: true, snoozedUntil: past, title: 'back', position: 1000 },
+      ];
+      const snapshots: Snapshot<TestNote>[] = [makeSnapshot('active', [items])];
+      qc.setQueryData(snapshots[0][0], snapshots[0][1]);
+
+      sortTierLists(qc, snapshots);
+
+      const ids = qc.getQueryData<InfiniteData<TestNote[]>>(snapshots[0][0])!.pages[0].map((n) => n._id);
+      expect(ids).toEqual(['pin', 'back', 'new']);
     });
   });
 

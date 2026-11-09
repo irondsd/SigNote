@@ -106,6 +106,7 @@ export function SecretsGrid({
           ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
+          snoozedUntil={note.snoozedUntil}
           isDragDisabled={dragDisabled}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
@@ -124,6 +125,7 @@ export function SecretsGrid({
           ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
+          snoozedUntil={note.snoozedUntil}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
           burnAfterReading={note.burnAfterReading}

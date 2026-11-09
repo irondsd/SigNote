@@ -1,6 +1,7 @@
 import { QueryClient, InfiniteData, QueryKey } from '@tanstack/react-query';
+import { isInArchive, isSnoozeDue } from '@/lib/snooze';
 
-export type WithId = { _id: string; archived: boolean };
+export type WithId = { _id: string; archived: boolean; snoozedUntil?: string | Date | null };
 
 const VIEW_INDEX = 2;
 
@@ -22,7 +23,7 @@ export function restoreSnapshots<T>(qc: QueryClient, snapshots: Snapshot<T>[]): 
 export function insertAtTop<T extends WithId>(qc: QueryClient, snapshots: Snapshot<T>[], item: T): void {
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
-    if (queryKey[VIEW_INDEX] !== 'all' && isArchivedView(queryKey) !== item.archived) return;
+    if (queryKey[VIEW_INDEX] !== 'all' && isArchivedView(queryKey) !== isInArchive(item)) return;
     if (queryKey[3] || queryKey[4]) return; // Filtered searches are reconciled by the server.
     const firstPage = data.pages[0] ?? [];
     qc.setQueryData(queryKey, {
@@ -86,7 +87,7 @@ export function toggleArchive<T extends WithId>(
   snapshots.forEach(([queryKey, data]) => {
     if (!data) return;
     const isArchiveQuery = isArchivedView(queryKey);
-    const noteNowBelongsHere = queryKey[VIEW_INDEX] === 'all' || archived === isArchiveQuery;
+    const noteNowBelongsHere = queryKey[VIEW_INDEX] === 'all' || isInArchive(updated) === isArchiveQuery;
 
     if (noteNowBelongsHere) {
       if ((queryKey[3] || queryKey[4]) && !data.pages.some((page) => page.some((n) => n._id === id))) return;
@@ -167,15 +168,21 @@ export function rollbackItem<T extends WithId>(
   }
 }
 
-/** Keep pin order immediate in ordinary lists, preserving the server's search ranking. */
+/** Keep pin order immediate in ordinary lists, preserving the server's search ranking.
+ *  Mirrors the browse ordering of `list` in `src/db/tier.ts`: pinned, then notes
+ *  back from a snooze, then manual position. */
 export function sortTierLists<T extends WithId>(qc: QueryClient, snapshots: Snapshot<T>[]): void {
   for (const [key] of snapshots) {
     if (key[3]) continue;
     qc.setQueryData<InfiniteData<T[]>>(key, (data) => {
       if (!data) return data;
       type Sortable = T & { pinned?: boolean; position?: number };
+      const now = Date.now();
       const ordered = [...data.pages.flat()].sort(
-        (a: Sortable, b: Sortable) => Number(!!b.pinned) - Number(!!a.pinned) || (b.position ?? 0) - (a.position ?? 0),
+        (a: Sortable, b: Sortable) =>
+          Number(!!b.pinned) - Number(!!a.pinned) ||
+          Number(isSnoozeDue(b, now)) - Number(isSnoozeDue(a, now)) ||
+          (b.position ?? 0) - (a.position ?? 0),
       );
       let offset = 0;
       return {

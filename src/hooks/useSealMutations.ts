@@ -27,6 +27,7 @@ export type CachedSealNote = {
   pinned: boolean;
   expiresAt: string | null;
   burnAfterReading: boolean;
+  snoozedUntil?: string | null;
   tags: string[];
 };
 
@@ -54,6 +55,7 @@ type UpdateSealInput = {
   pinned?: boolean;
   expiresAt?: string | null;
   burnAfterReading?: boolean;
+  snoozedUntil?: string | null;
   tags?: string[];
 };
 

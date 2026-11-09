@@ -22,6 +22,8 @@ export type SeedNote = {
   pinned?: boolean;
   expiresAt?: Date | null;
   burnAfterReading?: boolean;
+  /** Only meaningful with `archived: true`; a past date seeds a note that is back from its snooze. */
+  snoozedUntil?: Date | null;
   /** When the head's content was last saved. Defaults to now. */
   updatedAt?: Date;
   versions?: { title: string; content: string; createdAt?: Date }[];
@@ -64,6 +66,7 @@ export const seedNotesForUser = async (userId: string, seeds: SeedNote[]): Promi
         pinned: note.pinned ?? false,
         expiresAt: note.expiresAt ?? null,
         burnAfterReading: note.burnAfterReading ?? false,
+        snoozedUntil: note.snoozedUntil ?? null,
       })
       .returning();
 

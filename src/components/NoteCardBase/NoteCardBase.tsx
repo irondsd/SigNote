@@ -1,7 +1,8 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Archive, Flame, LoaderCircle, Pin } from 'lucide-react';
+import { AlarmClock, Archive, Flame, LoaderCircle, Pin } from 'lucide-react';
+import { formatSnoozeDate, isSnoozeDue, isSnoozed } from '@/lib/snooze';
 import { cn } from '@/utils/cn';
 import { RelativeDate } from '@/components/RelativeDate/RelativeDate';
 import { Tag, type TagLike } from '@/components/Tag/Tag';
@@ -17,6 +18,8 @@ type NoteCardBaseProps = {
   onClick: (rect: DOMRect) => void;
   showArchivedBadge?: boolean;
   archived?: boolean;
+  /** With `archived`, decides the snooze marker: see `lib/snooze.ts`. */
+  snoozedUntil?: string | Date | null;
   content?: React.ReactNode;
   pinned?: boolean;
   hasExpiry?: boolean;
@@ -34,6 +37,7 @@ export function NoteCardBase({
   onClick,
   showArchivedBadge = false,
   archived = false,
+  snoozedUntil = null,
   content,
   pinned = false,
   hasExpiry = false,
@@ -43,6 +47,10 @@ export function NoteCardBase({
 }: NoteCardBaseProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  // Back from a snooze and not opened yet: still `archived` in storage, but it
+  // lists — and must read — as an active note.
+  const snoozeDue = isSnoozeDue({ archived, snoozedUntil });
+  const snoozed = isSnoozed({ archived, snoozedUntil });
 
   useLayoutEffect(() => {
     const el = contentRef.current;
@@ -63,11 +71,21 @@ export function NoteCardBase({
         (e.key === 'Enter' || e.key === ' ') && onClick((e.currentTarget as HTMLElement).getBoundingClientRect())
       }
     >
-      {(pinned || hasExpiry || saving) && (
+      {(pinned || hasExpiry || saving || snoozeDue) && (
         <div className={s.indicators}>
           {saving && (
             <span className={s.savingIndicator} data-testid="saving-flag" aria-label="Saving" title="Saving…">
               <LoaderCircle size={12} />
+            </span>
+          )}
+          {snoozeDue && (
+            <span
+              className={s.snoozeIndicator}
+              data-testid="snooze-flag"
+              aria-label="Back from snooze"
+              title="Back from snooze"
+            >
+              <AlarmClock size={12} />
             </span>
           )}
           {pinned && (
@@ -89,10 +107,16 @@ export function NoteCardBase({
         </div>
       )}
       <div className={s.footer}>
-        {showArchivedBadge && archived && (
+        {showArchivedBadge && archived && !snoozeDue && !snoozed && (
           <span data-testid="archived-badge" className={s.archivedBadge}>
             <Archive size={11} strokeWidth={1.9} />
             Archived
+          </span>
+        )}
+        {snoozed && (
+          <span data-testid="snoozed-badge" className={s.archivedBadge}>
+            <AlarmClock size={11} strokeWidth={1.9} />
+            Until {formatSnoozeDate(snoozedUntil!)}
           </span>
         )}
         {tags && tags.length > 0 && (

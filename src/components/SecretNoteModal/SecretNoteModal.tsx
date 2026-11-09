@@ -100,6 +100,9 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
+    snoozedUntil,
+    returnedFromSnooze,
+    handleSnooze,
   } = useNoteModalMeta(note, (patch, onError) => {
     void updateSecret.mutateAsync(patch).catch(() => onError?.());
   });
@@ -280,6 +283,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
         onUnpin={() => handleTogglePinned(false)}
         expiresAt={expiresAt}
         burnAfterReading={wasInitiallyBurning && burnAfterReading}
+        snoozedUntil={snoozedUntil}
+        returnedFromSnooze={returnedFromSnooze}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}
@@ -287,6 +292,8 @@ export function SecretNoteModal({ note, decryptedContent, onClose }: SecretNoteM
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            snoozedUntil={snoozedUntil}
+            onSnooze={noteId.startsWith('temp-') ? undefined : handleSnooze}
             onVersionHistory={openHistory}
             onOpenChange={(open) => open && setMenuOpened(true)}
             promotion={{

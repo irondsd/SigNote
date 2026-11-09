@@ -6,6 +6,8 @@ export type TierName = 'notes' | 'secrets' | 'seals';
 /** The metadata fields the old polymorphic PATCH dispatched on. */
 export type CommonUpdate = {
   archived?: boolean;
+  /** Sent with `archived`: a date snoozes the note, `null` ends its snooze. */
+  snoozedUntil?: string | null;
   deleted?: boolean;
   color?: string | null;
   pattern?: string | null;
@@ -27,6 +29,11 @@ export function dispatchCommonUpdate(tier: TierName, id: string, data: CommonUpd
 
   if (typeof data.deleted === 'boolean') {
     return data.deleted ? t.delete.mutate({ id }) : t.restore.mutate({ id });
+  }
+  // Before `archived`: a snooze change carries `archived` too (for the optimistic
+  // cache), and `setSnooze` is the procedure that owns both fields.
+  if ('snoozedUntil' in data) {
+    return t.setSnooze.mutate({ id, until: data.snoozedUntil ?? null });
   }
   if (typeof data.archived === 'boolean') {
     return t.setArchived.mutate({ id, archived: data.archived });

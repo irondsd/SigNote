@@ -216,6 +216,9 @@ export async function captureTier(db: Db, userId: string, kind: TierKind, ids?: 
       pinned: row.pinned,
       expiresAt: row.expiresAt,
       burnAfterReading: row.burnAfterReading,
+      // Written only when set: the import schemas are strict, so an archive
+      // with no snoozed notes stays readable by builds that predate the field.
+      ...(row.snoozedUntil ? { snoozedUntil: row.snoozedUntil } : {}),
       history: versions,
       tagRefs: tagsById.get(row.id) ?? [],
       attachmentRefs: (attachmentsById.get(row.id) ?? []).map((attachment) => attachment.portable.id),

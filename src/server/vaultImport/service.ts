@@ -1297,6 +1297,8 @@ async function insertTier(
         pinned: row.pinned,
         expiresAt: row.expiresAt ? new Date(row.expiresAt) : null,
         burnAfterReading: row.burnAfterReading,
+        // Only meaningful on an archived row; see `snoozedUntil` in schema.ts.
+        snoozedUntil: row.archived && row.snoozedUntil ? new Date(row.snoozedUntil) : null,
       })),
     );
   // In archived order, so the generated `seq` reproduces the history order.

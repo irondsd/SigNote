@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, History, MoreVertical, Pin, PinOff, Timer, SquareArrowUp } from 'lucide-react';
+import { AlarmClock, ChevronRight, History, MoreVertical, Pin, PinOff, Timer, SquareArrowUp } from 'lucide-react';
+import { formatSnoozeDate } from '@/lib/snooze';
 import { Dropdown } from '@/components/Dropdown/Dropdown';
 import { Button } from '@/components/ui/button';
 import { MenuItem } from './MenuItem';
 import { SelfDestructPicker } from './SelfDestructPicker';
+import { SnoozePicker } from './SnoozePicker';
 import s from './NoteActionsMenu.module.scss';
 
 type NoteActionsMenuProps = {
@@ -14,6 +16,10 @@ type NoteActionsMenuProps = {
   expiresAt: Date | string | null;
   burnAfterReading: boolean;
   onSetExpiry: (next: { expiresAt: Date | null; burnAfterReading: boolean }) => void;
+  /** The date the note is snoozed until, while it is; the item is hidden when `onSnooze` is omitted. */
+  snoozedUntil?: Date | string | null;
+  /** A date snoozes the note into the archive; `null` wakes it. */
+  onSnooze?: (until: Date | null) => void;
   /** Opens the version history panel; the item is hidden when omitted. */
   onVersionHistory?: () => void;
   /** Fired on first open so the parent can prefetch the version list. */
@@ -31,14 +37,17 @@ export function NoteActionsMenu({
   expiresAt,
   burnAfterReading,
   onSetExpiry,
+  snoozedUntil,
+  onSnooze,
   onVersionHistory,
   onOpenChange,
   promotion,
 }: NoteActionsMenuProps) {
   const [open, setOpen] = useState(false);
-  const [pane, setPane] = useState<'main' | 'expiry'>('main');
+  const [pane, setPane] = useState<'main' | 'expiry' | 'snooze'>('main');
 
   const expiryDate = expiresAt ? new Date(expiresAt) : null;
+  const snoozeDate = snoozedUntil ? new Date(snoozedUntil) : null;
 
   const close = () => {
     setOpen(false);
@@ -98,6 +107,15 @@ export function NoteActionsMenu({
             trailing={<ChevronRight size={14} />}
             onClick={() => setPane('expiry')}
           />
+          {onSnooze && (
+            <MenuItem
+              data-testid="snooze-item"
+              icon={<AlarmClock size={16} />}
+              label={snoozeDate ? `Snoozed until ${formatSnoozeDate(snoozeDate)}` : 'Snooze until…'}
+              trailing={<ChevronRight size={14} />}
+              onClick={() => setPane('snooze')}
+            />
+          )}
           {onVersionHistory && (
             <MenuItem
               data-testid="version-history-item"
@@ -122,6 +140,20 @@ export function NoteActionsMenu({
             />
           )}
         </div>
+      ) : pane === 'snooze' ? (
+        <SnoozePicker
+          snoozedUntil={snoozeDate}
+          onBack={() => setPane('main')}
+          onCommit={(until) => {
+            onSnooze?.(until);
+            close();
+          }}
+          onWake={() => {
+            onSnooze?.(null);
+            close();
+          }}
+          onCancel={close}
+        />
       ) : (
         <SelfDestructPicker
           expiresAt={expiryDate}

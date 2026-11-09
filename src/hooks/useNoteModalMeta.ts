@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useTagCountBump } from '@/hooks/useTagMutations';
 import { useBurnArming } from '@/hooks/useBurnArming';
+import { isInArchive, isSnoozeDue } from '@/lib/snooze';
 
 /** The metadata-only patches this hook emits; a subset of every tier's update input. */
 type MetaPatch = { id: string } & Partial<{
   archived: boolean;
+  snoozedUntil: string | null;
   color: string | null;
   pattern: string | null;
   tags: string[];
@@ -26,6 +28,7 @@ type MetaNote = {
   pinned?: boolean;
   expiresAt?: string | Date | null;
   burnAfterReading?: boolean;
+  snoozedUntil?: string | Date | null;
   tags?: unknown[];
 };
 
@@ -48,7 +51,17 @@ export function useNoteModalMeta(
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(note.title ?? '');
   const [savedTitle, setSavedTitle] = useState(note.title ?? '');
-  const [isArchived, setIsArchived] = useState(note.archived);
+  // A note back from a snooze is still `archived` in storage but lists as
+  // active, so it must read as active here too (see `lib/snooze.ts`).
+  const [isArchived, setIsArchived] = useState(() => isInArchive(note));
+  const [snoozedUntil, setSnoozedUntil] = useState<Date | string | null>(() =>
+    isSnoozeDue(note) ? null : (note.snoozedUntil ?? null),
+  );
+  // The date this note came back on, frozen for the modal's lifetime: opening
+  // the note ends the snooze, and the banner saying so should outlive that.
+  const [returnedFromSnooze] = useState<Date | string | null>(() =>
+    isSnoozeDue(note) ? (note.snoozedUntil ?? null) : null,
+  );
   const [color, setColor] = useState<string | null>(note.color ?? null);
   const [pattern, setPattern] = useState<string | null>(note.pattern ?? null);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
@@ -70,8 +83,38 @@ export function useNoteModalMeta(
   const handleArchiveToggle = () => {
     const next = !isArchived;
     setIsArchived(next);
-    update({ id: noteId, archived: next }, () => setIsArchived((value) => (value === next ? isArchived : value)));
+    setSnoozedUntil(null);
+    update({ id: noteId, archived: next }, () => {
+      setIsArchived((value) => (value === next ? isArchived : value));
+      setSnoozedUntil(snoozedUntil);
+    });
   };
+
+  /** A date snoozes the note into the archive; `null` wakes it early. */
+  const handleSnooze = (until: Date | null) => {
+    const nextArchived = until !== null;
+    setIsArchived(nextArchived);
+    setSnoozedUntil(until);
+    update({ id: noteId, archived: nextArchived, snoozedUntil: until ? until.toISOString() : null }, () => {
+      setIsArchived((value) => (value === nextArchived ? isArchived : value));
+      setSnoozedUntil((value) => (value === until ? snoozedUntil : value));
+    });
+  };
+
+  // First open of a note that came back from a snooze: make it an ordinary
+  // active note again. Skipped offline — the write could only fail, and the
+  // note simply keeps its marker until it is next opened with a connection.
+  const wokeRef = useRef(false);
+  const updateRef = useRef(update);
+  useEffect(() => {
+    updateRef.current = update;
+  }, [update]);
+  useEffect(() => {
+    if (wokeRef.current || !returnedFromSnooze) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    wokeRef.current = true;
+    updateRef.current({ id: noteId, archived: false, snoozedUntil: null });
+  }, [noteId, returnedFromSnooze]);
 
   const handleColorChange = (newColor: string | null) => {
     setColor(newColor);
@@ -135,6 +178,9 @@ export function useNoteModalMeta(
     savedTitle,
     setSavedTitle,
     isArchived,
+    snoozedUntil,
+    returnedFromSnooze,
+    handleSnooze,
     color,
     pattern,
     stylePickerOpen,

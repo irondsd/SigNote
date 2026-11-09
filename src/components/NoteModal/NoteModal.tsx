@@ -89,6 +89,9 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
     handleTogglePinned,
     handleSetExpiry,
     wasInitiallyBurning,
+    snoozedUntil,
+    returnedFromSnooze,
+    handleSnooze,
   } = useNoteModalMeta(note, (patch, onError) => {
     void updateNote.mutateAsync(patch).catch(() => onError?.());
   });
@@ -206,6 +209,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
         onUnpin={() => handleTogglePinned(false)}
         expiresAt={expiresAt}
         burnAfterReading={wasInitiallyBurning && burnAfterReading}
+        snoozedUntil={snoozedUntil}
+        returnedFromSnooze={returnedFromSnooze}
         moreActions={
           <NoteActionsMenu
             pinned={pinned}
@@ -213,6 +218,8 @@ export function NoteModal({ note, onClose, cardRect }: NoteModalProps) {
             expiresAt={expiresAt}
             burnAfterReading={burnAfterReading}
             onSetExpiry={handleSetExpiry}
+            snoozedUntil={snoozedUntil}
+            onSnooze={noteId.startsWith('temp-') ? undefined : handleSnooze}
             onVersionHistory={openHistory}
             onOpenChange={(open) => open && setMenuOpened(true)}
             promotion={{

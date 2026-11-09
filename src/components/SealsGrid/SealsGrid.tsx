@@ -57,6 +57,7 @@ export function SealsGrid({
           ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
+          snoozedUntil={note.snoozedUntil}
           isDragDisabled={dragDisabled}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
@@ -73,6 +74,7 @@ export function SealsGrid({
           ciphertext={note.encryptedBody?.ciphertext}
           showArchivedBadge={showBadge}
           archived={note.archived}
+          snoozedUntil={note.snoozedUntil}
           pinned={note.pinned}
           hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
           tagIds={note.tags}

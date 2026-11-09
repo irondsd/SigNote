@@ -103,6 +103,7 @@ export function SecretsStrip({
             ciphertext={note.encryptedBody?.ciphertext}
             showArchivedBadge={note.archived}
             archived={note.archived}
+            snoozedUntil={note.snoozedUntil}
             pinned={note.pinned}
             hasExpiry={Boolean(note.expiresAt || note.burnAfterReading)}
             burnAfterReading={note.burnAfterReading}
